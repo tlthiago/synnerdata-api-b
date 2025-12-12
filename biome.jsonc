@@ -12,5 +12,67 @@
       "!src/db/migrations"
     ],
     "ignoreUnknown": true
-  }
+  },
+  "overrides": [
+    {
+      // Services use abstract classes with static methods (Elysia best practice)
+      // See: https://elysiajs.com/essential/best-practice
+      "includes": ["**/*.service.ts"],
+      "linter": {
+        "rules": {
+          "complexity": {
+            "noStaticOnlyClass": "off"
+          }
+        }
+      }
+    },
+    {
+      // Pagarme client returns Promises from internal request method
+      // async keyword is intentional for API consistency
+      "includes": ["**/pagarme/client.ts"],
+      "linter": {
+        "rules": {
+          "complexity": {
+            "noStaticOnlyClass": "off"
+          },
+          "suspicious": {
+            "useAwait": "off"
+          }
+        }
+      }
+    },
+    {
+      // Schema index re-exports tables for use in services
+      "includes": ["src/db/schema/index.ts"],
+      "linter": {
+        "rules": {
+          "performance": {
+            "noBarrelFile": "off"
+          }
+        }
+      }
+    },
+    {
+      // Module index re-exports services for external use
+      "includes": ["src/modules/payments/index.ts"],
+      "linter": {
+        "rules": {
+          "performance": {
+            "noBarrelFile": "off"
+          }
+        }
+      }
+    },
+    {
+      // Payments schema uses interface for JSON column type
+      "includes": ["src/db/schema/payments.ts"],
+      "linter": {
+        "rules": {
+          "style": {
+            "useConsistentTypeDefinitions": "off"
+          }
+        }
+      }
+    }
+  ]
 }

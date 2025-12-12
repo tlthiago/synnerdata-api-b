@@ -17,7 +17,6 @@ export const users = pgTable("users", {
   pagarmeCustomerId: text("pagarme_customer_id"),
   createdAt: timestamp("created_at").defaultNow().notNull(),
   updatedAt: timestamp("updated_at")
-    .defaultNow()
     .$onUpdate(() => /* @__PURE__ */ new Date())
     .notNull(),
 });
