@@ -13,6 +13,7 @@ const DEFAULT_TRIAL_PLAN_NAME = "starter";
 
 export const auth = betterAuth({
   basePath: "/auth/api",
+  trustedOrigins: ["http://localhost:3000"],
   database: drizzleAdapter(db, {
     provider: "pg",
     usePlural: true,

@@ -160,6 +160,7 @@ export async function createTestUser(
         headers: {
           "Content-Type": "application/json",
           Cookie: `better-auth.session_token=${sessionToken}`,
+          Origin: "http://localhost:3000",
         },
         body: JSON.stringify({
           organizationId,
