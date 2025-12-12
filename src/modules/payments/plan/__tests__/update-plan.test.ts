@@ -4,8 +4,8 @@ import { db } from "@/db";
 import { subscriptionPlans } from "@/db/schema";
 import { env } from "@/env";
 import { createTestApp, type TestApp } from "@/test/helpers/app";
-import { createTestUser } from "@/test/helpers/auth";
-import { seedPlans } from "@/test/helpers/db";
+import { seedPlans } from "@/test/helpers/seed";
+import { createTestUser } from "@/test/helpers/user";
 
 const BASE_URL = env.API_URL;
 

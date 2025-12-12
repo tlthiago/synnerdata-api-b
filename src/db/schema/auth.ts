@@ -3,10 +3,15 @@ import {
   boolean,
   index,
   integer,
+  pgEnum,
   pgTable,
   text,
   timestamp,
 } from "drizzle-orm/pg-core";
+
+export const roleValues = ["owner", "manager", "supervisor", "viewer"] as const;
+export const roleEnum = pgEnum("member_role", roleValues);
+export type Role = (typeof roleValues)[number];
 
 export const users = pgTable("users", {
   id: text("id").primaryKey(),
@@ -100,7 +105,7 @@ export const members = pgTable(
     userId: text("user_id")
       .notNull()
       .references(() => users.id, { onDelete: "cascade" }),
-    role: text("role").default("member").notNull(),
+    role: roleEnum("role").default("viewer").notNull(),
     createdAt: timestamp("created_at").notNull(),
   },
   (table) => [
@@ -117,7 +122,7 @@ export const invitations = pgTable(
       .notNull()
       .references(() => organizations.id, { onDelete: "cascade" }),
     email: text("email").notNull(),
-    role: text("role"),
+    role: roleEnum("role").default("viewer").notNull(),
     status: text("status").default("pending").notNull(),
     expiresAt: timestamp("expires_at").notNull(),
     createdAt: timestamp("created_at").defaultNow().notNull(),

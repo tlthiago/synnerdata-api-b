@@ -10,8 +10,9 @@ import {
 import { env } from "@/env";
 import { proPlan, starterPlan } from "@/test/fixtures/plans";
 import { createTestApp, type TestApp } from "@/test/helpers/app";
-import { createTestUser } from "@/test/helpers/auth";
-import { createTestSubscription, seedPlans } from "@/test/helpers/db";
+import { seedPlans } from "@/test/helpers/seed";
+import { createTestSubscription } from "@/test/helpers/subscription";
+import { createTestUserWithOrganization } from "@/test/helpers/user";
 import { createWebhookRequest, webhookPayloads } from "@/test/helpers/webhook";
 
 const BASE_URL = env.API_URL;
@@ -38,14 +39,16 @@ describe("Upgrade Use Case: Trial → Paid Subscription", () => {
 
   describe("Fase 1: Setup - Usuário com Trial", () => {
     test("should create authenticated user with organization", async () => {
-      const { user, headers } = await createTestUser({ emailVerified: true });
+      const result = await createTestUserWithOrganization({
+        emailVerified: true,
+      });
 
-      expect(user.id).toBeDefined();
-      expect(user.organizationId).toBeDefined();
-      expect(user.emailVerified).toBe(true);
+      expect(result.user.id).toBeDefined();
+      expect(result.organizationId).toBeDefined();
+      expect(result.user.emailVerified).toBe(true);
 
-      organizationId = user.organizationId as string;
-      sessionHeaders = headers;
+      organizationId = result.organizationId;
+      sessionHeaders = result.headers;
     });
 
     test("should create trial subscription for organization", async () => {

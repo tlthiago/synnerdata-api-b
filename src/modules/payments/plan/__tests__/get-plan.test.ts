@@ -2,7 +2,7 @@ import { beforeAll, describe, expect, test } from "bun:test";
 import { env } from "@/env";
 import { proPlan, testPlans } from "@/test/fixtures/plans";
 import { createTestApp, type TestApp } from "@/test/helpers/app";
-import { seedPlans } from "@/test/helpers/db";
+import { seedPlans } from "@/test/helpers/seed";
 
 const BASE_URL = env.API_URL;
 

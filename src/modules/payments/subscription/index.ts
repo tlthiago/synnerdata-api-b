@@ -1,4 +1,5 @@
 import { Elysia } from "elysia";
+import { betterAuthPlugin } from "@/lib/auth-plugin";
 import {
   cancelSubscriptionBodySchema,
   cancelSubscriptionResponseSchema,
@@ -9,32 +10,18 @@ import {
 } from "./subscription.model";
 import { SubscriptionService } from "./subscription.service";
 
-type AuthContext = {
-  requirePermission: (
-    permissions: Record<string, string[]>,
-    errorMessage?: string
-  ) => Promise<void>;
-};
-
 export const subscriptionController = new Elysia({
   name: "subscription",
   prefix: "/subscription",
   detail: { tags: ["Payments - Subscription"] },
 })
+  .use(betterAuthPlugin)
   .get(
     "/",
-    async (ctx) => {
-      const { requirePermission } = ctx as unknown as AuthContext;
-
-      // owner, manager can view subscription
-      await requirePermission(
-        { subscription: ["read"] },
-        "You don't have permission to view subscription details"
-      );
-
-      return SubscriptionService.getByOrganizationId(ctx.query.organizationId);
-    },
+    ({ query }) =>
+      SubscriptionService.getByOrganizationId(query.organizationId),
     {
+      permissions: { subscription: ["read"] },
       query: getSubscriptionQuerySchema,
       response: subscriptionResponseSchema,
       detail: { summary: "Get organization subscription" },
@@ -42,18 +29,9 @@ export const subscriptionController = new Elysia({
   )
   .post(
     "/cancel",
-    async (ctx) => {
-      const { requirePermission } = ctx as unknown as AuthContext;
-
-      // Only owner can cancel subscription
-      await requirePermission(
-        { subscription: ["update"] },
-        "You don't have permission to cancel the subscription"
-      );
-
-      return SubscriptionService.cancel(ctx.body.organizationId);
-    },
+    ({ body }) => SubscriptionService.cancel(body.organizationId),
     {
+      permissions: { subscription: ["update"] },
       body: cancelSubscriptionBodySchema,
       response: cancelSubscriptionResponseSchema,
       detail: { summary: "Cancel subscription at period end" },
@@ -61,18 +39,9 @@ export const subscriptionController = new Elysia({
   )
   .post(
     "/restore",
-    async (ctx) => {
-      const { requirePermission } = ctx as unknown as AuthContext;
-
-      // Only owner can restore subscription
-      await requirePermission(
-        { subscription: ["update"] },
-        "You don't have permission to restore the subscription"
-      );
-
-      return SubscriptionService.restore(ctx.body.organizationId);
-    },
+    ({ body }) => SubscriptionService.restore(body.organizationId),
     {
+      permissions: { subscription: ["update"] },
       body: restoreSubscriptionBodySchema,
       response: restoreSubscriptionResponseSchema,
       detail: { summary: "Restore canceled subscription" },

@@ -1,7 +1,7 @@
 import { beforeAll, describe, expect, test } from "bun:test";
 import { env } from "@/env";
 import { createTestApp, type TestApp } from "@/test/helpers/app";
-import { createTestUser } from "@/test/helpers/auth";
+import { createTestUser } from "@/test/helpers/user";
 
 const BASE_URL = env.API_URL;
 

@@ -1,4 +1,5 @@
 import { Elysia } from "elysia";
+import { betterAuthPlugin } from "@/lib/auth-plugin";
 import {
   createPlanRequestSchema,
   deletePlanResponseSchema,
@@ -29,7 +30,7 @@ export const planPublicController = new Elysia({
       detail: { summary: "List available plans" },
     }
   )
-  .get("/:id", async ({ params }) => PlanService.getById(params.id), {
+  .get("/:id", ({ params }) => PlanService.getById(params.id), {
     params: planIdParamsSchema,
     response: planResponseSchema,
     detail: { summary: "Get plan details" },
@@ -37,28 +38,27 @@ export const planPublicController = new Elysia({
 
 /**
  * Protected routes - authentication required
- * Authentication is handled by the guard in payments/index.ts
+ * Uses betterAuthPlugin macros for auth
  */
 export const planProtectedController = new Elysia({
   name: "plan-protected",
   prefix: "/plans",
   detail: { tags: ["Payments - Plans (Admin)"] },
 })
-  .post("/", async ({ body }) => PlanService.create(body), {
+  .use(betterAuthPlugin)
+  .post("/", ({ body }) => PlanService.create(body), {
+    auth: true,
     body: createPlanRequestSchema,
     response: planResponseSchema,
     detail: { summary: "Create a new plan" },
   })
-  .put(
-    "/:id",
-    async ({ params, body }) => PlanService.update(params.id, body),
-    {
-      params: planIdParamsSchema,
-      body: updatePlanRequestSchema,
-      response: planResponseSchema,
-      detail: { summary: "Update a plan" },
-    }
-  )
+  .put("/:id", ({ params, body }) => PlanService.update(params.id, body), {
+    auth: true,
+    params: planIdParamsSchema,
+    body: updatePlanRequestSchema,
+    response: planResponseSchema,
+    detail: { summary: "Update a plan" },
+  })
   .delete(
     "/:id",
     async ({ params }) => {
@@ -66,6 +66,7 @@ export const planProtectedController = new Elysia({
       return { success: true };
     },
     {
+      auth: true,
       params: planIdParamsSchema,
       response: deletePlanResponseSchema,
       detail: { summary: "Delete a plan" },
@@ -78,6 +79,7 @@ export const planProtectedController = new Elysia({
       return { id: params.id, pagarmePlanId };
     },
     {
+      auth: true,
       params: planIdParamsSchema,
       response: syncPlanResponseSchema,
       detail: { summary: "Sync plan to Pagarme" },

@@ -2,12 +2,12 @@ import "dotenv/config";
 import { z } from "zod";
 
 const envSchema = z.object({
-  PORT: z.number().default(3001),
+  PORT: z.number().default(3333),
   CORS_ORIGIN: z.string().default("http://localhost:3000"),
   DATABASE_URL: z.url().startsWith("postgresql://"),
   BETTER_AUTH_SECRET: z.string(),
-  BETTER_AUTH_URL: z.url().default("http://localhost:3001"),
-  API_URL: z.url().default("http://localhost:3001"),
+  BETTER_AUTH_URL: z.url().default("http://localhost:3333"),
+  API_URL: z.url().default("http://localhost:3333"),
   APP_URL: z.url().default("http://localhost:3000"),
   PAGARME_BASE_URL: z.url(),
   PAGARME_SECRET_KEY: z.string().min(1),

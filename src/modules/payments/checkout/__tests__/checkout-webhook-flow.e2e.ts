@@ -5,9 +5,12 @@ import { db } from "@/db";
 import { pendingCheckouts } from "@/db/schema";
 import { proPlan } from "@/test/fixtures/plans";
 import { createTestApp } from "@/test/helpers/app";
-import { createTestUser } from "@/test/helpers/auth";
-import { createTestSubscription, seedPlans } from "@/test/helpers/db";
-import { waitForSubscriptionActive } from "@/test/helpers/subscription";
+import { seedPlans } from "@/test/helpers/seed";
+import {
+  createTestSubscription,
+  waitForSubscriptionActive,
+} from "@/test/helpers/subscription";
+import { createTestUserWithOrganization } from "@/test/helpers/user";
 
 const TUNNEL_URL = process.env.TUNNEL_URL;
 const PAGARME_URL_REGEX = /pagar\.me/;
@@ -44,8 +47,8 @@ test.describe("Checkout + Webhook E2E Flow", () => {
     }
 
     // 1. Setup: Create user with trial subscription
-    const { user, session } = await createTestUser({ emailVerified: true });
-    const organizationId = user.organizationId;
+    const { user, session, organizationId } =
+      await createTestUserWithOrganization({ emailVerified: true });
 
     if (!organizationId) {
       throw new Error("Organization not created for test user");
@@ -63,7 +66,6 @@ test.describe("Checkout + Webhook E2E Flow", () => {
           Cookie: `better-auth.session_token=${session.token}`,
         },
         body: JSON.stringify({
-          organizationId,
           planId: proPlan.id,
           successUrl: `${TUNNEL_URL}/checkout/success`,
         }),

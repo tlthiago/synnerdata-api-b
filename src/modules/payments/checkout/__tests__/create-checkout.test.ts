@@ -1,12 +1,16 @@
-import { afterAll, beforeAll, describe, expect, test } from "bun:test";
+import { afterAll, beforeAll, describe, expect, spyOn, test } from "bun:test";
 import { eq } from "drizzle-orm";
 import { db } from "@/db";
 import { organizationProfiles, subscriptionPlans } from "@/db/schema";
 import { env } from "@/env";
 import { proPlan, testPlans } from "@/test/fixtures/plans";
 import { createTestApp, type TestApp } from "@/test/helpers/app";
-import { createTestUser } from "@/test/helpers/auth";
-import { createTestSubscription, seedPlans } from "@/test/helpers/db";
+import { seedPlans } from "@/test/helpers/seed";
+import { createTestSubscription } from "@/test/helpers/subscription";
+import {
+  createTestUser,
+  createTestUserWithOrganization,
+} from "@/test/helpers/user";
 import { CustomerService } from "../../customer/customer.service";
 
 const BASE_URL = env.API_URL;
@@ -43,7 +47,6 @@ describe("POST /v1/payments/checkout", () => {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
-          organizationId: "test-org",
           planId: "test-plan-pro",
           successUrl: "https://example.com/success",
         }),
@@ -54,7 +57,9 @@ describe("POST /v1/payments/checkout", () => {
   });
 
   test("should reject user with unverified email", async () => {
-    const { user, headers } = await createTestUser({ emailVerified: false });
+    const { headers } = await createTestUserWithOrganization({
+      emailVerified: false,
+    });
 
     const response = await app.handle(
       new Request(`${BASE_URL}/v1/payments/checkout`, {
@@ -64,7 +69,6 @@ describe("POST /v1/payments/checkout", () => {
           "Content-Type": "application/json",
         },
         body: JSON.stringify({
-          organizationId: user.organizationId,
           planId: "test-plan-pro",
           successUrl: "https://example.com/success",
         }),
@@ -77,8 +81,10 @@ describe("POST /v1/payments/checkout", () => {
   });
 
   test("should reject if organization already has active subscription", async () => {
-    const { user, headers } = await createTestUser({ emailVerified: true });
-    const orgId = user.organizationId;
+    const { headers, organizationId } = await createTestUserWithOrganization({
+      emailVerified: true,
+    });
+    const orgId = organizationId;
 
     if (!orgId) {
       throw new Error("Organization not created");
@@ -95,7 +101,6 @@ describe("POST /v1/payments/checkout", () => {
           "Content-Type": "application/json",
         },
         body: JSON.stringify({
-          organizationId: orgId,
           planId: "test-plan-enterprise",
           successUrl: "https://example.com/success",
         }),
@@ -108,7 +113,9 @@ describe("POST /v1/payments/checkout", () => {
   });
 
   test("should reject for non-existent plan", async () => {
-    const { user, headers } = await createTestUser({ emailVerified: true });
+    const { headers } = await createTestUserWithOrganization({
+      emailVerified: true,
+    });
 
     const response = await app.handle(
       new Request(`${BASE_URL}/v1/payments/checkout`, {
@@ -118,7 +125,6 @@ describe("POST /v1/payments/checkout", () => {
           "Content-Type": "application/json",
         },
         body: JSON.stringify({
-          organizationId: user.organizationId,
           planId: "non-existent-plan",
           successUrl: "https://example.com/success",
         }),
@@ -131,7 +137,9 @@ describe("POST /v1/payments/checkout", () => {
   });
 
   test("should reject for inactive plan", async () => {
-    const { user, headers } = await createTestUser({ emailVerified: true });
+    const { headers } = await createTestUserWithOrganization({
+      emailVerified: true,
+    });
 
     const response = await app.handle(
       new Request(`${BASE_URL}/v1/payments/checkout`, {
@@ -141,7 +149,6 @@ describe("POST /v1/payments/checkout", () => {
           "Content-Type": "application/json",
         },
         body: JSON.stringify({
-          organizationId: user.organizationId,
           planId: "test-plan-inactive",
           successUrl: "https://example.com/success",
         }),
@@ -154,7 +161,9 @@ describe("POST /v1/payments/checkout", () => {
   });
 
   test("should reject invalid successUrl", async () => {
-    const { user, headers } = await createTestUser({ emailVerified: true });
+    const { headers } = await createTestUserWithOrganization({
+      emailVerified: true,
+    });
 
     const response = await app.handle(
       new Request(`${BASE_URL}/v1/payments/checkout`, {
@@ -164,7 +173,6 @@ describe("POST /v1/payments/checkout", () => {
           "Content-Type": "application/json",
         },
         body: JSON.stringify({
-          organizationId: user.organizationId,
           planId: "test-plan-pro",
           successUrl: "not-a-valid-url",
         }),
@@ -175,7 +183,9 @@ describe("POST /v1/payments/checkout", () => {
   });
 
   test("should reject missing required fields", async () => {
-    const { headers } = await createTestUser({ emailVerified: true });
+    const { headers } = await createTestUserWithOrganization({
+      emailVerified: true,
+    });
 
     const response = await app.handle(
       new Request(`${BASE_URL}/v1/payments/checkout`, {
@@ -185,7 +195,6 @@ describe("POST /v1/payments/checkout", () => {
           "Content-Type": "application/json",
         },
         body: JSON.stringify({
-          organizationId: "test-org",
           // Missing planId and successUrl
         }),
       })
@@ -195,12 +204,9 @@ describe("POST /v1/payments/checkout", () => {
   });
 
   test("should create payment link and return checkoutUrl and paymentLinkId", async () => {
-    const { user, headers } = await createTestUser({ emailVerified: true });
-    const orgId = user.organizationId;
-
-    if (!orgId) {
-      throw new Error("Organization not created");
-    }
+    const { headers } = await createTestUserWithOrganization({
+      emailVerified: true,
+    });
 
     if (!proPlan) {
       throw new Error("Pro plan not found in fixtures");
@@ -214,7 +220,6 @@ describe("POST /v1/payments/checkout", () => {
           "Content-Type": "application/json",
         },
         body: JSON.stringify({
-          organizationId: orgId,
           planId: proPlan.id,
           successUrl: "https://example.com/success",
         }),
@@ -234,12 +239,9 @@ describe("POST /v1/payments/checkout", () => {
   });
 
   test("should sync plan to Pagarme if not yet synced", async () => {
-    const { user, headers } = await createTestUser({ emailVerified: true });
-    const orgId = user.organizationId;
-
-    if (!orgId) {
-      throw new Error("Organization not created");
-    }
+    const { headers } = await createTestUserWithOrganization({
+      emailVerified: true,
+    });
 
     if (!proPlan) {
       throw new Error("Pro plan not found in fixtures");
@@ -259,7 +261,6 @@ describe("POST /v1/payments/checkout", () => {
           "Content-Type": "application/json",
         },
         body: JSON.stringify({
-          organizationId: orgId,
           planId: proPlan.id,
           successUrl: "https://example.com/success",
         }),
@@ -280,12 +281,9 @@ describe("POST /v1/payments/checkout", () => {
   });
 
   test("should reuse existing pagarmePlanId if already synced", async () => {
-    const { user, headers } = await createTestUser({ emailVerified: true });
-    const orgId = user.organizationId;
-
-    if (!orgId) {
-      throw new Error("Organization not created");
-    }
+    const { headers } = await createTestUserWithOrganization({
+      emailVerified: true,
+    });
 
     if (!proPlan) {
       throw new Error("Pro plan not found in fixtures");
@@ -300,7 +298,6 @@ describe("POST /v1/payments/checkout", () => {
           "Content-Type": "application/json",
         },
         body: JSON.stringify({
-          organizationId: orgId,
           planId: proPlan.id,
           successUrl: "https://example.com/success",
         }),
@@ -318,7 +315,7 @@ describe("POST /v1/payments/checkout", () => {
     const firstPagarmePlanId = planAfterFirst.pagarmePlanId;
 
     // Create new user for second request
-    const { user: user2, headers: headers2 } = await createTestUser({
+    const { headers: headers2 } = await createTestUserWithOrganization({
       emailVerified: true,
     });
 
@@ -331,7 +328,6 @@ describe("POST /v1/payments/checkout", () => {
           "Content-Type": "application/json",
         },
         body: JSON.stringify({
-          organizationId: user2.organizationId,
           planId: proPlan.id,
           successUrl: "https://example.com/success",
         }),
@@ -350,8 +346,10 @@ describe("POST /v1/payments/checkout", () => {
   });
 
   test("should allow checkout for org with trial subscription", async () => {
-    const { user, headers } = await createTestUser({ emailVerified: true });
-    const orgId = user.organizationId;
+    const { headers, organizationId } = await createTestUserWithOrganization({
+      emailVerified: true,
+    });
+    const orgId = organizationId;
 
     if (!orgId) {
       throw new Error("Organization not created");
@@ -372,7 +370,6 @@ describe("POST /v1/payments/checkout", () => {
           "Content-Type": "application/json",
         },
         body: JSON.stringify({
-          organizationId: orgId,
           planId: proPlan.id,
           successUrl: "https://example.com/success",
         }),
@@ -387,8 +384,11 @@ describe("POST /v1/payments/checkout", () => {
   });
 
   test("should pre-fill checkout with existing customer_id from profile", async () => {
-    const { user, headers } = await createTestUser({ emailVerified: true });
-    const orgId = user.organizationId;
+    const { user, headers, organizationId } =
+      await createTestUserWithOrganization({
+        emailVerified: true,
+      });
+    const orgId = organizationId;
 
     if (!orgId) {
       throw new Error("Organization not created");
@@ -430,7 +430,6 @@ describe("POST /v1/payments/checkout", () => {
           "Content-Type": "application/json",
         },
         body: JSON.stringify({
-          organizationId: orgId,
           planId: proPlan.id,
           successUrl: "https://example.com/success",
         }),
@@ -454,8 +453,10 @@ describe("POST /v1/payments/checkout", () => {
   });
 
   test("should create pending_checkout record for webhook lookup", async () => {
-    const { user, headers } = await createTestUser({ emailVerified: true });
-    const orgId = user.organizationId;
+    const { headers, organizationId } = await createTestUserWithOrganization({
+      emailVerified: true,
+    });
+    const orgId = organizationId;
 
     if (!orgId) {
       throw new Error("Organization not created");
@@ -473,7 +474,6 @@ describe("POST /v1/payments/checkout", () => {
           "Content-Type": "application/json",
         },
         body: JSON.stringify({
-          organizationId: orgId,
           planId: proPlan.id,
           successUrl: "https://example.com/success",
         }),
@@ -501,29 +501,29 @@ describe("POST /v1/payments/checkout", () => {
   });
 
   test("should reject non-owner member from creating checkout", async () => {
+    const { addMemberToOrganization } = await import(
+      "@/test/helpers/organization"
+    );
+
     // Create owner with organization
-    const { user: owner } = await createTestUser({ emailVerified: true });
-    const orgId = owner.organizationId;
+    const { organizationId } = await createTestUserWithOrganization({
+      emailVerified: true,
+    });
+    const orgId = organizationId;
 
     if (!orgId) {
       throw new Error("Organization not created");
     }
 
     // Create another user without organization
-    const { user: member, headers: memberHeaders } = await createTestUser({
-      emailVerified: true,
-      withOrganization: false,
-    });
+    const memberResult = await createTestUser({ emailVerified: true });
 
-    // Add the second user as a "viewer" member of the owner's organization
-    const { members } = await import("@/db/schema");
-    await db.insert(members).values({
-      id: `test-member-viewer-${crypto.randomUUID()}`,
+    // Add the second user as a "viewer" member and set active organization
+    await addMemberToOrganization(memberResult, {
       organizationId: orgId,
-      userId: member.id,
       role: "viewer",
-      createdAt: new Date(),
     });
+    const memberHeaders = memberResult.headers;
 
     // Try to create checkout with the viewer member
     const response = await app.handle(
@@ -534,7 +534,6 @@ describe("POST /v1/payments/checkout", () => {
           "Content-Type": "application/json",
         },
         body: JSON.stringify({
-          organizationId: orgId,
           planId: "test-plan-pro",
           successUrl: "https://example.com/success",
         }),
@@ -548,29 +547,29 @@ describe("POST /v1/payments/checkout", () => {
   });
 
   test("should reject manager member from creating checkout", async () => {
+    const { addMemberToOrganization } = await import(
+      "@/test/helpers/organization"
+    );
+
     // Create owner with organization
-    const { user: owner } = await createTestUser({ emailVerified: true });
-    const orgId = owner.organizationId;
+    const { organizationId } = await createTestUserWithOrganization({
+      emailVerified: true,
+    });
+    const orgId = organizationId;
 
     if (!orgId) {
       throw new Error("Organization not created");
     }
 
     // Create another user without organization
-    const { user: member, headers: memberHeaders } = await createTestUser({
-      emailVerified: true,
-      withOrganization: false,
-    });
+    const memberResult = await createTestUser({ emailVerified: true });
 
-    // Add the second user as a "manager" member of the owner's organization
-    const { members } = await import("@/db/schema");
-    await db.insert(members).values({
-      id: `test-member-manager-${crypto.randomUUID()}`,
+    // Add the second user as a "manager" member and set active organization
+    await addMemberToOrganization(memberResult, {
       organizationId: orgId,
-      userId: member.id,
       role: "manager",
-      createdAt: new Date(),
     });
+    const memberHeaders = memberResult.headers;
 
     // Try to create checkout with the manager member
     const response = await app.handle(
@@ -581,7 +580,6 @@ describe("POST /v1/payments/checkout", () => {
           "Content-Type": "application/json",
         },
         body: JSON.stringify({
-          organizationId: orgId,
           planId: "test-plan-pro",
           successUrl: "https://example.com/success",
         }),
@@ -592,5 +590,108 @@ describe("POST /v1/payments/checkout", () => {
     expect(response.status).toBe(403);
     const body = await response.json();
     expect(body.code).toBe("FORBIDDEN");
+  });
+
+  test("should reject supervisor member from creating checkout", async () => {
+    const { addMemberToOrganization } = await import(
+      "@/test/helpers/organization"
+    );
+
+    // Create owner with organization
+    const { organizationId } = await createTestUserWithOrganization({
+      emailVerified: true,
+    });
+    const orgId = organizationId;
+
+    if (!orgId) {
+      throw new Error("Organization not created");
+    }
+
+    // Create another user without organization
+    const memberResult = await createTestUser({ emailVerified: true });
+
+    // Add the second user as a "supervisor" member and set active organization
+    await addMemberToOrganization(memberResult, {
+      organizationId: orgId,
+      role: "supervisor",
+    });
+    const memberHeaders = memberResult.headers;
+
+    // Try to create checkout with the supervisor member
+    const response = await app.handle(
+      new Request(`${BASE_URL}/v1/payments/checkout`, {
+        method: "POST",
+        headers: {
+          ...memberHeaders,
+          "Content-Type": "application/json",
+        },
+        body: JSON.stringify({
+          planId: "test-plan-pro",
+          successUrl: "https://example.com/success",
+        }),
+      })
+    );
+
+    // Should be forbidden - only owner can upgrade subscription
+    expect(response.status).toBe(403);
+    const body = await response.json();
+    expect(body.code).toBe("FORBIDDEN");
+  });
+
+  test("should reject empty planId", async () => {
+    const { headers } = await createTestUser({ emailVerified: true });
+
+    const response = await app.handle(
+      new Request(`${BASE_URL}/v1/payments/checkout`, {
+        method: "POST",
+        headers: {
+          ...headers,
+          "Content-Type": "application/json",
+        },
+        body: JSON.stringify({
+          planId: "",
+          successUrl: "https://example.com/success",
+        }),
+      })
+    );
+
+    expect(response.status).toBe(422);
+  });
+
+  test("should handle Pagarme API connection failure", async () => {
+    const { PagarmeClient } = await import("../../pagarme/client");
+
+    const { headers } = await createTestUserWithOrganization({
+      emailVerified: true,
+    });
+
+    if (!proPlan) {
+      throw new Error("Pro plan not found in fixtures");
+    }
+
+    // Mock PagarmeClient.createPaymentLink to simulate API failure
+    const createPaymentLinkSpy = spyOn(
+      PagarmeClient,
+      "createPaymentLink"
+    ).mockRejectedValueOnce(new Error("Pagarme API error: Connection refused"));
+
+    const response = await app.handle(
+      new Request(`${BASE_URL}/v1/payments/checkout`, {
+        method: "POST",
+        headers: {
+          ...headers,
+          "Content-Type": "application/json",
+        },
+        body: JSON.stringify({
+          planId: proPlan.id,
+          successUrl: "https://example.com/success",
+        }),
+      })
+    );
+
+    expect(response.status).toBe(500);
+
+    // Restore original implementation
+    createPaymentLinkSpy.mockRestore();
   });
 });

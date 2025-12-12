@@ -52,12 +52,15 @@ export const schema = {
   pendingCheckoutRelations,
 };
 
+export type { Role } from "./auth";
 // Re-export tables for use in services
 export {
   accounts,
   invitations,
   members,
   organizations,
+  roleEnum,
+  roleValues,
   sessions,
   subscriptions,
   users,

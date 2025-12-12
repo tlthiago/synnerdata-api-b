@@ -1,96 +1,55 @@
 import { Elysia } from "elysia";
 import { auth } from "./auth";
+import type { Permissions } from "./permissions";
 
-type PermissionMap = Record<string, string[]>;
-
-export class ForbiddenError extends Error {
-  status = 403;
-  code = "FORBIDDEN";
-
-  constructor(message = "You don't have permission to perform this action") {
-    super(message);
-    this.name = "ForbiddenError";
-  }
-
-  toResponse() {
-    return {
-      error: this.message,
-      code: this.code,
+export type AuthOptions =
+  | true
+  | {
+      permissions?: Permissions;
+      requireOrganization?: boolean;
     };
-  }
-}
 
 export const betterAuthPlugin = new Elysia({ name: "better-auth" })
-  .error({ ForbiddenError })
-  .onError(({ error, set }) => {
-    if (error instanceof ForbiddenError) {
-      set.status = error.status;
-      return error.toResponse();
-    }
-  })
   .mount(auth.handler)
   .macro({
-    auth: {
+    auth: (options: AuthOptions) => ({
       async resolve({ status, request: { headers } }) {
         const session = await auth.api.getSession({ headers });
+
         if (!session) {
-          return status(401, { message: "Unauthorized" });
+          return status(401, { code: "UNAUTHORIZED", message: "Unauthorized" });
         }
+
+        if (typeof options === "object") {
+          if (
+            options.requireOrganization &&
+            !session.session.activeOrganizationId
+          ) {
+            return status(400, {
+              code: "NO_ACTIVE_ORGANIZATION",
+              message: "No active organization selected",
+            });
+          }
+
+          if (options.permissions) {
+            const { success } = await auth.api.hasPermission({
+              headers,
+              body: { permissions: options.permissions },
+            });
+
+            if (!success) {
+              return status(403, { code: "FORBIDDEN", message: "Forbidden" });
+            }
+          }
+        }
+
         return {
           user: session.user,
           session: session.session,
         };
       },
-    },
-  })
-  .derive({ as: "scoped" }, ({ request: { headers } }) => ({
-    /**
-     * Check if the current user has the specified permissions.
-     * Uses Better Auth's Access Control system.
-     *
-     * @example
-     * const canCreate = await hasPermission({ employee: ["create"] });
-     * const canManage = await hasPermission({ employee: ["create", "update", "delete"] });
-     */
-    hasPermission: async (permissions: PermissionMap): Promise<boolean> => {
-      try {
-        const result = await auth.api.hasPermission({
-          headers,
-          body: { permissions },
-        });
-        return result?.success ?? false;
-      } catch {
-        return false;
-      }
-    },
-
-    /**
-     * Require the current user to have the specified permissions.
-     * Throws ForbiddenError if the user doesn't have the required permissions.
-     *
-     * @example
-     * await requirePermission({ subscription: ["update"] });
-     */
-    requirePermission: async (
-      permissions: PermissionMap,
-      errorMessage?: string
-    ): Promise<void> => {
-      try {
-        const result = await auth.api.hasPermission({
-          headers,
-          body: { permissions },
-        });
-        if (!result?.success) {
-          throw new ForbiddenError(errorMessage);
-        }
-      } catch (error) {
-        if (error instanceof ForbiddenError) {
-          throw error;
-        }
-        throw new ForbiddenError(errorMessage);
-      }
-    },
-  }));
+    }),
+  });
 
 let _schema: ReturnType<typeof auth.api.generateOpenAPISchema>;
 // biome-ignore lint/suspicious/noAssignInExpressions: memoization pattern from better-auth docs

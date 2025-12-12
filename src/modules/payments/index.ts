@@ -23,20 +23,12 @@ export const paymentsController = new Elysia({
   // Public routes (no auth required)
   .use(planPublicController)
   .use(webhookController)
-  // Protected routes (auth required via guard)
-  .guard(
-    {
-      // @ts-expect-error - auth macro from betterAuthPlugin
-      auth: true,
-    },
-    (app) =>
-      app
-        .use(planProtectedController)
-        .use(checkoutController)
-        .use(subscriptionController)
-        .use(billingController)
-        .use(customerController)
-  );
+  // Protected routes - each controller manages its own auth via macros
+  .use(planProtectedController)
+  .use(checkoutController)
+  .use(subscriptionController)
+  .use(billingController)
+  .use(customerController);
 
 export { CustomerService } from "./customer/customer.service";
 export type { PaymentEventName, PaymentEvents } from "./hooks";

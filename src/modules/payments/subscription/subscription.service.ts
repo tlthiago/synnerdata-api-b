@@ -2,6 +2,7 @@ import { eq } from "drizzle-orm";
 import { db } from "@/db";
 import { orgSubscriptions, subscriptionPlans } from "@/db/schema";
 import {
+  SubscriptionAlreadyActiveError,
   SubscriptionNotCancelableError,
   SubscriptionNotFoundError,
   SubscriptionNotRestorableError,
@@ -148,6 +149,27 @@ export abstract class SubscriptionService {
     return (
       subscription?.status === "active" || subscription?.status === "trial"
     );
+  }
+
+  /**
+   * Check if organization has a paid active subscription (excludes trial).
+   */
+  static async hasPaidSubscription(organizationId: string): Promise<boolean> {
+    const subscription = await db.query.orgSubscriptions.findFirst({
+      where: eq(orgSubscriptions.organizationId, organizationId),
+    });
+
+    return subscription?.status === "active";
+  }
+
+  /**
+   * Ensure organization does not have a paid active subscription.
+   * @throws {SubscriptionAlreadyActiveError} if organization has an active paid subscription
+   */
+  static async ensureNoPaidSubscription(organizationId: string): Promise<void> {
+    if (await SubscriptionService.hasPaidSubscription(organizationId)) {
+      throw new SubscriptionAlreadyActiveError();
+    }
   }
 
   /**

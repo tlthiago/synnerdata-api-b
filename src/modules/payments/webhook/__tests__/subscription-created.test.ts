@@ -9,12 +9,10 @@ import {
 import { env } from "@/env";
 import { proPlan } from "@/test/fixtures/plans";
 import { createTestApp, type TestApp } from "@/test/helpers/app";
-import { createTestUser } from "@/test/helpers/auth";
-import {
-  createPendingCheckout,
-  createTestSubscription,
-  seedPlans,
-} from "@/test/helpers/db";
+import { createPendingCheckout } from "@/test/helpers/checkout";
+import { seedPlans } from "@/test/helpers/seed";
+import { createTestSubscription } from "@/test/helpers/subscription";
+import { createTestUserWithOrganization } from "@/test/helpers/user";
 import { createWebhookRequest, webhookPayloads } from "@/test/helpers/webhook";
 
 const BASE_URL = env.API_URL;
@@ -36,8 +34,10 @@ describe("POST /v1/payments/webhooks/pagarme - subscription.created", () => {
   });
 
   test("should activate subscription on subscription.created webhook", async () => {
-    const { user } = await createTestUser({ emailVerified: true });
-    const orgId = user.organizationId;
+    const { organizationId } = await createTestUserWithOrganization({
+      emailVerified: true,
+    });
+    const orgId = organizationId;
 
     if (!(orgId && proPlan)) {
       throw new Error("Test setup failed");
@@ -79,8 +79,10 @@ describe("POST /v1/payments/webhooks/pagarme - subscription.created", () => {
   });
 
   test("should store pagarmeCustomerId in subscription", async () => {
-    const { user } = await createTestUser({ emailVerified: true });
-    const orgId = user.organizationId;
+    const { organizationId } = await createTestUserWithOrganization({
+      emailVerified: true,
+    });
+    const orgId = organizationId;
 
     if (!(orgId && proPlan)) {
       throw new Error("Test setup failed");
@@ -113,8 +115,10 @@ describe("POST /v1/payments/webhooks/pagarme - subscription.created", () => {
   });
 
   test("should sync customer data to organization profile (empty fields only)", async () => {
-    const { user } = await createTestUser({ emailVerified: true });
-    const orgId = user.organizationId;
+    const { organizationId } = await createTestUserWithOrganization({
+      emailVerified: true,
+    });
+    const orgId = organizationId;
 
     if (!(orgId && proPlan)) {
       throw new Error("Test setup failed");
@@ -168,8 +172,10 @@ describe("POST /v1/payments/webhooks/pagarme - subscription.created", () => {
   });
 
   test("should sync phone number from webhook", async () => {
-    const { user } = await createTestUser({ emailVerified: true });
-    const orgId = user.organizationId;
+    const { organizationId } = await createTestUserWithOrganization({
+      emailVerified: true,
+    });
+    const orgId = organizationId;
 
     if (!(orgId && proPlan)) {
       throw new Error("Test setup failed");
@@ -206,8 +212,10 @@ describe("POST /v1/payments/webhooks/pagarme - subscription.created", () => {
   });
 
   test("should not overwrite existing profile data", async () => {
-    const { user } = await createTestUser({ emailVerified: true });
-    const orgId = user.organizationId;
+    const { organizationId } = await createTestUserWithOrganization({
+      emailVerified: true,
+    });
+    const orgId = organizationId;
 
     if (!(orgId && proPlan)) {
       throw new Error("Test setup failed");
@@ -249,8 +257,10 @@ describe("POST /v1/payments/webhooks/pagarme - subscription.created", () => {
   });
 
   test("should handle webhook without customer data", async () => {
-    const { user } = await createTestUser({ emailVerified: true });
-    const orgId = user.organizationId;
+    const { organizationId } = await createTestUserWithOrganization({
+      emailVerified: true,
+    });
+    const orgId = organizationId;
 
     if (!(orgId && proPlan)) {
       throw new Error("Test setup failed");
@@ -276,8 +286,10 @@ describe("POST /v1/payments/webhooks/pagarme - subscription.created", () => {
   });
 
   test("should ignore webhook without organization_id in metadata", async () => {
-    const { user } = await createTestUser({ emailVerified: true });
-    const orgId = user.organizationId;
+    const { organizationId } = await createTestUserWithOrganization({
+      emailVerified: true,
+    });
+    const orgId = organizationId;
 
     if (!(orgId && proPlan)) {
       throw new Error("Test setup failed");
@@ -316,8 +328,10 @@ describe("POST /v1/payments/webhooks/pagarme - subscription.created", () => {
   });
 
   test("should be idempotent - processing same event twice", async () => {
-    const { user } = await createTestUser({ emailVerified: true });
-    const orgId = user.organizationId;
+    const { organizationId } = await createTestUserWithOrganization({
+      emailVerified: true,
+    });
+    const orgId = organizationId;
 
     if (!(orgId && proPlan)) {
       throw new Error("Test setup failed");
@@ -359,8 +373,10 @@ describe("POST /v1/payments/webhooks/pagarme - subscription.created", () => {
   });
 
   test("should activate subscription via pending_checkout lookup (real Pagarme flow)", async () => {
-    const { user } = await createTestUser({ emailVerified: true });
-    const orgId = user.organizationId;
+    const { organizationId } = await createTestUserWithOrganization({
+      emailVerified: true,
+    });
+    const orgId = organizationId;
 
     if (!(orgId && proPlan)) {
       throw new Error("Test setup failed");
@@ -393,8 +409,10 @@ describe("POST /v1/payments/webhooks/pagarme - subscription.created", () => {
   });
 
   test("should mark pending_checkout as completed after successful activation", async () => {
-    const { user } = await createTestUser({ emailVerified: true });
-    const orgId = user.organizationId;
+    const { organizationId } = await createTestUserWithOrganization({
+      emailVerified: true,
+    });
+    const orgId = organizationId;
 
     if (!(orgId && proPlan)) {
       throw new Error("Test setup failed");
@@ -429,8 +447,10 @@ describe("POST /v1/payments/webhooks/pagarme - subscription.created", () => {
   });
 
   test("should ignore webhook with unknown payment link code", async () => {
-    const { user } = await createTestUser({ emailVerified: true });
-    const orgId = user.organizationId;
+    const { organizationId } = await createTestUserWithOrganization({
+      emailVerified: true,
+    });
+    const orgId = organizationId;
 
     if (!(orgId && proPlan)) {
       throw new Error("Test setup failed");

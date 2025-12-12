@@ -3,8 +3,8 @@ import { expect, test } from "@playwright/test";
 import { env } from "@/env";
 import { proPlan } from "@/test/fixtures/plans";
 import { createTestApp } from "@/test/helpers/app";
-import { createTestUser } from "@/test/helpers/auth";
-import { seedPlans } from "@/test/helpers/db";
+import { seedPlans } from "@/test/helpers/seed";
+import { createTestUserWithOrganization } from "@/test/helpers/user";
 
 const API_URL = env.API_URL;
 const PAGARME_URL_REGEX = /pagar\.me/;
@@ -32,8 +32,8 @@ test.describe("Checkout Flow E2E", () => {
     page,
   }) => {
     // 1. Create authenticated test user with organization
-    const { user, session } = await createTestUser({ emailVerified: true });
-    const organizationId = user.organizationId;
+    const { user, session, organizationId } =
+      await createTestUserWithOrganization({ emailVerified: true });
 
     if (!organizationId) {
       throw new Error("Organization not created for test user");
@@ -63,7 +63,6 @@ test.describe("Checkout Flow E2E", () => {
           Cookie: `better-auth.session_token=${session.token}`,
         },
         body: JSON.stringify({
-          organizationId,
           planId: proPlan.id,
           successUrl: SUCCESS_URL,
         }),
@@ -245,8 +244,9 @@ test.describe("Checkout Flow E2E", () => {
     page,
   }) => {
     // Create authenticated test user
-    const { user, session } = await createTestUser({ emailVerified: true });
-    const organizationId = user.organizationId;
+    const { session, organizationId } = await createTestUserWithOrganization({
+      emailVerified: true,
+    });
 
     if (!(organizationId && proPlan)) {
       test.skip(true, "Missing organization or plan");
@@ -263,7 +263,6 @@ test.describe("Checkout Flow E2E", () => {
           Cookie: `better-auth.session_token=${session.token}`,
         },
         body: JSON.stringify({
-          organizationId,
           planId: proPlan.id,
           successUrl: SUCCESS_URL,
         }),
@@ -297,7 +296,6 @@ test.describe("Checkout Flow E2E", () => {
     // Attempt to call checkout API without auth cookie
     const response = await request.post(`${API_URL}/v1/payments/checkout`, {
       data: {
-        organizationId: "test-org",
         planId: "test-plan-pro",
         successUrl: SUCCESS_URL,
       },

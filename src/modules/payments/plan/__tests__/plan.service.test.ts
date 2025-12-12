@@ -3,7 +3,7 @@ import { eq } from "drizzle-orm";
 import { db } from "@/db";
 import { subscriptionPlans } from "@/db/schema";
 import { proPlan, testPlans } from "@/test/fixtures/plans";
-import { seedPlans } from "@/test/helpers/db";
+import { seedPlans } from "@/test/helpers/seed";
 import { PlanNotAvailableError, PlanNotFoundError } from "../../errors";
 import { PlanService } from "../plan.service";
 

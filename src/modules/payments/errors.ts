@@ -189,6 +189,15 @@ export class OrganizationNotFoundError extends PaymentError {
   }
 }
 
+export class NoActiveOrganizationError extends PaymentError {
+  status = 400;
+
+  constructor() {
+    super("No active organization in session", "NO_ACTIVE_ORGANIZATION");
+    this.name = "NoActiveOrganizationError";
+  }
+}
+
 // ============================================================
 // WEBHOOK ERRORS
 // ============================================================

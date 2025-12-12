@@ -23,7 +23,7 @@ export default defineConfig({
   ],
   webServer: {
     command: "bun run dev",
-    url: process.env.API_URL || "http://localhost:3001",
+    url: process.env.API_URL || "http://localhost:3333",
     reuseExistingServer: true,
     timeout: 30_000,
   },

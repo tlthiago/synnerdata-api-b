@@ -4,10 +4,11 @@ import type { Organization } from "better-auth/plugins";
 import { emailOTP, openAPI, organization } from "better-auth/plugins";
 import { eq } from "drizzle-orm";
 import { members, schema } from "@/db/schema";
-import { PlanService, SubscriptionService } from "@/modules/payments";
+import { PlanService } from "@/modules/payments/plan/plan.service";
+import { SubscriptionService } from "@/modules/payments/subscription/subscription.service";
 import { db } from "../db";
 import { sendOTPEmail } from "./email";
-import { ac, manager, owner, supervisor, viewer } from "./permissions";
+import { ac, roles } from "./permissions";
 
 const DEFAULT_TRIAL_PLAN_NAME = "starter";
 
@@ -49,12 +50,7 @@ export const auth = betterAuth({
     openAPI(),
     organization({
       ac,
-      roles: {
-        owner,
-        manager,
-        supervisor,
-        viewer,
-      },
+      roles,
       organizationHooks: {
         afterCreateOrganization: async ({
           organization: org,
