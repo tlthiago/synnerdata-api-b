@@ -10,6 +10,18 @@ if [ -z "$(git diff --cached --name-only)" ]; then
   exit 0
 fi
 
+# Check for secrets in staged files
+echo "Checking for secrets..."
+STAGED_FOR_SECRETS=$(git diff --cached --name-only --diff-filter=ACMR)
+if [ -n "$STAGED_FOR_SECRETS" ]; then
+  echo "$STAGED_FOR_SECRETS" | xargs bun x secretlint
+  if [ $? -ne 0 ]; then
+    echo "❌ Secrets detected! Commit blocked."
+    exit 1
+  fi
+  echo "✅ No secrets detected"
+fi
+
 # Store the hash of staged changes to detect modifications
 STAGED_HASH=$(git diff --cached | sha256sum | cut -d' ' -f1)
 

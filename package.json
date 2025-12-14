@@ -17,7 +17,8 @@
     "db:stop": "docker compose stop",
     "db:down": "docker compose down",
     "prepare": "husky",
-    "commit": "cz"
+    "commit": "cz",
+    "secrets:check": "secretlint --secretlintignore .gitignore \"**/*\""
   },
   "dependencies": {
     "@elysiajs/cors": "^1.4.0",
@@ -36,6 +37,7 @@
     "@commitlint/cli": "^20.2.0",
     "@commitlint/config-conventional": "^20.2.0",
     "@playwright/test": "^1.57.0",
+    "@secretlint/secretlint-rule-preset-recommend": "^11.2.5",
     "@types/nodemailer": "^7.0.4",
     "@types/pg": "^8.15.6",
     "bun-types": "latest",
@@ -44,6 +46,7 @@
     "drizzle-kit": "^0.31.8",
     "husky": "^9.1.7",
     "lint-staged": "^16.2.7",
+    "secretlint": "^11.2.5",
     "tsx": "^4.21.0",
     "ultracite": "6.3.10"
   },
