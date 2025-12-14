@@ -1,7 +1,7 @@
 import { afterAll, beforeAll, describe, expect, test } from "bun:test";
 import { eq } from "drizzle-orm";
 import { db } from "@/db";
-import { subscriptionPlans } from "@/db/schema";
+import { schema } from "@/db/schema";
 import { proPlan, testPlans } from "@/test/fixtures/plans";
 import { seedPlans } from "@/test/helpers/seed";
 import { PlanNotAvailableError, PlanNotFoundError } from "../../errors";
@@ -13,30 +13,32 @@ describe("PlanService", () => {
   });
 
   afterAll(async () => {
-    // Clean up test plans pagarmePlanId after tests
+    // Clean up test plans pagarmePlanIds after tests
     for (const plan of testPlans) {
       await db
-        .update(subscriptionPlans)
-        .set({ pagarmePlanId: null })
-        .where(eq(subscriptionPlans.id, plan.id));
+        .update(schema.subscriptionPlans)
+        .set({ pagarmePlanIdMonthly: null, pagarmePlanIdYearly: null })
+        .where(eq(schema.subscriptionPlans.id, plan.id));
     }
   });
 
   describe("list()", () => {
     test("should return only active and public plans", async () => {
-      const plans = await PlanService.list();
+      const response = await PlanService.list();
 
-      expect(plans).toBeArray();
-      expect(plans.length).toBeGreaterThan(0);
+      expect(response.success).toBe(true);
+      expect(response.data.plans).toBeArray();
+      expect(response.data.plans.length).toBeGreaterThan(0);
 
-      for (const plan of plans) {
+      for (const plan of response.data.plans) {
         expect(plan.isActive).toBe(true);
         expect(plan.isPublic).toBe(true);
       }
     });
 
     test("should return plans ordered by sortOrder", async () => {
-      const plans = await PlanService.list();
+      const response = await PlanService.list();
+      const plans = response.data.plans;
 
       for (let i = 1; i < plans.length; i++) {
         expect(plans[i].sortOrder).toBeGreaterThanOrEqual(
@@ -46,8 +48,8 @@ describe("PlanService", () => {
     });
 
     test("should return correct plan properties", async () => {
-      const plans = await PlanService.list();
-      const plan = plans[0];
+      const response = await PlanService.list();
+      const plan = response.data.plans[0];
 
       expect(plan).toHaveProperty("id");
       expect(plan).toHaveProperty("name");
@@ -62,8 +64,8 @@ describe("PlanService", () => {
     });
 
     test("should not return inactive plans", async () => {
-      const plans = await PlanService.list();
-      const inactivePlan = plans.find((p) => p.name === "legacy");
+      const response = await PlanService.list();
+      const inactivePlan = response.data.plans.find((p) => p.name === "legacy");
 
       expect(inactivePlan).toBeUndefined();
     });
@@ -75,13 +77,13 @@ describe("PlanService", () => {
         throw new Error("Pro plan not found in fixtures");
       }
 
-      const plan = await PlanService.getById(proPlan.id);
+      const response = await PlanService.getById(proPlan.id);
 
-      expect(plan).toBeDefined();
-      expect(plan.id).toBe(proPlan.id);
-      expect(plan.name).toBe(proPlan.name);
-      expect(plan.displayName).toBe(proPlan.displayName);
-      expect(plan.priceMonthly).toBe(proPlan.priceMonthly);
+      expect(response.success).toBe(true);
+      expect(response.data.id).toBe(proPlan.id);
+      expect(response.data.name).toBe(proPlan.name);
+      expect(response.data.displayName).toBe(proPlan.displayName);
+      expect(response.data.priceMonthly).toBe(proPlan.priceMonthly);
     });
 
     test("should throw PlanNotFoundError for non-existent plan", () => {
@@ -96,10 +98,10 @@ describe("PlanService", () => {
         throw new Error("No inactive plan in fixtures");
       }
 
-      const plan = await PlanService.getById(inactivePlan.id);
+      const response = await PlanService.getById(inactivePlan.id);
 
-      expect(plan).toBeDefined();
-      expect(plan.isActive).toBe(false);
+      expect(response.success).toBe(true);
+      expect(response.data.isActive).toBe(false);
     });
   });
 
@@ -161,46 +163,47 @@ describe("PlanService - Pagarme Sync", () => {
   beforeAll(async () => {
     await seedPlans();
 
-    // Reset pagarmePlanId for all test plans
+    // Reset pagarmePlanIds for all test plans
     for (const plan of testPlans) {
       await db
-        .update(subscriptionPlans)
-        .set({ pagarmePlanId: null })
-        .where(eq(subscriptionPlans.id, plan.id));
+        .update(schema.subscriptionPlans)
+        .set({ pagarmePlanIdMonthly: null, pagarmePlanIdYearly: null })
+        .where(eq(schema.subscriptionPlans.id, plan.id));
     }
   });
 
   afterAll(async () => {
-    // Clean up pagarmePlanId after tests
+    // Clean up pagarmePlanIds after tests
     for (const plan of testPlans) {
       await db
-        .update(subscriptionPlans)
-        .set({ pagarmePlanId: null })
-        .where(eq(subscriptionPlans.id, plan.id));
+        .update(schema.subscriptionPlans)
+        .set({ pagarmePlanIdMonthly: null, pagarmePlanIdYearly: null })
+        .where(eq(schema.subscriptionPlans.id, plan.id));
     }
   });
 
   describe("syncToPagarme()", () => {
-    test("should return existing pagarmePlanId if already synced", async () => {
+    test("should return existing pagarmePlanIdMonthly if already synced", async () => {
       if (!proPlan) {
         throw new Error("Pro plan not found in fixtures");
       }
 
-      // Set a pagarmePlanId manually (simulating already synced)
+      // Set pagarmePlanIdMonthly manually (simulating already synced)
       await db
-        .update(subscriptionPlans)
-        .set({ pagarmePlanId: "plan_existing_123" })
-        .where(eq(subscriptionPlans.id, proPlan.id));
+        .update(schema.subscriptionPlans)
+        .set({ pagarmePlanIdMonthly: "plan_existing_123" })
+        .where(eq(schema.subscriptionPlans.id, proPlan.id));
 
-      const pagarmePlanId = await PlanService.syncToPagarme(proPlan.id);
+      const response = await PlanService.syncToPagarme(proPlan.id);
 
-      expect(pagarmePlanId).toBe("plan_existing_123");
+      expect(response.success).toBe(true);
+      expect(response.data.pagarmePlanIdMonthly).toBe("plan_existing_123");
 
       // Reset for other tests
       await db
-        .update(subscriptionPlans)
-        .set({ pagarmePlanId: null })
-        .where(eq(subscriptionPlans.id, proPlan.id));
+        .update(schema.subscriptionPlans)
+        .set({ pagarmePlanIdMonthly: null, pagarmePlanIdYearly: null })
+        .where(eq(schema.subscriptionPlans.id, proPlan.id));
     });
 
     test("should throw PlanNotFoundError for non-existent plan", () => {
@@ -209,58 +212,76 @@ describe("PlanService - Pagarme Sync", () => {
       );
     });
 
-    test("should create plan in Pagarme and save pagarmePlanId", async () => {
+    test("should create monthly and yearly plans in Pagarme", async () => {
       if (!proPlan) {
         throw new Error("Pro plan not found in fixtures");
       }
 
-      // Ensure plan has no pagarmePlanId
+      // Ensure plan has no pagarmePlanIds
       await db
-        .update(subscriptionPlans)
-        .set({ pagarmePlanId: null })
-        .where(eq(subscriptionPlans.id, proPlan.id));
+        .update(schema.subscriptionPlans)
+        .set({ pagarmePlanIdMonthly: null, pagarmePlanIdYearly: null })
+        .where(eq(schema.subscriptionPlans.id, proPlan.id));
 
       // This will call the real Pagarme API
-      const pagarmePlanId = await PlanService.syncToPagarme(proPlan.id);
+      const response = await PlanService.syncToPagarme(proPlan.id);
 
-      // Verify pagarmePlanId was returned
-      expect(pagarmePlanId).toBeDefined();
-      expect(typeof pagarmePlanId).toBe("string");
-      expect(pagarmePlanId.startsWith("plan_")).toBe(true);
+      // Verify response structure
+      expect(response.success).toBe(true);
+      expect(response.data.pagarmePlanIdMonthly).toBeDefined();
+      expect(typeof response.data.pagarmePlanIdMonthly).toBe("string");
+      expect(response.data.pagarmePlanIdMonthly?.startsWith("plan_")).toBe(
+        true
+      );
+
+      // Yearly plan should also be created since proPlan has priceYearly > 0
+      expect(response.data.pagarmePlanIdYearly).toBeDefined();
+      expect(typeof response.data.pagarmePlanIdYearly).toBe("string");
+      expect(response.data.pagarmePlanIdYearly?.startsWith("plan_")).toBe(true);
 
       // Verify it was saved in the database
-      const dbPlan = await db.query.subscriptionPlans.findFirst({
-        where: eq(subscriptionPlans.id, proPlan.id),
-      });
+      const [dbPlan] = await db
+        .select({
+          pagarmePlanIdMonthly: schema.subscriptionPlans.pagarmePlanIdMonthly,
+          pagarmePlanIdYearly: schema.subscriptionPlans.pagarmePlanIdYearly,
+        })
+        .from(schema.subscriptionPlans)
+        .where(eq(schema.subscriptionPlans.id, proPlan.id))
+        .limit(1);
 
-      expect(dbPlan?.pagarmePlanId).toBe(pagarmePlanId);
+      expect(dbPlan?.pagarmePlanIdMonthly).toBe(
+        response.data.pagarmePlanIdMonthly
+      );
+      expect(dbPlan?.pagarmePlanIdYearly).toBe(
+        response.data.pagarmePlanIdYearly
+      );
     });
   });
 
   describe("ensureSynced()", () => {
-    test("should return plan with pagarmePlanId when already synced", async () => {
+    test("should return plan with pagarmePlanIdMonthly when already synced", async () => {
       if (!proPlan) {
         throw new Error("Pro plan not found in fixtures");
       }
 
-      // Set a pagarmePlanId manually
+      // Set pagarmePlanIdMonthly manually
       await db
-        .update(subscriptionPlans)
-        .set({ pagarmePlanId: "plan_synced_456" })
-        .where(eq(subscriptionPlans.id, proPlan.id));
+        .update(schema.subscriptionPlans)
+        .set({ pagarmePlanIdMonthly: "plan_synced_456" })
+        .where(eq(schema.subscriptionPlans.id, proPlan.id));
 
       const plan = await PlanService.ensureSynced(proPlan.id);
 
       expect(plan).toBeDefined();
-      expect(plan.pagarmePlanId).toBe("plan_synced_456");
+      expect(plan.pagarmePlanIdMonthly).toBe("plan_synced_456");
       expect(plan.id).toBe(proPlan.id);
       expect(plan.name).toBe(proPlan.name);
 
       // Reset for other tests
       await db
-        .update(subscriptionPlans)
-        .set({ pagarmePlanId: null })
-        .where(eq(subscriptionPlans.id, proPlan.id));
+        .update(schema.subscriptionPlans)
+        .set({ pagarmePlanIdMonthly: null, pagarmePlanIdYearly: null })
+        .where(eq(schema.subscriptionPlans.id, proPlan.id));
     });
 
     test("should throw PlanNotFoundError for non-existent plan", () => {
@@ -285,27 +306,31 @@ describe("PlanService - Pagarme Sync", () => {
         throw new Error("Pro plan not found in fixtures");
       }
 
-      // Ensure plan has no pagarmePlanId
+      // Ensure plan has no pagarmePlanIds
       await db
-        .update(subscriptionPlans)
-        .set({ pagarmePlanId: null })
-        .where(eq(subscriptionPlans.id, proPlan.id));
+        .update(schema.subscriptionPlans)
+        .set({ pagarmePlanIdMonthly: null, pagarmePlanIdYearly: null })
+        .where(eq(schema.subscriptionPlans.id, proPlan.id));
 
       // This will call the real Pagarme API
       const plan = await PlanService.ensureSynced(proPlan.id);
 
-      // Verify plan was returned with pagarmePlanId
+      // Verify plan was returned with pagarmePlanIdMonthly
       expect(plan).toBeDefined();
-      expect(plan.pagarmePlanId).toBeDefined();
-      expect(typeof plan.pagarmePlanId).toBe("string");
+      expect(plan.pagarmePlanIdMonthly).toBeDefined();
+      expect(typeof plan.pagarmePlanIdMonthly).toBe("string");
       expect(plan.id).toBe(proPlan.id);
 
       // Verify it was saved in the database
-      const dbPlan = await db.query.subscriptionPlans.findFirst({
-        where: eq(subscriptionPlans.id, proPlan.id),
-      });
+      const [dbPlan] = await db
+        .select({
+          pagarmePlanIdMonthly: schema.subscriptionPlans.pagarmePlanIdMonthly,
+        })
+        .from(schema.subscriptionPlans)
+        .where(eq(schema.subscriptionPlans.id, proPlan.id))
+        .limit(1);
 
-      expect(dbPlan?.pagarmePlanId).toBe(plan.pagarmePlanId);
+      expect(dbPlan?.pagarmePlanIdMonthly).toBe(plan.pagarmePlanIdMonthly);
     });
   });
 });

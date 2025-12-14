@@ -1,6 +1,6 @@
 import { and, eq, ne } from "drizzle-orm";
 import { db } from "@/db";
-import { subscriptionPlans } from "@/db/schema";
+import { schema } from "@/db/schema";
 import {
   PlanNameAlreadyExistsError,
   PlanNotAvailableError,
@@ -8,43 +8,68 @@ import {
 } from "../errors";
 import { PagarmeClient } from "../pagarme/client";
 import type {
-  CreatePlanRequest,
-  PlanResponse,
-  UpdatePlanRequest,
+  CreatePlanInput,
+  CreatePlanResponse,
+  DeletePlanResponse,
+  GetPlanResponse,
+  ListPlansResponse,
+  PlanData,
+  SyncPlanResponse,
+  UpdatePlanInput,
+  UpdatePlanResponse,
 } from "./plan.model";
 
 export abstract class PlanService {
-  static async list(): Promise<PlanResponse[]> {
+  static async list(): Promise<ListPlansResponse> {
     const plans = await db
       .select()
-      .from(subscriptionPlans)
+      .from(schema.subscriptionPlans)
       .where(
         and(
-          eq(subscriptionPlans.isActive, true),
-          eq(subscriptionPlans.isPublic, true)
+          eq(schema.subscriptionPlans.isActive, true),
+          eq(schema.subscriptionPlans.isPublic, true)
         )
       )
-      .orderBy(subscriptionPlans.sortOrder);
+      .orderBy(schema.subscriptionPlans.sortOrder);
 
-    return plans.map((plan) => ({
-      id: plan.id,
-      name: plan.name,
-      displayName: plan.displayName,
-      priceMonthly: plan.priceMonthly,
-      priceYearly: plan.priceYearly,
-      trialDays: plan.trialDays,
-      limits: plan.limits,
-      isActive: plan.isActive,
-      isPublic: plan.isPublic,
-      sortOrder: plan.sortOrder,
-    }));
+    return {
+      success: true as const,
+      data: {
+        plans: plans.map((plan) => {
+          const monthlyEquivalent =
+            plan.priceYearly > 0
+              ? Math.round(plan.priceYearly / 12)
+              : plan.priceMonthly;
+          const savingsYearly = plan.priceMonthly * 12 - plan.priceYearly;
+
+          return {
+            id: plan.id,
+            name: plan.name,
+            displayName: plan.displayName,
+            priceMonthly: plan.priceMonthly,
+            priceYearly: plan.priceYearly,
+            monthlyEquivalent,
+            savingsYearly: savingsYearly > 0 ? savingsYearly : 0,
+            savingsPercent:
+              savingsYearly > 0
+                ? Math.round((savingsYearly / (plan.priceMonthly * 12)) * 100)
+                : 0,
+            trialDays: plan.trialDays,
+            limits: plan.limits,
+            isActive: plan.isActive,
+            isPublic: plan.isPublic,
+            sortOrder: plan.sortOrder,
+          };
+        }),
+      },
+    };
   }
 
-  static async getById(planId: string): Promise<PlanResponse> {
+  static async getById(planId: string): Promise<GetPlanResponse> {
     const [plan] = await db
       .select()
-      .from(subscriptionPlans)
-      .where(eq(subscriptionPlans.id, planId))
+      .from(schema.subscriptionPlans)
+      .where(eq(schema.subscriptionPlans.id, planId))
       .limit(1);
 
     if (!plan) {
@@ -52,21 +77,25 @@ export abstract class PlanService {
     }
 
     return {
-      id: plan.id,
-      name: plan.name,
-      displayName: plan.displayName,
-      priceMonthly: plan.priceMonthly,
-      priceYearly: plan.priceYearly,
-      trialDays: plan.trialDays,
-      limits: plan.limits,
-      isActive: plan.isActive,
-      isPublic: plan.isPublic,
-      sortOrder: plan.sortOrder,
+      success: true as const,
+      data: {
+        id: plan.id,
+        name: plan.name,
+        displayName: plan.displayName,
+        priceMonthly: plan.priceMonthly,
+        priceYearly: plan.priceYearly,
+        trialDays: plan.trialDays,
+        limits: plan.limits,
+        isActive: plan.isActive,
+        isPublic: plan.isPublic,
+        sortOrder: plan.sortOrder,
+      },
     };
   }
 
-  static async getByIdForCheckout(planId: string): Promise<PlanResponse> {
-    const plan = await PlanService.getById(planId);
+  static async getByIdForCheckout(planId: string): Promise<PlanData> {
+    const response = await PlanService.getById(planId);
+    const plan = response.data;
 
     if (!plan.isActive) {
       throw new PlanNotAvailableError(planId);
@@ -75,11 +104,11 @@ export abstract class PlanService {
     return plan;
   }
 
-  static async getByName(name: string): Promise<PlanResponse | null> {
+  static async getByName(name: string): Promise<PlanData | null> {
     const [plan] = await db
       .select()
-      .from(subscriptionPlans)
-      .where(eq(subscriptionPlans.name, name))
+      .from(schema.subscriptionPlans)
+      .where(eq(schema.subscriptionPlans.name, name))
       .limit(1);
 
     if (!plan) {
@@ -100,15 +129,11 @@ export abstract class PlanService {
     };
   }
 
-  /**
-   * Create a new plan.
-   */
-  static async create(data: CreatePlanRequest): Promise<PlanResponse> {
-    // Check if plan with same name already exists
+  static async create(data: CreatePlanInput): Promise<CreatePlanResponse> {
     const [existingPlan] = await db
-      .select({ id: subscriptionPlans.id })
-      .from(subscriptionPlans)
-      .where(eq(subscriptionPlans.name, data.name))
+      .select({ id: schema.subscriptionPlans.id })
+      .from(schema.subscriptionPlans)
+      .where(eq(schema.subscriptionPlans.name, data.name))
       .limit(1);
 
     if (existingPlan) {
@@ -118,7 +143,7 @@ export abstract class PlanService {
     const planId = `plan-${crypto.randomUUID()}`;
 
     const [plan] = await db
-      .insert(subscriptionPlans)
+      .insert(schema.subscriptionPlans)
       .values({
         id: planId,
         name: data.name,
@@ -134,46 +159,44 @@ export abstract class PlanService {
       .returning();
 
     return {
-      id: plan.id,
-      name: plan.name,
-      displayName: plan.displayName,
-      priceMonthly: plan.priceMonthly,
-      priceYearly: plan.priceYearly,
-      trialDays: plan.trialDays,
-      limits: plan.limits,
-      isActive: plan.isActive,
-      isPublic: plan.isPublic,
-      sortOrder: plan.sortOrder,
+      success: true as const,
+      data: {
+        id: plan.id,
+        name: plan.name,
+        displayName: plan.displayName,
+        priceMonthly: plan.priceMonthly,
+        priceYearly: plan.priceYearly,
+        trialDays: plan.trialDays,
+        limits: plan.limits,
+        isActive: plan.isActive,
+        isPublic: plan.isPublic,
+        sortOrder: plan.sortOrder,
+      },
     };
   }
 
-  /**
-   * Update an existing plan.
-   */
   static async update(
     planId: string,
-    data: UpdatePlanRequest
-  ): Promise<PlanResponse> {
-    // Check if plan exists
+    data: UpdatePlanInput
+  ): Promise<UpdatePlanResponse> {
     const [existingPlan] = await db
       .select()
-      .from(subscriptionPlans)
-      .where(eq(subscriptionPlans.id, planId))
+      .from(schema.subscriptionPlans)
+      .where(eq(schema.subscriptionPlans.id, planId))
       .limit(1);
 
     if (!existingPlan) {
       throw new PlanNotFoundError(planId);
     }
 
-    // Check if name is being changed and if new name already exists
     if (data.name && data.name !== existingPlan.name) {
       const [planWithSameName] = await db
-        .select({ id: subscriptionPlans.id })
-        .from(subscriptionPlans)
+        .select({ id: schema.subscriptionPlans.id })
+        .from(schema.subscriptionPlans)
         .where(
           and(
-            eq(subscriptionPlans.name, data.name),
-            ne(subscriptionPlans.id, planId)
+            eq(schema.subscriptionPlans.name, data.name),
+            ne(schema.subscriptionPlans.id, planId)
           )
         )
         .limit(1);
@@ -184,7 +207,7 @@ export abstract class PlanService {
     }
 
     const [plan] = await db
-      .update(subscriptionPlans)
+      .update(schema.subscriptionPlans)
       .set({
         ...(data.name !== undefined && { name: data.name }),
         ...(data.displayName !== undefined && {
@@ -202,123 +225,173 @@ export abstract class PlanService {
         ...(data.isPublic !== undefined && { isPublic: data.isPublic }),
         ...(data.sortOrder !== undefined && { sortOrder: data.sortOrder }),
       })
-      .where(eq(subscriptionPlans.id, planId))
+      .where(eq(schema.subscriptionPlans.id, planId))
       .returning();
 
     return {
-      id: plan.id,
-      name: plan.name,
-      displayName: plan.displayName,
-      priceMonthly: plan.priceMonthly,
-      priceYearly: plan.priceYearly,
-      trialDays: plan.trialDays,
-      limits: plan.limits,
-      isActive: plan.isActive,
-      isPublic: plan.isPublic,
-      sortOrder: plan.sortOrder,
+      success: true as const,
+      data: {
+        id: plan.id,
+        name: plan.name,
+        displayName: plan.displayName,
+        priceMonthly: plan.priceMonthly,
+        priceYearly: plan.priceYearly,
+        trialDays: plan.trialDays,
+        limits: plan.limits,
+        isActive: plan.isActive,
+        isPublic: plan.isPublic,
+        sortOrder: plan.sortOrder,
+      },
     };
   }
 
-  /**
-   * Delete a plan.
-   */
-  static async delete(planId: string): Promise<void> {
-    // Check if plan exists
+  static async delete(planId: string): Promise<DeletePlanResponse> {
     const [existingPlan] = await db
-      .select({ id: subscriptionPlans.id })
-      .from(subscriptionPlans)
-      .where(eq(subscriptionPlans.id, planId))
+      .select({ id: schema.subscriptionPlans.id })
+      .from(schema.subscriptionPlans)
+      .where(eq(schema.subscriptionPlans.id, planId))
       .limit(1);
 
     if (!existingPlan) {
       throw new PlanNotFoundError(planId);
     }
 
-    await db.delete(subscriptionPlans).where(eq(subscriptionPlans.id, planId));
+    await db
+      .delete(schema.subscriptionPlans)
+      .where(eq(schema.subscriptionPlans.id, planId));
+
+    return {
+      success: true as const,
+      data: {
+        deleted: true,
+      },
+    };
   }
 
-  /**
-   * Sync a local plan to Pagarme.
-   * Creates the plan in Pagarme if it doesn't exist and stores the pagarmePlanId.
-   */
-  static async syncToPagarme(planId: string): Promise<string> {
+  static async syncToPagarme(planId: string): Promise<SyncPlanResponse> {
     const [plan] = await db
       .select()
-      .from(subscriptionPlans)
-      .where(eq(subscriptionPlans.id, planId))
+      .from(schema.subscriptionPlans)
+      .where(eq(schema.subscriptionPlans.id, planId))
       .limit(1);
 
     if (!plan) {
       throw new PlanNotFoundError(planId);
     }
 
-    // Already synced
-    if (plan.pagarmePlanId) {
-      return plan.pagarmePlanId;
+    let pagarmePlanIdMonthly = plan.pagarmePlanIdMonthly;
+    let pagarmePlanIdYearly = plan.pagarmePlanIdYearly;
+
+    if (!pagarmePlanIdMonthly) {
+      const monthlyPlan = await PagarmeClient.createPlan(
+        {
+          name: `${plan.name}-monthly`,
+          description: plan.displayName,
+          currency: "BRL",
+          interval: "month",
+          interval_count: 1,
+          billing_type: "prepaid",
+          payment_methods: ["credit_card"],
+          items: [
+            {
+              name: plan.displayName,
+              quantity: 1,
+              pricing_scheme: {
+                price: plan.priceMonthly,
+                scheme_type: "unit",
+              },
+            },
+          ],
+          metadata: {
+            local_plan_id: plan.id,
+            billing_cycle: "monthly",
+          },
+        },
+        `create-plan-monthly-${plan.id}`
+      );
+      pagarmePlanIdMonthly = monthlyPlan.id;
     }
 
-    // Create plan in Pagarme
-    const pagarmePlan = await PagarmeClient.createPlan(
-      {
-        name: plan.name,
-        description: plan.displayName,
-        currency: "BRL",
-        interval: "month",
-        interval_count: 1,
-        billing_type: "prepaid",
-        payment_methods: ["credit_card"],
-        items: [
-          {
-            name: plan.displayName,
-            quantity: 1,
-            pricing_scheme: {
-              price: plan.priceMonthly,
-              scheme_type: "unit",
+    if (!pagarmePlanIdYearly && plan.priceYearly > 0) {
+      const yearlyPlan = await PagarmeClient.createPlan(
+        {
+          name: `${plan.name}-yearly`,
+          description: `${plan.displayName} (Anual)`,
+          currency: "BRL",
+          interval: "year",
+          interval_count: 1,
+          billing_type: "prepaid",
+          payment_methods: ["credit_card"],
+          items: [
+            {
+              name: `${plan.displayName} (Anual)`,
+              quantity: 1,
+              pricing_scheme: {
+                price: plan.priceYearly,
+                scheme_type: "unit",
+              },
             },
+          ],
+          metadata: {
+            local_plan_id: plan.id,
+            billing_cycle: "yearly",
           },
-        ],
-        metadata: {
-          local_plan_id: plan.id,
         },
-      },
-      `create-plan-${plan.id}`
-    );
+        `create-plan-yearly-${plan.id}`
+      );
+      pagarmePlanIdYearly = yearlyPlan.id;
+    }
 
-    // Save pagarmePlanId
     await db
-      .update(subscriptionPlans)
-      .set({ pagarmePlanId: pagarmePlan.id })
-      .where(eq(subscriptionPlans.id, planId));
+      .update(schema.subscriptionPlans)
+      .set({ pagarmePlanIdMonthly, pagarmePlanIdYearly })
+      .where(eq(schema.subscriptionPlans.id, planId));
 
-    return pagarmePlan.id;
+    return {
+      success: true as const,
+      data: {
+        id: plan.id,
+        pagarmePlanIdMonthly,
+        pagarmePlanIdYearly,
+      },
+    };
   }
 
-  /**
-   * Ensure plan is synced to Pagarme before creating payment links.
-   * Returns the plan with guaranteed pagarmePlanId.
-   */
-  static async ensureSynced(
-    planId: string
-  ): Promise<PlanResponse & { pagarmePlanId: string }> {
-    const plan = await PlanService.getById(planId);
+  static async ensureSynced(planId: string): Promise<
+    PlanData & {
+      pagarmePlanIdMonthly: string | null;
+      pagarmePlanIdYearly: string | null;
+    }
+  > {
+    const response = await PlanService.getById(planId);
+    const plan = response.data;
 
     if (!plan.isActive) {
       throw new PlanNotAvailableError(planId);
     }
 
-    // Check if already has pagarmePlanId
     const [dbPlan] = await db
-      .select({ pagarmePlanId: subscriptionPlans.pagarmePlanId })
-      .from(subscriptionPlans)
-      .where(eq(subscriptionPlans.id, planId))
+      .select({
+        pagarmePlanIdMonthly: schema.subscriptionPlans.pagarmePlanIdMonthly,
+        pagarmePlanIdYearly: schema.subscriptionPlans.pagarmePlanIdYearly,
+      })
+      .from(schema.subscriptionPlans)
+      .where(eq(schema.subscriptionPlans.id, planId))
       .limit(1);
 
-    if (dbPlan?.pagarmePlanId) {
-      return { ...plan, pagarmePlanId: dbPlan.pagarmePlanId };
+    if (dbPlan?.pagarmePlanIdMonthly) {
+      return {
+        ...plan,
+        pagarmePlanIdMonthly: dbPlan.pagarmePlanIdMonthly,
+        pagarmePlanIdYearly: dbPlan.pagarmePlanIdYearly,
+      };
     }
 
-    // Sync to Pagarme
-    const pagarmePlanId = await PlanService.syncToPagarme(planId);
-    return { ...plan, pagarmePlanId };
+    const syncResponse = await PlanService.syncToPagarme(planId);
+    return {
+      ...plan,
+      pagarmePlanIdMonthly: syncResponse.data.pagarmePlanIdMonthly,
+      pagarmePlanIdYearly: syncResponse.data.pagarmePlanIdYearly,
+    };
   }
 }

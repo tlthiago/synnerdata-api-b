@@ -20,8 +20,9 @@ describe("GET /payments/plans", () => {
     expect(response.status).toBe(200);
 
     const body = await response.json();
-    expect(body.plans).toBeArray();
-    expect(body.plans.length).toBeGreaterThan(0);
+    expect(body.success).toBe(true);
+    expect(body.data.plans).toBeArray();
+    expect(body.data.plans.length).toBeGreaterThan(0);
   });
 
   test("should return only active and public plans", async () => {
@@ -30,7 +31,7 @@ describe("GET /payments/plans", () => {
     );
     const body = await response.json();
 
-    for (const plan of body.plans) {
+    for (const plan of body.data.plans) {
       expect(plan.isActive).toBe(true);
       expect(plan.isPublic).toBe(true);
     }
@@ -42,7 +43,7 @@ describe("GET /payments/plans", () => {
     );
     const body = await response.json();
 
-    const legacyPlan = body.plans.find(
+    const legacyPlan = body.data.plans.find(
       (p: { name: string }) => p.name === "legacy"
     );
     expect(legacyPlan).toBeUndefined();
@@ -53,11 +54,10 @@ describe("GET /payments/plans", () => {
       new Request(`${BASE_URL}/v1/payments/plans`)
     );
     const body = await response.json();
+    const plans = body.data.plans;
 
-    for (let i = 1; i < body.plans.length; i++) {
-      expect(body.plans[i].sortOrder).toBeGreaterThanOrEqual(
-        body.plans[i - 1].sortOrder
-      );
+    for (let i = 1; i < plans.length; i++) {
+      expect(plans[i].sortOrder).toBeGreaterThanOrEqual(plans[i - 1].sortOrder);
     }
   });
 
@@ -66,7 +66,7 @@ describe("GET /payments/plans", () => {
       new Request(`${BASE_URL}/v1/payments/plans`)
     );
     const body = await response.json();
-    const plan = body.plans[0];
+    const plan = body.data.plans[0];
 
     expect(plan).toHaveProperty("id");
     expect(plan).toHaveProperty("name");
@@ -85,7 +85,9 @@ describe("GET /payments/plans", () => {
       new Request(`${BASE_URL}/v1/payments/plans`)
     );
     const body = await response.json();
-    const plan = body.plans.find((p: { limits: unknown }) => p.limits !== null);
+    const plan = body.data.plans.find(
+      (p: { limits: unknown }) => p.limits !== null
+    );
 
     if (plan?.limits) {
       expect(plan.limits).toHaveProperty("maxMembers");

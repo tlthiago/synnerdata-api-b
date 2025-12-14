@@ -1,12 +1,7 @@
-import { beforeAll, describe, expect, test } from "bun:test";
+import { beforeAll, beforeEach, describe, expect, spyOn, test } from "bun:test";
 import { eq } from "drizzle-orm";
 import { db } from "@/db";
-import {
-  members,
-  orgSubscriptions,
-  subscriptionPlans,
-  users,
-} from "@/db/schema";
+import { schema } from "@/db/schema";
 import { env } from "@/env";
 import { starterPlan } from "@/test/fixtures/plans";
 import { createTestApp, type TestApp } from "@/test/helpers/app";
@@ -21,16 +16,27 @@ describe("Signup Use Case: Novo Usuário até Trial Ativo", () => {
   let userId: string;
   let organizationId: string;
 
+  let emailModule: typeof import("@/lib/email");
+  let sendWelcomeEmailSpy: ReturnType<typeof spyOn>;
+
   beforeAll(async () => {
     app = createTestApp();
     testEmail = `test-${crypto.randomUUID()}@example.com`;
+    emailModule = await import("@/lib/email");
 
     if (starterPlan) {
       await db
-        .insert(subscriptionPlans)
+        .insert(schema.subscriptionPlans)
         .values(starterPlan)
         .onConflictDoNothing();
     }
+  });
+
+  beforeEach(() => {
+    sendWelcomeEmailSpy = spyOn(
+      emailModule,
+      "sendWelcomeEmail"
+    ).mockResolvedValue(undefined);
   });
 
   describe("Fase 1: Autenticação Passwordless", () => {
@@ -88,8 +94,8 @@ describe("Signup Use Case: Novo Usuário até Trial Ativo", () => {
     test("should create new user automatically", async () => {
       const [user] = await db
         .select()
-        .from(users)
-        .where(eq(users.email, testEmail))
+        .from(schema.users)
+        .where(eq(schema.users.email, testEmail))
         .limit(1);
 
       expect(user).toBeDefined();
@@ -99,8 +105,8 @@ describe("Signup Use Case: Novo Usuário até Trial Ativo", () => {
     test("should set emailVerified to true", async () => {
       const [user] = await db
         .select()
-        .from(users)
-        .where(eq(users.id, userId))
+        .from(schema.users)
+        .where(eq(schema.users.id, userId))
         .limit(1);
 
       expect(user.emailVerified).toBe(true);
@@ -108,6 +114,59 @@ describe("Signup Use Case: Novo Usuário até Trial Ativo", () => {
 
     test("should return session cookies", () => {
       expect(sessionCookies).toContain("better-auth.session_token");
+    });
+
+    test("should send welcome email on first login", () => {
+      expect(sendWelcomeEmailSpy).toHaveBeenCalledTimes(1);
+      expect(sendWelcomeEmailSpy).toHaveBeenCalledWith({
+        to: testEmail,
+        userName: expect.any(String),
+      });
+    });
+
+    test("should not fail user creation if welcome email fails", async () => {
+      const failEmail = `fail-email-${crypto.randomUUID()}@example.com`;
+
+      sendWelcomeEmailSpy.mockRejectedValueOnce(new Error("SMTP error"));
+
+      await app.handle(
+        new Request(`${BASE_URL}/auth/api/email-otp/send-verification-otp`, {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({
+            email: failEmail,
+            type: "sign-in",
+          }),
+        })
+      );
+
+      const otp = await waitForOTP(failEmail);
+      const signInResponse = await app.handle(
+        new Request(`${BASE_URL}/auth/api/sign-in/email-otp`, {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({
+            email: failEmail,
+            otp,
+          }),
+        })
+      );
+
+      expect(signInResponse.status).toBe(200);
+
+      const [user] = await db
+        .select()
+        .from(schema.users)
+        .where(eq(schema.users.email, failEmail))
+        .limit(1);
+
+      expect(user).toBeDefined();
+
+      // Cleanup
+      await db
+        .delete(schema.sessions)
+        .where(eq(schema.sessions.userId, user.id));
+      await db.delete(schema.users).where(eq(schema.users.id, user.id));
     });
   });
 
@@ -130,8 +189,8 @@ describe("Signup Use Case: Novo Usuário até Trial Ativo", () => {
 
       const [user] = await db
         .select()
-        .from(users)
-        .where(eq(users.id, userId))
+        .from(schema.users)
+        .where(eq(schema.users.id, userId))
         .limit(1);
 
       expect(user.name).toBe("Test User");
@@ -162,8 +221,8 @@ describe("Signup Use Case: Novo Usuário até Trial Ativo", () => {
     test("should add user as owner", async () => {
       const [member] = await db
         .select()
-        .from(members)
-        .where(eq(members.organizationId, organizationId))
+        .from(schema.members)
+        .where(eq(schema.members.organizationId, organizationId))
         .limit(1);
 
       expect(member).toBeDefined();
@@ -192,8 +251,8 @@ describe("Signup Use Case: Novo Usuário até Trial Ativo", () => {
     test("should create trial subscription on org creation", async () => {
       const [subscription] = await db
         .select()
-        .from(orgSubscriptions)
-        .where(eq(orgSubscriptions.organizationId, organizationId))
+        .from(schema.orgSubscriptions)
+        .where(eq(schema.orgSubscriptions.organizationId, organizationId))
         .limit(1);
 
       expect(subscription).toBeDefined();
@@ -202,8 +261,8 @@ describe("Signup Use Case: Novo Usuário até Trial Ativo", () => {
     test("should have 14 days trial period", async () => {
       const [subscription] = await db
         .select()
-        .from(orgSubscriptions)
-        .where(eq(orgSubscriptions.organizationId, organizationId))
+        .from(schema.orgSubscriptions)
+        .where(eq(schema.orgSubscriptions.organizationId, organizationId))
         .limit(1);
 
       expect(subscription.trialStart).toBeDefined();
@@ -225,8 +284,8 @@ describe("Signup Use Case: Novo Usuário até Trial Ativo", () => {
     test("should have status trial", async () => {
       const [subscription] = await db
         .select()
-        .from(orgSubscriptions)
-        .where(eq(orgSubscriptions.organizationId, organizationId))
+        .from(schema.orgSubscriptions)
+        .where(eq(schema.orgSubscriptions.organizationId, organizationId))
         .limit(1);
 
       expect(subscription.status).toBe("trial");
@@ -235,8 +294,8 @@ describe("Signup Use Case: Novo Usuário até Trial Ativo", () => {
     test("should set trialUsed flag to true", async () => {
       const [subscription] = await db
         .select()
-        .from(orgSubscriptions)
-        .where(eq(orgSubscriptions.organizationId, organizationId))
+        .from(schema.orgSubscriptions)
+        .where(eq(schema.orgSubscriptions.organizationId, organizationId))
         .limit(1);
 
       expect(subscription.trialUsed).toBe(true);
@@ -288,6 +347,8 @@ describe("Signup Use Case: Novo Usuário até Trial Ativo", () => {
     });
 
     test("should allow re-login with same email", async () => {
+      sendWelcomeEmailSpy.mockClear();
+
       // Send new OTP
       const sendResponse = await app.handle(
         new Request(`${BASE_URL}/auth/api/email-otp/send-verification-otp`, {
@@ -318,6 +379,11 @@ describe("Signup Use Case: Novo Usuário até Trial Ativo", () => {
 
       const body = await signInResponse.json();
       expect(body.user.id).toBe(userId);
+    });
+
+    test("should NOT send welcome email on re-login", () => {
+      // This runs after the re-login test above
+      expect(sendWelcomeEmailSpy).toHaveBeenCalledTimes(0);
     });
   });
 });

@@ -1,34 +1,65 @@
 import { createAccessControl } from "better-auth/plugins/access";
+import { adminAc, defaultStatements } from "better-auth/plugins/admin/access";
 import type { Role } from "@/db/schema";
 
-export const statements = {
+// ============================================================
+// SYSTEM-LEVEL ACCESS CONTROL (Admin Plugin)
+// ============================================================
+
+export const systemStatements = {
+  ...defaultStatements,
+  plan: ["create", "read", "update", "delete", "sync"],
+} as const;
+
+export const systemAc = createAccessControl(systemStatements);
+
+export const systemRoles = {
+  super_admin: systemAc.newRole({
+    ...adminAc.statements,
+    plan: ["create", "read", "update", "delete", "sync"],
+  }),
+  admin: systemAc.newRole({
+    ...adminAc.statements,
+    plan: ["read"],
+  }),
+  user: systemAc.newRole({
+    plan: ["read"],
+  }),
+};
+
+// ============================================================
+// ORGANIZATION-LEVEL ACCESS CONTROL (Organization Plugin)
+// ============================================================
+
+export const orgStatements = {
   organization: ["read", "update", "delete"],
   employee: ["create", "read", "update", "delete"],
   occurrence: ["create", "read", "update", "delete"],
   member: ["create", "read", "update", "delete"],
   invitation: ["create", "read", "cancel"],
   subscription: ["read", "update"],
+  billing: ["read", "update"],
   report: ["read", "export"],
 } as const;
 
-export type Permissions = Partial<{
-  [K in keyof typeof statements]: (typeof statements)[K][number][];
+export type OrgPermissions = Partial<{
+  [K in keyof typeof orgStatements]: (typeof orgStatements)[K][number][];
 }>;
 
-export const ac = createAccessControl(statements);
+export const orgAc = createAccessControl(orgStatements);
 
-export const roles: Record<Role, ReturnType<typeof ac.newRole>> = {
-  owner: ac.newRole({
+export const orgRoles: Record<Role, ReturnType<typeof orgAc.newRole>> = {
+  owner: orgAc.newRole({
     organization: ["read", "update", "delete"],
     employee: ["create", "read", "update", "delete"],
     occurrence: ["create", "read", "update", "delete"],
     member: ["create", "read", "update", "delete"],
     invitation: ["create", "read", "cancel"],
     subscription: ["read", "update"],
+    billing: ["read", "update"],
     report: ["read", "export"],
   }),
-
-  manager: ac.newRole({
+  manager: orgAc.newRole({
     organization: ["read"],
     employee: ["create", "read", "update", "delete"],
     occurrence: ["create", "read", "update", "delete"],
@@ -37,8 +68,7 @@ export const roles: Record<Role, ReturnType<typeof ac.newRole>> = {
     subscription: ["read"],
     report: ["read", "export"],
   }),
-
-  supervisor: ac.newRole({
+  supervisor: orgAc.newRole({
     organization: ["read"],
     employee: ["read"],
     occurrence: ["create", "read", "update", "delete"],
@@ -47,8 +77,7 @@ export const roles: Record<Role, ReturnType<typeof ac.newRole>> = {
     subscription: ["read"],
     report: ["read", "export"],
   }),
-
-  viewer: ac.newRole({
+  viewer: orgAc.newRole({
     organization: ["read"],
     employee: ["read"],
     occurrence: ["read"],
@@ -58,3 +87,12 @@ export const roles: Record<Role, ReturnType<typeof ac.newRole>> = {
     report: ["read"],
   }),
 };
+
+// ============================================================
+// ALIASES (backward compatibility)
+// ============================================================
+
+export const ac = orgAc;
+export const roles = orgRoles;
+export const statements = orgStatements;
+export type Permissions = OrgPermissions;

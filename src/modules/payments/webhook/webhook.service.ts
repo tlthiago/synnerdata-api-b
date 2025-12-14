@@ -1,32 +1,32 @@
-import { createHmac } from "node:crypto";
+import { timingSafeEqual } from "node:crypto";
 import { and, eq } from "drizzle-orm";
 import { db } from "@/db";
-import { orgSubscriptions, subscriptionEvents } from "@/db/schema";
+import { schema } from "@/db/schema";
 import { env } from "@/env";
 import { WebhookValidationError } from "../errors";
 import { PaymentHooks } from "../hooks";
-import type { WebhookPayload } from "./webhook.model";
+import type { ProcessWebhook } from "./webhook.model";
 
 export abstract class WebhookService {
-  /**
-   * Process incoming Pagarme webhook.
-   */
-  static async process(payload: WebhookPayload, signature: string | null) {
-    // Validate HMAC signature
-    WebhookService.validateSignature(payload, signature);
+  static async process(
+    payload: ProcessWebhook,
+    authHeader: string | null,
+    _rawBody: string
+  ) {
+    WebhookService.validateBasicAuth(authHeader);
 
-    // Check idempotency - skip if already processed
-    const existingEvent = await db.query.subscriptionEvents.findFirst({
-      where: eq(subscriptionEvents.pagarmeEventId, payload.id),
-    });
+    const [existingEvent] = await db
+      .select()
+      .from(schema.subscriptionEvents)
+      .where(eq(schema.subscriptionEvents.pagarmeEventId, payload.id))
+      .limit(1);
 
     if (existingEvent?.processedAt) {
-      return; // Already processed
+      return;
     }
 
-    // Create event record for idempotency
-    const eventId = crypto.randomUUID();
-    await db.insert(subscriptionEvents).values({
+    const eventId = `event-${crypto.randomUUID()}`;
+    await db.insert(schema.subscriptionEvents).values({
       id: eventId,
       pagarmeEventId: payload.id,
       eventType: payload.type,
@@ -34,7 +34,6 @@ export abstract class WebhookService {
     });
 
     try {
-      // Process by event type
       switch (payload.type) {
         case "charge.paid":
           await WebhookService.handleChargePaid(payload);
@@ -45,63 +44,83 @@ export abstract class WebhookService {
         case "subscription.canceled":
           await WebhookService.handleSubscriptionCanceled(payload);
           break;
-        case "order.paid":
-          await WebhookService.handleOrderPaid(payload);
-          break;
         case "subscription.created":
           await WebhookService.handleSubscriptionCreated(payload);
           break;
+        case "charge.refunded":
+          await WebhookService.handleChargeRefunded(payload);
+          break;
+        case "subscription.updated":
+          await WebhookService.handleSubscriptionUpdated(payload);
+          break;
         default:
-          console.log(`Unhandled webhook event type: ${payload.type}`);
+          break;
       }
 
-      // Mark as processed
       await db
-        .update(subscriptionEvents)
+        .update(schema.subscriptionEvents)
         .set({ processedAt: new Date() })
-        .where(eq(subscriptionEvents.id, eventId));
+        .where(eq(schema.subscriptionEvents.id, eventId));
     } catch (error) {
-      // Record error
       await db
-        .update(subscriptionEvents)
+        .update(schema.subscriptionEvents)
         .set({
           error: error instanceof Error ? error.message : "Unknown error",
         })
-        .where(eq(subscriptionEvents.id, eventId));
+        .where(eq(schema.subscriptionEvents.id, eventId));
 
       throw error;
     }
   }
 
-  /**
-   * Validate webhook signature using HMAC.
-   */
-  private static validateSignature(
-    payload: WebhookPayload,
-    signature: string | null
-  ) {
-    if (!signature) {
+  private static validateBasicAuth(authHeader: string | null) {
+    if (!authHeader?.startsWith("Basic ")) {
       throw new WebhookValidationError();
     }
 
-    const expectedSignature = createHmac("sha256", env.PAGARME_WEBHOOK_SECRET)
-      .update(JSON.stringify(payload))
-      .digest("hex");
+    const base64 = authHeader.slice(6);
+    let decoded: string;
+    try {
+      decoded = Buffer.from(base64, "base64").toString("utf-8");
+    } catch {
+      throw new WebhookValidationError();
+    }
 
-    // Pagarme may send signature with or without prefix
-    const providedSignature = signature.startsWith("sha256=")
-      ? signature.slice(7)
-      : signature;
+    const separatorIndex = decoded.indexOf(":");
+    if (separatorIndex === -1) {
+      throw new WebhookValidationError();
+    }
 
-    if (providedSignature !== expectedSignature) {
+    const username = decoded.slice(0, separatorIndex);
+    const password = decoded.slice(separatorIndex + 1);
+
+    const validUser = WebhookService.timingSafeCompare(
+      username,
+      env.PAGARME_WEBHOOK_USERNAME
+    );
+    const validPass = WebhookService.timingSafeCompare(
+      password,
+      env.PAGARME_WEBHOOK_PASSWORD
+    );
+
+    if (!(validUser && validPass)) {
       throw new WebhookValidationError();
     }
   }
 
-  /**
-   * Handle charge.paid event - activate subscription.
-   */
-  private static async handleChargePaid(payload: WebhookPayload) {
+  private static timingSafeCompare(a: string, b: string): boolean {
+    const bufA = Buffer.from(a);
+    const bufB = Buffer.from(b);
+
+    if (bufA.length !== bufB.length) {
+      timingSafeEqual(bufA, Buffer.alloc(bufA.length));
+      return false;
+    }
+
+    return timingSafeEqual(bufA, bufB);
+  }
+
+  private static async handleChargePaid(payload: ProcessWebhook) {
     const data = payload.data as {
       subscription?: { id: string };
       current_period?: { start_at: string; end_at: string };
@@ -113,13 +132,11 @@ export abstract class WebhookService {
     const organizationId = data.metadata?.organization_id;
 
     if (!organizationId) {
-      console.log("charge.paid: No organization_id in metadata");
       return;
     }
 
-    // Update subscription to active
     await db
-      .update(orgSubscriptions)
+      .update(schema.orgSubscriptions)
       .set({
         status: "active",
         pagarmeSubscriptionId: subscriptionId,
@@ -130,12 +147,13 @@ export abstract class WebhookService {
           ? new Date(data.current_period.end_at)
           : null,
       })
-      .where(eq(orgSubscriptions.organizationId, organizationId));
+      .where(eq(schema.orgSubscriptions.organizationId, organizationId));
 
-    // Emit hook event
-    const subscription = await db.query.orgSubscriptions.findFirst({
-      where: eq(orgSubscriptions.organizationId, organizationId),
-    });
+    const [subscription] = await db
+      .select()
+      .from(schema.orgSubscriptions)
+      .where(eq(schema.orgSubscriptions.organizationId, organizationId))
+      .limit(1);
 
     if (subscription) {
       PaymentHooks.emit("charge.paid", {
@@ -145,10 +163,7 @@ export abstract class WebhookService {
     }
   }
 
-  /**
-   * Handle charge.payment_failed event - mark as past_due.
-   */
-  private static async handleChargeFailed(payload: WebhookPayload) {
+  private static async handleChargeFailed(payload: ProcessWebhook) {
     const data = payload.data as {
       subscription?: { id: string };
       invoice?: { id: string };
@@ -161,20 +176,19 @@ export abstract class WebhookService {
     const organizationId = data.metadata?.organization_id;
 
     if (!organizationId) {
-      console.log("charge.payment_failed: No organization_id in metadata");
       return;
     }
 
-    // Update subscription to past_due
     await db
-      .update(orgSubscriptions)
+      .update(schema.orgSubscriptions)
       .set({ status: "past_due" })
-      .where(eq(orgSubscriptions.organizationId, organizationId));
+      .where(eq(schema.orgSubscriptions.organizationId, organizationId));
 
-    // Emit hook event
-    const subscription = await db.query.orgSubscriptions.findFirst({
-      where: eq(orgSubscriptions.organizationId, organizationId),
-    });
+    const [subscription] = await db
+      .select()
+      .from(schema.orgSubscriptions)
+      .where(eq(schema.orgSubscriptions.organizationId, organizationId))
+      .limit(1);
 
     if (subscription) {
       PaymentHooks.emit("charge.failed", {
@@ -186,108 +200,255 @@ export abstract class WebhookService {
     }
   }
 
-  /**
-   * Handle subscription.canceled event.
-   */
-  private static async handleSubscriptionCanceled(payload: WebhookPayload) {
+  private static async handleChargeRefunded(payload: ProcessWebhook) {
     const data = payload.data as {
       id: string;
+      amount?: number;
+      subscription?: { id: string };
       metadata?: Record<string, string>;
+      last_transaction?: {
+        gateway_response?: { message: string };
+      };
     };
 
     const organizationId = data.metadata?.organization_id;
+    const pagarmeSubscriptionId = data.subscription?.id;
 
-    if (!organizationId) {
-      // Try to find by Pagarme subscription ID
-      const subscription = await db.query.orgSubscriptions.findFirst({
-        where: eq(orgSubscriptions.pagarmeSubscriptionId, data.id),
-      });
+    // Try to find organization by metadata or by pagarmeSubscriptionId
+    type Subscription = typeof schema.orgSubscriptions.$inferSelect;
+    let subscription: Subscription | undefined;
 
-      if (subscription) {
-        await db
-          .update(orgSubscriptions)
-          .set({
-            status: "canceled",
-            canceledAt: new Date(),
-          })
-          .where(eq(orgSubscriptions.id, subscription.id));
+    if (organizationId) {
+      [subscription] = await db
+        .select()
+        .from(schema.orgSubscriptions)
+        .where(eq(schema.orgSubscriptions.organizationId, organizationId))
+        .limit(1);
+    } else if (pagarmeSubscriptionId) {
+      [subscription] = await db
+        .select()
+        .from(schema.orgSubscriptions)
+        .where(
+          eq(
+            schema.orgSubscriptions.pagarmeSubscriptionId,
+            pagarmeSubscriptionId
+          )
+        )
+        .limit(1);
+    }
 
-        PaymentHooks.emit("subscription.canceled", { subscription });
-      }
+    if (!subscription) {
       return;
     }
 
+    // Mark subscription as canceled due to refund
     await db
-      .update(orgSubscriptions)
+      .update(schema.orgSubscriptions)
       .set({
         status: "canceled",
         canceledAt: new Date(),
       })
-      .where(eq(orgSubscriptions.organizationId, organizationId));
+      .where(eq(schema.orgSubscriptions.id, subscription.id));
 
-    const subscription = await db.query.orgSubscriptions.findFirst({
-      where: eq(orgSubscriptions.organizationId, organizationId),
+    PaymentHooks.emit("charge.refunded", {
+      subscriptionId: subscription.id,
+      chargeId: data.id,
+      amount: data.amount ?? 0,
+      reason: data.last_transaction?.gateway_response?.message,
     });
 
-    if (subscription) {
-      PaymentHooks.emit("subscription.canceled", { subscription });
+    // Also emit subscription.canceled since access is being revoked
+    PaymentHooks.emit("subscription.canceled", { subscription });
+  }
+
+  private static async handleSubscriptionUpdated(payload: ProcessWebhook) {
+    const data = payload.data as {
+      id: string;
+      status?: string;
+      card?: {
+        id: string;
+        last_four_digits: string;
+        brand: string;
+        exp_month: number;
+        exp_year: number;
+      };
+      current_period?: { start_at: string; end_at: string };
+      next_billing_at?: string;
+      metadata?: Record<string, string>;
+    };
+
+    const organizationId = data.metadata?.organization_id;
+    const pagarmeSubscriptionId = data.id;
+
+    // Find subscription by metadata or by pagarmeSubscriptionId
+    type Subscription = typeof schema.orgSubscriptions.$inferSelect;
+    let subscription: Subscription | undefined;
+
+    if (organizationId) {
+      [subscription] = await db
+        .select()
+        .from(schema.orgSubscriptions)
+        .where(eq(schema.orgSubscriptions.organizationId, organizationId))
+        .limit(1);
+    } else {
+      [subscription] = await db
+        .select()
+        .from(schema.orgSubscriptions)
+        .where(
+          eq(
+            schema.orgSubscriptions.pagarmeSubscriptionId,
+            pagarmeSubscriptionId
+          )
+        )
+        .limit(1);
+    }
+
+    if (!subscription) {
+      return;
+    }
+
+    const changes: {
+      cardUpdated?: boolean;
+      statusChanged?: boolean;
+      previousStatus?: string;
+    } = {};
+
+    // Track status change
+    const previousStatus = subscription.status;
+    let newStatus = subscription.status;
+
+    if (data.status) {
+      const statusMap: Record<string, string> = {
+        active: "active",
+        canceled: "canceled",
+        pending: "past_due",
+        failed: "past_due",
+      };
+
+      const mappedStatus = statusMap[data.status];
+      if (mappedStatus && mappedStatus !== subscription.status) {
+        newStatus = mappedStatus as typeof subscription.status;
+        changes.statusChanged = true;
+        changes.previousStatus = previousStatus;
+      }
+    }
+
+    // Track card update
+    if (data.card?.id) {
+      changes.cardUpdated = true;
+    }
+
+    // Build update object
+    const updateData: Record<string, unknown> = {};
+
+    if (changes.statusChanged) {
+      updateData.status = newStatus;
+      if (newStatus === "canceled") {
+        updateData.canceledAt = new Date();
+      }
+    }
+
+    if (data.current_period?.start_at) {
+      updateData.currentPeriodStart = new Date(data.current_period.start_at);
+    }
+
+    if (data.current_period?.end_at) {
+      updateData.currentPeriodEnd = new Date(data.current_period.end_at);
+    }
+
+    // Only update if there are changes
+    if (Object.keys(updateData).length > 0) {
+      await db
+        .update(schema.orgSubscriptions)
+        .set(updateData)
+        .where(eq(schema.orgSubscriptions.id, subscription.id));
+    }
+
+    // Fetch updated subscription for event
+    const [updatedSubscription] = await db
+      .select()
+      .from(schema.orgSubscriptions)
+      .where(eq(schema.orgSubscriptions.id, subscription.id))
+      .limit(1);
+
+    if (updatedSubscription) {
+      PaymentHooks.emit("subscription.updated", {
+        subscription: updatedSubscription,
+        changes,
+      });
     }
   }
 
-  /**
-   * Handle order.paid event (for checkout flow).
-   */
-  private static async handleOrderPaid(payload: WebhookPayload) {
+  private static async handleSubscriptionCanceled(payload: ProcessWebhook) {
     const data = payload.data as {
       id: string;
       metadata?: Record<string, string>;
     };
 
     const organizationId = data.metadata?.organization_id;
-    const planId = data.metadata?.plan_id;
 
     if (!organizationId) {
-      console.log("order.paid: No organization_id in metadata");
+      const [existingSubscription] = await db
+        .select()
+        .from(schema.orgSubscriptions)
+        .where(eq(schema.orgSubscriptions.pagarmeSubscriptionId, data.id))
+        .limit(1);
+
+      if (existingSubscription) {
+        const canceledAt = new Date();
+        await db
+          .update(schema.orgSubscriptions)
+          .set({
+            status: "canceled",
+            canceledAt,
+          })
+          .where(eq(schema.orgSubscriptions.id, existingSubscription.id));
+
+        PaymentHooks.emit("subscription.canceled", {
+          subscription: existingSubscription,
+        });
+
+        await WebhookService.sendCancellationEmail(
+          existingSubscription.organizationId,
+          existingSubscription.planId,
+          canceledAt,
+          existingSubscription.currentPeriodEnd
+        );
+      }
       return;
     }
 
-    // Update subscription to active
-    const now = new Date();
-    const periodEnd = new Date();
-    periodEnd.setMonth(periodEnd.getMonth() + 1); // Default to 1 month
-
+    const canceledAt = new Date();
     await db
-      .update(orgSubscriptions)
+      .update(schema.orgSubscriptions)
       .set({
-        status: "active",
-        currentPeriodStart: now,
-        currentPeriodEnd: periodEnd,
-        planId: planId ?? undefined,
+        status: "canceled",
+        canceledAt,
       })
-      .where(eq(orgSubscriptions.organizationId, organizationId));
+      .where(eq(schema.orgSubscriptions.organizationId, organizationId));
 
-    const subscription = await db.query.orgSubscriptions.findFirst({
-      where: eq(orgSubscriptions.organizationId, organizationId),
-    });
+    const [subscription] = await db
+      .select()
+      .from(schema.orgSubscriptions)
+      .where(eq(schema.orgSubscriptions.organizationId, organizationId))
+      .limit(1);
 
     if (subscription) {
-      PaymentHooks.emit("subscription.activated", { subscription });
+      PaymentHooks.emit("subscription.canceled", { subscription });
+
+      await WebhookService.sendCancellationEmail(
+        organizationId,
+        subscription.planId,
+        canceledAt,
+        subscription.currentPeriodEnd
+      );
     }
   }
 
-  /**
-   * Handle subscription.created webhook.
-   * Updates subscription status to active and syncs customer data.
-   *
-   * Note: Pagarme Payment Links with type="subscription" don't propagate
-   * payment link metadata to the subscription. Instead, the subscription
-   * has the plan's metadata (local_plan_id). We use pending_checkouts
-   * to lookup the organization.
-   */
-  private static async handleSubscriptionCreated(payload: WebhookPayload) {
+  private static async handleSubscriptionCreated(payload: ProcessWebhook) {
     const data = payload.data as {
       id: string;
-      code?: string; // Payment link ID for checkout lookup
+      code?: string;
       status?: string;
       start_at?: string;
       current_period?: { start_at: string; end_at: string };
@@ -320,31 +481,26 @@ export abstract class WebhookService {
       metadata?: Record<string, string>;
     };
 
-    // Try multiple sources for organization_id:
-    // 1. data.metadata.organization_id (direct, for tests)
-    // 2. data.plan.metadata.local_plan_id -> lookup pending_checkouts
     let organizationId = data.metadata?.organization_id;
     let planId = data.metadata?.plan_id;
+    let billingCycle = data.metadata?.billing_cycle ?? "monthly";
 
     if (!organizationId) {
-      // Lookup from pending_checkouts using payment link code (unique identifier)
       const paymentLinkCode = data.code;
 
       if (paymentLinkCode) {
-        const { pendingCheckouts } = await import("@/db/schema");
-
-        // Find pending checkout by payment link ID (unique and precise)
         const [checkout] = await db
           .select({
-            organizationId: pendingCheckouts.organizationId,
-            planId: pendingCheckouts.planId,
-            id: pendingCheckouts.id,
+            organizationId: schema.pendingCheckouts.organizationId,
+            planId: schema.pendingCheckouts.planId,
+            billingCycle: schema.pendingCheckouts.billingCycle,
+            id: schema.pendingCheckouts.id,
           })
-          .from(pendingCheckouts)
+          .from(schema.pendingCheckouts)
           .where(
             and(
-              eq(pendingCheckouts.paymentLinkId, paymentLinkCode),
-              eq(pendingCheckouts.status, "pending")
+              eq(schema.pendingCheckouts.paymentLinkId, paymentLinkCode),
+              eq(schema.pendingCheckouts.status, "pending")
             )
           )
           .limit(1);
@@ -352,33 +508,23 @@ export abstract class WebhookService {
         if (checkout) {
           organizationId = checkout.organizationId;
           planId = checkout.planId;
+          billingCycle = checkout.billingCycle ?? "monthly";
 
-          // Mark checkout as completed
           await db
-            .update(pendingCheckouts)
+            .update(schema.pendingCheckouts)
             .set({
               status: "completed",
               completedAt: new Date(),
             })
-            .where(eq(pendingCheckouts.id, checkout.id));
-
-          console.log(
-            `subscription.created: Found org ${organizationId} via pending checkout for payment link ${paymentLinkCode}`
-          );
-        } else {
-          console.log(
-            `subscription.created: No pending checkout found for payment link ${paymentLinkCode}`
-          );
+            .where(eq(schema.pendingCheckouts.id, checkout.id));
         }
       }
     }
 
     if (!organizationId) {
-      console.log("subscription.created: Could not determine organization_id");
       return;
     }
 
-    // Calculate period dates
     const getPeriodStart = () => {
       if (data.start_at) {
         return new Date(data.start_at);
@@ -398,52 +544,42 @@ export abstract class WebhookService {
           return end;
         })();
 
-    // 1. Update subscription status to active
     await db
-      .update(orgSubscriptions)
+      .update(schema.orgSubscriptions)
       .set({
         status: "active",
-        planId: planId ?? undefined, // Update plan if upgrading
+        planId: planId ?? undefined,
         pagarmeSubscriptionId: data.id,
         pagarmeCustomerId: data.customer?.id,
         currentPeriodStart: periodStart,
         currentPeriodEnd: periodEnd,
+        billingCycle,
         trialUsed: true,
       })
-      .where(eq(orgSubscriptions.organizationId, organizationId));
+      .where(eq(schema.orgSubscriptions.organizationId, organizationId));
 
-    // 2. Sync customer data to organization_profiles (only empty fields)
     if (data.customer) {
       await WebhookService.syncCustomerData(organizationId, data.customer);
     }
 
-    // 3. Emit hook event
     const [subscription] = await db
       .select()
-      .from(orgSubscriptions)
-      .where(eq(orgSubscriptions.organizationId, organizationId))
+      .from(schema.orgSubscriptions)
+      .where(eq(schema.orgSubscriptions.organizationId, organizationId))
       .limit(1);
 
     if (subscription) {
       PaymentHooks.emit("subscription.activated", { subscription });
     }
 
-    // 4. Send upgrade confirmation email to owner
     await WebhookService.sendUpgradeEmail(
       organizationId,
       subscription?.planId ?? planId,
       periodEnd,
       data.card?.last_four_digits
     );
-
-    console.log(
-      `subscription.created: Activated subscription for org ${organizationId}, plan ${planId}`
-    );
   }
 
-  /**
-   * Send upgrade confirmation email to organization owner.
-   */
   private static async sendUpgradeEmail(
     organizationId: string,
     planId: string | undefined,
@@ -451,55 +587,44 @@ export abstract class WebhookService {
     cardLast4?: string
   ) {
     try {
-      const { members, organizations, subscriptionPlans, users } = await import(
-        "@/db/schema"
-      );
       const { sendUpgradeConfirmationEmail } = await import("@/lib/email");
 
-      // Get owner email
       const [owner] = await db
-        .select({ email: users.email })
-        .from(members)
-        .innerJoin(users, eq(members.userId, users.id))
+        .select({ email: schema.users.email })
+        .from(schema.members)
+        .innerJoin(schema.users, eq(schema.members.userId, schema.users.id))
         .where(
           and(
-            eq(members.organizationId, organizationId),
-            eq(members.role, "owner")
+            eq(schema.members.organizationId, organizationId),
+            eq(schema.members.role, "owner")
           )
         )
         .limit(1);
 
       if (!owner?.email) {
-        console.log(
-          `sendUpgradeEmail: No owner found for org ${organizationId}`
-        );
         return;
       }
 
-      // Get organization name
       const [org] = await db
-        .select({ name: organizations.name })
-        .from(organizations)
-        .where(eq(organizations.id, organizationId))
+        .select({ name: schema.organizations.name })
+        .from(schema.organizations)
+        .where(eq(schema.organizations.id, organizationId))
         .limit(1);
 
-      // Get plan details
       if (!planId) {
-        console.log(`sendUpgradeEmail: No planId for org ${organizationId}`);
         return;
       }
 
       const [plan] = await db
         .select({
-          displayName: subscriptionPlans.displayName,
-          priceMonthly: subscriptionPlans.priceMonthly,
+          displayName: schema.subscriptionPlans.displayName,
+          priceMonthly: schema.subscriptionPlans.priceMonthly,
         })
-        .from(subscriptionPlans)
-        .where(eq(subscriptionPlans.id, planId))
+        .from(schema.subscriptionPlans)
+        .where(eq(schema.subscriptionPlans.id, planId))
         .limit(1);
 
       if (!plan) {
-        console.log(`sendUpgradeEmail: Plan not found ${planId}`);
         return;
       }
 
@@ -511,20 +636,64 @@ export abstract class WebhookService {
         nextBillingDate: periodEnd,
         cardLast4,
       });
-
-      console.log(
-        `sendUpgradeEmail: Sent confirmation to ${owner.email} for org ${organizationId}`
-      );
-    } catch (error) {
-      // Log but don't fail the webhook
-      console.error("Failed to send upgrade confirmation email:", error);
+    } catch (_) {
+      // Email failure should not fail the webhook
     }
   }
 
-  /**
-   * Sync customer data from Pagarme to organization_profiles.
-   * Only updates empty fields to preserve user-provided data.
-   */
+  private static async sendCancellationEmail(
+    organizationId: string,
+    planId: string,
+    canceledAt: Date,
+    accessUntil: Date | null
+  ) {
+    try {
+      const { sendSubscriptionCanceledEmail } = await import("@/lib/email");
+
+      const [owner] = await db
+        .select({ email: schema.users.email })
+        .from(schema.members)
+        .innerJoin(schema.users, eq(schema.members.userId, schema.users.id))
+        .where(
+          and(
+            eq(schema.members.organizationId, organizationId),
+            eq(schema.members.role, "owner")
+          )
+        )
+        .limit(1);
+
+      if (!owner?.email) {
+        return;
+      }
+
+      const [org] = await db
+        .select({ name: schema.organizations.name })
+        .from(schema.organizations)
+        .where(eq(schema.organizations.id, organizationId))
+        .limit(1);
+
+      const [plan] = await db
+        .select({ displayName: schema.subscriptionPlans.displayName })
+        .from(schema.subscriptionPlans)
+        .where(eq(schema.subscriptionPlans.id, planId))
+        .limit(1);
+
+      if (!plan) {
+        return;
+      }
+
+      await sendSubscriptionCanceledEmail({
+        to: owner.email,
+        organizationName: org?.name ?? "Sua organização",
+        planName: plan.displayName,
+        canceledAt,
+        accessUntil,
+      });
+    } catch (_) {
+      // Email failure should not fail the webhook
+    }
+  }
+
   private static async syncCustomerData(
     organizationId: string,
     customer: {
@@ -540,32 +709,25 @@ export abstract class WebhookService {
       };
     }
   ) {
-    const { organizationProfiles } = await import("@/db/schema");
-
     const [profile] = await db
       .select({
-        legalName: organizationProfiles.legalName,
-        taxId: organizationProfiles.taxId,
-        mobile: organizationProfiles.mobile,
+        legalName: schema.organizationProfiles.legalName,
+        taxId: schema.organizationProfiles.taxId,
+        mobile: schema.organizationProfiles.mobile,
       })
-      .from(organizationProfiles)
-      .where(eq(organizationProfiles.organizationId, organizationId))
+      .from(schema.organizationProfiles)
+      .where(eq(schema.organizationProfiles.organizationId, organizationId))
       .limit(1);
 
     if (!profile) {
-      console.log(
-        `syncCustomerData: No profile found for org ${organizationId}`
-      );
       return;
     }
 
-    // Build phone number string from Pagarme format
     const mobilePhone = customer.phones?.mobile_phone;
     const phoneNumber = mobilePhone
       ? `+${mobilePhone.country_code}${mobilePhone.area_code}${mobilePhone.number}`
       : null;
 
-    // Only update empty fields - preserve user-provided data
     const updates: Record<string, string | null> = {
       pagarmeCustomerId: customer.id,
     };
@@ -583,13 +745,8 @@ export abstract class WebhookService {
     }
 
     await db
-      .update(organizationProfiles)
+      .update(schema.organizationProfiles)
       .set(updates)
-      .where(eq(organizationProfiles.organizationId, organizationId));
-
-    console.log(
-      `syncCustomerData: Updated profile for org ${organizationId}`,
-      Object.keys(updates)
-    );
+      .where(eq(schema.organizationProfiles.organizationId, organizationId));
   }
 }

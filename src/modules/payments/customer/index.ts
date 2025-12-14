@@ -1,8 +1,13 @@
 import { Elysia } from "elysia";
 import { betterAuthPlugin } from "@/lib/auth-plugin";
 import {
-  listCustomersQuerySchema,
+  forbiddenErrorSchema,
+  unauthorizedErrorSchema,
+  validationErrorSchema,
+} from "@/lib/responses/response.types";
+import {
   listCustomersResponseSchema,
+  listCustomersSchema,
 } from "./customer.model";
 import { CustomerService } from "./customer.service";
 
@@ -23,9 +28,20 @@ export const customerController = new Elysia({
         size: query.size,
       }),
     {
-      auth: true,
-      query: listCustomersQuerySchema,
-      response: listCustomersResponseSchema,
-      detail: { summary: "List customers from Pagarme" },
+      auth: {
+        requireAdmin: true,
+      },
+      query: listCustomersSchema,
+      response: {
+        200: listCustomersResponseSchema,
+        400: validationErrorSchema,
+        401: unauthorizedErrorSchema,
+        403: forbiddenErrorSchema,
+      },
+      detail: {
+        summary: "List customers from Pagarme",
+        description:
+          "Lists all customers from the payment provider with optional filters.",
+      },
     }
   );

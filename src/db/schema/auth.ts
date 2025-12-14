@@ -9,6 +9,15 @@ import {
   timestamp,
 } from "drizzle-orm/pg-core";
 
+// ============================================================
+// SYSTEM ROLES (for admin plugin - user.role)
+// ============================================================
+export const systemRoleValues = ["super_admin", "admin", "user"] as const;
+export type SystemRole = (typeof systemRoleValues)[number];
+
+// ============================================================
+// ORGANIZATION MEMBER ROLES (for organization plugin - member.role)
+// ============================================================
 export const roleValues = ["owner", "manager", "supervisor", "viewer"] as const;
 export const roleEnum = pgEnum("member_role", roleValues);
 export type Role = (typeof roleValues)[number];
@@ -20,6 +29,10 @@ export const users = pgTable("users", {
   emailVerified: boolean("email_verified").default(false).notNull(),
   image: text("image"),
   pagarmeCustomerId: text("pagarme_customer_id"),
+  role: text("role").default("user"),
+  banned: boolean("banned").default(false),
+  banReason: text("ban_reason"),
+  banExpires: timestamp("ban_expires"),
   createdAt: timestamp("created_at").defaultNow().notNull(),
   updatedAt: timestamp("updated_at")
     .$onUpdate(() => /* @__PURE__ */ new Date())
@@ -42,6 +55,7 @@ export const sessions = pgTable(
       .notNull()
       .references(() => users.id, { onDelete: "cascade" }),
     activeOrganizationId: text("active_organization_id"),
+    impersonatedBy: text("impersonated_by"),
   },
   (table) => [index("sessions_userId_idx").on(table.userId)]
 );

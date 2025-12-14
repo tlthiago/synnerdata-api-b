@@ -1,32 +1,36 @@
 import { eq } from "drizzle-orm";
 import { db } from "@/db";
-import { organizationProfiles } from "@/db/schema";
+import { schema } from "@/db/schema";
 import {
   CustomerCreationError,
   CustomerNotFoundError,
   MissingBillingDataError,
 } from "../errors";
 import { PagarmeClient } from "../pagarme/client";
-import type { BillingData, CreateCustomerInput } from "./customer.model";
-
-export type ListCustomersParams = {
-  name?: string;
-  email?: string;
-  document?: string;
-  page?: number;
-  size?: number;
-};
+import type {
+  BillingData,
+  CreateCustomerInput,
+  ListCustomersInput,
+  ListCustomersResponse,
+} from "./customer.model";
 
 export abstract class CustomerService {
+  private static async findProfileByOrganizationId(organizationId: string) {
+    const [profile] = await db
+      .select()
+      .from(schema.organizationProfiles)
+      .where(eq(schema.organizationProfiles.organizationId, organizationId))
+      .limit(1);
+
+    return profile ?? null;
+  }
+
   static async getOrCreateForCheckout(
     organizationId: string,
     billingData?: BillingData
   ): Promise<{ pagarmeCustomerId: string }> {
-    const [profile] = await db
-      .select()
-      .from(organizationProfiles)
-      .where(eq(organizationProfiles.organizationId, organizationId))
-      .limit(1);
+    const profile =
+      await CustomerService.findProfileByOrganizationId(organizationId);
 
     if (!profile) {
       throw new CustomerNotFoundError(organizationId);
@@ -54,13 +58,13 @@ export abstract class CustomerService {
       billingData?.billingEmail
     ) {
       await db
-        .update(organizationProfiles)
+        .update(schema.organizationProfiles)
         .set({
           taxId: billingData?.document ?? profile.taxId,
           phone: billingData?.phone ?? profile.phone,
           email: billingData?.billingEmail ?? profile.email,
         })
-        .where(eq(organizationProfiles.organizationId, organizationId));
+        .where(eq(schema.organizationProfiles.organizationId, organizationId));
     }
 
     if (profile.pagarmeCustomerId) {
@@ -83,7 +87,6 @@ export abstract class CustomerService {
   ): Promise<{ pagarmeCustomerId: string }> {
     const { organizationId, name, email, document, phone } = input;
 
-    // Parse phone number (format: +55 11 99999-9999 -> country_code: 55, area_code: 11, number: 999999999)
     const phoneDigits = phone.replace(/\D/g, "");
     const countryCode =
       phoneDigits.length > 11 ? phoneDigits.slice(0, 2) : "55";
@@ -116,9 +119,9 @@ export abstract class CustomerService {
       );
 
       await db
-        .update(organizationProfiles)
+        .update(schema.organizationProfiles)
         .set({ pagarmeCustomerId: pagarmeCustomer.id })
-        .where(eq(organizationProfiles.organizationId, organizationId));
+        .where(eq(schema.organizationProfiles.organizationId, organizationId));
 
       return { pagarmeCustomerId: pagarmeCustomer.id };
     } catch (error) {
@@ -128,22 +131,27 @@ export abstract class CustomerService {
   }
 
   static async getCustomerId(organizationId: string): Promise<string | null> {
-    const [profile] = await db
-      .select({ pagarmeCustomerId: organizationProfiles.pagarmeCustomerId })
-      .from(organizationProfiles)
-      .where(eq(organizationProfiles.organizationId, organizationId))
-      .limit(1);
+    const profile =
+      await CustomerService.findProfileByOrganizationId(organizationId);
 
     return profile?.pagarmeCustomerId ?? null;
   }
 
-  static list(params: ListCustomersParams) {
-    return PagarmeClient.getCustomers({
-      name: params.name,
-      email: params.email,
-      document: params.document,
-      page: params.page ?? 1,
-      size: params.size ?? 10,
+  static async list(input: ListCustomersInput): Promise<ListCustomersResponse> {
+    const pagarmeResponse = await PagarmeClient.getCustomers({
+      name: input.name,
+      email: input.email,
+      document: input.document,
+      page: input.page,
+      size: input.size,
     });
+
+    return {
+      success: true as const,
+      data: {
+        customers: pagarmeResponse.data,
+        paging: pagarmeResponse.paging,
+      },
+    };
   }
 }

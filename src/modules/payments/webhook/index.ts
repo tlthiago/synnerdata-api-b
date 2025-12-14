@@ -1,5 +1,9 @@
 import { Elysia } from "elysia";
-import { webhookPayloadSchema, webhookResponseSchema } from "./webhook.model";
+import {
+  unauthorizedErrorSchema,
+  validationErrorSchema,
+} from "@/lib/responses/response.types";
+import { processWebhookResponseSchema } from "./webhook.model";
 import { WebhookService } from "./webhook.service";
 
 export const webhookController = new Elysia({
@@ -8,14 +12,23 @@ export const webhookController = new Elysia({
   detail: { tags: ["Payments - Webhook"] },
 }).post(
   "/pagarme",
-  async ({ body, request }) => {
-    const signature = request.headers.get("x-hub-signature");
-    await WebhookService.process(body, signature);
-    return { received: true };
+  async ({ request }) => {
+    const authHeader = request.headers.get("Authorization");
+    const rawBody = await request.text();
+    const body = JSON.parse(rawBody);
+    await WebhookService.process(body, authHeader, rawBody);
+    return { success: true as const, data: { received: true } };
   },
   {
-    body: webhookPayloadSchema,
-    response: webhookResponseSchema,
-    detail: { summary: "Process Pagarme webhook" },
+    response: {
+      200: processWebhookResponseSchema,
+      400: validationErrorSchema,
+      401: unauthorizedErrorSchema,
+    },
+    detail: {
+      summary: "Process Pagarme webhook",
+      description:
+        "Receives and processes webhook events from Pagarme payment provider.",
+    },
   }
 );

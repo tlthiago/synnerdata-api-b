@@ -1,6 +1,6 @@
 import { eq } from "drizzle-orm";
 import { db } from "@/db";
-import { users } from "@/db/schema";
+import { schema } from "@/db/schema";
 import { createTestApp } from "./app";
 import { waitForOTP } from "./otp";
 
@@ -91,8 +91,8 @@ export async function createTestUser(
   // Get user from database
   const [dbUser] = await db
     .select()
-    .from(users)
-    .where(eq(users.email, email))
+    .from(schema.users)
+    .where(eq(schema.users.email, email))
     .limit(1);
 
   if (!dbUser) {
@@ -102,14 +102,17 @@ export async function createTestUser(
   const userId = dbUser.id;
 
   // Update user name (emailOTP creates user without name)
-  await db.update(users).set({ name }).where(eq(users.id, userId));
+  await db
+    .update(schema.users)
+    .set({ name })
+    .where(eq(schema.users.id, userId));
 
   // Update email verification if needed
   if (!emailVerified) {
     await db
-      .update(users)
+      .update(schema.users)
       .set({ emailVerified: false })
-      .where(eq(users.id, userId));
+      .where(eq(schema.users.id, userId));
   }
 
   return {
@@ -171,6 +174,30 @@ type CreateTestUserWithOrgOptions = CreateTestUserOptions & {
   orgName?: string;
 };
 
+type CreateTestAdminUserOptions = CreateTestUserOptions & {
+  role?: "super_admin" | "admin";
+};
+
+/**
+ * Creates a test user with admin privileges.
+ * This is used for testing admin-only endpoints (e.g., plan management).
+ */
+export async function createTestAdminUser(
+  options: CreateTestAdminUserOptions = {}
+): Promise<TestUserResult> {
+  const { role = "super_admin", ...userOptions } = options;
+
+  const userResult = await createTestUser(userOptions);
+
+  // Update the user's role to the specified admin role
+  await db
+    .update(schema.users)
+    .set({ role })
+    .where(eq(schema.users.id, userResult.user.id));
+
+  return userResult;
+}
+
 /**
  * Creates a test user with an organization.
  * This is the most common test scenario.
@@ -178,13 +205,14 @@ type CreateTestUserWithOrgOptions = CreateTestUserOptions & {
 export async function createTestUserWithOrganization(
   options: CreateTestUserWithOrgOptions = {}
 ): Promise<TestUserResult & { organizationId: string }> {
+  const {
+    addMemberToOrganization,
+    createTestOrganization,
+  } = require("./organization");
+
   const { orgName, ...userOptions } = options;
 
   const userResult = await createTestUser(userOptions);
-
-  const { createTestOrganization, addMemberToOrganization } = await import(
-    "./organization"
-  );
 
   const organization = await createTestOrganization({ name: orgName });
   await addMemberToOrganization(userResult, {

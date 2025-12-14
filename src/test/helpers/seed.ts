@@ -1,5 +1,5 @@
 import { db } from "@/db";
-import { subscriptionPlans } from "@/db/schema";
+import { schema } from "@/db/schema";
 import { testPlans } from "../fixtures/plans";
 
 /**
@@ -9,9 +9,9 @@ import { testPlans } from "../fixtures/plans";
 export async function seedPlans(): Promise<void> {
   for (const plan of testPlans) {
     await db
-      .insert(subscriptionPlans)
+      .insert(schema.subscriptionPlans)
       .values(plan)
-      .onConflictDoNothing({ target: subscriptionPlans.id });
+      .onConflictDoNothing({ target: schema.subscriptionPlans.id });
   }
 }
 

@@ -1,35 +1,20 @@
-// ============================================================
-// BASE PAYMENT ERROR
-// ============================================================
+import { AppError } from "../../lib/errors/base-error";
 
-export class PaymentError extends Error {
+export class PaymentError extends AppError {
   status = 400;
   code: string;
 
-  constructor(message: string, code = "PAYMENT_ERROR") {
-    super(message);
+  constructor(message: string, code = "PAYMENT_ERROR", details?: unknown) {
+    super(message, details);
     this.code = code;
-    this.name = "PaymentError";
-  }
-
-  toResponse() {
-    return {
-      error: this.message,
-      code: this.code,
-    };
   }
 }
-
-// ============================================================
-// CHECKOUT ERRORS
-// ============================================================
 
 export class CheckoutError extends PaymentError {
   status = 400;
 
   constructor(message: string, code = "CHECKOUT_ERROR") {
     super(message, code);
-    this.name = "CheckoutError";
   }
 }
 
@@ -39,9 +24,9 @@ export class MissingBillingDataError extends PaymentError {
   constructor(missingFields: string[]) {
     super(
       `Missing required billing data: ${missingFields.join(", ")}`,
-      "MISSING_BILLING_DATA"
+      "MISSING_BILLING_DATA",
+      { missingFields }
     );
-    this.name = "MissingBillingDataError";
   }
 }
 
@@ -50,20 +35,16 @@ export class EmailNotVerifiedError extends PaymentError {
 
   constructor() {
     super("Email must be verified before checkout", "EMAIL_NOT_VERIFIED");
-    this.name = "EmailNotVerifiedError";
   }
 }
-
-// ============================================================
-// SUBSCRIPTION ERRORS
-// ============================================================
 
 export class SubscriptionNotFoundError extends PaymentError {
   status = 404;
 
   constructor(identifier: string) {
-    super(`Subscription not found: ${identifier}`, "SUBSCRIPTION_NOT_FOUND");
-    this.name = "SubscriptionNotFoundError";
+    super(`Subscription not found: ${identifier}`, "SUBSCRIPTION_NOT_FOUND", {
+      identifier,
+    });
   }
 }
 
@@ -75,19 +56,18 @@ export class SubscriptionAlreadyActiveError extends PaymentError {
       "Organization already has an active subscription",
       "SUBSCRIPTION_ALREADY_ACTIVE"
     );
-    this.name = "SubscriptionAlreadyActiveError";
   }
 }
 
 export class SubscriptionNotCancelableError extends PaymentError {
   status = 400;
 
-  constructor(status: string) {
+  constructor(subscriptionStatus: string) {
     super(
-      `Cannot cancel subscription with status: ${status}`,
-      "SUBSCRIPTION_NOT_CANCELABLE"
+      `Cannot cancel subscription with status: ${subscriptionStatus}`,
+      "SUBSCRIPTION_NOT_CANCELABLE",
+      { subscriptionStatus }
     );
-    this.name = "SubscriptionNotCancelableError";
   }
 }
 
@@ -99,13 +79,8 @@ export class SubscriptionNotRestorableError extends PaymentError {
       "Subscription can only be restored while pending cancellation",
       "SUBSCRIPTION_NOT_RESTORABLE"
     );
-    this.name = "SubscriptionNotRestorableError";
   }
 }
-
-// ============================================================
-// TRIAL ERRORS
-// ============================================================
 
 export class TrialAlreadyUsedError extends PaymentError {
   status = 400;
@@ -115,7 +90,6 @@ export class TrialAlreadyUsedError extends PaymentError {
       "This organization has already used its trial period",
       "TRIAL_ALREADY_USED"
     );
-    this.name = "TrialAlreadyUsedError";
   }
 }
 
@@ -127,20 +101,14 @@ export class TrialExpiredError extends PaymentError {
       "Trial period has expired. Please upgrade to continue.",
       "TRIAL_EXPIRED"
     );
-    this.name = "TrialExpiredError";
   }
 }
-
-// ============================================================
-// PLAN ERRORS
-// ============================================================
 
 export class PlanNotFoundError extends PaymentError {
   status = 404;
 
   constructor(planId: string) {
-    super(`Plan not found: ${planId}`, "PLAN_NOT_FOUND");
-    this.name = "PlanNotFoundError";
+    super(`Plan not found: ${planId}`, "PLAN_NOT_FOUND", { planId });
   }
 }
 
@@ -148,8 +116,19 @@ export class PlanNotAvailableError extends PaymentError {
   status = 400;
 
   constructor(planId: string) {
-    super(`Plan is not available: ${planId}`, "PLAN_NOT_AVAILABLE");
-    this.name = "PlanNotAvailableError";
+    super(`Plan is not available: ${planId}`, "PLAN_NOT_AVAILABLE", { planId });
+  }
+}
+
+export class YearlyBillingNotAvailableError extends PaymentError {
+  status = 400;
+
+  constructor(planId: string) {
+    super(
+      `Yearly billing not available for plan: ${planId}`,
+      "YEARLY_BILLING_NOT_AVAILABLE",
+      { planId }
+    );
   }
 }
 
@@ -159,9 +138,11 @@ export class PlanNameAlreadyExistsError extends PaymentError {
   constructor(name: string) {
     super(
       `Plan with name "${name}" already exists`,
-      "PLAN_NAME_ALREADY_EXISTS"
+      "PLAN_NAME_ALREADY_EXISTS",
+      {
+        name,
+      }
     );
-    this.name = "PlanNameAlreadyExistsError";
   }
 }
 
@@ -171,9 +152,9 @@ export class PlanHasActiveSubscriptionsError extends PaymentError {
   constructor(planId: string) {
     super(
       `Cannot delete plan ${planId}: it has active subscriptions`,
-      "PLAN_HAS_ACTIVE_SUBSCRIPTIONS"
+      "PLAN_HAS_ACTIVE_SUBSCRIPTIONS",
+      { planId }
     );
-    this.name = "PlanHasActiveSubscriptionsError";
   }
 }
 
@@ -183,9 +164,11 @@ export class OrganizationNotFoundError extends PaymentError {
   constructor(organizationId: string) {
     super(
       `Organization not found: ${organizationId}`,
-      "ORGANIZATION_NOT_FOUND"
+      "ORGANIZATION_NOT_FOUND",
+      {
+        organizationId,
+      }
     );
-    this.name = "OrganizationNotFoundError";
   }
 }
 
@@ -194,20 +177,14 @@ export class NoActiveOrganizationError extends PaymentError {
 
   constructor() {
     super("No active organization in session", "NO_ACTIVE_ORGANIZATION");
-    this.name = "NoActiveOrganizationError";
   }
 }
-
-// ============================================================
-// WEBHOOK ERRORS
-// ============================================================
 
 export class WebhookValidationError extends PaymentError {
   status = 401;
 
   constructor() {
-    super("Invalid webhook signature", "INVALID_WEBHOOK_SIGNATURE");
-    this.name = "WebhookValidationError";
+    super("Invalid webhook credentials", "INVALID_WEBHOOK_CREDENTIALS");
   }
 }
 
@@ -217,22 +194,19 @@ export class WebhookProcessingError extends PaymentError {
   constructor(eventType: string, reason: string) {
     super(
       `Failed to process webhook event ${eventType}: ${reason}`,
-      "WEBHOOK_PROCESSING_ERROR"
+      "WEBHOOK_PROCESSING_ERROR",
+      { eventType, reason }
     );
-    this.name = "WebhookProcessingError";
   }
 }
-
-// ============================================================
-// CUSTOMER ERRORS
-// ============================================================
 
 export class CustomerNotFoundError extends PaymentError {
   status = 404;
 
   constructor(identifier: string) {
-    super(`Customer not found: ${identifier}`, "CUSTOMER_NOT_FOUND");
-    this.name = "CustomerNotFoundError";
+    super(`Customer not found: ${identifier}`, "CUSTOMER_NOT_FOUND", {
+      identifier,
+    });
   }
 }
 
@@ -240,20 +214,40 @@ export class CustomerCreationError extends PaymentError {
   status = 500;
 
   constructor(reason: string) {
-    super(`Failed to create customer: ${reason}`, "CUSTOMER_CREATION_ERROR");
-    this.name = "CustomerCreationError";
+    super(`Failed to create customer: ${reason}`, "CUSTOMER_CREATION_ERROR", {
+      reason,
+    });
   }
 }
-
-// ============================================================
-// INVOICE ERRORS
-// ============================================================
 
 export class InvoiceNotFoundError extends PaymentError {
   status = 404;
 
   constructor(invoiceId: string) {
-    super(`Invoice not found: ${invoiceId}`, "INVOICE_NOT_FOUND");
-    this.name = "InvoiceNotFoundError";
+    super(`Invoice not found: ${invoiceId}`, "INVOICE_NOT_FOUND", {
+      invoiceId,
+    });
+  }
+}
+
+export class PagarmeApiError extends PaymentError {
+  constructor(
+    httpStatus: number,
+    apiError: { message?: string; errors?: Record<string, string[]> }
+  ) {
+    const message = apiError.message ?? "Unknown Pagarme API error";
+    super(message, "PAGARME_API_ERROR", {
+      httpStatus,
+      errors: apiError.errors,
+    });
+    this.status = httpStatus >= 500 ? 502 : 400;
+  }
+}
+
+export class PagarmeTimeoutError extends PaymentError {
+  status = 504;
+
+  constructor(endpoint: string) {
+    super(`Pagarme API timeout: ${endpoint}`, "PAGARME_TIMEOUT", { endpoint });
   }
 }

@@ -1,12 +1,7 @@
 import { beforeAll, describe, expect, test } from "bun:test";
 import { eq } from "drizzle-orm";
 import { db } from "@/db";
-import {
-  organizationProfiles,
-  orgSubscriptions,
-  pendingCheckouts,
-  subscriptionPlans,
-} from "@/db/schema";
+import { schema } from "@/db/schema";
 import { env } from "@/env";
 import { proPlan, starterPlan } from "@/test/fixtures/plans";
 import { createTestApp, type TestApp } from "@/test/helpers/app";
@@ -28,12 +23,12 @@ describe("Upgrade Use Case: Trial → Paid Subscription", () => {
     app = createTestApp();
     await seedPlans();
 
-    // Reset pagarmePlanId for pro plan to test sync
+    // Reset pagarmePlanIds for pro plan to test sync
     if (proPlan) {
       await db
-        .update(subscriptionPlans)
-        .set({ pagarmePlanId: null })
-        .where(eq(subscriptionPlans.id, proPlan.id));
+        .update(schema.subscriptionPlans)
+        .set({ pagarmePlanIdMonthly: null, pagarmePlanIdYearly: null })
+        .where(eq(schema.subscriptionPlans.id, proPlan.id));
     }
   });
 
@@ -58,15 +53,15 @@ describe("Upgrade Use Case: Trial → Paid Subscription", () => {
 
       // Delete any existing subscriptions for this org to ensure clean state
       await db
-        .delete(orgSubscriptions)
-        .where(eq(orgSubscriptions.organizationId, organizationId));
+        .delete(schema.orgSubscriptions)
+        .where(eq(schema.orgSubscriptions.organizationId, organizationId));
 
       await createTestSubscription(organizationId, starterPlan.id, "trial");
 
       const [subscription] = await db
         .select()
-        .from(orgSubscriptions)
-        .where(eq(orgSubscriptions.organizationId, organizationId))
+        .from(schema.orgSubscriptions)
+        .where(eq(schema.orgSubscriptions.organizationId, organizationId))
         .limit(1);
 
       expect(subscription).toBeDefined();
@@ -78,8 +73,8 @@ describe("Upgrade Use Case: Trial → Paid Subscription", () => {
     test("should have organization profile without pagarmeCustomerId", async () => {
       const [profile] = await db
         .select()
-        .from(organizationProfiles)
-        .where(eq(organizationProfiles.organizationId, organizationId))
+        .from(schema.organizationProfiles)
+        .where(eq(schema.organizationProfiles.organizationId, organizationId))
         .limit(1);
 
       expect(profile).toBeDefined();
@@ -113,12 +108,13 @@ describe("Upgrade Use Case: Trial → Paid Subscription", () => {
         expect(response.status).toBe(200);
 
         const body = await response.json();
-        expect(body.checkoutUrl).toBeDefined();
-        expect(body.checkoutUrl).toContain("pagar.me");
-        expect(body.paymentLinkId).toBeDefined();
-        expect(body.paymentLinkId).toStartWith("pl_");
+        expect(body.success).toBe(true);
+        expect(body.data.checkoutUrl).toBeDefined();
+        expect(body.data.checkoutUrl).toContain("pagar.me");
+        expect(body.data.paymentLinkId).toBeDefined();
+        expect(body.data.paymentLinkId).toStartWith("pl_");
 
-        paymentLinkId = body.paymentLinkId;
+        paymentLinkId = body.data.paymentLinkId;
       },
       { timeout: 30_000 }
     );
@@ -129,14 +125,16 @@ describe("Upgrade Use Case: Trial → Paid Subscription", () => {
       }
 
       const [dbPlan] = await db
-        .select({ pagarmePlanId: subscriptionPlans.pagarmePlanId })
-        .from(subscriptionPlans)
-        .where(eq(subscriptionPlans.id, proPlan.id))
+        .select({
+          pagarmePlanIdMonthly: schema.subscriptionPlans.pagarmePlanIdMonthly,
+        })
+        .from(schema.subscriptionPlans)
+        .where(eq(schema.subscriptionPlans.id, proPlan.id))
         .limit(1);
 
-      expect(dbPlan.pagarmePlanId).toBeDefined();
-      expect(dbPlan.pagarmePlanId).toBeString();
-      expect(dbPlan.pagarmePlanId?.startsWith("plan_")).toBe(true);
+      expect(dbPlan.pagarmePlanIdMonthly).toBeDefined();
+      expect(dbPlan.pagarmePlanIdMonthly).toBeString();
+      expect(dbPlan.pagarmePlanIdMonthly?.startsWith("plan_")).toBe(true);
     });
 
     test("should create pending checkout record", async () => {
@@ -146,8 +144,8 @@ describe("Upgrade Use Case: Trial → Paid Subscription", () => {
 
       const [checkout] = await db
         .select()
-        .from(pendingCheckouts)
-        .where(eq(pendingCheckouts.paymentLinkId, paymentLinkId))
+        .from(schema.pendingCheckouts)
+        .where(eq(schema.pendingCheckouts.paymentLinkId, paymentLinkId))
         .limit(1);
 
       expect(checkout).toBeDefined();
@@ -161,8 +159,8 @@ describe("Upgrade Use Case: Trial → Paid Subscription", () => {
     test("should still have trial subscription (not activated yet)", async () => {
       const [subscription] = await db
         .select()
-        .from(orgSubscriptions)
-        .where(eq(orgSubscriptions.organizationId, organizationId))
+        .from(schema.orgSubscriptions)
+        .where(eq(schema.orgSubscriptions.organizationId, organizationId))
         .limit(1);
 
       expect(subscription.status).toBe("trial");
@@ -179,7 +177,6 @@ describe("Upgrade Use Case: Trial → Paid Subscription", () => {
     };
 
     test("should receive subscription.created webhook", async () => {
-      // Use the payment link ID from checkout to simulate real Pagarme flow
       const payload = webhookPayloads.subscriptionCreatedFromPaymentLink(
         paymentLinkId,
         customerData
@@ -191,14 +188,15 @@ describe("Upgrade Use Case: Trial → Paid Subscription", () => {
       expect(response.status).toBe(200);
 
       const body = await response.json();
-      expect(body.received).toBe(true);
+      expect(body.success).toBe(true);
+      expect(body.data.received).toBe(true);
     });
 
     test("should activate subscription", async () => {
       const [subscription] = await db
         .select()
-        .from(orgSubscriptions)
-        .where(eq(orgSubscriptions.organizationId, organizationId))
+        .from(schema.orgSubscriptions)
+        .where(eq(schema.orgSubscriptions.organizationId, organizationId))
         .limit(1);
 
       expect(subscription.status).toBe("active");
@@ -210,8 +208,8 @@ describe("Upgrade Use Case: Trial → Paid Subscription", () => {
     test("should store pagarmeCustomerId in subscription", async () => {
       const [subscription] = await db
         .select()
-        .from(orgSubscriptions)
-        .where(eq(orgSubscriptions.organizationId, organizationId))
+        .from(schema.orgSubscriptions)
+        .where(eq(schema.orgSubscriptions.organizationId, organizationId))
         .limit(1);
 
       expect(subscription.pagarmeCustomerId).toBeString();
@@ -221,8 +219,8 @@ describe("Upgrade Use Case: Trial → Paid Subscription", () => {
     test("should set current period dates", async () => {
       const [subscription] = await db
         .select()
-        .from(orgSubscriptions)
-        .where(eq(orgSubscriptions.organizationId, organizationId))
+        .from(schema.orgSubscriptions)
+        .where(eq(schema.orgSubscriptions.organizationId, organizationId))
         .limit(1);
 
       expect(subscription.currentPeriodStart).toBeInstanceOf(Date);
@@ -238,8 +236,8 @@ describe("Upgrade Use Case: Trial → Paid Subscription", () => {
     test("should mark pending checkout as completed", async () => {
       const [checkout] = await db
         .select()
-        .from(pendingCheckouts)
-        .where(eq(pendingCheckouts.paymentLinkId, paymentLinkId))
+        .from(schema.pendingCheckouts)
+        .where(eq(schema.pendingCheckouts.paymentLinkId, paymentLinkId))
         .limit(1);
 
       expect(checkout.status).toBe("completed");
@@ -251,8 +249,8 @@ describe("Upgrade Use Case: Trial → Paid Subscription", () => {
     test("should sync pagarmeCustomerId to organization profile", async () => {
       const [profile] = await db
         .select()
-        .from(organizationProfiles)
-        .where(eq(organizationProfiles.organizationId, organizationId))
+        .from(schema.organizationProfiles)
+        .where(eq(schema.organizationProfiles.organizationId, organizationId))
         .limit(1);
 
       expect(profile.pagarmeCustomerId).toBeString();
@@ -262,8 +260,8 @@ describe("Upgrade Use Case: Trial → Paid Subscription", () => {
     test("should not overwrite existing profile data", async () => {
       const [profile] = await db
         .select()
-        .from(organizationProfiles)
-        .where(eq(organizationProfiles.organizationId, organizationId))
+        .from(schema.organizationProfiles)
+        .where(eq(schema.organizationProfiles.organizationId, organizationId))
         .limit(1);
 
       // Profile was created with data in createTestUser, should not be overwritten
@@ -280,8 +278,8 @@ describe("Upgrade Use Case: Trial → Paid Subscription", () => {
 
       const [subscription] = await db
         .select()
-        .from(orgSubscriptions)
-        .where(eq(orgSubscriptions.organizationId, organizationId))
+        .from(schema.orgSubscriptions)
+        .where(eq(schema.orgSubscriptions.organizationId, organizationId))
         .limit(1);
 
       // Status
@@ -327,14 +325,14 @@ describe("Upgrade Use Case: Trial → Paid Subscription", () => {
       expect(response.status).toBe(400);
 
       const body = await response.json();
-      expect(body.code).toBe("SUBSCRIPTION_ALREADY_ACTIVE");
+      expect(body.error.code).toBe("SUBSCRIPTION_ALREADY_ACTIVE");
     });
 
     test("should have synced customer data in profile", async () => {
       const [profile] = await db
         .select()
-        .from(organizationProfiles)
-        .where(eq(organizationProfiles.organizationId, organizationId))
+        .from(schema.organizationProfiles)
+        .where(eq(schema.organizationProfiles.organizationId, organizationId))
         .limit(1);
 
       expect(profile.pagarmeCustomerId).toBeDefined();

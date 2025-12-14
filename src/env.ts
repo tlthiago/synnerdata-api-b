@@ -12,10 +12,16 @@ const envSchema = z.object({
   PAGARME_BASE_URL: z.url(),
   PAGARME_SECRET_KEY: z.string().min(1),
   PAGARME_PUBLIC_KEY: z.string().min(1),
-  PAGARME_WEBHOOK_SECRET: z.string().min(1),
+  PAGARME_WEBHOOK_USERNAME: z.string().min(1),
+  PAGARME_WEBHOOK_PASSWORD: z.string().min(1),
   SMTP_HOST: z.string().default("localhost"),
   SMTP_PORT: z.coerce.number().default(1025),
   SMTP_FROM: z.email().default("noreply@synnerdata.com"),
+  // Admin emails - users with these emails will be assigned admin roles on signup
+  SUPER_ADMIN_EMAILS: z.string().default(""),
+  ADMIN_EMAILS: z.string().default(""),
+  // Internal API key for scheduled jobs endpoints
+  INTERNAL_API_KEY: z.string().min(32),
 });
 
 export const env = envSchema.parse(process.env);

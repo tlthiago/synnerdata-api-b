@@ -1,11 +1,11 @@
 import { afterAll, beforeAll, describe, expect, test } from "bun:test";
 import { eq } from "drizzle-orm";
 import { db } from "@/db";
-import { subscriptionPlans } from "@/db/schema";
+import { schema } from "@/db/schema";
 import { env } from "@/env";
 import { createTestApp, type TestApp } from "@/test/helpers/app";
 import { seedPlans } from "@/test/helpers/seed";
-import { createTestUser } from "@/test/helpers/user";
+import { createTestAdminUser } from "@/test/helpers/user";
 
 const BASE_URL = env.API_URL;
 
@@ -17,7 +17,7 @@ describe("POST /payments/plans/:id/sync", () => {
   beforeAll(async () => {
     app = createTestApp();
     await seedPlans();
-    const { headers } = await createTestUser({ emailVerified: true });
+    const { headers } = await createTestAdminUser({ emailVerified: true });
     authHeaders = headers;
   });
 
@@ -25,8 +25,8 @@ describe("POST /payments/plans/:id/sync", () => {
     // Clean up created plans and reset pagarmePlanId
     for (const planId of createdPlanIds) {
       await db
-        .delete(subscriptionPlans)
-        .where(eq(subscriptionPlans.id, planId));
+        .delete(schema.subscriptionPlans)
+        .where(eq(schema.subscriptionPlans.id, planId));
     }
   });
 
@@ -49,9 +49,9 @@ describe("POST /payments/plans/:id/sync", () => {
         }),
       })
     );
-    const plan = await response.json();
-    createdPlanIds.push(plan.id);
-    return plan;
+    const body = await response.json();
+    createdPlanIds.push(body.data.id);
+    return body.data;
   }
 
   test("should reject unauthenticated requests", async () => {
@@ -65,7 +65,7 @@ describe("POST /payments/plans/:id/sync", () => {
     expect(response.status).toBe(401);
   });
 
-  test("should sync plan to Pagarme and return pagarmePlanId", async () => {
+  test("should sync plan to Pagarme and return pagarmePlanIdMonthly", async () => {
     const plan = await createTestPlan(`sync-new-${Date.now()}`);
 
     const response = await app.handle(
@@ -77,21 +77,24 @@ describe("POST /payments/plans/:id/sync", () => {
     expect(response.status).toBe(200);
 
     const body = await response.json();
-    expect(body.id).toBe(plan.id);
-    expect(body.pagarmePlanId).toBeDefined();
-    expect(body.pagarmePlanId).toStartWith("plan_");
+    expect(body.success).toBe(true);
+    expect(body.data.id).toBe(plan.id);
+    expect(body.data.pagarmePlanIdMonthly).toBeDefined();
+    expect(body.data.pagarmePlanIdMonthly).toStartWith("plan_");
 
-    // Verify pagarmePlanId was saved in database
+    // Verify pagarmePlanIdMonthly was saved in database
     const [dbPlan] = await db
-      .select({ pagarmePlanId: subscriptionPlans.pagarmePlanId })
-      .from(subscriptionPlans)
-      .where(eq(subscriptionPlans.id, plan.id))
+      .select({
+        pagarmePlanIdMonthly: schema.subscriptionPlans.pagarmePlanIdMonthly,
+      })
+      .from(schema.subscriptionPlans)
+      .where(eq(schema.subscriptionPlans.id, plan.id))
       .limit(1);
 
-    expect(dbPlan.pagarmePlanId).toBe(body.pagarmePlanId);
+    expect(dbPlan.pagarmePlanIdMonthly).toBe(body.data.pagarmePlanIdMonthly);
   });
 
-  test("should return existing pagarmePlanId if already synced", async () => {
+  test("should return existing pagarmePlanIdMonthly if already synced", async () => {
     const plan = await createTestPlan(`sync-existing-${Date.now()}`);
 
     // First sync
@@ -103,7 +106,7 @@ describe("POST /payments/plans/:id/sync", () => {
     );
     expect(firstResponse.status).toBe(200);
     const firstBody = await firstResponse.json();
-    const pagarmePlanId = firstBody.pagarmePlanId;
+    const pagarmePlanIdMonthly = firstBody.data.pagarmePlanIdMonthly;
 
     // Second sync - should return same ID without creating new plan
     const secondResponse = await app.handle(
@@ -115,7 +118,8 @@ describe("POST /payments/plans/:id/sync", () => {
     expect(secondResponse.status).toBe(200);
 
     const secondBody = await secondResponse.json();
-    expect(secondBody.pagarmePlanId).toBe(pagarmePlanId);
+    expect(secondBody.success).toBe(true);
+    expect(secondBody.data.pagarmePlanIdMonthly).toBe(pagarmePlanIdMonthly);
   });
 
   test("should return 404 for non-existent plan", async () => {
@@ -128,7 +132,7 @@ describe("POST /payments/plans/:id/sync", () => {
     expect(response.status).toBe(404);
 
     const body = await response.json();
-    expect(body.code).toBe("PLAN_NOT_FOUND");
+    expect(body.error.code).toBe("PLAN_NOT_FOUND");
   });
 
   test("should sync plan with correct data to Pagarme", async () => {
@@ -152,7 +156,8 @@ describe("POST /payments/plans/:id/sync", () => {
         body: JSON.stringify(planData),
       })
     );
-    const plan = await createResponse.json();
+    const createBody = await createResponse.json();
+    const plan = createBody.data;
     createdPlanIds.push(plan.id);
 
     const syncResponse = await app.handle(
@@ -164,7 +169,8 @@ describe("POST /payments/plans/:id/sync", () => {
     expect(syncResponse.status).toBe(200);
 
     const body = await syncResponse.json();
-    expect(body.id).toBe(plan.id);
-    expect(body.pagarmePlanId).toBeDefined();
+    expect(body.success).toBe(true);
+    expect(body.data.id).toBe(plan.id);
+    expect(body.data.pagarmePlanIdMonthly).toBeDefined();
   });
 });

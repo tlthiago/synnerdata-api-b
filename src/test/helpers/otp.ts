@@ -1,6 +1,6 @@
 import { desc, eq } from "drizzle-orm";
 import { db } from "@/db";
-import { verifications } from "@/db/schema";
+import { schema } from "@/db/schema";
 
 /**
  * Get the latest OTP for an email from the verifications table
@@ -12,9 +12,9 @@ export async function getLatestOTP(email: string): Promise<string | null> {
 
   const [verification] = await db
     .select()
-    .from(verifications)
-    .where(eq(verifications.identifier, identifier))
-    .orderBy(desc(verifications.createdAt))
+    .from(schema.verifications)
+    .where(eq(schema.verifications.identifier, identifier))
+    .orderBy(desc(schema.verifications.createdAt))
     .limit(1);
 
   if (!verification?.value) {

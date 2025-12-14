@@ -30,7 +30,8 @@ export const subscriptionPlans = pgTable("subscription_plans", {
   id: text("id").primaryKey(),
   name: text("name").notNull().unique(),
   displayName: text("display_name").notNull(),
-  pagarmePlanId: text("pagarme_plan_id"),
+  pagarmePlanIdMonthly: text("pagarme_plan_id_monthly"),
+  pagarmePlanIdYearly: text("pagarme_plan_id_yearly"),
   priceMonthly: integer("price_monthly").notNull(),
   priceYearly: integer("price_yearly").notNull(),
   trialDays: integer("trial_days").default(14).notNull(),
@@ -69,6 +70,7 @@ export const orgSubscriptions = pgTable(
     currentPeriodEnd: timestamp("current_period_end", { withTimezone: true }),
     cancelAtPeriodEnd: boolean("cancel_at_period_end").default(false).notNull(),
     canceledAt: timestamp("canceled_at", { withTimezone: true }),
+    billingCycle: text("billing_cycle").default("monthly"),
     seats: integer("seats").default(1).notNull(),
     createdAt: timestamp("created_at", { withTimezone: true })
       .defaultNow()
@@ -158,6 +160,7 @@ export const pendingCheckouts = pgTable(
     planId: text("plan_id")
       .notNull()
       .references(() => subscriptionPlans.id),
+    billingCycle: text("billing_cycle").default("monthly"),
     paymentLinkId: text("payment_link_id").notNull(),
     status: pendingCheckoutStatusEnum("status").default("pending").notNull(),
     expiresAt: timestamp("expires_at", { withTimezone: true }).notNull(),

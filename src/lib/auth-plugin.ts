@@ -1,52 +1,120 @@
 import { Elysia } from "elysia";
-import { auth } from "./auth";
-import type { Permissions } from "./permissions";
+import { type AuthSession, type AuthUser, auth } from "./auth";
+import { ForbiddenError, UnauthorizedError } from "./errors/http-errors";
+import type { OrgPermissions } from "./permissions";
 
 export type AuthOptions =
   | true
   | {
-      permissions?: Permissions;
+      permissions?: OrgPermissions;
       requireOrganization?: boolean;
+      requireAdmin?: boolean;
+      requireSuperAdmin?: boolean;
     };
+
+type ParsedAuthOptions = {
+  permissions?: OrgPermissions;
+  requireOrganization: boolean;
+  requireAdmin: boolean;
+  requireSuperAdmin: boolean;
+};
+
+class NoActiveOrganizationError extends ForbiddenError {
+  code = "NO_ACTIVE_ORGANIZATION";
+
+  constructor() {
+    super("No active organization selected");
+  }
+}
+
+class AdminRequiredError extends ForbiddenError {
+  constructor() {
+    super("Admin access required");
+  }
+}
+
+class SuperAdminRequiredError extends ForbiddenError {
+  constructor() {
+    super("Super admin access required");
+  }
+}
+
+function parseOptions(options: AuthOptions): ParsedAuthOptions | null {
+  if (typeof options !== "object") {
+    return null;
+  }
+  return {
+    permissions: options.permissions,
+    requireOrganization: options.requireOrganization ?? false,
+    requireAdmin: options.requireAdmin ?? false,
+    requireSuperAdmin: options.requireSuperAdmin ?? false,
+  };
+}
+
+function isSystemAdmin(role: string | null | undefined): boolean {
+  return role === "admin" || role === "super_admin";
+}
+
+function isSuperAdmin(role: string | null | undefined): boolean {
+  return role === "super_admin";
+}
+
+function validateRoleRequirements(
+  userRole: string | undefined,
+  options: ParsedAuthOptions
+): void {
+  if (options.requireSuperAdmin && !isSuperAdmin(userRole)) {
+    throw new SuperAdminRequiredError();
+  }
+  if (options.requireAdmin && !isSystemAdmin(userRole)) {
+    throw new AdminRequiredError();
+  }
+}
+
+async function validatePermissions(
+  headers: Headers,
+  session: AuthSession,
+  options: ParsedAuthOptions
+): Promise<void> {
+  if (options.requireOrganization && !session.activeOrganizationId) {
+    throw new NoActiveOrganizationError();
+  }
+
+  if (options.permissions) {
+    // biome-ignore lint/suspicious/noExplicitAny: Better Auth API typing limitation
+    const { success } = await (auth.api as any).hasPermission({
+      headers,
+      body: { permissions: options.permissions },
+    });
+    if (!success) {
+      throw new ForbiddenError();
+    }
+  }
+}
 
 export const betterAuthPlugin = new Elysia({ name: "better-auth" })
   .mount(auth.handler)
   .macro({
     auth: (options: AuthOptions) => ({
-      async resolve({ status, request: { headers } }) {
-        const session = await auth.api.getSession({ headers });
+      async resolve({ request: { headers } }) {
+        const result = await auth.api.getSession({ headers });
 
-        if (!session) {
-          return status(401, { code: "UNAUTHORIZED", message: "Unauthorized" });
+        if (!result) {
+          throw new UnauthorizedError();
         }
 
-        if (typeof options === "object") {
-          if (
-            options.requireOrganization &&
-            !session.session.activeOrganizationId
-          ) {
-            return status(400, {
-              code: "NO_ACTIVE_ORGANIZATION",
-              message: "No active organization selected",
-            });
-          }
+        const user = result.user as AuthUser;
+        const session = result.session as AuthSession;
 
-          if (options.permissions) {
-            const { success } = await auth.api.hasPermission({
-              headers,
-              body: { permissions: options.permissions },
-            });
-
-            if (!success) {
-              return status(403, { code: "FORBIDDEN", message: "Forbidden" });
-            }
-          }
+        const parsed = parseOptions(options);
+        if (!parsed) {
+          return { user, session };
         }
 
-        return {
-          user: session.user,
-          session: session.session,
-        };
+        await validatePermissions(headers, session, parsed);
+        validateRoleRequirements(user.role, parsed);
+
+        return { user, session };
       },
     }),
   });

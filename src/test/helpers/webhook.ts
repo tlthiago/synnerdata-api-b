@@ -1,39 +1,27 @@
-import { createHmac } from "node:crypto";
 import { env } from "@/env";
 import type { PagarmeWebhookPayload } from "@/modules/payments/pagarme/pagarme.types";
 
-/**
- * Generates a valid HMAC-SHA256 signature for Pagarme webhooks
- */
-export function generateWebhookSignature(payload: string): string {
-  const hmac = createHmac("sha256", env.PAGARME_WEBHOOK_SECRET);
-  hmac.update(payload);
-  return `sha256=${hmac.digest("hex")}`;
+export function createWebhookAuthHeader(): string {
+  const credentials = `${env.PAGARME_WEBHOOK_USERNAME}:${env.PAGARME_WEBHOOK_PASSWORD}`;
+  return `Basic ${Buffer.from(credentials).toString("base64")}`;
 }
 
-/**
- * Creates a webhook request with valid signature
- */
 export function createWebhookRequest(
   url: string,
   payload: PagarmeWebhookPayload
 ): Request {
   const body = JSON.stringify(payload);
-  const signature = generateWebhookSignature(body);
 
   return new Request(url, {
     method: "POST",
     headers: {
       "Content-Type": "application/json",
-      "x-hub-signature": signature,
+      Authorization: createWebhookAuthHeader(),
     },
     body,
   });
 }
 
-/**
- * Creates a webhook request with invalid signature (for testing rejection)
- */
 export function createInvalidWebhookRequest(
   url: string,
   payload: PagarmeWebhookPayload
@@ -44,7 +32,7 @@ export function createInvalidWebhookRequest(
     method: "POST",
     headers: {
       "Content-Type": "application/json",
-      "x-hub-signature": "sha256=invalid-signature",
+      Authorization: "Basic aW52YWxpZDppbnZhbGlk",
     },
     body,
   });
@@ -120,26 +108,6 @@ export const webhookPayloads = {
       status: "canceled",
       metadata: {
         organization_id: organizationId,
-      },
-    },
-  }),
-
-  orderPaid: (
-    organizationId: string,
-    planId: string
-  ): PagarmeWebhookPayload => ({
-    id: `evt-${crypto.randomUUID()}`,
-    type: "order.paid",
-    created_at: new Date().toISOString(),
-    data: {
-      id: `ord-${crypto.randomUUID()}`,
-      code: `ORD-${Date.now()}`,
-      status: "paid",
-      amount: 9900,
-      metadata: {
-        organization_id: organizationId,
-        plan_id: planId,
-        annual: "false",
       },
     },
   }),

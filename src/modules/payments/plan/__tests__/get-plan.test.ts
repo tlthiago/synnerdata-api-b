@@ -25,9 +25,10 @@ describe("GET /payments/plans/:id", () => {
     expect(response.status).toBe(200);
 
     const body = await response.json();
-    expect(body.id).toBe(proPlan.id);
-    expect(body.name).toBe(proPlan.name);
-    expect(body.displayName).toBe(proPlan.displayName);
+    expect(body.success).toBe(true);
+    expect(body.data.id).toBe(proPlan.id);
+    expect(body.data.name).toBe(proPlan.name);
+    expect(body.data.displayName).toBe(proPlan.displayName);
   });
 
   test("should return 404 for non-existent plan", async () => {
@@ -37,7 +38,7 @@ describe("GET /payments/plans/:id", () => {
     expect(response.status).toBe(404);
 
     const body = await response.json();
-    expect(body.code).toBe("PLAN_NOT_FOUND");
+    expect(body.error.code).toBe("PLAN_NOT_FOUND");
   });
 
   test("should return inactive plans (no filter on get by id)", async () => {
@@ -52,8 +53,9 @@ describe("GET /payments/plans/:id", () => {
     expect(response.status).toBe(200);
 
     const body = await response.json();
-    expect(body.id).toBe(inactivePlan.id);
-    expect(body.isActive).toBe(false);
+    expect(body.success).toBe(true);
+    expect(body.data.id).toBe(inactivePlan.id);
+    expect(body.data.isActive).toBe(false);
   });
 
   test("should return all plan properties", async () => {
@@ -66,16 +68,17 @@ describe("GET /payments/plans/:id", () => {
     );
     const body = await response.json();
 
-    expect(body.id).toBe(proPlan.id);
-    expect(body.name).toBe(proPlan.name);
-    expect(body.displayName).toBe(proPlan.displayName);
-    expect(body.priceMonthly).toBe(proPlan.priceMonthly);
-    expect(body.priceYearly).toBe(proPlan.priceYearly);
-    expect(body.trialDays).toBe(proPlan.trialDays);
-    expect(body.limits).toEqual(proPlan.limits);
-    expect(body.isActive).toBe(proPlan.isActive);
-    expect(body.isPublic).toBe(proPlan.isPublic);
-    expect(body.sortOrder).toBe(proPlan.sortOrder);
+    expect(body.success).toBe(true);
+    expect(body.data.id).toBe(proPlan.id);
+    expect(body.data.name).toBe(proPlan.name);
+    expect(body.data.displayName).toBe(proPlan.displayName);
+    expect(body.data.priceMonthly).toBe(proPlan.priceMonthly);
+    expect(body.data.priceYearly).toBe(proPlan.priceYearly);
+    expect(body.data.trialDays).toBe(proPlan.trialDays);
+    expect(body.data.limits).toEqual(proPlan.limits);
+    expect(body.data.isActive).toBe(proPlan.isActive);
+    expect(body.data.isPublic).toBe(proPlan.isPublic);
+    expect(body.data.sortOrder).toBe(proPlan.sortOrder);
   });
 
   test("should handle empty id parameter", async () => {
@@ -85,6 +88,7 @@ describe("GET /payments/plans/:id", () => {
     // Empty id should hit the list endpoint
     expect(response.status).toBe(200);
     const body = await response.json();
-    expect(body.plans).toBeArray();
+    expect(body.success).toBe(true);
+    expect(body.data.plans).toBeArray();
   });
 });

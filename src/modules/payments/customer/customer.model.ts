@@ -1,24 +1,69 @@
 import { z } from "zod";
-
-// ============================================================
-// BILLING DATA SCHEMA
-// ============================================================
+import { successResponseSchema } from "@/lib/responses/response.types";
 
 export const billingDataSchema = z.object({
-  document: z.string().min(14).max(18).optional(), // CNPJ
-  phone: z.string().min(10).max(15).optional(),
-  billingEmail: z.email().optional(),
+  document: z.string().min(14).max(18).optional().describe("CNPJ"),
+  phone: z.string().min(10).max(15).optional().describe("Phone number"),
+  billingEmail: z.email().optional().describe("Billing email"),
 });
 
-// ============================================================
-// INFERRED TYPES
-// ============================================================
+export const listCustomersSchema = z.object({
+  name: z.string().optional().describe("Filter by customer name"),
+  email: z.string().optional().describe("Filter by customer email"),
+  document: z.string().optional().describe("Filter by customer document"),
+  page: z.coerce.number().int().positive().default(1).describe("Page number"),
+  size: z.coerce
+    .number()
+    .int()
+    .positive()
+    .max(100)
+    .default(10)
+    .describe("Page size"),
+});
+
+const customerPhoneSchema = z.object({
+  country_code: z.string().describe("Country code"),
+  area_code: z.string().describe("Area code"),
+  number: z.string().describe("Phone number"),
+});
+
+const customerDataSchema = z.object({
+  id: z.string().describe("Customer ID"),
+  name: z.string().describe("Customer name"),
+  email: z.string().describe("Customer email"),
+  document: z.string().describe("Customer document"),
+  type: z.enum(["individual", "company"]).describe("Customer type"),
+  delinquent: z.boolean().optional().describe("Whether customer is delinquent"),
+  phones: z
+    .object({
+      mobile_phone: customerPhoneSchema.optional(),
+      home_phone: customerPhoneSchema.optional(),
+    })
+    .optional()
+    .describe("Customer phones"),
+  created_at: z.string().describe("Creation timestamp"),
+  updated_at: z.string().describe("Last update timestamp"),
+});
+
+const pagingSchema = z.object({
+  total: z.number().describe("Total number of records"),
+  previous: z.string().optional().describe("Previous page URL"),
+  next: z.string().optional().describe("Next page URL"),
+});
+
+const listCustomersDataSchema = z.object({
+  customers: z.array(customerDataSchema).describe("List of customers"),
+  paging: pagingSchema.describe("Pagination info"),
+});
+
+export const listCustomersResponseSchema = successResponseSchema(
+  listCustomersDataSchema
+);
 
 export type BillingData = z.infer<typeof billingDataSchema>;
-
-// ============================================================
-// INTERNAL TYPES
-// ============================================================
+export type ListCustomersInput = z.infer<typeof listCustomersSchema>;
+export type CustomerData = z.infer<typeof customerDataSchema>;
+export type ListCustomersResponse = z.infer<typeof listCustomersResponseSchema>;
 
 export type OrganizationProfileData = {
   organizationId: string;
@@ -36,53 +81,3 @@ export type CreateCustomerInput = {
   document: string;
   phone: string;
 };
-
-// ============================================================
-// LIST CUSTOMERS SCHEMAS
-// ============================================================
-
-export const listCustomersQuerySchema = z.object({
-  name: z.string().optional(),
-  email: z.string().optional(),
-  document: z.string().optional(),
-  page: z.coerce.number().int().positive().default(1),
-  size: z.coerce.number().int().positive().max(100).default(10),
-});
-
-export const customerPhoneSchema = z.object({
-  country_code: z.string(),
-  area_code: z.string(),
-  number: z.string(),
-});
-
-export const customerResponseSchema = z.object({
-  id: z.string(),
-  name: z.string(),
-  email: z.string(),
-  document: z.string(),
-  type: z.enum(["individual", "company"]),
-  delinquent: z.boolean().optional(),
-  phones: z
-    .object({
-      mobile_phone: customerPhoneSchema.optional(),
-      home_phone: customerPhoneSchema.optional(),
-    })
-    .optional(),
-  created_at: z.string(),
-  updated_at: z.string(),
-});
-
-export const listCustomersResponseSchema = z.object({
-  data: z.array(customerResponseSchema),
-  paging: z.object({
-    total: z.number(),
-    previous: z.string().optional(),
-    next: z.string().optional(),
-  }),
-});
-
-export type ListCustomersQuery = z.infer<typeof listCustomersQuerySchema>;
-export type CustomerResponse = z.infer<typeof customerResponseSchema>;
-export type ListCustomersResponseType = z.infer<
-  typeof listCustomersResponseSchema
->;

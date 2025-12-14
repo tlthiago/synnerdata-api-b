@@ -31,7 +31,7 @@ Este documento detalha as dependências e pré-requisitos necessários antes de 
 | Tipos de Subscription | ✅ Existe | Tipos completos |
 | Tipos de Webhook (básico) | ✅ Existe | Precisa expandir customer data |
 | PagarmeClient (base) | ✅ Existe | Métodos: createCustomer, getCustomer, createSubscription, etc |
-| WebhookService (base) | ✅ Existe | Handlers: charge.paid, charge.payment_failed, subscription.canceled, order.paid |
+| WebhookService (base) | ✅ Existe | Handlers: charge.paid, charge.payment_failed, charge.refunded, subscription.created, subscription.canceled, subscription.updated |
 | CheckoutService (order-based) | ✅ Existe | Usa `createCheckout()` baseado em orders |
 | PlanService (básico) | ✅ Existe | Métodos: list, getById, getByName |
 | CustomerService | ✅ Existe | getOrCreateForCheckout, create, getCustomerId |

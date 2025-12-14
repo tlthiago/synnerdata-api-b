@@ -1,4 +1,4 @@
-import type { OrgSubscription } from "@/db/schema/payments";
+import type { OrgSubscription } from "@/db/schema";
 
 // ============================================================
 // EVENT PAYLOAD TYPES
@@ -11,11 +11,25 @@ export type PaymentEvents = {
   "subscription.activated": { subscription: OrgSubscription };
   "subscription.canceled": { subscription: OrgSubscription };
   "subscription.renewed": { subscription: OrgSubscription };
+  "subscription.updated": {
+    subscription: OrgSubscription;
+    changes: {
+      cardUpdated?: boolean;
+      statusChanged?: boolean;
+      previousStatus?: string;
+    };
+  };
   "charge.paid": { subscriptionId: string; invoiceId: string };
   "charge.failed": {
     subscriptionId: string;
     invoiceId: string;
     error: string;
+  };
+  "charge.refunded": {
+    subscriptionId: string;
+    chargeId: string;
+    amount: number;
+    reason?: string;
   };
 };
 

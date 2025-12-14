@@ -1,11 +1,6 @@
 import { eq } from "drizzle-orm";
 import { db } from "@/db";
-import {
-  members,
-  organizationProfiles,
-  organizations,
-  type Role,
-} from "@/db/schema";
+import { type Role, schema } from "@/db/schema";
 import { createTestApp } from "./app";
 import type { TestUserResult } from "./user";
 
@@ -41,14 +36,14 @@ export async function createTestOrganization(
   const name = options.name ?? `Test Org ${testId.slice(0, 8)}`;
   const slug = options.slug ?? `test-org-${testId.slice(0, 8)}`;
 
-  await db.insert(organizations).values({
+  await db.insert(schema.organizations).values({
     id: organizationId,
     name,
     slug,
     createdAt: new Date(),
   });
 
-  await db.insert(organizationProfiles).values({
+  await db.insert(schema.organizationProfiles).values({
     id: profileId,
     organizationId,
     tradeName: options.tradeName ?? `Test Company ${testId.slice(0, 8)}`,
@@ -84,7 +79,7 @@ export async function addMemberToOrganization(
   const { organizationId, role } = options;
   const memberId = `test-member-${crypto.randomUUID()}`;
 
-  await db.insert(members).values({
+  await db.insert(schema.members).values({
     id: memberId,
     organizationId,
     userId: userResult.user.id,
@@ -132,7 +127,7 @@ export async function setOrganizationCustomerId(
   pagarmeCustomerId: string
 ): Promise<void> {
   await db
-    .update(organizationProfiles)
+    .update(schema.organizationProfiles)
     .set({ pagarmeCustomerId })
-    .where(eq(organizationProfiles.organizationId, organizationId));
+    .where(eq(schema.organizationProfiles.organizationId, organizationId));
 }

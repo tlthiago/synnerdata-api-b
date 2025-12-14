@@ -1,7 +1,3 @@
-// ============================================================
-// CUSTOMER TYPES
-// ============================================================
-
 export type PagarmePhone = {
   country_code: string;
   area_code: string;
@@ -56,10 +52,6 @@ export type ListCustomersResponse = {
   };
 };
 
-// ============================================================
-// PLAN TYPES
-// ============================================================
-
 export type CreatePlanRequest = {
   name: string;
   description?: string;
@@ -98,10 +90,6 @@ export type PagarmePlan = {
   created_at: string;
   updated_at: string;
 };
-
-// ============================================================
-// SUBSCRIPTION TYPES
-// ============================================================
 
 export type CreateSubscriptionRequest = {
   customer_id: string;
@@ -143,10 +131,6 @@ export type PagarmeSubscription = {
   plan: PagarmePlan;
   metadata?: Record<string, string>;
 };
-
-// ============================================================
-// ORDER / CHECKOUT TYPES
-// ============================================================
 
 export type CreateOrderRequest = {
   customer_id: string;
@@ -200,10 +184,6 @@ export type PagarmeCheckout = {
   expires_at: string;
 };
 
-// ============================================================
-// INVOICE TYPES
-// ============================================================
-
 export type PagarmeInvoice = {
   id: string;
   code: string;
@@ -230,10 +210,6 @@ export type ListInvoicesResponse = {
   };
 };
 
-// ============================================================
-// WEBHOOK TYPES
-// ============================================================
-
 export type PagarmeWebhookPayload = {
   id: string;
   type: PagarmeWebhookEventType;
@@ -248,12 +224,7 @@ export type PagarmeWebhookEventType =
   | "charge.pending"
   | "subscription.created"
   | "subscription.canceled"
-  | "subscription.updated"
-  | "invoice.created"
-  | "invoice.paid"
-  | "invoice.canceled"
-  | "order.paid"
-  | "order.canceled";
+  | "subscription.updated";
 
 export type PagarmeWebhookData = {
   id: string;
@@ -318,18 +289,10 @@ export type PagarmeWebhookData = {
   metadata?: Record<string, string>;
 };
 
-// ============================================================
-// ACCESS TOKEN (PORTAL) TYPES
-// ============================================================
-
 export type CreateAccessTokenResponse = {
   token: string;
   expires_at: string;
 };
-
-// ============================================================
-// PAYMENT LINK TYPES
-// ============================================================
 
 export type PaymentLinkPaymentSettings = {
   accepted_payment_methods: Array<"credit_card" | "boleto" | "pix">;
@@ -377,11 +340,7 @@ export type PagarmePaymentLink = {
   updated_at: string;
 };
 
-// ============================================================
-// API ERROR TYPES
-// ============================================================
-
-export type PagarmeApiError = {
-  message: string;
+export type PagarmeApiErrorResponse = {
+  message?: string;
   errors?: Record<string, string[]>;
 };

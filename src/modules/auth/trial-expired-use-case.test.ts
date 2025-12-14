@@ -8,15 +8,7 @@ import {
 } from "bun:test";
 import { eq } from "drizzle-orm";
 import { db } from "@/db";
-import {
-  members,
-  organizations,
-  orgSubscriptions,
-  sessions,
-  subscriptionPlans,
-  users,
-  verifications,
-} from "@/db/schema";
+import { schema } from "@/db/schema";
 import { env } from "@/env";
 import { SubscriptionService } from "@/modules/payments";
 import { starterPlan } from "@/test/fixtures/plans";
@@ -40,7 +32,7 @@ describe("Trial Expired Use Case: Usuário com Trial Expirado", () => {
     // Insert starter plan if it doesn't exist
     if (starterPlan) {
       await db
-        .insert(subscriptionPlans)
+        .insert(schema.subscriptionPlans)
         .values(starterPlan)
         .onConflictDoNothing();
     }
@@ -53,32 +45,34 @@ describe("Trial Expired Use Case: Usuário com Trial Expirado", () => {
     // Cleanup test data
     if (organizationId) {
       await db
-        .delete(orgSubscriptions)
-        .where(eq(orgSubscriptions.organizationId, organizationId));
+        .delete(schema.orgSubscriptions)
+        .where(eq(schema.orgSubscriptions.organizationId, organizationId));
       await db
-        .delete(members)
-        .where(eq(members.organizationId, organizationId));
+        .delete(schema.members)
+        .where(eq(schema.members.organizationId, organizationId));
       await db
-        .delete(organizations)
-        .where(eq(organizations.id, organizationId));
+        .delete(schema.organizations)
+        .where(eq(schema.organizations.id, organizationId));
     }
 
     // Clean up verifications
     const identifier = `sign-in-otp-${testEmail}`;
     await db
-      .delete(verifications)
-      .where(eq(verifications.identifier, identifier));
+      .delete(schema.verifications)
+      .where(eq(schema.verifications.identifier, identifier));
 
     // Clean up user and sessions
     const [user] = await db
       .select()
-      .from(users)
-      .where(eq(users.email, testEmail))
+      .from(schema.users)
+      .where(eq(schema.users.email, testEmail))
       .limit(1);
 
     if (user) {
-      await db.delete(sessions).where(eq(sessions.userId, user.id));
-      await db.delete(users).where(eq(users.id, user.id));
+      await db
+        .delete(schema.sessions)
+        .where(eq(schema.sessions.userId, user.id));
+      await db.delete(schema.users).where(eq(schema.users.id, user.id));
     }
   });
 
@@ -227,8 +221,8 @@ describe("Trial Expired Use Case: Usuário com Trial Expirado", () => {
       // The checkAccess method handles the expiration logic in real-time
       const [subscription] = await db
         .select()
-        .from(orgSubscriptions)
-        .where(eq(orgSubscriptions.organizationId, organizationId))
+        .from(schema.orgSubscriptions)
+        .where(eq(schema.orgSubscriptions.organizationId, organizationId))
         .limit(1);
 
       expect(subscription.status).toBe("trial");
@@ -237,16 +231,16 @@ describe("Trial Expired Use Case: Usuário com Trial Expirado", () => {
     test("should be able to explicitly expire trial via service", async () => {
       const [subscription] = await db
         .select()
-        .from(orgSubscriptions)
-        .where(eq(orgSubscriptions.organizationId, organizationId))
+        .from(schema.orgSubscriptions)
+        .where(eq(schema.orgSubscriptions.organizationId, organizationId))
         .limit(1);
 
       await SubscriptionService.expireTrial(subscription.id);
 
       const [updatedSubscription] = await db
         .select()
-        .from(orgSubscriptions)
-        .where(eq(orgSubscriptions.organizationId, organizationId))
+        .from(schema.orgSubscriptions)
+        .where(eq(schema.orgSubscriptions.organizationId, organizationId))
         .limit(1);
 
       expect(updatedSubscription.status).toBe("expired");

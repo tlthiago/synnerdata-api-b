@@ -1,5 +1,5 @@
 import { db } from "@/db";
-import { orgSubscriptions } from "@/db/schema";
+import { schema } from "@/db/schema";
 
 export type SubscriptionStatus =
   | "trial"
@@ -42,7 +42,7 @@ export async function createTestSubscription(
   const trialEnd = new Date(now.getTime() + trialDays * 24 * 60 * 60 * 1000);
   const periodEnd = new Date(now.getTime() + periodDays * 24 * 60 * 60 * 1000);
 
-  await db.insert(orgSubscriptions).values({
+  await db.insert(schema.orgSubscriptions).values({
     id,
     organizationId,
     planId,
@@ -121,12 +121,13 @@ const DEFAULT_TIMEOUT = 30_000;
 const DEFAULT_INTERVAL = 1000;
 
 /**
- * Waits for subscription to become active via polling.
+ * Waits for subscription to reach a specific status via polling.
  */
-export async function waitForSubscriptionActive(
+export async function waitForSubscriptionStatus(
   organizationId: string,
+  expectedStatus: SubscriptionStatus,
   options: WaitOptions = {}
-): Promise<typeof orgSubscriptions.$inferSelect> {
+): Promise<typeof schema.orgSubscriptions.$inferSelect> {
   const { eq } = await import("drizzle-orm");
   const { timeout = DEFAULT_TIMEOUT, interval = DEFAULT_INTERVAL } = options;
   const startTime = Date.now();
@@ -134,11 +135,11 @@ export async function waitForSubscriptionActive(
   while (Date.now() - startTime < timeout) {
     const [subscription] = await db
       .select()
-      .from(orgSubscriptions)
-      .where(eq(orgSubscriptions.organizationId, organizationId))
+      .from(schema.orgSubscriptions)
+      .where(eq(schema.orgSubscriptions.organizationId, organizationId))
       .limit(1);
 
-    if (subscription?.status === "active") {
+    if (subscription?.status === expectedStatus) {
       return subscription;
     }
 
@@ -146,6 +147,16 @@ export async function waitForSubscriptionActive(
   }
 
   throw new Error(
-    `Timeout: subscription for org ${organizationId} did not become active within ${timeout}ms`
+    `Timeout: subscription for org ${organizationId} did not reach status "${expectedStatus}" within ${timeout}ms`
   );
+}
+
+/**
+ * Waits for subscription to become active via polling.
+ */
+export function waitForSubscriptionActive(
+  organizationId: string,
+  options: WaitOptions = {}
+): Promise<typeof schema.orgSubscriptions.$inferSelect> {
+  return waitForSubscriptionStatus(organizationId, "active", options);
 }

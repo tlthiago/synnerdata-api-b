@@ -2,7 +2,7 @@ import "dotenv/config";
 import { expect, test } from "@playwright/test";
 import { eq } from "drizzle-orm";
 import { db } from "@/db";
-import { pendingCheckouts } from "@/db/schema";
+import { schema } from "@/db/schema";
 import { proPlan } from "@/test/fixtures/plans";
 import { createTestApp } from "@/test/helpers/app";
 import { seedPlans } from "@/test/helpers/seed";
@@ -73,7 +73,8 @@ test.describe("Checkout + Webhook E2E Flow", () => {
     );
 
     expect(checkoutResponse.status).toBe(200);
-    const { checkoutUrl, paymentLinkId } = await checkoutResponse.json();
+    const body = await checkoutResponse.json();
+    const { checkoutUrl, paymentLinkId } = body.data;
 
     console.log(`Checkout URL: ${checkoutUrl}`);
     console.log(`Payment Link ID: ${paymentLinkId}`);
@@ -198,8 +199,8 @@ test.describe("Checkout + Webhook E2E Flow", () => {
     // 12. Verify pending checkout was marked completed
     const [checkout] = await db
       .select()
-      .from(pendingCheckouts)
-      .where(eq(pendingCheckouts.paymentLinkId, paymentLinkId))
+      .from(schema.pendingCheckouts)
+      .where(eq(schema.pendingCheckouts.paymentLinkId, paymentLinkId))
       .limit(1);
 
     expect(checkout.status).toBe("completed");

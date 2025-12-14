@@ -1,11 +1,11 @@
 import { afterAll, beforeAll, describe, expect, test } from "bun:test";
 import { eq } from "drizzle-orm";
 import { db } from "@/db";
-import { subscriptionPlans } from "@/db/schema";
+import { schema } from "@/db/schema";
 import { env } from "@/env";
 import { createTestApp, type TestApp } from "@/test/helpers/app";
 import { seedPlans } from "@/test/helpers/seed";
-import { createTestUser } from "@/test/helpers/user";
+import { createTestAdminUser } from "@/test/helpers/user";
 
 const BASE_URL = env.API_URL;
 
@@ -17,15 +17,15 @@ describe("DELETE /payments/plans/:id", () => {
   beforeAll(async () => {
     app = createTestApp();
     await seedPlans();
-    const { headers } = await createTestUser({ emailVerified: true });
+    const { headers } = await createTestAdminUser({ emailVerified: true });
     authHeaders = headers;
   });
 
   afterAll(async () => {
     for (const planId of createdPlanIds) {
       await db
-        .delete(subscriptionPlans)
-        .where(eq(subscriptionPlans.id, planId));
+        .delete(schema.subscriptionPlans)
+        .where(eq(schema.subscriptionPlans.id, planId));
     }
   });
 
@@ -55,9 +55,9 @@ describe("DELETE /payments/plans/:id", () => {
         }),
       })
     );
-    const plan = await response.json();
-    createdPlanIds.push(plan.id);
-    return plan;
+    const body = await response.json();
+    createdPlanIds.push(body.data.id);
+    return body.data;
   }
 
   test("should reject unauthenticated requests", async () => {
@@ -84,6 +84,7 @@ describe("DELETE /payments/plans/:id", () => {
 
     const body = await response.json();
     expect(body.success).toBe(true);
+    expect(body.data.deleted).toBe(true);
 
     // Remove from cleanup array since it's already deleted
     removeFromCleanup(plan.id);
@@ -91,8 +92,8 @@ describe("DELETE /payments/plans/:id", () => {
     // Verify plan was deleted
     const [deletedPlan] = await db
       .select()
-      .from(subscriptionPlans)
-      .where(eq(subscriptionPlans.id, plan.id))
+      .from(schema.subscriptionPlans)
+      .where(eq(schema.subscriptionPlans.id, plan.id))
       .limit(1);
     expect(deletedPlan).toBeUndefined();
   });
@@ -107,6 +108,6 @@ describe("DELETE /payments/plans/:id", () => {
     expect(response.status).toBe(404);
 
     const body = await response.json();
-    expect(body.code).toBe("PLAN_NOT_FOUND");
+    expect(body.error.code).toBe("PLAN_NOT_FOUND");
   });
 });

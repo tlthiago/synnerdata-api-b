@@ -1,7 +1,8 @@
 import { eq } from "drizzle-orm";
 import { db } from "@/db";
-import { orgSubscriptions, subscriptionPlans } from "@/db/schema";
+import { schema } from "@/db/schema";
 import {
+  PlanNotFoundError,
   SubscriptionAlreadyActiveError,
   SubscriptionNotCancelableError,
   SubscriptionNotFoundError,
@@ -9,87 +10,118 @@ import {
 } from "../errors";
 import { PaymentHooks } from "../hooks";
 import { PagarmeClient } from "../pagarme/client";
-import type { SubscriptionResponse } from "./subscription.model";
+import type {
+  CancelSubscriptionInput,
+  CancelSubscriptionResponse,
+  GetSubscriptionInput,
+  GetSubscriptionResponse,
+  RestoreSubscriptionInput,
+  RestoreSubscriptionResponse,
+} from "./subscription.model";
+
+type Subscription = typeof schema.orgSubscriptions.$inferSelect;
 
 export abstract class SubscriptionService {
-  /**
-   * Get subscription for an organization.
-   */
-  static async getByOrganizationId(
+  private static async findByOrganizationId(
     organizationId: string
-  ): Promise<SubscriptionResponse> {
-    const subscription = await db.query.orgSubscriptions.findFirst({
-      where: eq(orgSubscriptions.organizationId, organizationId),
-      with: {
-        plan: true,
-      },
-    });
+  ): Promise<Subscription | null> {
+    const [subscription] = await db
+      .select()
+      .from(schema.orgSubscriptions)
+      .where(eq(schema.orgSubscriptions.organizationId, organizationId))
+      .limit(1);
 
-    if (!subscription) {
+    return subscription ?? null;
+  }
+
+  static async getByOrganizationId(
+    input: GetSubscriptionInput
+  ): Promise<GetSubscriptionResponse> {
+    const { organizationId } = input;
+
+    const [result] = await db
+      .select({
+        subscription: schema.orgSubscriptions,
+        plan: schema.subscriptionPlans,
+      })
+      .from(schema.orgSubscriptions)
+      .innerJoin(
+        schema.subscriptionPlans,
+        eq(schema.orgSubscriptions.planId, schema.subscriptionPlans.id)
+      )
+      .where(eq(schema.orgSubscriptions.organizationId, organizationId))
+      .limit(1);
+
+    if (!result) {
       throw new SubscriptionNotFoundError(organizationId);
     }
 
+    const { subscription, plan } = result;
+
     return {
-      id: subscription.id,
-      organizationId: subscription.organizationId,
-      status: subscription.status,
-      plan: {
-        id: subscription.plan.id,
-        name: subscription.plan.name,
-        displayName: subscription.plan.displayName,
-        limits: subscription.plan.limits,
+      success: true as const,
+      data: {
+        id: subscription.id,
+        organizationId: subscription.organizationId,
+        status: subscription.status,
+        plan: {
+          id: plan.id,
+          name: plan.name,
+          displayName: plan.displayName,
+          limits: plan.limits,
+        },
+        billingCycle: subscription.billingCycle as "monthly" | "yearly" | null,
+        trialStart: subscription.trialStart?.toISOString() ?? null,
+        trialEnd: subscription.trialEnd?.toISOString() ?? null,
+        trialUsed: subscription.trialUsed,
+        currentPeriodStart:
+          subscription.currentPeriodStart?.toISOString() ?? null,
+        currentPeriodEnd: subscription.currentPeriodEnd?.toISOString() ?? null,
+        cancelAtPeriodEnd: subscription.cancelAtPeriodEnd,
+        canceledAt: subscription.canceledAt?.toISOString() ?? null,
+        seats: subscription.seats,
       },
-      trialStart: subscription.trialStart?.toISOString() ?? null,
-      trialEnd: subscription.trialEnd?.toISOString() ?? null,
-      trialUsed: subscription.trialUsed,
-      currentPeriodStart:
-        subscription.currentPeriodStart?.toISOString() ?? null,
-      currentPeriodEnd: subscription.currentPeriodEnd?.toISOString() ?? null,
-      cancelAtPeriodEnd: subscription.cancelAtPeriodEnd,
-      canceledAt: subscription.canceledAt?.toISOString() ?? null,
-      seats: subscription.seats,
     };
   }
 
-  /**
-   * Cancel subscription at period end.
-   */
-  static async cancel(organizationId: string) {
-    const subscription = await db.query.orgSubscriptions.findFirst({
-      where: eq(orgSubscriptions.organizationId, organizationId),
-    });
+  static async cancel(
+    input: CancelSubscriptionInput
+  ): Promise<CancelSubscriptionResponse> {
+    const { organizationId } = input;
+
+    const subscription =
+      await SubscriptionService.findByOrganizationId(organizationId);
 
     if (!subscription) {
       throw new SubscriptionNotFoundError(organizationId);
     }
 
-    // Only active or trial subscriptions can be canceled
     if (!["active", "trial"].includes(subscription.status)) {
       throw new SubscriptionNotCancelableError(subscription.status);
     }
 
-    // If there's a Pagarme subscription, cancel it
     if (subscription.pagarmeSubscriptionId) {
       await PagarmeClient.cancelSubscription(
         subscription.pagarmeSubscriptionId,
-        false // Don't cancel pending invoices
+        false
       );
     }
 
-    // Update local subscription
+    // TODO: Criar job para processar cancelamentos quando currentPeriodEnd passar
+    // O status permanece inalterado (active/trial) até o fim do período
     await db
-      .update(orgSubscriptions)
+      .update(schema.orgSubscriptions)
       .set({
         cancelAtPeriodEnd: true,
         canceledAt: new Date(),
-        status: "canceled",
       })
-      .where(eq(orgSubscriptions.id, subscription.id));
+      .where(eq(schema.orgSubscriptions.id, subscription.id));
 
-    // Fetch updated subscription
-    const updatedSubscription = await db.query.orgSubscriptions.findFirst({
-      where: eq(orgSubscriptions.id, subscription.id),
-    });
+    const [updatedSubscription] = await db
+      .select()
+      .from(schema.orgSubscriptions)
+      .where(eq(schema.orgSubscriptions.id, subscription.id))
+      .limit(1);
 
     if (updatedSubscription) {
       PaymentHooks.emit("subscription.canceled", {
@@ -98,84 +130,83 @@ export abstract class SubscriptionService {
     }
 
     return {
-      success: true,
-      message: "Subscription will be canceled at the end of the current period",
-      cancelAtPeriodEnd: true,
-      currentPeriodEnd: subscription.currentPeriodEnd?.toISOString() ?? null,
+      success: true as const,
+      data: {
+        cancelAtPeriodEnd: true,
+        currentPeriodEnd: subscription.currentPeriodEnd?.toISOString() ?? null,
+      },
     };
   }
 
-  /**
-   * Restore a canceled subscription (before period ends).
-   */
-  static async restore(organizationId: string) {
-    const subscription = await db.query.orgSubscriptions.findFirst({
-      where: eq(orgSubscriptions.organizationId, organizationId),
-    });
+  static async restore(
+    input: RestoreSubscriptionInput
+  ): Promise<RestoreSubscriptionResponse> {
+    const { organizationId } = input;
+
+    const subscription =
+      await SubscriptionService.findByOrganizationId(organizationId);
 
     if (!subscription) {
       throw new SubscriptionNotFoundError(organizationId);
     }
 
-    // Can only restore if cancelAtPeriodEnd is true and not expired
-    if (!subscription.cancelAtPeriodEnd || subscription.status === "expired") {
+    // Cannot restore if:
+    // - Not scheduled for cancellation (cancelAtPeriodEnd = false)
+    // - Already fully canceled via Pagarme webhook (status = "canceled")
+    // - Already expired (status = "expired")
+    const isNotScheduledForCancellation = !subscription.cancelAtPeriodEnd;
+    const isAlreadyCanceled = subscription.status === "canceled";
+    const isExpired = subscription.status === "expired";
+
+    if (isNotScheduledForCancellation || isAlreadyCanceled || isExpired) {
       throw new SubscriptionNotRestorableError();
     }
 
-    // Update local subscription
+    // O status permanece inalterado (active/trial) - apenas limpa os campos de cancelamento
     await db
-      .update(orgSubscriptions)
+      .update(schema.orgSubscriptions)
       .set({
         cancelAtPeriodEnd: false,
         canceledAt: null,
-        status: "active",
       })
-      .where(eq(orgSubscriptions.id, subscription.id));
+      .where(eq(schema.orgSubscriptions.id, subscription.id));
 
     return {
-      success: true,
-      message: "Subscription has been restored",
+      success: true as const,
+      data: {
+        restored: true,
+      },
     };
   }
 
-  /**
-   * Check if organization has an active subscription (trial or active).
-   */
   static async hasActiveSubscription(organizationId: string): Promise<boolean> {
-    const subscription = await db.query.orgSubscriptions.findFirst({
-      where: eq(orgSubscriptions.organizationId, organizationId),
-    });
+    const [subscription] = await db
+      .select({ status: schema.orgSubscriptions.status })
+      .from(schema.orgSubscriptions)
+      .where(eq(schema.orgSubscriptions.organizationId, organizationId))
+      .limit(1);
 
     return (
       subscription?.status === "active" || subscription?.status === "trial"
     );
   }
 
-  /**
-   * Check if organization has a paid active subscription (excludes trial).
-   */
   static async hasPaidSubscription(organizationId: string): Promise<boolean> {
-    const subscription = await db.query.orgSubscriptions.findFirst({
-      where: eq(orgSubscriptions.organizationId, organizationId),
-    });
+    const [subscription] = await db
+      .select({ status: schema.orgSubscriptions.status })
+      .from(schema.orgSubscriptions)
+      .where(eq(schema.orgSubscriptions.organizationId, organizationId))
+      .limit(1);
 
     return subscription?.status === "active";
   }
 
-  /**
-   * Ensure organization does not have a paid active subscription.
-   * @throws {SubscriptionAlreadyActiveError} if organization has an active paid subscription
-   */
   static async ensureNoPaidSubscription(organizationId: string): Promise<void> {
     if (await SubscriptionService.hasPaidSubscription(organizationId)) {
       throw new SubscriptionAlreadyActiveError();
     }
   }
 
-  /**
-   * Check subscription access status with detailed info.
-   * Returns access status considering trial expiration date.
-   */
   static async checkAccess(organizationId: string): Promise<{
     hasAccess: boolean;
     status:
@@ -190,9 +221,8 @@ export abstract class SubscriptionService {
     trialEnd: Date | null;
     requiresPayment: boolean;
   }> {
-    const subscription = await db.query.orgSubscriptions.findFirst({
-      where: eq(orgSubscriptions.organizationId, organizationId),
-    });
+    const subscription =
+      await SubscriptionService.findByOrganizationId(organizationId);
 
     if (!subscription) {
       return {
@@ -206,7 +236,6 @@ export abstract class SubscriptionService {
 
     const now = new Date();
 
-    // Active subscription always has access
     if (subscription.status === "active") {
       return {
         hasAccess: true,
@@ -217,7 +246,6 @@ export abstract class SubscriptionService {
       };
     }
 
-    // Trial subscription - check if expired
     if (subscription.status === "trial" && subscription.trialEnd) {
       const trialEnd = new Date(subscription.trialEnd);
       const isExpired = now > trialEnd;
@@ -245,9 +273,8 @@ export abstract class SubscriptionService {
       };
     }
 
-    // Other statuses (expired, canceled, past_due)
     return {
-      hasAccess: subscription.status === "past_due", // Grace period for past_due
+      hasAccess: subscription.status === "past_due",
       status: subscription.status as "expired" | "canceled" | "past_due",
       daysRemaining: null,
       trialEnd: subscription.trialEnd,
@@ -255,38 +282,39 @@ export abstract class SubscriptionService {
     };
   }
 
-  /**
-   * Check if organization can use trial.
-   */
   static async canUseTrial(organizationId: string): Promise<boolean> {
-    const subscription = await db.query.orgSubscriptions.findFirst({
-      where: eq(orgSubscriptions.organizationId, organizationId),
-    });
+    const [subscription] = await db
+      .select({ trialUsed: schema.orgSubscriptions.trialUsed })
+      .from(schema.orgSubscriptions)
+      .where(eq(schema.orgSubscriptions.organizationId, organizationId))
+      .limit(1);
 
     return !subscription?.trialUsed;
   }
 
-  /**
-   * Create trial subscription for new organization.
-   */
   static async createTrial(
     organizationId: string,
     planId: string
   ): Promise<void> {
-    const plan = await db.query.subscriptionPlans.findFirst({
-      where: eq(subscriptionPlans.id, planId),
-    });
+    const [plan] = await db
+      .select({
+        id: schema.subscriptionPlans.id,
+        trialDays: schema.subscriptionPlans.trialDays,
+      })
+      .from(schema.subscriptionPlans)
+      .where(eq(schema.subscriptionPlans.id, planId))
+      .limit(1);
 
     if (!plan) {
-      throw new Error(`Plan not found: ${planId}`);
+      throw new PlanNotFoundError(planId);
     }
 
     const trialStart = new Date();
     const trialEnd = new Date();
     trialEnd.setDate(trialEnd.getDate() + plan.trialDays);
 
-    await db.insert(orgSubscriptions).values({
-      id: crypto.randomUUID(),
+    await db.insert(schema.orgSubscriptions).values({
+      id: `subscription-${crypto.randomUUID()}`,
       organizationId,
       planId,
       status: "trial",
@@ -296,18 +324,14 @@ export abstract class SubscriptionService {
       seats: 1,
     });
 
-    const subscription = await db.query.orgSubscriptions.findFirst({
-      where: eq(orgSubscriptions.organizationId, organizationId),
-    });
+    const subscription =
+      await SubscriptionService.findByOrganizationId(organizationId);
 
     if (subscription) {
       PaymentHooks.emit("trial.started", { subscription });
     }
   }
 
-  /**
-   * Activate subscription after successful payment.
-   */
   static async activate(
     organizationId: string,
     pagarmeSubscriptionId: string,
@@ -315,7 +339,7 @@ export abstract class SubscriptionService {
     periodEnd: Date
   ): Promise<void> {
     await db
-      .update(orgSubscriptions)
+      .update(schema.orgSubscriptions)
       .set({
         status: "active",
         pagarmeSubscriptionId,
@@ -324,39 +348,37 @@ export abstract class SubscriptionService {
         cancelAtPeriodEnd: false,
         canceledAt: null,
       })
-      .where(eq(orgSubscriptions.organizationId, organizationId));
+      .where(eq(schema.orgSubscriptions.organizationId, organizationId));
   }
 
-  /**
-   * Mark subscription as past due (payment failed).
-   */
   static async markPastDue(organizationId: string): Promise<void> {
     await db
-      .update(orgSubscriptions)
+      .update(schema.orgSubscriptions)
       .set({ status: "past_due" })
-      .where(eq(orgSubscriptions.organizationId, organizationId));
+      .where(eq(schema.orgSubscriptions.organizationId, organizationId));
   }
 
-  /**
-   * Expire trial subscription.
-   */
   static async expireTrial(subscriptionId: string): Promise<void> {
-    const subscription = await db.query.orgSubscriptions.findFirst({
-      where: eq(orgSubscriptions.id, subscriptionId),
-    });
+    const [subscription] = await db
+      .select()
+      .from(schema.orgSubscriptions)
+      .where(eq(schema.orgSubscriptions.id, subscriptionId))
+      .limit(1);
 
     if (!subscription || subscription.status !== "trial") {
       return;
     }
 
     await db
-      .update(orgSubscriptions)
+      .update(schema.orgSubscriptions)
       .set({ status: "expired" })
-      .where(eq(orgSubscriptions.id, subscriptionId));
+      .where(eq(schema.orgSubscriptions.id, subscriptionId));
 
-    const updatedSubscription = await db.query.orgSubscriptions.findFirst({
-      where: eq(orgSubscriptions.id, subscriptionId),
-    });
+    const [updatedSubscription] = await db
+      .select()
+      .from(schema.orgSubscriptions)
+      .where(eq(schema.orgSubscriptions.id, subscriptionId))
+      .limit(1);
 
     if (updatedSubscription) {
       PaymentHooks.emit("trial.expired", { subscription: updatedSubscription });

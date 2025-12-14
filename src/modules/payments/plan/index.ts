@@ -1,45 +1,53 @@
 import { Elysia } from "elysia";
 import { betterAuthPlugin } from "@/lib/auth-plugin";
 import {
-  createPlanRequestSchema,
+  forbiddenErrorSchema,
+  notFoundErrorSchema,
+  unauthorizedErrorSchema,
+  validationErrorSchema,
+} from "@/lib/responses/response.types";
+import {
+  createPlanResponseSchema,
+  createPlanSchema,
   deletePlanResponseSchema,
+  getPlanResponseSchema,
+  listPlansResponseSchema,
   planIdParamsSchema,
-  planListResponseSchema,
-  planResponseSchema,
   syncPlanResponseSchema,
-  updatePlanRequestSchema,
+  updatePlanResponseSchema,
+  updatePlanSchema,
 } from "./plan.model";
 import { PlanService } from "./plan.service";
 
-/**
- * Public routes - no authentication required
- */
 export const planPublicController = new Elysia({
   name: "plan-public",
   prefix: "/plans",
   detail: { tags: ["Payments - Plans"] },
 })
-  .get(
-    "/",
-    async () => {
-      const plans = await PlanService.list();
-      return { plans };
+  .get("/", () => PlanService.list(), {
+    response: {
+      200: listPlansResponseSchema,
+      400: validationErrorSchema,
     },
-    {
-      response: planListResponseSchema,
-      detail: { summary: "List available plans" },
-    }
-  )
+    detail: {
+      summary: "List available plans",
+      description:
+        "Returns all active and public plans available for subscription.",
+    },
+  })
   .get("/:id", ({ params }) => PlanService.getById(params.id), {
     params: planIdParamsSchema,
-    response: planResponseSchema,
-    detail: { summary: "Get plan details" },
+    response: {
+      200: getPlanResponseSchema,
+      400: validationErrorSchema,
+      404: notFoundErrorSchema,
+    },
+    detail: {
+      summary: "Get plan details",
+      description: "Returns details of a specific plan by ID.",
+    },
   });
 
-/**
- * Protected routes - authentication required
- * Uses betterAuthPlugin macros for auth
- */
 export const planProtectedController = new Elysia({
   name: "plan-protected",
   prefix: "/plans",
@@ -47,41 +55,65 @@ export const planProtectedController = new Elysia({
 })
   .use(betterAuthPlugin)
   .post("/", ({ body }) => PlanService.create(body), {
-    auth: true,
-    body: createPlanRequestSchema,
-    response: planResponseSchema,
-    detail: { summary: "Create a new plan" },
+    auth: { requireAdmin: true },
+    body: createPlanSchema,
+    response: {
+      200: createPlanResponseSchema,
+      400: validationErrorSchema,
+      401: unauthorizedErrorSchema,
+      403: forbiddenErrorSchema,
+    },
+    detail: {
+      summary: "Create a new plan",
+      description:
+        "Creates a new subscription plan. Requires admin privileges.",
+    },
   })
   .put("/:id", ({ params, body }) => PlanService.update(params.id, body), {
-    auth: true,
+    auth: { requireAdmin: true },
     params: planIdParamsSchema,
-    body: updatePlanRequestSchema,
-    response: planResponseSchema,
-    detail: { summary: "Update a plan" },
+    body: updatePlanSchema,
+    response: {
+      200: updatePlanResponseSchema,
+      400: validationErrorSchema,
+      401: unauthorizedErrorSchema,
+      403: forbiddenErrorSchema,
+      404: notFoundErrorSchema,
+    },
+    detail: {
+      summary: "Update a plan",
+      description:
+        "Updates an existing subscription plan. Requires admin privileges.",
+    },
   })
-  .delete(
-    "/:id",
-    async ({ params }) => {
-      await PlanService.delete(params.id);
-      return { success: true };
+  .delete("/:id", ({ params }) => PlanService.delete(params.id), {
+    auth: { requireAdmin: true },
+    params: planIdParamsSchema,
+    response: {
+      200: deletePlanResponseSchema,
+      400: validationErrorSchema,
+      401: unauthorizedErrorSchema,
+      403: forbiddenErrorSchema,
+      404: notFoundErrorSchema,
     },
-    {
-      auth: true,
-      params: planIdParamsSchema,
-      response: deletePlanResponseSchema,
-      detail: { summary: "Delete a plan" },
-    }
-  )
-  .post(
-    "/:id/sync",
-    async ({ params }) => {
-      const pagarmePlanId = await PlanService.syncToPagarme(params.id);
-      return { id: params.id, pagarmePlanId };
+    detail: {
+      summary: "Delete a plan",
+      description: "Deletes a subscription plan. Requires admin privileges.",
     },
-    {
-      auth: true,
-      params: planIdParamsSchema,
-      response: syncPlanResponseSchema,
-      detail: { summary: "Sync plan to Pagarme" },
-    }
-  );
+  })
+  .post("/:id/sync", ({ params }) => PlanService.syncToPagarme(params.id), {
+    auth: { requireAdmin: true },
+    params: planIdParamsSchema,
+    response: {
+      200: syncPlanResponseSchema,
+      400: validationErrorSchema,
+      401: unauthorizedErrorSchema,
+      403: forbiddenErrorSchema,
+      404: notFoundErrorSchema,
+    },
+    detail: {
+      summary: "Sync plan to Pagarme",
+      description:
+        "Syncs the plan to Pagarme payment gateway. Requires admin privileges.",
+    },
+  });

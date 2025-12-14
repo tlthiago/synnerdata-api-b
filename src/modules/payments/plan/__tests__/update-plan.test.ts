@@ -1,11 +1,11 @@
 import { afterAll, beforeAll, describe, expect, test } from "bun:test";
 import { eq } from "drizzle-orm";
 import { db } from "@/db";
-import { subscriptionPlans } from "@/db/schema";
+import { schema } from "@/db/schema";
 import { env } from "@/env";
 import { createTestApp, type TestApp } from "@/test/helpers/app";
 import { seedPlans } from "@/test/helpers/seed";
-import { createTestUser } from "@/test/helpers/user";
+import { createTestAdminUser } from "@/test/helpers/user";
 
 const BASE_URL = env.API_URL;
 
@@ -17,7 +17,7 @@ describe("PUT /payments/plans/:id", () => {
   beforeAll(async () => {
     app = createTestApp();
     await seedPlans();
-    const { headers } = await createTestUser({ emailVerified: true });
+    const { headers } = await createTestAdminUser({ emailVerified: true });
     authHeaders = headers;
   });
 
@@ -25,8 +25,8 @@ describe("PUT /payments/plans/:id", () => {
     // Clean up created plans
     for (const planId of createdPlanIds) {
       await db
-        .delete(subscriptionPlans)
-        .where(eq(subscriptionPlans.id, planId));
+        .delete(schema.subscriptionPlans)
+        .where(eq(schema.subscriptionPlans.id, planId));
     }
   });
 
@@ -49,9 +49,9 @@ describe("PUT /payments/plans/:id", () => {
         }),
       })
     );
-    const plan = await response.json();
-    createdPlanIds.push(plan.id);
-    return plan;
+    const body = await response.json();
+    createdPlanIds.push(body.data.id);
+    return body.data;
   }
 
   test("should reject unauthenticated requests", async () => {
@@ -80,8 +80,9 @@ describe("PUT /payments/plans/:id", () => {
     expect(response.status).toBe(200);
 
     const body = await response.json();
-    expect(body.displayName).toBe("Updated Display Name");
-    expect(body.name).toBe(plan.name); // Should remain unchanged
+    expect(body.success).toBe(true);
+    expect(body.data.displayName).toBe("Updated Display Name");
+    expect(body.data.name).toBe(plan.name);
   });
 
   test("should update plan prices", async () => {
@@ -100,8 +101,9 @@ describe("PUT /payments/plans/:id", () => {
     expect(response.status).toBe(200);
 
     const body = await response.json();
-    expect(body.priceMonthly).toBe(5900);
-    expect(body.priceYearly).toBe(59_000);
+    expect(body.success).toBe(true);
+    expect(body.data.priceMonthly).toBe(5900);
+    expect(body.data.priceYearly).toBe(59_000);
   });
 
   test("should update plan limits", async () => {
@@ -123,7 +125,8 @@ describe("PUT /payments/plans/:id", () => {
     expect(response.status).toBe(200);
 
     const body = await response.json();
-    expect(body.limits).toEqual(newLimits);
+    expect(body.success).toBe(true);
+    expect(body.data.limits).toEqual(newLimits);
   });
 
   test("should update plan status flags", async () => {
@@ -142,8 +145,9 @@ describe("PUT /payments/plans/:id", () => {
     expect(response.status).toBe(200);
 
     const body = await response.json();
-    expect(body.isActive).toBe(false);
-    expect(body.isPublic).toBe(false);
+    expect(body.success).toBe(true);
+    expect(body.data.isActive).toBe(false);
+    expect(body.data.isPublic).toBe(false);
   });
 
   test("should return 404 for non-existent plan", async () => {
@@ -157,7 +161,7 @@ describe("PUT /payments/plans/:id", () => {
     expect(response.status).toBe(404);
 
     const body = await response.json();
-    expect(body.code).toBe("PLAN_NOT_FOUND");
+    expect(body.error.code).toBe("PLAN_NOT_FOUND");
   });
 
   test("should reject duplicate name when updating", async () => {
@@ -175,7 +179,7 @@ describe("PUT /payments/plans/:id", () => {
     expect(response.status).toBe(400);
 
     const body = await response.json();
-    expect(body.code).toBe("PLAN_NAME_ALREADY_EXISTS");
+    expect(body.error.code).toBe("PLAN_NAME_ALREADY_EXISTS");
   });
 
   test("should allow updating name to same value", async () => {
@@ -191,7 +195,8 @@ describe("PUT /payments/plans/:id", () => {
     expect(response.status).toBe(200);
 
     const body = await response.json();
-    expect(body.name).toBe(plan.name);
+    expect(body.success).toBe(true);
+    expect(body.data.name).toBe(plan.name);
   });
 
   test("should update multiple fields at once", async () => {
@@ -215,10 +220,11 @@ describe("PUT /payments/plans/:id", () => {
     expect(response.status).toBe(200);
 
     const body = await response.json();
-    expect(body.displayName).toBe(updateData.displayName);
-    expect(body.priceMonthly).toBe(updateData.priceMonthly);
-    expect(body.priceYearly).toBe(updateData.priceYearly);
-    expect(body.trialDays).toBe(updateData.trialDays);
-    expect(body.sortOrder).toBe(updateData.sortOrder);
+    expect(body.success).toBe(true);
+    expect(body.data.displayName).toBe(updateData.displayName);
+    expect(body.data.priceMonthly).toBe(updateData.priceMonthly);
+    expect(body.data.priceYearly).toBe(updateData.priceYearly);
+    expect(body.data.trialDays).toBe(updateData.trialDays);
+    expect(body.data.sortOrder).toBe(updateData.sortOrder);
   });
 });

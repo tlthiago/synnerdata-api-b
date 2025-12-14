@@ -1,11 +1,15 @@
 import { cors } from "@elysiajs/cors";
 import { openapi } from "@elysiajs/openapi";
 import { Elysia } from "elysia";
+import { toJSONSchema } from "zod";
 import { env } from "./env";
 import { betterAuthPlugin, OpenAPI } from "./lib/auth-plugin";
+import { cronPlugin } from "./lib/cron-plugin";
+import { errorPlugin } from "./lib/errors/error-plugin";
 import { paymentsController } from "./modules/payments";
 
 const app = new Elysia()
+  .use(errorPlugin)
   .use(
     cors({
       origin: env.CORS_ORIGIN,
@@ -16,6 +20,9 @@ const app = new Elysia()
   )
   .use(
     openapi({
+      mapJsonSchema: {
+        zod: toJSONSchema,
+      },
       documentation: {
         info: {
           title: "Synnerdata API",
@@ -27,6 +34,7 @@ const app = new Elysia()
     })
   )
   .use(betterAuthPlugin)
+  .use(cronPlugin)
   .use(paymentsController)
   .get("/", () => "Hello Elysia")
   .listen(env.PORT);

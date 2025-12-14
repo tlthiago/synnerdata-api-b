@@ -1,5 +1,5 @@
 import { db } from "@/db";
-import { pendingCheckouts } from "@/db/schema";
+import { schema } from "@/db/schema";
 
 export type TestCheckout = {
   id: string;
@@ -31,7 +31,7 @@ export async function createPendingCheckout(
   const expiresAt = new Date();
   expiresAt.setHours(expiresAt.getHours() + expirationHours);
 
-  await db.insert(pendingCheckouts).values({
+  await db.insert(schema.pendingCheckouts).values({
     id,
     organizationId,
     planId,
@@ -82,8 +82,8 @@ export async function waitForCheckoutCompleted(
   while (Date.now() - startTime < timeout) {
     const [checkout] = await db
       .select()
-      .from(pendingCheckouts)
-      .where(eq(pendingCheckouts.paymentLinkId, paymentLinkId))
+      .from(schema.pendingCheckouts)
+      .where(eq(schema.pendingCheckouts.paymentLinkId, paymentLinkId))
       .limit(1);
 
     if (checkout?.status === "completed") {

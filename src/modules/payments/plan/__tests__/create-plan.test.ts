@@ -1,11 +1,11 @@
 import { afterAll, beforeAll, describe, expect, test } from "bun:test";
 import { eq } from "drizzle-orm";
 import { db } from "@/db";
-import { subscriptionPlans } from "@/db/schema";
+import { schema } from "@/db/schema";
 import { env } from "@/env";
 import { createTestApp, type TestApp } from "@/test/helpers/app";
 import { seedPlans } from "@/test/helpers/seed";
-import { createTestUser } from "@/test/helpers/user";
+import { createTestAdminUser } from "@/test/helpers/user";
 
 const BASE_URL = env.API_URL;
 
@@ -17,7 +17,7 @@ describe("POST /payments/plans", () => {
   beforeAll(async () => {
     app = createTestApp();
     await seedPlans();
-    const { headers } = await createTestUser({ emailVerified: true });
+    const { headers } = await createTestAdminUser({ emailVerified: true });
     authHeaders = headers;
   });
 
@@ -25,8 +25,8 @@ describe("POST /payments/plans", () => {
     // Clean up created plans
     for (const planId of createdPlanIds) {
       await db
-        .delete(subscriptionPlans)
-        .where(eq(subscriptionPlans.id, planId));
+        .delete(schema.subscriptionPlans)
+        .where(eq(schema.subscriptionPlans.id, planId));
     }
   });
 
@@ -81,18 +81,19 @@ describe("POST /payments/plans", () => {
     expect(response.status).toBe(200);
 
     const body = await response.json();
-    createdPlanIds.push(body.id);
+    createdPlanIds.push(body.data.id);
 
-    expect(body.id).toStartWith("plan-");
-    expect(body.name).toBe(planData.name);
-    expect(body.displayName).toBe(planData.displayName);
-    expect(body.priceMonthly).toBe(planData.priceMonthly);
-    expect(body.priceYearly).toBe(planData.priceYearly);
-    expect(body.trialDays).toBe(planData.trialDays);
-    expect(body.limits).toEqual(planData.limits);
-    expect(body.isActive).toBe(planData.isActive);
-    expect(body.isPublic).toBe(planData.isPublic);
-    expect(body.sortOrder).toBe(planData.sortOrder);
+    expect(body.success).toBe(true);
+    expect(body.data.id).toStartWith("plan-");
+    expect(body.data.name).toBe(planData.name);
+    expect(body.data.displayName).toBe(planData.displayName);
+    expect(body.data.priceMonthly).toBe(planData.priceMonthly);
+    expect(body.data.priceYearly).toBe(planData.priceYearly);
+    expect(body.data.trialDays).toBe(planData.trialDays);
+    expect(body.data.limits).toEqual(planData.limits);
+    expect(body.data.isActive).toBe(planData.isActive);
+    expect(body.data.isPublic).toBe(planData.isPublic);
+    expect(body.data.sortOrder).toBe(planData.sortOrder);
   });
 
   test("should reject duplicate plan name", async () => {
@@ -118,8 +119,8 @@ describe("POST /payments/plans", () => {
       })
     );
     expect(firstResponse.status).toBe(200);
-    const firstPlan = await firstResponse.json();
-    createdPlanIds.push(firstPlan.id);
+    const firstBody = await firstResponse.json();
+    createdPlanIds.push(firstBody.data.id);
 
     // Try to create second plan with same name
     const secondResponse = await app.handle(
@@ -132,7 +133,7 @@ describe("POST /payments/plans", () => {
     expect(secondResponse.status).toBe(400);
 
     const errorBody = await secondResponse.json();
-    expect(errorBody.code).toBe("PLAN_NAME_ALREADY_EXISTS");
+    expect(errorBody.error.code).toBe("PLAN_NAME_ALREADY_EXISTS");
   });
 
   test("should reject invalid data - missing required fields", async () => {
@@ -183,7 +184,6 @@ describe("POST /payments/plans", () => {
         maxStorage: 1000,
         features: ["basic"],
       },
-      // Not providing trialDays, isActive, isPublic, sortOrder
     };
 
     const response = await app.handle(
@@ -196,11 +196,12 @@ describe("POST /payments/plans", () => {
     expect(response.status).toBe(200);
 
     const body = await response.json();
-    createdPlanIds.push(body.id);
+    createdPlanIds.push(body.data.id);
 
-    expect(body.trialDays).toBe(14); // default
-    expect(body.isActive).toBe(true); // default
-    expect(body.isPublic).toBe(true); // default
-    expect(body.sortOrder).toBe(0); // default
+    expect(body.success).toBe(true);
+    expect(body.data.trialDays).toBe(14);
+    expect(body.data.isActive).toBe(true);
+    expect(body.data.isPublic).toBe(true);
+    expect(body.data.sortOrder).toBe(0);
   });
 });

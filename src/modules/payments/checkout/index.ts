@@ -1,6 +1,12 @@
 import { Elysia } from "elysia";
 import { betterAuthPlugin } from "@/lib/auth-plugin";
 import {
+  forbiddenErrorSchema,
+  notFoundErrorSchema,
+  unauthorizedErrorSchema,
+  validationErrorSchema,
+} from "@/lib/responses/response.types";
+import {
   createCheckoutResponseSchema,
   createCheckoutSchema,
 } from "./checkout.model";
@@ -26,7 +32,17 @@ export const checkoutController = new Elysia({
         requireOrganization: true,
       },
       body: createCheckoutSchema,
-      response: createCheckoutResponseSchema,
-      detail: { summary: "Create checkout session for upgrade" },
+      response: {
+        200: createCheckoutResponseSchema,
+        400: validationErrorSchema,
+        401: unauthorizedErrorSchema,
+        403: forbiddenErrorSchema,
+        404: notFoundErrorSchema,
+      },
+      detail: {
+        summary: "Create checkout session for upgrade",
+        description:
+          "Creates a payment link for the user to upgrade their subscription plan. Requires an active organization and subscription update permission.",
+      },
     }
   );

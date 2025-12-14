@@ -3,6 +3,7 @@
   "version": "1.0.50",
   "scripts": {
     "test": "bun test --env-file .env",
+    "test:coverage": "bun test --env-file .env --coverage",
     "test:e2e": "playwright test",
     "test:e2e:ui": "playwright test --ui",
     "test:e2e:headed": "playwright test --headed",
@@ -20,6 +21,7 @@
   },
   "dependencies": {
     "@elysiajs/cors": "^1.4.0",
+    "@elysiajs/cron": "^1.4.1",
     "@elysiajs/openapi": "^1.4.11",
     "better-auth": "^1.4.5",
     "dotenv": "^17.2.3",

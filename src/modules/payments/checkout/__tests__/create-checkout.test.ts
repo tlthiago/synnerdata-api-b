@@ -1,7 +1,7 @@
 import { afterAll, beforeAll, describe, expect, spyOn, test } from "bun:test";
 import { eq } from "drizzle-orm";
 import { db } from "@/db";
-import { organizationProfiles, subscriptionPlans } from "@/db/schema";
+import { schema } from "@/db/schema";
 import { env } from "@/env";
 import { proPlan, testPlans } from "@/test/fixtures/plans";
 import { createTestApp, type TestApp } from "@/test/helpers/app";
@@ -22,22 +22,20 @@ describe("POST /v1/payments/checkout", () => {
     app = createTestApp();
     await seedPlans();
 
-    // Reset pagarmePlanId for all test plans
     for (const plan of testPlans) {
       await db
-        .update(subscriptionPlans)
-        .set({ pagarmePlanId: null })
-        .where(eq(subscriptionPlans.id, plan.id));
+        .update(schema.subscriptionPlans)
+        .set({ pagarmePlanIdMonthly: null, pagarmePlanIdYearly: null })
+        .where(eq(schema.subscriptionPlans.id, plan.id));
     }
   });
 
   afterAll(async () => {
-    // Clean up pagarmePlanId after tests
     for (const plan of testPlans) {
       await db
-        .update(subscriptionPlans)
-        .set({ pagarmePlanId: null })
-        .where(eq(subscriptionPlans.id, plan.id));
+        .update(schema.subscriptionPlans)
+        .set({ pagarmePlanIdMonthly: null, pagarmePlanIdYearly: null })
+        .where(eq(schema.subscriptionPlans.id, plan.id));
     }
   });
 
@@ -77,7 +75,7 @@ describe("POST /v1/payments/checkout", () => {
 
     expect(response.status).toBe(400);
     const body = await response.json();
-    expect(body.code).toBe("EMAIL_NOT_VERIFIED");
+    expect(body.error.code).toBe("EMAIL_NOT_VERIFIED");
   });
 
   test("should reject if organization already has active subscription", async () => {
@@ -90,7 +88,6 @@ describe("POST /v1/payments/checkout", () => {
       throw new Error("Organization not created");
     }
 
-    // Create an active subscription
     await createTestSubscription(orgId, "test-plan-pro", "active");
 
     const response = await app.handle(
@@ -109,7 +106,7 @@ describe("POST /v1/payments/checkout", () => {
 
     expect(response.status).toBe(400);
     const body = await response.json();
-    expect(body.code).toBe("SUBSCRIPTION_ALREADY_ACTIVE");
+    expect(body.error.code).toBe("SUBSCRIPTION_ALREADY_ACTIVE");
   });
 
   test("should reject for non-existent plan", async () => {
@@ -133,7 +130,7 @@ describe("POST /v1/payments/checkout", () => {
 
     expect(response.status).toBe(404);
     const body = await response.json();
-    expect(body.code).toBe("PLAN_NOT_FOUND");
+    expect(body.error.code).toBe("PLAN_NOT_FOUND");
   });
 
   test("should reject for inactive plan", async () => {
@@ -157,7 +154,7 @@ describe("POST /v1/payments/checkout", () => {
 
     expect(response.status).toBe(400);
     const body = await response.json();
-    expect(body.code).toBe("PLAN_NOT_AVAILABLE");
+    expect(body.error.code).toBe("PLAN_NOT_AVAILABLE");
   });
 
   test("should reject invalid successUrl", async () => {
@@ -194,9 +191,7 @@ describe("POST /v1/payments/checkout", () => {
           ...headers,
           "Content-Type": "application/json",
         },
-        body: JSON.stringify({
-          // Missing planId and successUrl
-        }),
+        body: JSON.stringify({}),
       })
     );
 
@@ -229,13 +224,11 @@ describe("POST /v1/payments/checkout", () => {
     expect(response.status).toBe(200);
 
     const body = await response.json();
-    expect(body.checkoutUrl).toBeDefined();
-    expect(body.checkoutUrl).toBeString();
-    expect(body.paymentLinkId).toBeDefined();
-    expect(body.paymentLinkId).toBeString();
-
-    // Pagarme payment link URL should contain pagar.me domain
-    expect(body.checkoutUrl).toContain("pagar.me");
+    expect(body.data.checkoutUrl).toBeDefined();
+    expect(body.data.checkoutUrl).toBeString();
+    expect(body.data.paymentLinkId).toBeDefined();
+    expect(body.data.paymentLinkId).toBeString();
+    expect(body.data.checkoutUrl).toContain("pagar.me");
   });
 
   test("should sync plan to Pagarme if not yet synced", async () => {
@@ -247,11 +240,10 @@ describe("POST /v1/payments/checkout", () => {
       throw new Error("Pro plan not found in fixtures");
     }
 
-    // Ensure plan has no pagarmePlanId
     await db
-      .update(subscriptionPlans)
-      .set({ pagarmePlanId: null })
-      .where(eq(subscriptionPlans.id, proPlan.id));
+      .update(schema.subscriptionPlans)
+      .set({ pagarmePlanIdMonthly: null, pagarmePlanIdYearly: null })
+      .where(eq(schema.subscriptionPlans.id, proPlan.id));
 
     const response = await app.handle(
       new Request(`${BASE_URL}/v1/payments/checkout`, {
@@ -269,18 +261,19 @@ describe("POST /v1/payments/checkout", () => {
 
     expect(response.status).toBe(200);
 
-    // Verify plan was synced
     const [dbPlan] = await db
-      .select({ pagarmePlanId: subscriptionPlans.pagarmePlanId })
-      .from(subscriptionPlans)
-      .where(eq(subscriptionPlans.id, proPlan.id))
+      .select({
+        pagarmePlanIdMonthly: schema.subscriptionPlans.pagarmePlanIdMonthly,
+      })
+      .from(schema.subscriptionPlans)
+      .where(eq(schema.subscriptionPlans.id, proPlan.id))
       .limit(1);
 
-    expect(dbPlan.pagarmePlanId).toBeDefined();
-    expect(dbPlan.pagarmePlanId).toStartWith("plan_");
+    expect(dbPlan.pagarmePlanIdMonthly).toBeDefined();
+    expect(dbPlan.pagarmePlanIdMonthly).toStartWith("plan_");
   });
 
-  test("should reuse existing pagarmePlanId if already synced", async () => {
+  test("should reuse existing pagarmePlanIdMonthly if already synced", async () => {
     const { headers } = await createTestUserWithOrganization({
       emailVerified: true,
     });
@@ -289,7 +282,6 @@ describe("POST /v1/payments/checkout", () => {
       throw new Error("Pro plan not found in fixtures");
     }
 
-    // First request - will sync plan
     const firstResponse = await app.handle(
       new Request(`${BASE_URL}/v1/payments/checkout`, {
         method: "POST",
@@ -305,21 +297,20 @@ describe("POST /v1/payments/checkout", () => {
     );
     expect(firstResponse.status).toBe(200);
 
-    // Get the pagarmePlanId after first request
     const [planAfterFirst] = await db
-      .select({ pagarmePlanId: subscriptionPlans.pagarmePlanId })
-      .from(subscriptionPlans)
-      .where(eq(subscriptionPlans.id, proPlan.id))
+      .select({
+        pagarmePlanIdMonthly: schema.subscriptionPlans.pagarmePlanIdMonthly,
+      })
+      .from(schema.subscriptionPlans)
+      .where(eq(schema.subscriptionPlans.id, proPlan.id))
       .limit(1);
 
-    const firstPagarmePlanId = planAfterFirst.pagarmePlanId;
+    const firstPagarmePlanIdMonthly = planAfterFirst.pagarmePlanIdMonthly;
 
-    // Create new user for second request
     const { headers: headers2 } = await createTestUserWithOrganization({
       emailVerified: true,
     });
 
-    // Second request - should reuse existing pagarmePlanId
     const secondResponse = await app.handle(
       new Request(`${BASE_URL}/v1/payments/checkout`, {
         method: "POST",
@@ -335,17 +326,23 @@ describe("POST /v1/payments/checkout", () => {
     );
     expect(secondResponse.status).toBe(200);
 
-    // Verify pagarmePlanId is still the same
     const [planAfterSecond] = await db
-      .select({ pagarmePlanId: subscriptionPlans.pagarmePlanId })
-      .from(subscriptionPlans)
-      .where(eq(subscriptionPlans.id, proPlan.id))
+      .select({
+        pagarmePlanIdMonthly: schema.subscriptionPlans.pagarmePlanIdMonthly,
+      })
+      .from(schema.subscriptionPlans)
+      .where(eq(schema.subscriptionPlans.id, proPlan.id))
       .limit(1);
 
-    expect(planAfterSecond.pagarmePlanId).toBe(firstPagarmePlanId);
+    expect(planAfterSecond.pagarmePlanIdMonthly).toBe(
+      firstPagarmePlanIdMonthly
+    );
   });
 
-  test("should allow checkout for org with trial subscription", async () => {
+  test.each([
+    "trial",
+    "canceled",
+  ] as const)("should allow checkout for org with %s subscription", async (status) => {
     const { headers, organizationId } = await createTestUserWithOrganization({
       emailVerified: true,
     });
@@ -359,8 +356,7 @@ describe("POST /v1/payments/checkout", () => {
       throw new Error("Pro plan not found in fixtures");
     }
 
-    // Create a trial subscription (not active)
-    await createTestSubscription(orgId, "test-plan-starter", "trial");
+    await createTestSubscription(orgId, "test-plan-starter", status);
 
     const response = await app.handle(
       new Request(`${BASE_URL}/v1/payments/checkout`, {
@@ -379,8 +375,53 @@ describe("POST /v1/payments/checkout", () => {
     expect(response.status).toBe(200);
 
     const body = await response.json();
-    expect(body.checkoutUrl).toBeDefined();
-    expect(body.paymentLinkId).toBeDefined();
+    expect(body.data.checkoutUrl).toBeDefined();
+    expect(body.data.paymentLinkId).toBeDefined();
+  });
+
+  test("should create checkout without prior customer_id", async () => {
+    const { headers, organizationId } = await createTestUserWithOrganization({
+      emailVerified: true,
+    });
+    const orgId = organizationId;
+
+    if (!orgId) {
+      throw new Error("Organization not created");
+    }
+
+    if (!proPlan) {
+      throw new Error("Pro plan not found in fixtures");
+    }
+
+    const [profile] = await db
+      .select({
+        pagarmeCustomerId: schema.organizationProfiles.pagarmeCustomerId,
+      })
+      .from(schema.organizationProfiles)
+      .where(eq(schema.organizationProfiles.organizationId, orgId))
+      .limit(1);
+
+    expect(profile.pagarmeCustomerId).toBeNull();
+
+    const response = await app.handle(
+      new Request(`${BASE_URL}/v1/payments/checkout`, {
+        method: "POST",
+        headers: {
+          ...headers,
+          "Content-Type": "application/json",
+        },
+        body: JSON.stringify({
+          planId: proPlan.id,
+          successUrl: "https://example.com/success",
+        }),
+      })
+    );
+
+    expect(response.status).toBe(200);
+
+    const body = await response.json();
+    expect(body.data.checkoutUrl).toBeDefined();
+    expect(body.data.paymentLinkId).toBeDefined();
   });
 
   test("should pre-fill checkout with existing customer_id from profile", async () => {
@@ -398,18 +439,16 @@ describe("POST /v1/payments/checkout", () => {
       throw new Error("Pro plan not found in fixtures");
     }
 
-    // Get the organization profile to use its data
     const [profile] = await db
       .select()
-      .from(organizationProfiles)
-      .where(eq(organizationProfiles.organizationId, orgId))
+      .from(schema.organizationProfiles)
+      .where(eq(schema.organizationProfiles.organizationId, orgId))
       .limit(1);
 
     if (!profile) {
       throw new Error("Organization profile not found");
     }
 
-    // Create a real customer in Pagarme using CustomerService
     const { pagarmeCustomerId } = await CustomerService.create({
       organizationId: orgId,
       name: profile.tradeName,
@@ -421,7 +460,6 @@ describe("POST /v1/payments/checkout", () => {
     expect(pagarmeCustomerId).toBeDefined();
     expect(pagarmeCustomerId).toStartWith("cus_");
 
-    // Now create checkout - should use the existing customer_id
     const response = await app.handle(
       new Request(`${BASE_URL}/v1/payments/checkout`, {
         method: "POST",
@@ -439,14 +477,15 @@ describe("POST /v1/payments/checkout", () => {
     expect(response.status).toBe(200);
 
     const body = await response.json();
-    expect(body.checkoutUrl).toBeDefined();
-    expect(body.paymentLinkId).toBeDefined();
+    expect(body.data.checkoutUrl).toBeDefined();
+    expect(body.data.paymentLinkId).toBeDefined();
 
-    // Verify the customer_id is still in the profile
     const [updatedProfile] = await db
-      .select({ pagarmeCustomerId: organizationProfiles.pagarmeCustomerId })
-      .from(organizationProfiles)
-      .where(eq(organizationProfiles.organizationId, orgId))
+      .select({
+        pagarmeCustomerId: schema.organizationProfiles.pagarmeCustomerId,
+      })
+      .from(schema.organizationProfiles)
+      .where(eq(schema.organizationProfiles.organizationId, orgId))
       .limit(1);
 
     expect(updatedProfile.pagarmeCustomerId).toBe(pagarmeCustomerId);
@@ -484,12 +523,11 @@ describe("POST /v1/payments/checkout", () => {
 
     const body = await response.json();
 
-    // Verify pending_checkout was created
-    const { pendingCheckouts } = await import("@/db/schema");
+    // const schema = await import("@/db/schema");
     const [checkout] = await db
       .select()
-      .from(pendingCheckouts)
-      .where(eq(pendingCheckouts.paymentLinkId, body.paymentLinkId))
+      .from(schema.pendingCheckouts)
+      .where(eq(schema.pendingCheckouts.paymentLinkId, body.data.paymentLinkId))
       .limit(1);
 
     expect(checkout).toBeDefined();
@@ -500,12 +538,15 @@ describe("POST /v1/payments/checkout", () => {
     expect(checkout.expiresAt.getTime()).toBeGreaterThan(Date.now());
   });
 
-  test("should reject non-owner member from creating checkout", async () => {
+  test.each([
+    "viewer",
+    "manager",
+    "supervisor",
+  ] as const)("should reject %s member from creating checkout", async (role) => {
     const { addMemberToOrganization } = await import(
       "@/test/helpers/organization"
     );
 
-    // Create owner with organization
     const { organizationId } = await createTestUserWithOrganization({
       emailVerified: true,
     });
@@ -515,17 +556,14 @@ describe("POST /v1/payments/checkout", () => {
       throw new Error("Organization not created");
     }
 
-    // Create another user without organization
     const memberResult = await createTestUser({ emailVerified: true });
 
-    // Add the second user as a "viewer" member and set active organization
     await addMemberToOrganization(memberResult, {
       organizationId: orgId,
-      role: "viewer",
+      role,
     });
     const memberHeaders = memberResult.headers;
 
-    // Try to create checkout with the viewer member
     const response = await app.handle(
       new Request(`${BASE_URL}/v1/payments/checkout`, {
         method: "POST",
@@ -540,106 +578,15 @@ describe("POST /v1/payments/checkout", () => {
       })
     );
 
-    // Should be forbidden - only owner can upgrade subscription
     expect(response.status).toBe(403);
     const body = await response.json();
-    expect(body.code).toBe("FORBIDDEN");
-  });
-
-  test("should reject manager member from creating checkout", async () => {
-    const { addMemberToOrganization } = await import(
-      "@/test/helpers/organization"
-    );
-
-    // Create owner with organization
-    const { organizationId } = await createTestUserWithOrganization({
-      emailVerified: true,
-    });
-    const orgId = organizationId;
-
-    if (!orgId) {
-      throw new Error("Organization not created");
-    }
-
-    // Create another user without organization
-    const memberResult = await createTestUser({ emailVerified: true });
-
-    // Add the second user as a "manager" member and set active organization
-    await addMemberToOrganization(memberResult, {
-      organizationId: orgId,
-      role: "manager",
-    });
-    const memberHeaders = memberResult.headers;
-
-    // Try to create checkout with the manager member
-    const response = await app.handle(
-      new Request(`${BASE_URL}/v1/payments/checkout`, {
-        method: "POST",
-        headers: {
-          ...memberHeaders,
-          "Content-Type": "application/json",
-        },
-        body: JSON.stringify({
-          planId: "test-plan-pro",
-          successUrl: "https://example.com/success",
-        }),
-      })
-    );
-
-    // Should be forbidden - only owner can upgrade subscription
-    expect(response.status).toBe(403);
-    const body = await response.json();
-    expect(body.code).toBe("FORBIDDEN");
-  });
-
-  test("should reject supervisor member from creating checkout", async () => {
-    const { addMemberToOrganization } = await import(
-      "@/test/helpers/organization"
-    );
-
-    // Create owner with organization
-    const { organizationId } = await createTestUserWithOrganization({
-      emailVerified: true,
-    });
-    const orgId = organizationId;
-
-    if (!orgId) {
-      throw new Error("Organization not created");
-    }
-
-    // Create another user without organization
-    const memberResult = await createTestUser({ emailVerified: true });
-
-    // Add the second user as a "supervisor" member and set active organization
-    await addMemberToOrganization(memberResult, {
-      organizationId: orgId,
-      role: "supervisor",
-    });
-    const memberHeaders = memberResult.headers;
-
-    // Try to create checkout with the supervisor member
-    const response = await app.handle(
-      new Request(`${BASE_URL}/v1/payments/checkout`, {
-        method: "POST",
-        headers: {
-          ...memberHeaders,
-          "Content-Type": "application/json",
-        },
-        body: JSON.stringify({
-          planId: "test-plan-pro",
-          successUrl: "https://example.com/success",
-        }),
-      })
-    );
-
-    // Should be forbidden - only owner can upgrade subscription
-    expect(response.status).toBe(403);
-    const body = await response.json();
-    expect(body.code).toBe("FORBIDDEN");
+    expect(body.error.code).toBe("FORBIDDEN");
   });
 
   test("should reject empty planId", async () => {
-    const { headers } = await createTestUser({ emailVerified: true });
+    const { headers } = await createTestUserWithOrganization({
+      emailVerified: true,
+    });
 
     const response = await app.handle(
       new Request(`${BASE_URL}/v1/payments/checkout`, {
@@ -669,7 +616,6 @@ describe("POST /v1/payments/checkout", () => {
       throw new Error("Pro plan not found in fixtures");
     }
 
-    // Mock PagarmeClient.createPaymentLink to simulate API failure
     const createPaymentLinkSpy = spyOn(
       PagarmeClient,
       "createPaymentLink"
@@ -691,7 +637,6 @@ describe("POST /v1/payments/checkout", () => {
 
     expect(response.status).toBe(500);
 
-    // Restore original implementation
     createPaymentLinkSpy.mockRestore();
   });
 });

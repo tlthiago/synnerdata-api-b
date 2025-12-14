@@ -165,3 +165,270 @@ export async function sendUpgradeConfirmationEmail(
     html,
   });
 }
+
+type TrialExpiringEmailParams = {
+  to: string;
+  userName: string;
+  organizationName: string;
+  daysRemaining: number;
+  trialEndDate: Date;
+};
+
+export async function sendTrialExpiringEmail(
+  params: TrialExpiringEmailParams
+): Promise<void> {
+  const { to, userName, organizationName, daysRemaining, trialEndDate } =
+    params;
+
+  const formattedDate = new Intl.DateTimeFormat("pt-BR", {
+    day: "2-digit",
+    month: "long",
+    year: "numeric",
+  }).format(trialEndDate);
+
+  const html = `
+    <div style="font-family: Arial, sans-serif; max-width: 600px; margin: 0 auto; padding: 20px;">
+      <h1 style="color: #333;">Seu trial está acabando!</h1>
+
+      <p>Olá ${userName},</p>
+
+      <p>
+        O período de trial da organização <strong>${organizationName}</strong>
+        expira em <strong>${daysRemaining} dias</strong> (${formattedDate}).
+      </p>
+
+      <p>
+        Para continuar usando todos os recursos do Synnerdata,
+        faça o upgrade para um plano pago.
+      </p>
+
+      <p>
+        <a href="${env.APP_URL}/billing/upgrade"
+           style="display: inline-block; background: #007bff; color: white; padding: 12px 24px; text-decoration: none; border-radius: 4px;">
+          Fazer Upgrade Agora
+        </a>
+      </p>
+
+      <hr style="border: 1px solid #eee; margin: 20px 0;">
+
+      <p style="color: #666; font-size: 14px;">
+        Após o trial, você perderá acesso às funcionalidades premium.
+        Seus dados serão mantidos por 30 dias.
+      </p>
+
+      <p style="color: #999; font-size: 12px;">
+        Equipe Synnerdata
+      </p>
+    </div>
+  `;
+
+  await sendEmail({
+    to,
+    subject: `Seu trial expira em ${daysRemaining} dias - Synnerdata`,
+    html,
+  });
+}
+
+type TrialExpiredEmailParams = {
+  to: string;
+  userName: string;
+  organizationName: string;
+};
+
+export async function sendTrialExpiredEmail(
+  params: TrialExpiredEmailParams
+): Promise<void> {
+  const { to, userName, organizationName } = params;
+
+  const html = `
+    <div style="font-family: Arial, sans-serif; max-width: 600px; margin: 0 auto; padding: 20px;">
+      <h1 style="color: #333;">Seu período de trial expirou</h1>
+
+      <p>Olá ${userName},</p>
+
+      <p>
+        O período de trial da organização <strong>${organizationName}</strong>
+        chegou ao fim.
+      </p>
+
+      <p>
+        Para continuar usando todos os recursos do Synnerdata,
+        faça o upgrade para um plano pago agora mesmo.
+      </p>
+
+      <p>
+        <a href="${env.APP_URL}/billing/upgrade"
+           style="display: inline-block; background: #007bff; color: white; padding: 12px 24px; text-decoration: none; border-radius: 4px;">
+          Fazer Upgrade Agora
+        </a>
+      </p>
+
+      <hr style="border: 1px solid #eee; margin: 20px 0;">
+
+      <p style="color: #666; font-size: 14px;">
+        Seus dados serão mantidos por 30 dias. Após esse período,
+        eles poderão ser removidos permanentemente.
+      </p>
+
+      <p style="color: #999; font-size: 12px;">
+        Equipe Synnerdata
+      </p>
+    </div>
+  `;
+
+  await sendEmail({
+    to,
+    subject: "Seu trial expirou - Synnerdata",
+    html,
+  });
+}
+
+type SubscriptionCanceledEmailParams = {
+  to: string;
+  organizationName: string;
+  planName: string;
+  canceledAt: Date;
+  accessUntil: Date | null;
+};
+
+export async function sendSubscriptionCanceledEmail(
+  params: SubscriptionCanceledEmailParams
+): Promise<void> {
+  const { to, organizationName, planName, canceledAt, accessUntil } = params;
+
+  const formattedCanceledAt = new Intl.DateTimeFormat("pt-BR", {
+    day: "2-digit",
+    month: "2-digit",
+    year: "numeric",
+    hour: "2-digit",
+    minute: "2-digit",
+  }).format(canceledAt);
+
+  const formattedAccessUntil = accessUntil
+    ? new Intl.DateTimeFormat("pt-BR", {
+        day: "2-digit",
+        month: "2-digit",
+        year: "numeric",
+      }).format(accessUntil)
+    : null;
+
+  const html = `
+    <div style="font-family: Arial, sans-serif; max-width: 600px; margin: 0 auto; padding: 20px;">
+      <h1 style="color: #333;">Assinatura Cancelada</h1>
+
+      <p>Olá <strong>${organizationName}</strong>,</p>
+
+      <p>Confirmamos o cancelamento da sua assinatura do plano <strong>${planName}</strong>.</p>
+
+      <hr style="border: 1px solid #eee; margin: 20px 0;">
+
+      <h2 style="color: #333;">Detalhes do Cancelamento</h2>
+
+      <table style="width: 100%; border-collapse: collapse;">
+        <tr>
+          <td style="padding: 8px 0;"><strong>Plano cancelado:</strong></td>
+          <td style="padding: 8px 0;">${planName}</td>
+        </tr>
+        <tr>
+          <td style="padding: 8px 0;"><strong>Data do cancelamento:</strong></td>
+          <td style="padding: 8px 0;">${formattedCanceledAt}</td>
+        </tr>
+        ${
+          formattedAccessUntil
+            ? `
+        <tr>
+          <td style="padding: 8px 0;"><strong>Acesso até:</strong></td>
+          <td style="padding: 8px 0;">${formattedAccessUntil}</td>
+        </tr>
+        `
+            : ""
+        }
+      </table>
+
+      <hr style="border: 1px solid #eee; margin: 20px 0;">
+
+      <p>Sentiremos sua falta! Se mudar de ideia, você pode reativar sua assinatura a qualquer momento.</p>
+
+      <p>
+        <a href="${env.APP_URL}/billing"
+           style="display: inline-block; background: #007bff; color: white; padding: 12px 24px; text-decoration: none; border-radius: 4px;">
+          Reativar Assinatura
+        </a>
+      </p>
+
+      <p style="color: #666; font-size: 14px; margin-top: 30px;">
+        Precisa de ajuda? Responda este email.
+      </p>
+
+      <p style="color: #999; font-size: 12px;">
+        Equipe Synnerdata
+      </p>
+    </div>
+  `;
+
+  await sendEmail({
+    to,
+    subject: `Assinatura Cancelada - ${planName} - Synnerdata`,
+    html,
+  });
+}
+
+// ============================================================
+// WELCOME EMAIL
+// ============================================================
+
+type WelcomeEmailParams = {
+  to: string;
+  userName: string;
+};
+
+export async function sendWelcomeEmail(
+  params: WelcomeEmailParams
+): Promise<void> {
+  const { to, userName } = params;
+
+  const html = `
+    <div style="font-family: Arial, sans-serif; max-width: 600px; margin: 0 auto; padding: 20px;">
+      <h1 style="color: #333;">Bem-vindo ao Synnerdata!</h1>
+
+      <p>Olá <strong>${userName}</strong>,</p>
+
+      <p>Estamos muito felizes em ter você conosco!</p>
+
+      <p>Sua conta foi criada com sucesso e você já pode começar a explorar todos os recursos da plataforma.</p>
+
+      <hr style="border: 1px solid #eee; margin: 20px 0;">
+
+      <h2 style="color: #333;">Próximos passos</h2>
+
+      <ul style="color: #666; line-height: 1.8;">
+        <li>Complete seu perfil</li>
+        <li>Crie sua primeira organização</li>
+        <li>Explore os recursos disponíveis no seu plano</li>
+      </ul>
+
+      <p>
+        <a href="${env.APP_URL}/dashboard"
+           style="display: inline-block; background: #007bff; color: white; padding: 12px 24px; text-decoration: none; border-radius: 4px;">
+          Acessar Dashboard
+        </a>
+      </p>
+
+      <hr style="border: 1px solid #eee; margin: 20px 0;">
+
+      <p style="color: #666; font-size: 14px;">
+        Precisa de ajuda? Responda este email ou acesse nossa central de suporte.
+      </p>
+
+      <p style="color: #999; font-size: 12px;">
+        Equipe Synnerdata
+      </p>
+    </div>
+  `;
+
+  await sendEmail({
+    to,
+    subject: "Bem-vindo ao Synnerdata!",
+    html,
+  });
+}

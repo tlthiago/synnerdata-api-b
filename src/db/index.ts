@@ -1,8 +1,8 @@
 import { drizzle } from "drizzle-orm/node-postgres";
 import { env } from "@/env";
-import { schema } from "./schema";
+import { fullSchema } from "./schema";
 
 export const db = drizzle(env.DATABASE_URL, {
-  schema,
+  schema: fullSchema,
   casing: "snake_case",
 });

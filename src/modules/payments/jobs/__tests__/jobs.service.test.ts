@@ -1,0 +1,253 @@
+import { afterAll, beforeAll, describe, expect, test } from "bun:test";
+import { eq } from "drizzle-orm";
+import { db } from "@/db";
+import { schema } from "@/db/schema";
+import {
+  addMemberToOrganization,
+  createTestOrganization,
+  type TestOrganization,
+} from "@/test/helpers/organization";
+import { seedPlans } from "@/test/helpers/seed";
+import { createTestSubscription } from "@/test/helpers/subscription";
+import { createTestUser, type TestUserResult } from "@/test/helpers/user";
+import { JobsService } from "../jobs.service";
+
+describe("JobsService", () => {
+  const createdOrganizations: TestOrganization[] = [];
+  const createdUsers: TestUserResult[] = [];
+
+  beforeAll(async () => {
+    await seedPlans();
+  });
+
+  afterAll(async () => {
+    for (const org of createdOrganizations) {
+      await db
+        .delete(schema.orgSubscriptions)
+        .where(eq(schema.orgSubscriptions.organizationId, org.id));
+      await db
+        .delete(schema.members)
+        .where(eq(schema.members.organizationId, org.id));
+      await db
+        .delete(schema.organizationProfiles)
+        .where(eq(schema.organizationProfiles.organizationId, org.id));
+      await db
+        .delete(schema.organizations)
+        .where(eq(schema.organizations.id, org.id));
+    }
+
+    for (const userResult of createdUsers) {
+      await db
+        .delete(schema.sessions)
+        .where(eq(schema.sessions.userId, userResult.user.id));
+      await db
+        .delete(schema.users)
+        .where(eq(schema.users.id, userResult.user.id));
+    }
+  });
+
+  describe("expireTrials", () => {
+    test("should expire trials that have passed their end date", async () => {
+      const org = await createTestOrganization();
+      createdOrganizations.push(org);
+
+      await createTestSubscription(org.id, "test-plan-pro", {
+        status: "trial",
+        trialDays: -1,
+      });
+
+      const result = await JobsService.expireTrials();
+
+      expect(result.success).toBe(true);
+      expect(result.data.expired.length).toBeGreaterThanOrEqual(1);
+
+      const [subscription] = await db
+        .select()
+        .from(schema.orgSubscriptions)
+        .where(eq(schema.orgSubscriptions.organizationId, org.id))
+        .limit(1);
+
+      expect(subscription.status).toBe("expired");
+    });
+
+    test("should not expire trials that are still valid", async () => {
+      const org = await createTestOrganization();
+      createdOrganizations.push(org);
+
+      await createTestSubscription(org.id, "test-plan-pro", {
+        status: "trial",
+        trialDays: 14,
+      });
+
+      const result = await JobsService.expireTrials();
+
+      const [subscription] = await db
+        .select()
+        .from(schema.orgSubscriptions)
+        .where(eq(schema.orgSubscriptions.organizationId, org.id))
+        .limit(1);
+
+      expect(subscription.status).toBe("trial");
+      expect(result.data.expired).not.toContain(subscription.id);
+    });
+
+    test("should not affect active subscriptions", async () => {
+      const org = await createTestOrganization();
+      createdOrganizations.push(org);
+
+      await createTestSubscription(org.id, "test-plan-pro", {
+        status: "active",
+      });
+
+      await JobsService.expireTrials();
+
+      const [subscription] = await db
+        .select()
+        .from(schema.orgSubscriptions)
+        .where(eq(schema.orgSubscriptions.organizationId, org.id))
+        .limit(1);
+
+      expect(subscription.status).toBe("active");
+    });
+
+    test("should return correct response structure", async () => {
+      const result = await JobsService.expireTrials();
+
+      expect(result.success).toBe(true);
+      expect(result.data).toHaveProperty("processed");
+      expect(result.data).toHaveProperty("expired");
+      expect(typeof result.data.processed).toBe("number");
+      expect(Array.isArray(result.data.expired)).toBe(true);
+    });
+  });
+
+  describe("notifyExpiringTrials", () => {
+    test("should notify trials expiring in ~3 days", async () => {
+      const org = await createTestOrganization();
+      createdOrganizations.push(org);
+
+      const owner = await createTestUser({ emailVerified: true });
+      createdUsers.push(owner);
+
+      await addMemberToOrganization(owner, {
+        organizationId: org.id,
+        role: "owner",
+      });
+
+      await createTestSubscription(org.id, "test-plan-pro", {
+        status: "trial",
+        trialDays: 3,
+      });
+
+      const now = new Date();
+      const trialEnd = new Date(now.getTime() + 3.5 * 24 * 60 * 60 * 1000);
+
+      await db
+        .update(schema.orgSubscriptions)
+        .set({ trialEnd })
+        .where(eq(schema.orgSubscriptions.organizationId, org.id));
+
+      const result = await JobsService.notifyExpiringTrials();
+
+      expect(result.success).toBe(true);
+      expect(result.data).toHaveProperty("processed");
+      expect(result.data).toHaveProperty("notified");
+      expect(typeof result.data.processed).toBe("number");
+      expect(Array.isArray(result.data.notified)).toBe(true);
+    });
+
+    test("should not notify trials expiring in less than 3 days", async () => {
+      const org = await createTestOrganization();
+      createdOrganizations.push(org);
+
+      const owner = await createTestUser({ emailVerified: true });
+      createdUsers.push(owner);
+
+      await addMemberToOrganization(owner, {
+        organizationId: org.id,
+        role: "owner",
+      });
+
+      await createTestSubscription(org.id, "test-plan-pro", {
+        status: "trial",
+        trialDays: 1,
+      });
+
+      const result = await JobsService.notifyExpiringTrials();
+
+      const [subscription] = await db
+        .select()
+        .from(schema.orgSubscriptions)
+        .where(eq(schema.orgSubscriptions.organizationId, org.id))
+        .limit(1);
+
+      expect(result.data.notified).not.toContain(subscription.id);
+    });
+
+    test("should not notify trials expiring in more than 4 days", async () => {
+      const org = await createTestOrganization();
+      createdOrganizations.push(org);
+
+      const owner = await createTestUser({ emailVerified: true });
+      createdUsers.push(owner);
+
+      await addMemberToOrganization(owner, {
+        organizationId: org.id,
+        role: "owner",
+      });
+
+      await createTestSubscription(org.id, "test-plan-pro", {
+        status: "trial",
+        trialDays: 10,
+      });
+
+      const result = await JobsService.notifyExpiringTrials();
+
+      const [subscription] = await db
+        .select()
+        .from(schema.orgSubscriptions)
+        .where(eq(schema.orgSubscriptions.organizationId, org.id))
+        .limit(1);
+
+      expect(result.data.notified).not.toContain(subscription.id);
+    });
+
+    test("should skip organizations without owner", async () => {
+      const org = await createTestOrganization();
+      createdOrganizations.push(org);
+
+      const now = new Date();
+      const trialEnd = new Date(now.getTime() + 3.5 * 24 * 60 * 60 * 1000);
+
+      await createTestSubscription(org.id, "test-plan-pro", {
+        status: "trial",
+        trialDays: 3,
+      });
+
+      await db
+        .update(schema.orgSubscriptions)
+        .set({ trialEnd })
+        .where(eq(schema.orgSubscriptions.organizationId, org.id));
+
+      const result = await JobsService.notifyExpiringTrials();
+
+      const [subscription] = await db
+        .select()
+        .from(schema.orgSubscriptions)
+        .where(eq(schema.orgSubscriptions.organizationId, org.id))
+        .limit(1);
+
+      expect(result.data.notified).not.toContain(subscription.id);
+    });
+
+    test("should return correct response structure", async () => {
+      const result = await JobsService.notifyExpiringTrials();
+
+      expect(result.success).toBe(true);
+      expect(result.data).toHaveProperty("processed");
+      expect(result.data).toHaveProperty("notified");
+      expect(typeof result.data.processed).toBe("number");
+      expect(Array.isArray(result.data.notified)).toBe(true);
+    });
+  });
+});

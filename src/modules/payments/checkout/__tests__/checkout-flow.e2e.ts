@@ -71,7 +71,8 @@ test.describe("Checkout Flow E2E", () => {
 
     expect(checkoutResponse.status).toBe(200);
 
-    const { checkoutUrl, paymentLinkId } = await checkoutResponse.json();
+    const checkoutResult = await checkoutResponse.json();
+    const { checkoutUrl, paymentLinkId } = checkoutResult.data;
     expect(checkoutUrl).toBeDefined();
     expect(checkoutUrl).toContain("pagar.me");
     expect(paymentLinkId).toBeDefined();
@@ -270,7 +271,8 @@ test.describe("Checkout Flow E2E", () => {
     );
 
     expect(checkoutResponse.status).toBe(200);
-    const { checkoutUrl } = await checkoutResponse.json();
+    const checkoutResult = await checkoutResponse.json();
+    const { checkoutUrl } = checkoutResult.data;
 
     // Navigate to checkout
     await page.goto(checkoutUrl);
