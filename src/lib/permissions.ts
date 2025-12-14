@@ -66,6 +66,7 @@ export const orgRoles: Record<Role, ReturnType<typeof orgAc.newRole>> = {
     member: ["create", "read"],
     invitation: ["create", "read"],
     subscription: ["read"],
+    billing: [],
     report: ["read", "export"],
   }),
   supervisor: orgAc.newRole({
@@ -75,6 +76,7 @@ export const orgRoles: Record<Role, ReturnType<typeof orgAc.newRole>> = {
     member: ["read"],
     invitation: ["read"],
     subscription: ["read"],
+    billing: [],
     report: ["read", "export"],
   }),
   viewer: orgAc.newRole({
@@ -84,6 +86,7 @@ export const orgRoles: Record<Role, ReturnType<typeof orgAc.newRole>> = {
     member: ["read"],
     invitation: ["read"],
     subscription: ["read"],
+    billing: [],
     report: ["read"],
   }),
 };

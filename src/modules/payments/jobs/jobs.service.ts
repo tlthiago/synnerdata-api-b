@@ -1,11 +1,18 @@
-import { and, between, eq, lt } from "drizzle-orm";
+import { and, between, eq, inArray, lt } from "drizzle-orm";
 import { db } from "@/db";
 import { schema } from "@/db/schema";
-import { sendTrialExpiredEmail, sendTrialExpiringEmail } from "@/lib/email";
+import {
+  sendSubscriptionCanceledEmail,
+  sendTrialExpiredEmail,
+  sendTrialExpiringEmail,
+} from "@/lib/email";
+import { logger } from "@/lib/logger";
 import { PaymentHooks } from "../hooks";
+import { PagarmeClient } from "../pagarme/client";
 import type {
   ExpireTrialsResponse,
   NotifyExpiringTrialsResponse,
+  ProcessScheduledCancellationsResponse,
 } from "./jobs.model";
 
 const DAYS_BEFORE_NOTIFICATION = 3;
@@ -78,17 +85,22 @@ export abstract class JobsService {
             organizationName: organization.name,
           });
         } catch (error) {
-          console.error(
-            `[Jobs] Failed to send trial expired email for ${subscription.id}:`,
-            error
-          );
+          logger.error({
+            type: "job:email:trial-expired:failed",
+            subscriptionId: subscription.id,
+            error: error instanceof Error ? error.message : String(error),
+          });
         }
       }
 
       PaymentHooks.emit("trial.expired", { subscription });
     }
 
-    console.log(`[Jobs] Expired ${expiredIds.length} trials`);
+    logger.info({
+      type: "job:expire-trials:complete",
+      processed: trialsToExpire.length,
+      expired: expiredIds.length,
+    });
 
     return {
       success: true as const,
@@ -160,20 +172,127 @@ export abstract class JobsService {
           daysRemaining,
         });
       } catch (error) {
-        console.error(
-          `[Jobs] Failed to notify trial expiring for ${subscription.id}:`,
-          error
-        );
+        logger.error({
+          type: "job:email:trial-expiring:failed",
+          subscriptionId: subscription.id,
+          error: error instanceof Error ? error.message : String(error),
+        });
       }
     }
 
-    console.log(`[Jobs] Notified ${notifiedIds.length} expiring trials`);
+    logger.info({
+      type: "job:notify-expiring-trials:complete",
+      processed: expiringTrials.length,
+      notified: notifiedIds.length,
+    });
 
     return {
       success: true as const,
       data: {
         processed: expiringTrials.length,
         notified: notifiedIds,
+      },
+    };
+  }
+
+  static async processScheduledCancellations(): Promise<ProcessScheduledCancellationsResponse> {
+    const now = new Date();
+
+    const subscriptionsToCancel = await db
+      .select({
+        subscription: schema.orgSubscriptions,
+        organization: schema.organizations,
+        plan: schema.subscriptionPlans,
+      })
+      .from(schema.orgSubscriptions)
+      .innerJoin(
+        schema.organizations,
+        eq(schema.orgSubscriptions.organizationId, schema.organizations.id)
+      )
+      .innerJoin(
+        schema.subscriptionPlans,
+        eq(schema.orgSubscriptions.planId, schema.subscriptionPlans.id)
+      )
+      .where(
+        and(
+          eq(schema.orgSubscriptions.cancelAtPeriodEnd, true),
+          lt(schema.orgSubscriptions.currentPeriodEnd, now),
+          inArray(schema.orgSubscriptions.status, ["active", "trial"])
+        )
+      );
+
+    const canceledIds: string[] = [];
+
+    for (const { subscription, organization, plan } of subscriptionsToCancel) {
+      if (subscription.pagarmeSubscriptionId) {
+        try {
+          await PagarmeClient.cancelSubscription(
+            subscription.pagarmeSubscriptionId,
+            false
+          );
+        } catch (error) {
+          logger.error({
+            type: "job:pagarme:cancel-subscription:failed",
+            pagarmeSubscriptionId: subscription.pagarmeSubscriptionId,
+            error: error instanceof Error ? error.message : String(error),
+          });
+          continue;
+        }
+      }
+
+      await db
+        .update(schema.orgSubscriptions)
+        .set({ status: "canceled" })
+        .where(eq(schema.orgSubscriptions.id, subscription.id));
+
+      canceledIds.push(subscription.id);
+
+      const [updatedSubscription] = await db
+        .select()
+        .from(schema.orgSubscriptions)
+        .where(eq(schema.orgSubscriptions.id, subscription.id))
+        .limit(1);
+
+      if (updatedSubscription) {
+        PaymentHooks.emit("subscription.canceled", {
+          subscription: updatedSubscription,
+        });
+      }
+
+      const owner = await JobsService.findOrganizationOwner(
+        subscription.organizationId
+      );
+
+      if (owner?.email) {
+        try {
+          await sendSubscriptionCanceledEmail({
+            to: owner.email,
+            organizationName: organization.name,
+            planName: plan.displayName,
+            canceledAt: subscription.canceledAt ?? now,
+            accessUntil: subscription.currentPeriodEnd,
+          });
+        } catch (error) {
+          logger.error({
+            type: "job:email:subscription-canceled:failed",
+            subscriptionId: subscription.id,
+            error: error instanceof Error ? error.message : String(error),
+          });
+        }
+      }
+    }
+
+    logger.info({
+      type: "job:process-scheduled-cancellations:complete",
+      processed: subscriptionsToCancel.length,
+      canceled: canceledIds.length,
+    });
+
+    return {
+      success: true as const,
+      data: {
+        processed: subscriptionsToCancel.length,
+        canceled: canceledIds,
       },
     };
   }

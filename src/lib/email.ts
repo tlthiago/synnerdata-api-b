@@ -283,6 +283,76 @@ export async function sendTrialExpiredEmail(
   });
 }
 
+type CancellationScheduledEmailParams = {
+  to: string;
+  organizationName: string;
+  planName: string;
+  accessUntil: Date;
+};
+
+export async function sendCancellationScheduledEmail(
+  params: CancellationScheduledEmailParams
+): Promise<void> {
+  const { to, organizationName, planName, accessUntil } = params;
+
+  const formattedAccessUntil = new Intl.DateTimeFormat("pt-BR", {
+    day: "2-digit",
+    month: "long",
+    year: "numeric",
+  }).format(accessUntil);
+
+  const html = `
+    <div style="font-family: Arial, sans-serif; max-width: 600px; margin: 0 auto; padding: 20px;">
+      <h1 style="color: #333;">Cancelamento Agendado</h1>
+
+      <p>Olá <strong>${organizationName}</strong>,</p>
+
+      <p>Confirmamos sua solicitação de cancelamento do plano <strong>${planName}</strong>.</p>
+
+      <div style="background: #fff8e6; border-left: 4px solid #f0ad4e; padding: 15px; margin: 20px 0;">
+        <p style="margin: 0; color: #8a6d3b;">
+          <strong>Sua assinatura continua ativa até ${formattedAccessUntil}.</strong>
+        </p>
+      </div>
+
+      <p>Até lá, você pode continuar usando todos os recursos do plano ${planName} normalmente.</p>
+
+      <hr style="border: 1px solid #eee; margin: 20px 0;">
+
+      <h2 style="color: #333;">Mudou de ideia?</h2>
+
+      <p>
+        Você pode restaurar sua assinatura a qualquer momento antes de ${formattedAccessUntil}
+        e continuar aproveitando todos os benefícios.
+      </p>
+
+      <p>
+        <a href="${env.APP_URL}/billing"
+           style="display: inline-block; background: #28a745; color: white; padding: 12px 24px; text-decoration: none; border-radius: 4px;">
+          Restaurar Assinatura
+        </a>
+      </p>
+
+      <hr style="border: 1px solid #eee; margin: 20px 0;">
+
+      <p style="color: #666; font-size: 14px;">
+        Após ${formattedAccessUntil}, sua assinatura será cancelada definitivamente
+        e você perderá acesso aos recursos premium.
+      </p>
+
+      <p style="color: #999; font-size: 12px;">
+        Equipe Synnerdata
+      </p>
+    </div>
+  `;
+
+  await sendEmail({
+    to,
+    subject: `Cancelamento Agendado - ${planName} - Synnerdata`,
+    html,
+  });
+}
+
 type SubscriptionCanceledEmailParams = {
   to: string;
   organizationName: string;

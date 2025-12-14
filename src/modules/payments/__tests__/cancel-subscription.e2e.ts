@@ -9,18 +9,22 @@ import { seedPlans } from "@/test/helpers/seed";
 import {
   createTestSubscription,
   waitForSubscriptionActive,
-  waitForSubscriptionStatus,
 } from "@/test/helpers/subscription";
 import { createTestUserWithOrganization } from "@/test/helpers/user";
 
 /**
- * E2E Test: Cancel Subscription Flow with Real Webhook
+ * E2E Test: Soft Cancel Subscription Flow
  *
- * This test validates the complete cancellation flow:
+ * This test validates the soft cancel flow with real Pagar.me integration:
  * 1. Create a paid subscription (via upgrade from trial)
- * 2. Cancel via API (calls Pagarme)
- * 3. Wait for real webhook from Pagarme
- * 4. Verify subscription is canceled
+ * 2. Cancel via API (sets local flags only, no Pagar.me call)
+ * 3. Verify subscription remains active with cancelAtPeriodEnd=true
+ * 4. Verify user still has access
+ * 5. Verify restore works (clears flags)
+ * 6. Cancel again and verify final state
+ *
+ * Note: The actual Pagar.me cancellation happens via processScheduledCancellations()
+ * job at period end, tested separately in soft-cancel-use-case.test.ts
  *
  * Requirements:
  * - TUNNEL_URL environment variable must be set
@@ -48,7 +52,7 @@ const TEST_CUSTOMER = {
   number: "100",
 };
 
-test.describe("Cancel Subscription E2E: Active → Canceled (Real Webhook)", () => {
+test.describe("Soft Cancel Subscription E2E: Active → Cancel → Restore → Cancel", () => {
   test.beforeAll(async () => {
     if (!TUNNEL_URL) {
       console.log(
@@ -59,7 +63,7 @@ test.describe("Cancel Subscription E2E: Active → Canceled (Real Webhook)", () 
     await seedPlans();
   });
 
-  test("should complete full cancellation flow: Active → Cancel API → Webhook → Canceled", async ({
+  test("should complete soft cancel flow: Active → Cancel (flags only) → Restore → Cancel", async ({
     page,
   }) => {
     test.skip(
@@ -218,10 +222,10 @@ test.describe("Cancel Subscription E2E: Active → Canceled (Real Webhook)", () 
     );
 
     // ============================================================
-    // FASE 2: Cancelamento via API
+    // FASE 2: Soft Cancel via API (flags only, no Pagar.me call)
     // ============================================================
 
-    console.log("\n=== FASE 2: Cancelamento via API ===");
+    console.log("\n=== FASE 2: Soft Cancel via API ===");
 
     const cancelResponse = await app.handle(
       new Request("http://localhost/v1/payments/subscription/cancel", {
@@ -245,85 +249,46 @@ test.describe("Cancel Subscription E2E: Active → Canceled (Real Webhook)", () 
     );
     console.log(`  Current period end: ${cancelResult.data.currentPeriodEnd}`);
 
-    // Verify local state after API call (before webhook)
+    // Verify local state after API call - status should remain "active"
     const [subscriptionAfterCancel] = await db
       .select()
       .from(schema.orgSubscriptions)
       .where(eq(schema.orgSubscriptions.organizationId, organizationId))
       .limit(1);
 
+    expect(subscriptionAfterCancel.status).toBe("active"); // Soft cancel: status unchanged
     expect(subscriptionAfterCancel.cancelAtPeriodEnd).toBe(true);
     expect(subscriptionAfterCancel.canceledAt).toBeInstanceOf(Date);
 
-    console.log("  Local cancelAtPeriodEnd: true");
-    console.log(`  Local canceledAt: ${subscriptionAfterCancel.canceledAt}`);
+    console.log("  [OK] Status remains: active (soft cancel)");
+    console.log("  [OK] cancelAtPeriodEnd: true");
+    console.log(`  [OK] canceledAt: ${subscriptionAfterCancel.canceledAt}`);
 
     // ============================================================
-    // FASE 3: Aguardar Webhook subscription.canceled
+    // FASE 3: Verify Access Still Exists (Soft Cancel)
     // ============================================================
 
-    console.log("\n=== FASE 3: Aguardando Webhook subscription.canceled ===");
-    console.log(
-      "  Waiting for Pagarme to send subscription.canceled webhook..."
-    );
+    console.log("\n=== FASE 3: Verify Access Still Exists ===");
 
-    const canceledSubscription = await waitForSubscriptionStatus(
-      organizationId,
-      "canceled",
-      {
-        timeout: 60_000,
-        interval: 2000,
-      }
-    );
-
-    console.log("  Webhook received! Subscription canceled.");
-
-    // ============================================================
-    // FASE 4: Verificações Finais
-    // ============================================================
-
-    console.log("\n=== FASE 4: Verificações Finais ===");
-
-    // Verify subscription status
-    expect(canceledSubscription.status).toBe("canceled");
-    expect(canceledSubscription.canceledAt).toBeInstanceOf(Date);
-
-    console.log("  [OK] Subscription status: canceled");
-    console.log(`  [OK] Canceled at: ${canceledSubscription.canceledAt}`);
-
-    // Verify webhook event was recorded
-    const [webhookEvent] = await db
-      .select()
-      .from(schema.subscriptionEvents)
-      .where(eq(schema.subscriptionEvents.eventType, "subscription.canceled"))
-      .orderBy(schema.subscriptionEvents.createdAt)
-      .limit(1);
-
-    if (webhookEvent) {
-      expect(webhookEvent.processedAt).toBeInstanceOf(Date);
-      console.log(`  [OK] Webhook event recorded: ${webhookEvent.id}`);
-    }
-
-    // Verify access is revoked via checkAccess
     const { SubscriptionService } = await import(
       "../subscription/subscription.service"
     );
-    const accessCheck = await SubscriptionService.checkAccess(organizationId);
+    const accessAfterCancel =
+      await SubscriptionService.checkAccess(organizationId);
 
-    expect(accessCheck.hasAccess).toBe(false);
-    expect(accessCheck.status).toBe("canceled");
-    expect(accessCheck.requiresPayment).toBe(true);
+    expect(accessAfterCancel.hasAccess).toBe(true); // Soft cancel maintains access
+    expect(accessAfterCancel.status).toBe("active");
+    expect(accessAfterCancel.requiresPayment).toBe(false);
 
-    console.log("  [OK] Access check: hasAccess = false");
-    console.log("  [OK] Access check: requiresPayment = true");
+    console.log("  [OK] hasAccess: true (soft cancel maintains access)");
+    console.log("  [OK] status: active");
 
     // ============================================================
-    // FASE 5: Testes Negativos
+    // FASE 4: Restore Subscription
     // ============================================================
 
-    console.log("\n=== FASE 5: Testes Negativos ===");
+    console.log("\n=== FASE 4: Restore Subscription ===");
 
-    // Test: Restore should fail for fully canceled subscription (via Pagarme)
     const restoreResponse = await app.handle(
       new Request("http://localhost/v1/payments/subscription/restore", {
         method: "POST",
@@ -334,11 +299,75 @@ test.describe("Cancel Subscription E2E: Active → Canceled (Real Webhook)", () 
       })
     );
 
-    // Restore should fail because subscription is already canceled (not just scheduled)
-    expect(restoreResponse.status).toBe(400);
-    console.log("  [OK] Restore correctly rejected for canceled subscription");
+    expect(restoreResponse.status).toBe(200);
 
-    // Test: New checkout should be allowed (subscription is no longer active)
+    const restoreResult = await restoreResponse.json();
+    expect(restoreResult.success).toBe(true);
+    expect(restoreResult.data.restored).toBe(true);
+
+    console.log("  Restore API called successfully");
+
+    // Verify flags are cleared
+    const [subscriptionAfterRestore] = await db
+      .select()
+      .from(schema.orgSubscriptions)
+      .where(eq(schema.orgSubscriptions.organizationId, organizationId))
+      .limit(1);
+
+    expect(subscriptionAfterRestore.status).toBe("active");
+    expect(subscriptionAfterRestore.cancelAtPeriodEnd).toBe(false);
+    expect(subscriptionAfterRestore.canceledAt).toBeNull();
+
+    console.log("  [OK] Status: active");
+    console.log("  [OK] cancelAtPeriodEnd: false (cleared)");
+    console.log("  [OK] canceledAt: null (cleared)");
+
+    // Verify access still exists
+    const accessAfterRestore =
+      await SubscriptionService.checkAccess(organizationId);
+    expect(accessAfterRestore.hasAccess).toBe(true);
+    expect(accessAfterRestore.status).toBe("active");
+
+    console.log("  [OK] Access maintained after restore");
+
+    // ============================================================
+    // FASE 5: Cancel Again (final state for this test)
+    // ============================================================
+
+    console.log("\n=== FASE 5: Cancel Again ===");
+
+    const cancelAgainResponse = await app.handle(
+      new Request("http://localhost/v1/payments/subscription/cancel", {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+          Cookie: `better-auth.session_token=${session.token}`,
+        },
+      })
+    );
+
+    expect(cancelAgainResponse.status).toBe(200);
+
+    const [finalSubscription] = await db
+      .select()
+      .from(schema.orgSubscriptions)
+      .where(eq(schema.orgSubscriptions.organizationId, organizationId))
+      .limit(1);
+
+    expect(finalSubscription.status).toBe("active"); // Still active until job runs
+    expect(finalSubscription.cancelAtPeriodEnd).toBe(true);
+    expect(finalSubscription.canceledAt).toBeInstanceOf(Date);
+
+    console.log("  [OK] Second cancel successful");
+    console.log("  [OK] Status: active (until period end)");
+    console.log("  [OK] cancelAtPeriodEnd: true");
+
+    // ============================================================
+    // FASE 6: Verify Checkout Blocked (active subscription exists)
+    // ============================================================
+
+    console.log("\n=== FASE 6: Verify Checkout Blocked ===");
+
     const newCheckoutResponse = await app.handle(
       new Request("http://localhost/v1/payments/checkout", {
         method: "POST",
@@ -353,22 +382,28 @@ test.describe("Cancel Subscription E2E: Active → Canceled (Real Webhook)", () 
       })
     );
 
-    expect(newCheckoutResponse.status).toBe(200);
-    const newCheckoutResult = await newCheckoutResponse.json();
-    expect(newCheckoutResult.data.checkoutUrl).toBeDefined();
+    // Checkout should be blocked because subscription is still active
+    expect(newCheckoutResponse.status).toBe(400);
 
-    console.log("  [OK] New checkout allowed for canceled subscription");
+    console.log(
+      "  [OK] New checkout blocked (subscription still active until period end)"
+    );
 
     // ============================================================
     // Summary
     // ============================================================
 
-    console.log("\n=== TESTE E2E DE CANCELAMENTO COMPLETO ===");
+    console.log("\n=== SOFT CANCEL E2E TEST COMPLETE ===");
     console.log(`  Organization: ${organizationId}`);
     console.log(
-      `  Pagarme Subscription: ${canceledSubscription.pagarmeSubscriptionId}`
+      `  Pagarme Subscription: ${finalSubscription.pagarmeSubscriptionId}`
     );
-    console.log(`  Final status: ${canceledSubscription.status}`);
-    console.log(`  Canceled at: ${canceledSubscription.canceledAt}`);
+    console.log(`  Final status: ${finalSubscription.status}`);
+    console.log(`  cancelAtPeriodEnd: ${finalSubscription.cancelAtPeriodEnd}`);
+    console.log(`  canceledAt: ${finalSubscription.canceledAt}`);
+    console.log(
+      "\n  Note: Actual Pagar.me cancellation happens via processScheduledCancellations()"
+    );
+    console.log("  job at period end (tested in soft-cancel-use-case.test.ts)");
   });
 });

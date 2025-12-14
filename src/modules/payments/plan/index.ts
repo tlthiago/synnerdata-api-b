@@ -27,7 +27,7 @@ export const planPublicController = new Elysia({
   .get("/", () => PlanService.list(), {
     response: {
       200: listPlansResponseSchema,
-      400: validationErrorSchema,
+      422: validationErrorSchema,
     },
     detail: {
       summary: "List available plans",
@@ -39,7 +39,7 @@ export const planPublicController = new Elysia({
     params: planIdParamsSchema,
     response: {
       200: getPlanResponseSchema,
-      400: validationErrorSchema,
+      422: validationErrorSchema,
       404: notFoundErrorSchema,
     },
     detail: {
@@ -59,7 +59,7 @@ export const planProtectedController = new Elysia({
     body: createPlanSchema,
     response: {
       200: createPlanResponseSchema,
-      400: validationErrorSchema,
+      422: validationErrorSchema,
       401: unauthorizedErrorSchema,
       403: forbiddenErrorSchema,
     },
@@ -75,7 +75,7 @@ export const planProtectedController = new Elysia({
     body: updatePlanSchema,
     response: {
       200: updatePlanResponseSchema,
-      400: validationErrorSchema,
+      422: validationErrorSchema,
       401: unauthorizedErrorSchema,
       403: forbiddenErrorSchema,
       404: notFoundErrorSchema,
@@ -91,7 +91,7 @@ export const planProtectedController = new Elysia({
     params: planIdParamsSchema,
     response: {
       200: deletePlanResponseSchema,
-      400: validationErrorSchema,
+      422: validationErrorSchema,
       401: unauthorizedErrorSchema,
       403: forbiddenErrorSchema,
       404: notFoundErrorSchema,
@@ -106,7 +106,7 @@ export const planProtectedController = new Elysia({
     params: planIdParamsSchema,
     response: {
       200: syncPlanResponseSchema,
-      400: validationErrorSchema,
+      422: validationErrorSchema,
       401: unauthorizedErrorSchema,
       403: forbiddenErrorSchema,
       404: notFoundErrorSchema,

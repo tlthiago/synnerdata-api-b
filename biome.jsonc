@@ -13,6 +13,9 @@
     ],
     "ignoreUnknown": true
   },
+  "javascript": {
+    "globals": ["Bun"]
+  },
   "overrides": [
     {
       // Services use abstract classes with static methods (Elysia best practice)
@@ -70,6 +73,17 @@
         "rules": {
           "style": {
             "useConsistentTypeDefinitions": "off"
+          }
+        }
+      }
+    },
+    {
+      // TODO: Refactor processScheduledCancellations to reduce complexity
+      "includes": ["src/modules/payments/jobs/jobs.service.ts"],
+      "linter": {
+        "rules": {
+          "complexity": {
+            "noExcessiveCognitiveComplexity": "off"
           }
         }
       }

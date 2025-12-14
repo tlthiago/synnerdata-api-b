@@ -4,6 +4,7 @@ import { unauthorizedErrorSchema } from "@/lib/responses/response.types";
 import {
   expireTrialsResponseSchema,
   notifyExpiringTrialsResponseSchema,
+  processScheduledCancellationsResponseSchema,
 } from "./jobs.model";
 import { JobsService } from "./jobs.service";
 
@@ -51,6 +52,21 @@ export const jobsController = new Elysia({
             summary: "Notify trials expiring in 3 days",
             description:
               "Manually trigger the job that sends notification emails to users whose trials expire in 3 days.",
+          },
+        }
+      )
+      .post(
+        "/process-cancellations",
+        () => JobsService.processScheduledCancellations(),
+        {
+          response: {
+            200: processScheduledCancellationsResponseSchema,
+            401: unauthorizedErrorSchema,
+          },
+          detail: {
+            summary: "Process scheduled cancellations",
+            description:
+              "Manually trigger the job that cancels subscriptions on Pagar.me that reached their period end.",
           },
         }
       )

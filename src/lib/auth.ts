@@ -6,6 +6,7 @@ import type { Session, User } from "better-auth/types";
 import { eq } from "drizzle-orm";
 import { fullSchema, schema } from "@/db/schema";
 import { env } from "@/env";
+import { logger } from "@/lib/logger";
 import { PlanService } from "@/modules/payments/plan/plan.service";
 import { SubscriptionService } from "@/modules/payments/subscription/subscription.service";
 import { db } from "../db";
@@ -39,7 +40,11 @@ async function handleWelcomeEmail(user: {
       userName: user.name,
     });
   } catch (error) {
-    console.error("Failed to send welcome email:", error);
+    logger.error({
+      type: "email:welcome:failed",
+      email: user.email,
+      error: error instanceof Error ? error.message : String(error),
+    });
   }
 }
 

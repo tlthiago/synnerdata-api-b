@@ -1,5 +1,6 @@
 import { cron } from "@elysiajs/cron";
 import { Elysia } from "elysia";
+import { logger } from "@/lib/logger";
 import { JobsService } from "@/modules/payments/jobs/jobs.service";
 
 export const cronPlugin = new Elysia({ name: "cron-jobs" })
@@ -9,7 +10,10 @@ export const cronPlugin = new Elysia({ name: "cron-jobs" })
       pattern: "0 12 * * *", // 12:00 UTC = 09:00 BRT
       async run() {
         const result = await JobsService.expireTrials();
-        console.log(`[Cron] Expired ${result.expired.length} trials`);
+        logger.info({
+          type: "cron:expire-trials",
+          expired: result.data.expired.length,
+        });
       },
     })
   )
@@ -19,9 +23,23 @@ export const cronPlugin = new Elysia({ name: "cron-jobs" })
       pattern: "0 12 * * *", // 12:00 UTC = 09:00 BRT
       async run() {
         const result = await JobsService.notifyExpiringTrials();
-        console.log(
-          `[Cron] Notified ${result.notified.length} expiring trials`
-        );
+        logger.info({
+          type: "cron:notify-expiring-trials",
+          notified: result.data.notified.length,
+        });
+      },
+    })
+  )
+  .use(
+    cron({
+      name: "process-scheduled-cancellations",
+      pattern: "0 12 * * *", // 12:00 UTC = 09:00 BRT
+      async run() {
+        const result = await JobsService.processScheduledCancellations();
+        logger.info({
+          type: "cron:process-scheduled-cancellations",
+          canceled: result.data.canceled.length,
+        });
       },
     })
   );

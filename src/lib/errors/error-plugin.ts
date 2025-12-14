@@ -1,4 +1,5 @@
 import { Elysia } from "elysia";
+import { logger } from "@/lib/logger";
 import { AppError } from "./base-error";
 
 type ValidationIssue = {
@@ -33,7 +34,7 @@ export const errorPlugin = new Elysia({ name: "error-handler" })
 
     // Elysia validation errors
     if (code === "VALIDATION") {
-      set.status = 400;
+      set.status = 422;
       return {
         success: false as const,
         error: {
@@ -57,7 +58,13 @@ export const errorPlugin = new Elysia({ name: "error-handler" })
     }
 
     // Unhandled errors
-    console.error("Unhandled error:", error);
+    logger.error({
+      type: "unhandled:error",
+      error:
+        error instanceof Error
+          ? { name: error.name, message: error.message, stack: error.stack }
+          : { message: String(error) },
+    });
     set.status = 500;
     return {
       success: false as const,

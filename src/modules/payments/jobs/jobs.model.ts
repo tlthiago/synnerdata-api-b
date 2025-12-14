@@ -27,3 +27,18 @@ export type NotifyExpiringTrialsData = z.infer<
 export type NotifyExpiringTrialsResponse = z.infer<
   typeof notifyExpiringTrialsResponseSchema
 >;
+
+const processScheduledCancellationsDataSchema = z.object({
+  processed: z.number().describe("Total subscriptions processed"),
+  canceled: z.array(z.string()).describe("IDs of canceled subscriptions"),
+});
+
+export const processScheduledCancellationsResponseSchema =
+  successResponseSchema(processScheduledCancellationsDataSchema);
+
+export type ProcessScheduledCancellationsData = z.infer<
+  typeof processScheduledCancellationsDataSchema
+>;
+export type ProcessScheduledCancellationsResponse = z.infer<
+  typeof processScheduledCancellationsResponseSchema
+>;

@@ -2,7 +2,7 @@ import { eq } from "drizzle-orm";
 import { db } from "@/db";
 import { schema } from "@/db/schema";
 import { createTestApp } from "./app";
-import { waitForOTP } from "./otp";
+import { waitForOTP } from "./mailhog";
 
 export type TestUser = {
   id: string;

@@ -209,19 +209,23 @@ describe("POST /v1/payments/subscription/cancel", () => {
     expect(subscription.canceledAt).toBeInstanceOf(Date);
   });
 
-  test("should not call Pagarme when no pagarmeSubscriptionId", async () => {
+  test("should not call Pagarme immediately (soft cancel)", async () => {
     const { PagarmeClient } = await import("../../pagarme/client");
 
     const { headers, organizationId } = await createTestUserWithOrganization({
       emailVerified: true,
     });
 
-    await createTestSubscription(organizationId, "test-plan-pro", "trial");
+    await createActiveSubscription(
+      organizationId,
+      "test-plan-pro",
+      "sub_test_soft_cancel"
+    );
 
     const cancelSubscriptionSpy = spyOn(
       PagarmeClient,
       "cancelSubscription"
-    ).mockResolvedValueOnce(undefined);
+    ).mockResolvedValueOnce({} as never);
 
     const response = await app.handle(
       new Request(`${BASE_URL}/v1/payments/subscription/cancel`, {
@@ -232,41 +236,6 @@ describe("POST /v1/payments/subscription/cancel", () => {
 
     expect(response.status).toBe(200);
     expect(cancelSubscriptionSpy).not.toHaveBeenCalled();
-
-    cancelSubscriptionSpy.mockRestore();
-  });
-
-  test("should call PagarmeClient.cancelSubscription when pagarmeSubscriptionId exists", async () => {
-    const { PagarmeClient } = await import("../../pagarme/client");
-
-    const { headers, organizationId } = await createTestUserWithOrganization({
-      emailVerified: true,
-    });
-
-    const pagarmeSubscriptionId = "sub_test_cancel_123";
-    await createActiveSubscription(
-      organizationId,
-      "test-plan-pro",
-      pagarmeSubscriptionId
-    );
-
-    const cancelSubscriptionSpy = spyOn(
-      PagarmeClient,
-      "cancelSubscription"
-    ).mockResolvedValueOnce(undefined);
-
-    const response = await app.handle(
-      new Request(`${BASE_URL}/v1/payments/subscription/cancel`, {
-        method: "POST",
-        headers,
-      })
-    );
-
-    expect(response.status).toBe(200);
-    expect(cancelSubscriptionSpy).toHaveBeenCalledWith(
-      pagarmeSubscriptionId,
-      false
-    );
 
     cancelSubscriptionSpy.mockRestore();
   });
@@ -303,35 +272,5 @@ describe("POST /v1/payments/subscription/cancel", () => {
     expect(response.status).toBe(403);
     const body = await response.json();
     expect(body.error.code).toBe("FORBIDDEN");
-  });
-
-  test("should handle Pagarme API connection failure", async () => {
-    const { PagarmeClient } = await import("../../pagarme/client");
-
-    const { headers, organizationId } = await createTestUserWithOrganization({
-      emailVerified: true,
-    });
-
-    await createActiveSubscription(
-      organizationId,
-      "test-plan-pro",
-      "sub_test_error"
-    );
-
-    const cancelSubscriptionSpy = spyOn(
-      PagarmeClient,
-      "cancelSubscription"
-    ).mockRejectedValueOnce(new Error("Pagarme API error: Connection refused"));
-
-    const response = await app.handle(
-      new Request(`${BASE_URL}/v1/payments/subscription/cancel`, {
-        method: "POST",
-        headers,
-      })
-    );
-
-    expect(response.status).toBe(500);
-
-    cancelSubscriptionSpy.mockRestore();
   });
 });

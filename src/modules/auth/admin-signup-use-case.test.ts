@@ -4,7 +4,7 @@ import { db } from "@/db";
 import { schema } from "@/db/schema";
 import { env } from "@/env";
 import { createTestApp, type TestApp } from "@/test/helpers/app";
-import { waitForOTP } from "@/test/helpers/otp";
+import { waitForOTP } from "@/test/helpers/mailhog";
 
 const BASE_URL = env.API_URL;
 

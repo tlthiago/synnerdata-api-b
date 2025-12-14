@@ -415,4 +415,131 @@ describe("SubscriptionService", () => {
       ).resolves.toBeUndefined();
     });
   });
+
+  describe("cancel", () => {
+    test("should set cancelAtPeriodEnd without changing status (soft cancel)", async () => {
+      const org = await createTestOrganization();
+      await createActiveSubscription(org.id, "test-plan-pro");
+
+      await SubscriptionService.cancel({
+        organizationId: org.id,
+        userId: "test-user",
+      });
+
+      const [subscription] = await db
+        .select()
+        .from(schema.orgSubscriptions)
+        .where(eq(schema.orgSubscriptions.organizationId, org.id))
+        .limit(1);
+
+      expect(subscription.cancelAtPeriodEnd).toBe(true);
+      expect(subscription.canceledAt).toBeInstanceOf(Date);
+      expect(subscription.status).toBe("active");
+    });
+
+    test("should cancel trial subscription without changing status", async () => {
+      const org = await createTestOrganization();
+      await createTestSubscription(org.id, "test-plan-pro", "trial");
+
+      await SubscriptionService.cancel({
+        organizationId: org.id,
+        userId: "test-user",
+      });
+
+      const [subscription] = await db
+        .select()
+        .from(schema.orgSubscriptions)
+        .where(eq(schema.orgSubscriptions.organizationId, org.id))
+        .limit(1);
+
+      expect(subscription.cancelAtPeriodEnd).toBe(true);
+      expect(subscription.canceledAt).toBeInstanceOf(Date);
+      expect(subscription.status).toBe("trial");
+    });
+
+    test("should return cancelAtPeriodEnd true and currentPeriodEnd", async () => {
+      const org = await createTestOrganization();
+      await createActiveSubscription(org.id, "test-plan-pro");
+
+      const result = await SubscriptionService.cancel({
+        organizationId: org.id,
+        userId: "test-user",
+      });
+
+      expect(result.success).toBe(true);
+      expect(result.data.cancelAtPeriodEnd).toBe(true);
+      expect(result.data.currentPeriodEnd).toBeDefined();
+    });
+  });
+
+  describe("restore", () => {
+    test("should clear cancellation flags", async () => {
+      const org = await createTestOrganization();
+      await createActiveSubscription(org.id, "test-plan-pro");
+
+      await db
+        .update(schema.orgSubscriptions)
+        .set({ cancelAtPeriodEnd: true, canceledAt: new Date() })
+        .where(eq(schema.orgSubscriptions.organizationId, org.id));
+
+      await SubscriptionService.restore({
+        organizationId: org.id,
+        userId: "test-user",
+      });
+
+      const [subscription] = await db
+        .select()
+        .from(schema.orgSubscriptions)
+        .where(eq(schema.orgSubscriptions.organizationId, org.id))
+        .limit(1);
+
+      expect(subscription.cancelAtPeriodEnd).toBe(false);
+      expect(subscription.canceledAt).toBeNull();
+      expect(subscription.status).toBe("active");
+    });
+
+    test("should return restored true", async () => {
+      const org = await createTestOrganization();
+      await createActiveSubscription(org.id, "test-plan-pro");
+
+      await db
+        .update(schema.orgSubscriptions)
+        .set({ cancelAtPeriodEnd: true, canceledAt: new Date() })
+        .where(eq(schema.orgSubscriptions.organizationId, org.id));
+
+      const result = await SubscriptionService.restore({
+        organizationId: org.id,
+        userId: "test-user",
+      });
+
+      expect(result.success).toBe(true);
+      expect(result.data.restored).toBe(true);
+    });
+
+    test("should throw error when not scheduled for cancellation", async () => {
+      const { SubscriptionNotRestorableError } = await import("../../errors");
+      const org = await createTestOrganization();
+      await createActiveSubscription(org.id, "test-plan-pro");
+
+      await expect(
+        SubscriptionService.restore({
+          organizationId: org.id,
+          userId: "test-user",
+        })
+      ).rejects.toBeInstanceOf(SubscriptionNotRestorableError);
+    });
+
+    test("should throw error for canceled subscription", async () => {
+      const { SubscriptionNotRestorableError } = await import("../../errors");
+      const org = await createTestOrganization();
+      await createCanceledSubscription(org.id, "test-plan-pro");
+
+      await expect(
+        SubscriptionService.restore({
+          organizationId: org.id,
+          userId: "test-user",
+        })
+      ).rejects.toBeInstanceOf(SubscriptionNotRestorableError);
+    });
+  });
 });

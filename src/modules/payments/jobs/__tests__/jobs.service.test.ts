@@ -250,4 +250,151 @@ describe("JobsService", () => {
       expect(Array.isArray(result.data.notified)).toBe(true);
     });
   });
+
+  describe("processScheduledCancellations", () => {
+    test("should cancel subscriptions past their period end", async () => {
+      const org = await createTestOrganization();
+      createdOrganizations.push(org);
+
+      const owner = await createTestUser({ emailVerified: true });
+      createdUsers.push(owner);
+
+      await addMemberToOrganization(owner, {
+        organizationId: org.id,
+        role: "owner",
+      });
+
+      const pastDate = new Date();
+      pastDate.setDate(pastDate.getDate() - 1);
+
+      await createTestSubscription(org.id, "test-plan-pro", {
+        status: "active",
+      });
+
+      await db
+        .update(schema.orgSubscriptions)
+        .set({
+          cancelAtPeriodEnd: true,
+          canceledAt: new Date(),
+          currentPeriodEnd: pastDate,
+        })
+        .where(eq(schema.orgSubscriptions.organizationId, org.id));
+
+      const result = await JobsService.processScheduledCancellations();
+
+      expect(result.success).toBe(true);
+
+      const [subscription] = await db
+        .select()
+        .from(schema.orgSubscriptions)
+        .where(eq(schema.orgSubscriptions.organizationId, org.id))
+        .limit(1);
+
+      expect(subscription.status).toBe("canceled");
+      expect(result.data.canceled).toContain(subscription.id);
+    });
+
+    test("should not cancel subscriptions still within period", async () => {
+      const org = await createTestOrganization();
+      createdOrganizations.push(org);
+
+      const futureDate = new Date();
+      futureDate.setDate(futureDate.getDate() + 5);
+
+      await createTestSubscription(org.id, "test-plan-pro", {
+        status: "active",
+      });
+
+      await db
+        .update(schema.orgSubscriptions)
+        .set({
+          cancelAtPeriodEnd: true,
+          canceledAt: new Date(),
+          currentPeriodEnd: futureDate,
+        })
+        .where(eq(schema.orgSubscriptions.organizationId, org.id));
+
+      const result = await JobsService.processScheduledCancellations();
+
+      const [subscription] = await db
+        .select()
+        .from(schema.orgSubscriptions)
+        .where(eq(schema.orgSubscriptions.organizationId, org.id))
+        .limit(1);
+
+      expect(subscription.status).toBe("active");
+      expect(result.data.canceled).not.toContain(subscription.id);
+    });
+
+    test("should not cancel subscriptions without cancelAtPeriodEnd flag", async () => {
+      const org = await createTestOrganization();
+      createdOrganizations.push(org);
+
+      const pastDate = new Date();
+      pastDate.setDate(pastDate.getDate() - 1);
+
+      await createTestSubscription(org.id, "test-plan-pro", {
+        status: "active",
+      });
+
+      await db
+        .update(schema.orgSubscriptions)
+        .set({
+          cancelAtPeriodEnd: false,
+          currentPeriodEnd: pastDate,
+        })
+        .where(eq(schema.orgSubscriptions.organizationId, org.id));
+
+      const result = await JobsService.processScheduledCancellations();
+
+      const [subscription] = await db
+        .select()
+        .from(schema.orgSubscriptions)
+        .where(eq(schema.orgSubscriptions.organizationId, org.id))
+        .limit(1);
+
+      expect(subscription.status).toBe("active");
+      expect(result.data.canceled).not.toContain(subscription.id);
+    });
+
+    test("should not cancel already canceled subscriptions", async () => {
+      const org = await createTestOrganization();
+      createdOrganizations.push(org);
+
+      const pastDate = new Date();
+      pastDate.setDate(pastDate.getDate() - 1);
+
+      await createTestSubscription(org.id, "test-plan-pro", {
+        status: "canceled",
+      });
+
+      await db
+        .update(schema.orgSubscriptions)
+        .set({
+          cancelAtPeriodEnd: true,
+          currentPeriodEnd: pastDate,
+        })
+        .where(eq(schema.orgSubscriptions.organizationId, org.id));
+
+      const [subscriptionBefore] = await db
+        .select()
+        .from(schema.orgSubscriptions)
+        .where(eq(schema.orgSubscriptions.organizationId, org.id))
+        .limit(1);
+
+      const result = await JobsService.processScheduledCancellations();
+
+      expect(result.data.canceled).not.toContain(subscriptionBefore.id);
+    });
+
+    test("should return correct response structure", async () => {
+      const result = await JobsService.processScheduledCancellations();
+
+      expect(result.success).toBe(true);
+      expect(result.data).toHaveProperty("processed");
+      expect(result.data).toHaveProperty("canceled");
+      expect(typeof result.data.processed).toBe("number");
+      expect(Array.isArray(result.data.canceled)).toBe(true);
+    });
+  });
 });

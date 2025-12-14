@@ -40,7 +40,7 @@ export const billingController = new Elysia({
       query: listInvoicesQuerySchema,
       response: {
         200: listInvoicesResponseSchema,
-        400: validationErrorSchema,
+        422: validationErrorSchema,
         401: unauthorizedErrorSchema,
         403: forbiddenErrorSchema,
         404: notFoundErrorSchema,
@@ -67,7 +67,7 @@ export const billingController = new Elysia({
       params: invoiceIdParamsSchema,
       response: {
         200: downloadInvoiceResponseSchema,
-        400: validationErrorSchema,
+        422: validationErrorSchema,
         401: unauthorizedErrorSchema,
         403: forbiddenErrorSchema,
         404: notFoundErrorSchema,
@@ -93,7 +93,7 @@ export const billingController = new Elysia({
       body: updateCardSchema,
       response: {
         200: updateCardResponseSchema,
-        400: validationErrorSchema,
+        422: validationErrorSchema,
         401: unauthorizedErrorSchema,
         403: forbiddenErrorSchema,
         404: notFoundErrorSchema,
@@ -144,7 +144,7 @@ export const billingController = new Elysia({
       body: updateBillingInfoSchema,
       response: {
         200: updateBillingInfoResponseSchema,
-        400: validationErrorSchema,
+        422: validationErrorSchema,
         401: unauthorizedErrorSchema,
         403: forbiddenErrorSchema,
         404: notFoundErrorSchema,

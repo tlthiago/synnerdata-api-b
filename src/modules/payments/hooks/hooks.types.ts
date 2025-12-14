@@ -9,6 +9,8 @@ export type PaymentEvents = {
   "trial.expiring": { subscription: OrgSubscription; daysRemaining: number };
   "trial.expired": { subscription: OrgSubscription };
   "subscription.activated": { subscription: OrgSubscription };
+  "subscription.cancelScheduled": { subscription: OrgSubscription };
+  "subscription.restored": { subscription: OrgSubscription };
   "subscription.canceled": { subscription: OrgSubscription };
   "subscription.renewed": { subscription: OrgSubscription };
   "subscription.updated": {

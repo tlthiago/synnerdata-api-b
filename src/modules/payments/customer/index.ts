@@ -34,7 +34,7 @@ export const customerController = new Elysia({
       query: listCustomersSchema,
       response: {
         200: listCustomersResponseSchema,
-        400: validationErrorSchema,
+        422: validationErrorSchema,
         401: unauthorizedErrorSchema,
         403: forbiddenErrorSchema,
       },

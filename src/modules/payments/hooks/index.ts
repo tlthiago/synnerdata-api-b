@@ -1,3 +1,4 @@
+import { logger } from "@/lib/logger";
 import type { PaymentEventName, PaymentEventPayload } from "./hooks.types";
 
 type EventHandler<T extends PaymentEventName> = (
@@ -39,7 +40,11 @@ class PaymentHooksEmitter {
 
     const promises = Array.from(eventHandlers).map((handler) =>
       Promise.resolve(handler(payload)).catch((error) => {
-        console.error(`Error in payment hook handler for ${event}:`, error);
+        logger.error({
+          type: "payment:hook:error",
+          event,
+          error: error instanceof Error ? error.message : String(error),
+        });
       })
     );
 

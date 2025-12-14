@@ -34,7 +34,7 @@ export const checkoutController = new Elysia({
       body: createCheckoutSchema,
       response: {
         200: createCheckoutResponseSchema,
-        400: validationErrorSchema,
+        422: validationErrorSchema,
         401: unauthorizedErrorSchema,
         403: forbiddenErrorSchema,
         404: notFoundErrorSchema,

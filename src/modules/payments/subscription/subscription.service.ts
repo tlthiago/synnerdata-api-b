@@ -9,7 +9,6 @@ import {
   SubscriptionNotRestorableError,
 } from "../errors";
 import { PaymentHooks } from "../hooks";
-import { PagarmeClient } from "../pagarme/client";
 import type {
   CancelSubscriptionInput,
   CancelSubscriptionResponse,
@@ -87,7 +86,7 @@ export abstract class SubscriptionService {
   static async cancel(
     input: CancelSubscriptionInput
   ): Promise<CancelSubscriptionResponse> {
-    const { organizationId } = input;
+    const { organizationId, userId } = input;
 
     const subscription =
       await SubscriptionService.findByOrganizationId(organizationId);
@@ -100,15 +99,6 @@ export abstract class SubscriptionService {
       throw new SubscriptionNotCancelableError(subscription.status);
     }
 
-    if (subscription.pagarmeSubscriptionId) {
-      await PagarmeClient.cancelSubscription(
-        subscription.pagarmeSubscriptionId,
-        false
-      );
-    }
-
-    // TODO: Criar job para processar cancelamentos quando currentPeriodEnd passar
-    // O status permanece inalterado (active/trial) até o fim do período
     await db
       .update(schema.orgSubscriptions)
       .set({
@@ -124,8 +114,37 @@ export abstract class SubscriptionService {
       .limit(1);
 
     if (updatedSubscription) {
-      PaymentHooks.emit("subscription.canceled", {
+      PaymentHooks.emit("subscription.cancelScheduled", {
         subscription: updatedSubscription,
+      });
+    }
+
+    // Send cancellation scheduled email
+    const [emailData] = await db
+      .select({
+        userEmail: schema.users.email,
+        organizationName: schema.organizations.name,
+        planName: schema.subscriptionPlans.name,
+      })
+      .from(schema.users)
+      .innerJoin(
+        schema.organizations,
+        eq(schema.organizations.id, organizationId)
+      )
+      .innerJoin(
+        schema.subscriptionPlans,
+        eq(schema.subscriptionPlans.id, subscription.planId)
+      )
+      .where(eq(schema.users.id, userId))
+      .limit(1);
+
+    if (emailData && subscription.currentPeriodEnd) {
+      const { sendCancellationScheduledEmail } = await import("@/lib/email");
+      await sendCancellationScheduledEmail({
+        to: emailData.userEmail,
+        organizationName: emailData.organizationName,
+        planName: emailData.planName,
+        accessUntil: subscription.currentPeriodEnd,
       });
     }
 
@@ -162,7 +181,6 @@ export abstract class SubscriptionService {
       throw new SubscriptionNotRestorableError();
     }
 
-    // O status permanece inalterado (active/trial) - apenas limpa os campos de cancelamento
     await db
       .update(schema.orgSubscriptions)
       .set({
@@ -170,6 +188,18 @@ export abstract class SubscriptionService {
         canceledAt: null,
       })
       .where(eq(schema.orgSubscriptions.id, subscription.id));
+
+    const [updatedSubscription] = await db
+      .select()
+      .from(schema.orgSubscriptions)
+      .where(eq(schema.orgSubscriptions.id, subscription.id))
+      .limit(1);
+
+    if (updatedSubscription) {
+      PaymentHooks.emit("subscription.restored", {
+        subscription: updatedSubscription,
+      });
+    }
 
     return {
       success: true as const,

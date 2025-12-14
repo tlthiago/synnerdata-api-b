@@ -33,7 +33,7 @@ export const subscriptionController = new Elysia({
       },
       response: {
         200: getSubscriptionResponseSchema,
-        400: validationErrorSchema,
+        422: validationErrorSchema,
         401: unauthorizedErrorSchema,
         403: forbiddenErrorSchema,
         404: notFoundErrorSchema,
@@ -59,7 +59,7 @@ export const subscriptionController = new Elysia({
       },
       response: {
         200: cancelSubscriptionResponseSchema,
-        400: validationErrorSchema,
+        422: validationErrorSchema,
         401: unauthorizedErrorSchema,
         403: forbiddenErrorSchema,
         404: notFoundErrorSchema,
@@ -85,7 +85,7 @@ export const subscriptionController = new Elysia({
       },
       response: {
         200: restoreSubscriptionResponseSchema,
-        400: validationErrorSchema,
+        422: validationErrorSchema,
         401: unauthorizedErrorSchema,
         403: forbiddenErrorSchema,
         404: notFoundErrorSchema,

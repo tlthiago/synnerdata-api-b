@@ -12,17 +12,19 @@ export const webhookController = new Elysia({
   detail: { tags: ["Payments - Webhook"] },
 }).post(
   "/pagarme",
-  async ({ request }) => {
+  async ({ request, body: rawBody }) => {
     const authHeader = request.headers.get("Authorization");
-    const rawBody = await request.text();
-    const body = JSON.parse(rawBody);
-    await WebhookService.process(body, authHeader, rawBody);
+    const rawBodyString =
+      typeof rawBody === "string" ? rawBody : JSON.stringify(rawBody);
+    const body = typeof rawBody === "string" ? JSON.parse(rawBody) : rawBody;
+    await WebhookService.process(body, authHeader, rawBodyString);
     return { success: true as const, data: { received: true } };
   },
   {
+    parse: "text",
     response: {
       200: processWebhookResponseSchema,
-      400: validationErrorSchema,
+      422: validationErrorSchema,
       401: unauthorizedErrorSchema,
     },
     detail: {
