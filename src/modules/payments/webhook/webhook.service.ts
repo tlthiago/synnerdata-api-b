@@ -39,6 +39,7 @@ export abstract class WebhookService {
           await WebhookService.handleChargePaid(payload);
           break;
         case "charge.payment_failed":
+        case "invoice.payment_failed":
           await WebhookService.handleChargeFailed(payload);
           break;
         case "subscription.canceled":
@@ -146,6 +147,9 @@ export abstract class WebhookService {
         currentPeriodEnd: data.current_period?.end_at
           ? new Date(data.current_period.end_at)
           : null,
+        // Clear grace period fields when payment succeeds
+        pastDueSince: null,
+        gracePeriodEnds: null,
       })
       .where(eq(schema.orgSubscriptions.organizationId, organizationId));
 
@@ -179,10 +183,10 @@ export abstract class WebhookService {
       return;
     }
 
-    await db
-      .update(schema.orgSubscriptions)
-      .set({ status: "past_due" })
-      .where(eq(schema.orgSubscriptions.organizationId, organizationId));
+    const { SubscriptionService } = await import(
+      "../subscription/subscription.service"
+    );
+    await SubscriptionService.markPastDue(organizationId);
 
     const [subscription] = await db
       .select()
@@ -323,6 +327,7 @@ export abstract class WebhookService {
         canceled: "canceled",
         pending: "past_due",
         failed: "past_due",
+        unpaid: "past_due",
       };
 
       const mappedStatus = statusMap[data.status];

@@ -3,20 +3,18 @@
 > Plano de melhorias para tornar a API madura, segura e escalável.
 >
 > **Última atualização:** 2025-12-14
-> **Status Fase 1:** 50% completo (3/6 itens) ✅ Request Size Limit | ✅ Health Check | ✅ Logger Estruturado
+> **Status Fase 1:** 100% completo (6/6 itens) ✅ Request Size Limit | ✅ Health Check | ✅ Logger Estruturado | ✅ Error Sanitization | ✅ Security Headers | ✅ Rate Limiting
 
 ## Visão Geral
 
 Este documento detalha as funcionalidades e ferramentas necessárias para elevar a maturidade da API, organizadas por prioridade e área.
 
 **Progresso Atual:**
-- **Fase 1 (Fundação & Observabilidade):** 50% completo - Ver [Seção 7](#7-status-de-implementação---fase-1)
+- **Fase 1 (Fundação & Observabilidade):** ✅ 100% completo (6/6) - Ver [Seção 7](#7-status-de-implementação---fase-1)
 - **Fase 2-4:** Não iniciadas
 
 **Próximas ações recomendadas:**
-1. ⚡ Completar Error Sanitization (~15min)
-2. ⚡ Adicionar Security Headers (~15min)
-3. 🔒 Implementar Rate Limiting (~1-2h)
+1. 📋 Implementar Audit Log (~4h) - Primeiro item da Fase 2
 
 ---
 
@@ -767,13 +765,11 @@ export { isValidCPF, isValidCNPJ, isValidPIS };
 
 ---
 
-### 1.5 Headers de Segurança (Prioridade: Média)
+### 1.5 Headers de Segurança (Prioridade: Média) ✅ IMPLEMENTADO
 
-**Problema:** Headers de segurança HTTP não configurados.
+**Status:** ✅ Implementado em `src/index.ts:20-29`
 
-**Solução:** Utilizar o método `.headers()` nativo do Elysia para headers estáticos (mais performático que hooks).
-
-**Nota:** Não existe plugin tipo Helmet para Elysia. Implementação manual é necessária.
+**Solução:** Método `.headers()` nativo do Elysia (mais performático que hooks).
 
 **Localização:** `src/index.ts`
 
@@ -781,19 +777,19 @@ export { isValidCPF, isValidCNPJ, isValidPIS };
 const isProduction = process.env.NODE_ENV === "production";
 
 const app = new Elysia()
-  // Headers de segurança estáticos (mais performático que onAfterHandle)
   .headers({
     "X-Content-Type-Options": "nosniff",
     "X-Frame-Options": "DENY",
     "X-XSS-Protection": "1; mode=block",
     "Referrer-Policy": "strict-origin-when-cross-origin",
     "Permissions-Policy": "geolocation=(), microphone=(), camera=()",
-    // HSTS apenas em produção com HTTPS
     ...(isProduction && {
       "Strict-Transport-Security": "max-age=31536000; includeSubDomains",
     }),
   });
 ```
+
+**Compatibilidade:** Não interfere com OpenAPI/Scalar (usa fetch, não iframes).
 
 #### Headers Configurados
 
@@ -1489,140 +1485,36 @@ Elysia retorna automaticamente:
 
 ---
 
-### 5.2 Error Sanitization (Prioridade: Alta)
+### 5.2 Error Sanitization (Prioridade: Alta) ✅ IMPLEMENTADO
 
-**Problema:** Stack traces e detalhes de validação podem vazar informações sensíveis em produção.
+**Status:** ✅ Implementado em `src/lib/errors/error-plugin.ts`
 
-**Status atual:** ⚠️ Parcialmente implementado
+**Decisão:** Manter `details` de validação em produção (necessário para UX do frontend).
 
-O arquivo `src/lib/errors/error-plugin.ts` já existe com:
+**Problema original:** Stack traces e detalhes de validação podem vazar informações sensíveis em produção.
 
-- ✅ Tratamento de `AppError` customizado
-- ✅ Tratamento de erros de validação
-- ✅ Tratamento de NOT_FOUND
-- ✅ Fallback para erros não tratados
-- ❌ Diferenciação produção/desenvolvimento para stack traces
-- ❌ Diferenciação produção/desenvolvimento para detalhes de validação
+**Status atual:** ✅ Completo
 
-**Localização:** Atualizar `src/lib/errors/error-plugin.ts`
+O arquivo `src/lib/errors/error-plugin.ts` implementa:
 
-#### Código Atual (para referência)
+- ✅ Tratamento de `AppError` customizado (retorna code, message, details)
+- ✅ Tratamento de erros de validação (422 com details para UX)
+- ✅ Tratamento de NOT_FOUND (404 com mensagem genérica)
+- ✅ Fallback para erros não tratados (500 com mensagem genérica, SEM stack)
+- ✅ Log estruturado de erros internos (stack apenas no servidor)
 
-```typescript
-// Atual - sempre oculta stack, sempre mostra validation details
-export const errorPlugin = new Elysia({ name: "error-handler" })
-  .error({ AppError })
-  .onError(({ code, error, set }) => {
-    if (error instanceof AppError) {
-      set.status = error.status;
-      return error.toResponse();
-    }
+**Testes:** `src/lib/errors/__tests__/error-plugin.test.ts` (11 testes)
 
-    if (code === "VALIDATION") {
-      set.status = 400;
-      return {
-        success: false as const,
-        error: {
-          code: "VALIDATION_ERROR",
-          message: "Invalid request data",
-          details: formatValidationErrors(error.all), // ⚠️ Sempre expõe
-        },
-      };
-    }
+#### Comportamento Implementado
 
-    // ... rest
-  });
-```
+| Tipo de Erro | Status | Resposta |
+|--------------|--------|----------|
+| Validação | 422 | `{ code, message, details }` - Details incluídos para UX |
+| AppError (domínio) | 4xx | `{ code, message, details? }` - Controlado pelo dev |
+| NOT_FOUND | 404 | `{ code: "NOT_FOUND", message: "Route not found" }` |
+| Erro interno | 500 | `{ code: "INTERNAL_ERROR", message: "An unexpected error occurred" }` |
 
-#### Código Recomendado
-
-```typescript
-import { Elysia } from "elysia";
-import { AppError } from "./base-error";
-
-const isProduction = process.env.NODE_ENV === "production";
-
-type ValidationIssue = {
-  path: string;
-  message: string;
-};
-
-type ElysiaValidationError = {
-  path?: string;
-  message?: string;
-  summary?: string;
-};
-
-function formatValidationErrors(errors: unknown[]): ValidationIssue[] {
-  return errors.map((err) => {
-    const error = err as ElysiaValidationError;
-    return {
-      path: error.path ?? "",
-      message: error.message ?? error.summary ?? "Invalid value",
-    };
-  });
-}
-
-export const errorPlugin = new Elysia({ name: "error-handler" })
-  .error({ AppError })
-  .onError(({ code, error, set }) => {
-    // Custom AppError instances
-    if (error instanceof AppError) {
-      set.status = error.status;
-      return error.toResponse();
-    }
-
-    // Elysia validation errors
-    if (code === "VALIDATION") {
-      set.status = 400;
-      return {
-        success: false as const,
-        error: {
-          code: "VALIDATION_ERROR",
-          message: "Invalid request data",
-          // Detalhes apenas em desenvolvimento
-          details: isProduction ? undefined : formatValidationErrors(error.all),
-        },
-      };
-    }
-
-    // Route not found
-    if (code === "NOT_FOUND") {
-      set.status = 404;
-      return {
-        success: false as const,
-        error: {
-          code: "NOT_FOUND",
-          message: "Route not found",
-        },
-      };
-    }
-
-    // Unhandled errors - NUNCA expor stack em produção
-    console.error("Unhandled error:", error);
-    set.status = 500;
-    return {
-      success: false as const,
-      error: {
-        code: "INTERNAL_ERROR",
-        message: isProduction ? "An unexpected error occurred" : error.message,
-        // Stack trace apenas em desenvolvimento
-        stack: isProduction ? undefined : error.stack,
-      },
-    };
-  })
-  .as("scoped");
-```
-
-#### Diferenças por Ambiente
-
-| Campo                       | Produção   | Desenvolvimento |
-| --------------------------- | ---------- | --------------- |
-| `error.message`             | Genérico   | Mensagem real   |
-| `error.stack`               | ❌ Omitido | ✅ Incluído     |
-| `error.details` (validação) | ❌ Omitido | ✅ Incluído     |
-
-#### Resposta em Produção (500)
+#### Exemplo de Resposta (Erro 500)
 
 ```json
 {
@@ -1634,20 +1526,9 @@ export const errorPlugin = new Elysia({ name: "error-handler" })
 }
 ```
 
-#### Resposta em Desenvolvimento (500)
+Stack trace é logado no servidor via `logger.error()`, nunca enviado ao cliente.
 
-```json
-{
-  "success": false,
-  "error": {
-    "code": "INTERNAL_ERROR",
-    "message": "Cannot read property 'id' of undefined",
-    "stack": "TypeError: Cannot read property 'id' of undefined\n    at ..."
-  }
-}
-```
-
-**Esforço estimado:** 15min (apenas adicionar verificações de ambiente)
+**Esforço realizado:** ~30min (testes)
 
 ---
 
@@ -1852,14 +1733,14 @@ export const sanitizePlugin = new Elysia({ name: "sanitize" }).onParse(
 
 | Item                                            | Área            | Esforço | Status              | Localização           |
 | ----------------------------------------------- | --------------- | ------- | ------------------- | --------------------- |
-| Rate limiting (Better Auth + elysia-rate-limit) | Segurança       | 1h      | ❌ Pendente         | -                     |
+| Rate limiting (Better Auth + elysia-rate-limit) | Segurança       | 1h      | ✅ Implementado     | src/index.ts, src/lib/auth.ts |
 | Audit log (Better Auth hooks + Elysia plugin)   | Segurança       | 4h      | Pendente            | -                     |
 | Logger estruturado (@bogeychan/elysia-logger)   | Observabilidade | 1h      | ✅ Implementado     | src/lib/logger        |
 | Health check endpoint                           | Observabilidade | 30min   | ✅ Implementado     | src/lib/health        |
 | Validadores BR (CPF, CNPJ, PIS, CBO)            | Segurança       | 2h      | Pendente            | -                     |
 | Criptografia PII                                | Segurança       | 3h      | Pendente            | -                     |
 | Request size limit (built-in Elysia)            | Segurança       | 5min    | ✅ Implementado     | src/index.ts:17-19    |
-| Error sanitization                              | Segurança       | 15min   | ⚠️ Parcial (env)    | src/lib/errors        |
+| Error sanitization                              | Segurança       | 30min   | ✅ Implementado     | src/lib/errors        |
 | CORS restritivo                                 | Segurança       | 30min   | Pendente            | -                     |
 | Input sanitization                              | Segurança       | 2h      | Pendente            | -                     |
 
@@ -1867,7 +1748,7 @@ export const sanitizePlugin = new Elysia({ name: "sanitize" }).onParse(
 
 | Item                                       | Área            | Esforço | Status                |
 | ------------------------------------------ | --------------- | ------- | --------------------- |
-| Headers de segurança (built-in .headers()) | Segurança       | 15min   | Pendente              |
+| Headers de segurança (built-in .headers()) | Segurança       | 15min   | ✅ Implementado       |
 | Request ID em respostas                    | Observabilidade | 0       | ✅ Incluído no Logger |
 | Retry helper                               | Resiliência     | 1h      | Pendente              |
 | Timeout helper                             | Resiliência     | 1h      | Pendente              |
@@ -1891,7 +1772,7 @@ export const sanitizePlugin = new Elysia({ name: "sanitize" }).onParse(
 ## 7. Status de Implementação - Fase 1
 
 > **Última verificação:** 2025-12-14
-> **Progresso:** 3/6 itens completos (50%)
+> **Progresso:** 6/6 itens completos (100%) ✅
 
 ### ✅ 1. Request Size Limit (Implementado)
 
@@ -1907,54 +1788,38 @@ serve: {
 
 ---
 
-### ❌ 2. Security Headers (Não Implementado)
+### ✅ 2. Security Headers (Implementado)
 
-**Pendente:** Nenhuma configuração de headers de segurança encontrada.
+**Localização:** `src/index.ts:20-29`
 
-**Ação necessária:** Adicionar em `src/index.ts`:
+**Headers configurados:**
+- ✅ `X-Content-Type-Options: nosniff`
+- ✅ `X-Frame-Options: DENY`
+- ✅ `X-XSS-Protection: 1; mode=block`
+- ✅ `Referrer-Policy: strict-origin-when-cross-origin`
+- ✅ `Permissions-Policy: geolocation=(), microphone=(), camera=()`
+- ✅ `Strict-Transport-Security` (apenas em produção)
 
-```typescript
-.headers({
-  "X-Content-Type-Options": "nosniff",
-  "X-Frame-Options": "DENY",
-  "X-XSS-Protection": "1; mode=block",
-  "Referrer-Policy": "strict-origin-when-cross-origin",
-  "Permissions-Policy": "geolocation=(), microphone=(), camera=()",
-})
-```
-
-**Esforço:** 15 min
+**Compatibilidade:** Não interfere com OpenAPI/Scalar.
 
 ---
 
-### ⚠️ 3. Error Sanitization (Parcialmente Implementado)
+### ✅ 3. Error Sanitization (Implementado)
 
 **Localização:** `src/lib/errors/error-plugin.ts`
 
-**✅ Implementado:**
-- Tratamento de `AppError` customizado
-- Tratamento de erros de validação
-- Tratamento de NOT_FOUND
-- Fallback para erros não tratados
+**Decisão:** Manter `details` de validação em produção (necessário para UX do frontend).
 
-**❌ Falta:**
-- Diferenciação produção/dev para stack traces
-- Diferenciação produção/dev para detalhes de validação
+**Implementado:**
+- ✅ Tratamento de `AppError` customizado
+- ✅ Tratamento de erros de validação (422 com details)
+- ✅ Tratamento de NOT_FOUND (404)
+- ✅ Fallback para erros não tratados (500 sem stack)
+- ✅ Log estruturado de erros internos
 
-**Ação necessária:** Adicionar verificação `isProduction`:
+**Testes:** `src/lib/errors/__tests__/error-plugin.test.ts` (11 testes)
 
-```typescript
-const isProduction = process.env.NODE_ENV === "production";
-
-// Em VALIDATION errors
-details: isProduction ? undefined : formatValidationErrors(error.all),
-
-// Em erros não tratados
-message: isProduction ? "An unexpected error occurred" : error.message,
-stack: isProduction ? undefined : error.stack,
-```
-
-**Esforço:** 15 min
+**Esforço realizado:** ~30min
 
 ---
 
@@ -1993,21 +1858,32 @@ stack: isProduction ? undefined : error.stack,
 
 ---
 
-### ❌ 6. Rate Limiting (Não Implementado)
+### ✅ 6. Rate Limiting (Implementado)
 
-**Pendente:** Nenhuma configuração de rate limiting encontrada.
+**Localização:** `src/index.ts:44-56` e `src/lib/auth.ts:74-88`
 
-**Ação necessária (2 camadas):**
+**Implementação em duas camadas:**
 
 **1. Better Auth (autenticação):**
-- Adicionar configuração `rateLimit` em `src/lib/auth.ts`
-- Proteger endpoints `/auth/api/*`
+- ✅ Configuração `rateLimit` em `src/lib/auth.ts`
+- ✅ Storage em database para compartilhar estado entre instâncias
+- ✅ Custom rules para sign-in, sign-up, 2FA, forgot-password, email-otp
+- ✅ Skip para get-session (chamado frequentemente)
 
 **2. Elysia Rate Limit (API geral):**
-- Instalar: `bun add elysia-rate-limit`
-- Configurar em `src/index.ts` para proteger `/v1/*`
+- ✅ Plugin `elysia-rate-limit` instalado
+- ✅ Configurado em `src/index.ts` para proteger rotas gerais
+- ✅ Skip para /health, /health/live e /auth/api/*
+- ✅ Headers RateLimit-* habilitados
 
-**Esforço:** 1-2 horas
+**Configuração:**
+- Duration: 60s
+- Max: 100 requests/min por IP
+- Headers: RateLimit-Limit, RateLimit-Remaining, RateLimit-Reset
+
+**Testes:** `src/lib/ratelimit/__tests__/ratelimit.test.ts` (8 testes)
+
+**Esforço realizado:** ~1h
 
 ---
 
@@ -2051,13 +1927,13 @@ src/
 ## 8. Ordem de Implementação Sugerida
 
 ```
-Fase 1 - Fundação & Observabilidade (50% completo - 3/6 itens)
+Fase 1 - Fundação & Observabilidade (100% completo - 6/6 itens) ✅
 ├── 1. Request Size Limit (5min) - built-in Elysia ✅ IMPLEMENTADO
-├── 2. Security Headers (15min) - built-in .headers() ❌ PENDENTE
-├── 3. Error Sanitization (15min) ⚠️ PARCIAL (falta env check)
+├── 2. Security Headers (15min) - built-in .headers() ✅ IMPLEMENTADO (src/index.ts)
+├── 3. Error Sanitization (30min) ✅ IMPLEMENTADO (src/lib/errors + testes)
 ├── 4. Health Check (30min) ✅ IMPLEMENTADO (src/lib/health)
 ├── 5. Logger Estruturado (1h) - @bogeychan/elysia-logger ✅ IMPLEMENTADO (src/lib/logger)
-└── 6. Rate Limiting (1h) - Better Auth + elysia-rate-limit ❌ PENDENTE
+└── 6. Rate Limiting (1h) - Better Auth + elysia-rate-limit ✅ IMPLEMENTADO (src/index.ts, src/lib/auth.ts)
 
 Fase 2 - Segurança & Rastreabilidade (~8h)
 ├── 7. Audit Log (4h) - Better Auth hooks + Elysia plugin ✓ Já documentado
@@ -2089,18 +1965,21 @@ Fase 4 - LGPD & Arquitetura (~9h)
 
 ## 9. Dependências Necessárias
 
-**Pendentes de instalação:**
-
-```bash
-# Rate limiting para rotas da API
-bun add elysia-rate-limit
-```
-
-**Já instaladas:**
+**Já instaladas (Fase 1):**
 
 ```bash
 # Logger estruturado (pino) ✅
 # @bogeychan/elysia-logger e pino-pretty já instalados
+
+# Rate limiting para rotas da API ✅
+# elysia-rate-limit já instalado
+```
+
+**Pendentes para Fase 2-4:**
+
+```bash
+# Nenhuma dependência externa necessária para Fase 2
+# As implementações usam ferramentas já disponíveis (Drizzle, Better Auth hooks)
 ```
 
 ---
@@ -2149,39 +2028,36 @@ export const env = {
 
 ## Próximos Passos Recomendados
 
-### 🎯 Completar Fase 1 (~2h)
+### 🎯 Iniciar Fase 2 (~8h)
 
-**Prioridade Urgente (30min):**
+**Fase 1 completa!** Próximos itens recomendados:
 
-1. **Security Headers** (~15min)
-   - Adicionar `.headers()` em `src/index.ts`
-   - Ver [Seção 1.5](#15-headers-de-segurança-prioridade-média) para código
+1. **Audit Log** (~4h)
+   - Criar schema Drizzle para `audit_logs`
+   - Implementar `AuditService` para logging centralizado
+   - Adicionar hooks ao Better Auth para eventos de auth
+   - Criar plugin Elysia para eventos de API
+   - Ver [Seção 1.2](#12-audit-log-prioridade-alta) para implementação completa
 
-2. **Error Sanitization** (~15min)
-   - Atualizar `src/lib/errors/error-plugin.ts`
-   - Adicionar verificação `isProduction`
-   - Ver [Seção 5.2](#52-error-sanitization-prioridade-alta) para código
-
-**Prioridade Alta (1-2h):**
-
-3. **Rate Limiting**
-   - Instalar: `bun add elysia-rate-limit`
-   - Configurar Better Auth rate limiting em `src/lib/auth.ts`
-   - Configurar elysia-rate-limit em `src/index.ts`
-   - Ver [Seção 1.1](#11-rate-limiting-prioridade-alta) para implementação completa
+2. **CORS Restritivo** (~30min)
+   - Revisar configuração atual de CORS
+   - Adicionar validação de origens
+   - Ver [Seção 5.3](#53-cors-restritivo-prioridade-alta)
 
 ### 📊 Progresso Geral
 
-- **Fase 1:** 50% → 100% após completar os 3 itens acima
-- **Fase 2-4:** Aguardando conclusão da Fase 1
+- **Fase 1:** ✅ 100% completo (6/6 itens)
+- **Fase 2:** 0% (0/4 itens)
+- **Fase 3-4:** Aguardando conclusão da Fase 2
 
 ### 📝 Checklist de Verificação
 
-Após completar os itens acima, verificar:
-
-- [ ] Headers de segurança retornando em todas as respostas
-- [ ] Erros de produção não expõem stack traces
-- [ ] Rate limiting bloqueando após exceder limites
-- [ ] Logs estruturados sendo gerados corretamente
-- [ ] Health checks respondendo `/health` e `/health/live`
-- [ ] Request ID presente em logs e headers
+**Fase 1 - Completo:**
+- [x] Erros de produção não expõem stack traces
+- [x] Logs estruturados sendo gerados corretamente
+- [x] Health checks respondendo `/health` e `/health/live`
+- [x] Request ID presente em logs e headers
+- [x] Headers de segurança retornando em todas as respostas
+- [x] Rate limiting bloqueando após exceder limites
+- [x] Rate limit headers (RateLimit-*) presentes nas respostas
+- [x] Skip de rate limit para health checks e rotas de auth

@@ -296,4 +296,82 @@ export abstract class JobsService {
       },
     };
   }
+
+  static async suspendExpiredGracePeriods(): Promise<{
+    success: true;
+    data: { processed: number; suspended: string[] };
+  }> {
+    const now = new Date();
+
+    const expiredGracePeriods = await db
+      .select({
+        subscription: schema.orgSubscriptions,
+        organization: schema.organizations,
+        plan: schema.subscriptionPlans,
+      })
+      .from(schema.orgSubscriptions)
+      .innerJoin(
+        schema.organizations,
+        eq(schema.orgSubscriptions.organizationId, schema.organizations.id)
+      )
+      .innerJoin(
+        schema.subscriptionPlans,
+        eq(schema.orgSubscriptions.planId, schema.subscriptionPlans.id)
+      )
+      .where(
+        and(
+          eq(schema.orgSubscriptions.status, "past_due"),
+          lt(schema.orgSubscriptions.gracePeriodEnds, now)
+        )
+      );
+
+    const suspended: string[] = [];
+
+    for (const { subscription, organization, plan } of expiredGracePeriods) {
+      try {
+        await db
+          .update(schema.orgSubscriptions)
+          .set({ status: "canceled" })
+          .where(eq(schema.orgSubscriptions.id, subscription.id));
+
+        suspended.push(subscription.id);
+
+        PaymentHooks.emit("subscription.canceled", { subscription });
+
+        const owner = await JobsService.findOrganizationOwner(
+          subscription.organizationId
+        );
+
+        if (owner?.email) {
+          await sendSubscriptionCanceledEmail({
+            to: owner.email,
+            organizationName: organization.name,
+            planName: plan.displayName,
+            canceledAt: now,
+            accessUntil: subscription.gracePeriodEnds,
+          });
+        }
+      } catch (error) {
+        logger.error({
+          type: "job:suspend-grace-period:failed",
+          subscriptionId: subscription.id,
+          error: error instanceof Error ? error.message : String(error),
+        });
+      }
+    }
+
+    logger.info({
+      type: "job:suspend-expired-grace-periods:complete",
+      processed: expiredGracePeriods.length,
+      suspended: suspended.length,
+    });
+
+    return {
+      success: true as const,
+      data: {
+        processed: expiredGracePeriods.length,
+        suspended,
+      },
+    };
+  }
 }

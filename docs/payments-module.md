@@ -102,7 +102,9 @@ payments/
 | Access check                        | `SubscriptionService` | `checkAccess()`                                                                  |
 | Subscription status helpers         | `SubscriptionService` | `hasActiveSubscription()`, `hasPaidSubscription()`, `ensureNoPaidSubscription()` |
 | Activate subscription               | `SubscriptionService` | `activate()`                                                                     |
-| Mark past due                       | `SubscriptionService` | `markPastDue()`                                                                  |
+| Mark past due (with grace period)   | `SubscriptionService` | `markPastDue()` - idempotent, sets grace period dates                            |
+| Suspend subscription                | `SubscriptionService` | `suspend()` - cancels past_due subscriptions                                     |
+| Grace period job                    | `JobsService`         | `suspendExpiredGracePeriods()` - runs every 6 hours                              |
 | List invoices                       | `BillingService`      | `listInvoices()`                                                                 |
 | Download invoice                    | `BillingService`      | `getInvoiceDownloadUrl()`                                                        |
 | Update card                         | `BillingService`      | `updateCard()`                                                                   |
@@ -118,7 +120,6 @@ payments/
 | Feature                         | Priority | Status        |
 | ------------------------------- | -------- | ------------- |
 | Plan change (upgrade/downgrade) | High     | Backlog 8.2.2 |
-| Grace period enforcement        | Medium   | Backlog 8.3.1 |
 | Plan limits enforcement         | Medium   | Backlog 8.3.2 |
 | Coupons/discounts               | Medium   | Backlog 8.4   |
 | Seats management                | Medium   | Backlog 8.5   |
@@ -159,14 +160,23 @@ trial → active → past_due → canceled → expired
 
 ### Status Matrix
 
-| Status                         | hasAccess | Grace Period           | Allowed Actions               |
-| ------------------------------ | --------- | ---------------------- | ----------------------------- |
-| `trial`                        | Yes       | -                      | upgrade, cancel               |
-| `active`                       | Yes       | -                      | cancel, change plan           |
-| `active` + `cancelAtPeriodEnd` | Yes       | -                      | restore (soft cancel pending) |
-| `past_due`                     | Yes       | Not enforced (backlog) | update card                   |
-| `canceled`                     | No        | -                      | new subscription              |
-| `expired`                      | No        | -                      | new subscription              |
+| Status                         | hasAccess | Grace Period       | Allowed Actions               |
+| ------------------------------ | --------- | ------------------ | ----------------------------- |
+| `trial`                        | Yes       | -                  | upgrade, cancel               |
+| `active`                       | Yes       | -                  | cancel, change plan           |
+| `active` + `cancelAtPeriodEnd` | Yes       | -                  | restore (soft cancel pending) |
+| `past_due` (within grace)      | Yes       | 15 days remaining  | update card                   |
+| `past_due` (grace expired)     | No        | 0 days (suspended) | update card, new subscription |
+| `canceled`                     | No        | -                  | new subscription              |
+| `expired`                      | No        | -                  | new subscription              |
+
+**Grace Period (15 days):**
+
+- When payment fails → `pastDueSince` and `gracePeriodEnds` are set
+- User has 15 days to update payment method
+- Multiple failures don't reset the dates (idempotent)
+- After 15 days → job suspends subscription (status → `canceled`)
+- If payment succeeds during grace → dates are cleared, status → `active`
 
 **Soft Cancel Flow:**
 
@@ -248,24 +258,26 @@ Checkout opens in a **new browser tab**:
 
 ### Internal (API key)
 
-| Method | Path                                       | Description |
-| ------ | ------------------------------------------ | ----------- |
-| POST   | `/v1/payments/jobs/expire-trials`          | Cron job    |
-| POST   | `/v1/payments/jobs/notify-expiring-trials` | Cron job    |
-| POST   | `/v1/payments/jobs/process-cancellations`  | Cron job    |
+| Method | Path                                               | Description                         |
+| ------ | -------------------------------------------------- | ----------------------------------- |
+| POST   | `/v1/payments/jobs/expire-trials`                  | Cron job (daily)                    |
+| POST   | `/v1/payments/jobs/notify-expiring-trials`         | Cron job (daily)                    |
+| POST   | `/v1/payments/jobs/process-cancellations`          | Cron job (daily)                    |
+| POST   | `/v1/payments/jobs/suspend-expired-grace-periods`  | Cron job (every 6h) - Grace period  |
 
 ---
 
 ## Webhook Events
 
-| Pagar.me Event          | Handler                        | Action                                           |
-| ----------------------- | ------------------------------ | ------------------------------------------------ |
-| `subscription.created`  | `handleSubscriptionCreated()`  | Activate subscription, sync customer, send email |
-| `subscription.updated`  | `handleSubscriptionUpdated()`  | Update status/period/card                        |
-| `subscription.canceled` | `handleSubscriptionCanceled()` | Set status=canceled, send email                  |
-| `charge.paid`           | `handleChargePaid()`           | Set status=active, update period                 |
-| `charge.payment_failed` | `handleChargeFailed()`         | Set status=past_due                              |
-| `charge.refunded`       | `handleChargeRefunded()`       | Set status=canceled                              |
+| Pagar.me Event          | Handler                        | Action                                                    |
+| ----------------------- | ------------------------------ | --------------------------------------------------------- |
+| `subscription.created`  | `handleSubscriptionCreated()`  | Activate subscription, sync customer, send email          |
+| `subscription.updated`  | `handleSubscriptionUpdated()`  | Update status/period/card (maps `unpaid` → `past_due`)    |
+| `subscription.canceled` | `handleSubscriptionCanceled()` | Set status=canceled, send email                           |
+| `charge.paid`           | `handleChargePaid()`           | Set status=active, update period, clear grace period      |
+| `charge.payment_failed` | `handleChargeFailed()`         | Set status=past_due, set grace period dates (idempotent)  |
+| `invoice.payment_failed`| `handleChargeFailed()`         | Same as charge.payment_failed                             |
+| `charge.refunded`       | `handleChargeRefunded()`       | Set status=canceled                                       |
 
 **Idempotency:** `subscription_events` table stores `pagarmeEventId`.
 
@@ -316,6 +328,13 @@ PaymentHooks.emit("charge.refunded", { subscriptionId, chargeId, amount });
 | `organization_profiles` | Billing info + `pagarmeCustomerId`                               |
 | `pending_checkouts`     | Track checkout sessions before completion                        |
 | `subscription_events`   | Webhook idempotency via `pagarmeEventId`                         |
+
+**`org_subscriptions` Grace Period Fields:**
+
+```typescript
+pastDueSince: timestamp("past_due_since"),      // When payment first failed
+gracePeriodEnds: timestamp("grace_period_ends"), // When access will be revoked
+```
 
 ---
 

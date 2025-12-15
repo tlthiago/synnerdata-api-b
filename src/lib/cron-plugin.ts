@@ -42,4 +42,17 @@ export const cronPlugin = new Elysia({ name: "cron-jobs" })
         });
       },
     })
+  )
+  .use(
+    cron({
+      name: "suspend-expired-grace-periods",
+      pattern: "0 */6 * * *", // Every 6 hours
+      async run() {
+        const result = await JobsService.suspendExpiredGracePeriods();
+        logger.info({
+          type: "cron:suspend-expired-grace-periods",
+          suspended: result.data.suspended.length,
+        });
+      },
+    })
   );

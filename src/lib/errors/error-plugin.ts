@@ -25,7 +25,7 @@ function formatValidationErrors(errors: unknown[]): ValidationIssue[] {
 
 export const errorPlugin = new Elysia({ name: "error-handler" })
   .error({ AppError })
-  .onError(({ code, error, set }) => {
+  .onError({ as: "global" }, ({ code, error, set }) => {
     // Custom AppError instances
     if (error instanceof AppError) {
       set.status = error.status;

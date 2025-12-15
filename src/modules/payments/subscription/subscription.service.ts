@@ -20,6 +20,9 @@ import type {
 
 type Subscription = typeof schema.orgSubscriptions.$inferSelect;
 
+const GRACE_PERIOD_DAYS = 15;
+const MS_PER_DAY = 1000 * 60 * 60 * 24;
+
 export abstract class SubscriptionService {
   private static async findByOrganizationId(
     organizationId: string
@@ -303,9 +306,40 @@ export abstract class SubscriptionService {
       };
     }
 
+    // Handle past_due with grace period
+    if (subscription.status === "past_due") {
+      if (subscription.gracePeriodEnds && now > subscription.gracePeriodEnds) {
+        return {
+          hasAccess: false,
+          status: "past_due",
+          daysRemaining: 0,
+          trialEnd: subscription.trialEnd,
+          requiresPayment: true,
+        };
+      }
+
+      const graceDays = subscription.gracePeriodEnds
+        ? Math.max(
+            0,
+            Math.ceil(
+              (subscription.gracePeriodEnds.getTime() - now.getTime()) /
+                MS_PER_DAY
+            )
+          )
+        : GRACE_PERIOD_DAYS;
+
+      return {
+        hasAccess: true,
+        status: "past_due",
+        daysRemaining: graceDays,
+        trialEnd: subscription.trialEnd,
+        requiresPayment: true,
+      };
+    }
+
     return {
-      hasAccess: subscription.status === "past_due",
-      status: subscription.status as "expired" | "canceled" | "past_due",
+      hasAccess: false,
+      status: subscription.status as "expired" | "canceled",
       daysRemaining: null,
       trialEnd: subscription.trialEnd,
       requiresPayment: true,
@@ -382,9 +416,33 @@ export abstract class SubscriptionService {
   }
 
   static async markPastDue(organizationId: string): Promise<void> {
+    const [existing] = await db
+      .select({ pastDueSince: schema.orgSubscriptions.pastDueSince })
+      .from(schema.orgSubscriptions)
+      .where(eq(schema.orgSubscriptions.organizationId, organizationId))
+      .limit(1);
+
+    // Idempotent: don't reset dates if already in past_due
+    if (existing?.pastDueSince) {
+      await db
+        .update(schema.orgSubscriptions)
+        .set({ status: "past_due" })
+        .where(eq(schema.orgSubscriptions.organizationId, organizationId));
+      return;
+    }
+
+    const now = new Date();
+    const gracePeriodEnds = new Date(
+      now.getTime() + GRACE_PERIOD_DAYS * MS_PER_DAY
+    );
+
     await db
       .update(schema.orgSubscriptions)
-      .set({ status: "past_due" })
+      .set({
+        status: "past_due",
+        pastDueSince: now,
+        gracePeriodEnds,
+      })
       .where(eq(schema.orgSubscriptions.organizationId, organizationId));
   }
 
@@ -413,5 +471,24 @@ export abstract class SubscriptionService {
     if (updatedSubscription) {
       PaymentHooks.emit("trial.expired", { subscription: updatedSubscription });
     }
+  }
+
+  static async suspend(subscriptionId: string): Promise<void> {
+    const [subscription] = await db
+      .select()
+      .from(schema.orgSubscriptions)
+      .where(eq(schema.orgSubscriptions.id, subscriptionId))
+      .limit(1);
+
+    if (!subscription || subscription.status !== "past_due") {
+      return;
+    }
+
+    await db
+      .update(schema.orgSubscriptions)
+      .set({ status: "canceled" })
+      .where(eq(schema.orgSubscriptions.id, subscriptionId));
+
+    PaymentHooks.emit("subscription.canceled", { subscription });
   }
 }

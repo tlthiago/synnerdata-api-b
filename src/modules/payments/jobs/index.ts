@@ -70,4 +70,25 @@ export const jobsController = new Elysia({
           },
         }
       )
+      .post(
+        "/suspend-expired-grace-periods",
+        () => JobsService.suspendExpiredGracePeriods(),
+        {
+          response: {
+            200: t.Object({
+              success: t.Literal(true),
+              data: t.Object({
+                processed: t.Number(),
+                suspended: t.Array(t.String()),
+              }),
+            }),
+            401: unauthorizedErrorSchema,
+          },
+          detail: {
+            summary: "Suspend expired grace periods",
+            description:
+              "Manually trigger the job that suspends subscriptions with expired grace periods (past_due > 15 days).",
+          },
+        }
+      )
 );

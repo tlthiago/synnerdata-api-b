@@ -70,6 +70,8 @@ export const orgSubscriptions = pgTable(
     currentPeriodEnd: timestamp("current_period_end", { withTimezone: true }),
     cancelAtPeriodEnd: boolean("cancel_at_period_end").default(false).notNull(),
     canceledAt: timestamp("canceled_at", { withTimezone: true }),
+    pastDueSince: timestamp("past_due_since", { withTimezone: true }),
+    gracePeriodEnds: timestamp("grace_period_ends", { withTimezone: true }),
     billingCycle: text("billing_cycle").default("monthly"),
     seats: integer("seats").default(1).notNull(),
     createdAt: timestamp("created_at", { withTimezone: true })

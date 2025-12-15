@@ -9,9 +9,10 @@ CORE FEATURES (Phases 1-6)     ████████████████�
 AUTOMATION (Phase 7)           ████████████████████ 100% ✅
 BILLING ANNUAL (8.2.1)         ████████████████████ 100% ✅
 SOFT CANCEL (8.3.3)            ████████████████████ 100% ✅
-IMPROVEMENTS (Phase 8)         ████░░░░░░░░░░░░░░░░  20% 🟡
+GRACE PERIOD (8.3.1)           ████████████████████ 100% ✅
+IMPROVEMENTS (Phase 8)         ████████░░░░░░░░░░░░  40% 🟡
 
-OVERALL: ~87% (production ready, improvements ongoing)
+OVERALL: ~90% (production ready, improvements ongoing)
 ```
 
 ---
@@ -21,7 +22,7 @@ OVERALL: ~87% (production ready, improvements ongoing)
 | #     | Module                                                               | Priority   | Complexity | Status     |
 | ----- | -------------------------------------------------------------------- | ---------- | ---------- | ---------- |
 | 8.2.2 | [Plan Change (Upgrade/Downgrade)](#822-plan-change-upgradedowngrade) | **High**   | High       | ⏳ Pending |
-| 8.3.1 | [Grace Period](#831-grace-period)                                    | **Medium** | Medium     | ⏳ Pending |
+| 8.3.1 | [Grace Period](#831-grace-period)                                    | **Medium** | Medium     | ✅ Done    |
 | 8.3.2 | [Plan Limits Enforcement](#832-plan-limits-enforcement)              | **Medium** | Medium     | ⏳ Pending |
 | 8.3.3 | [Soft Cancel](#833-soft-cancel)                                      | **Medium** | Medium     | ✅ Done    |
 | 8.4   | [Promotion Codes (Coupons)](#84-promotion-codes)                     | Medium     | Medium     | ⏳ Pending |
@@ -34,10 +35,10 @@ OVERALL: ~87% (production ready, improvements ongoing)
 
 ## Recommended Implementation Order
 
-### Phase A: Revenue Protection
+### Phase A: Revenue Protection ✅
 
-1. **8.3.3 Soft Cancel** - Prevent irreversible cancellations
-2. **8.3.1 Grace Period** - Formalize past_due handling
+1. ~~**8.3.3 Soft Cancel** - Prevent irreversible cancellations~~ ✅
+2. ~~**8.3.1 Grace Period** - Formalize past_due handling~~ ✅
 
 ### Phase B: Revenue Growth
 
@@ -149,9 +150,9 @@ function calculateProration(params: {
 
 ---
 
-## 8.3.1 Grace Period
+## 8.3.1 Grace Period ✅
 
-> **Priority:** Medium | **Complexity:** Medium
+> **Priority:** Medium | **Complexity:** Medium | **Status:** Done
 
 ### Problem
 
@@ -164,7 +165,7 @@ Add explicit grace period tracking with automatic suspension.
 ### Schema Changes
 
 ```typescript
-// org_subscriptions - add fields:
+// org_subscriptions - added fields:
 pastDueSince: timestamp("past_due_since"),
 gracePeriodEnds: timestamp("grace_period_ends"),
 ```
@@ -172,38 +173,32 @@ gracePeriodEnds: timestamp("grace_period_ends"),
 ### Configuration
 
 ```typescript
-const GRACE_PERIOD_DAYS = 7;
+const GRACE_PERIOD_DAYS = 15; // Aligned with Pagar.me 12-day retry cycle + 3 days buffer
 ```
 
-### Updated checkAccess()
+### Implementation Details
 
-```typescript
-case "past_due":
-  if (subscription.gracePeriodEnds && now > subscription.gracePeriodEnds) {
-    return { hasAccess: false, status: "past_due", reason: "grace_period_expired" };
-  }
-  const graceDays = subscription.gracePeriodEnds
-    ? Math.ceil((subscription.gracePeriodEnds.getTime() - now.getTime()) / MS_PER_DAY)
-    : GRACE_PERIOD_DAYS;
-  return { hasAccess: true, status: "past_due", daysRemaining: graceDays };
-```
+**Key changes:**
 
-### New Job
-
-```typescript
-// JobsService.suspendExpiredGracePeriods()
-// Runs daily, suspends subscriptions where gracePeriodEnds < now
-```
+1. **Webhook handlers:** `invoice.payment_failed` now handled same as `charge.payment_failed`
+2. **Status mapping:** Pagar.me `unpaid` status now maps to `past_due`
+3. **Idempotent `markPastDue()`:** Multiple failures don't reset grace period dates
+4. **`charge.paid` clears grace period:** When payment succeeds, `pastDueSince` and `gracePeriodEnds` are set to null
+5. **`checkAccess()` enforced:** Returns `hasAccess: false` when grace period expires
+6. **New job:** `suspendExpiredGracePeriods()` runs every 6 hours
 
 ### Checklist
 
-- [ ] Add schema fields (`pastDueSince`, `gracePeriodEnds`)
-- [ ] Update `markPastDue()` to set grace period dates
-- [ ] Update `checkAccess()` to enforce grace period
-- [ ] Add `suspended` status if not exists
-- [ ] Create `suspendExpiredGracePeriods()` job
-- [ ] Add job endpoint
-- [ ] Tests
+- [x] Add schema fields (`pastDueSince`, `gracePeriodEnds`)
+- [x] Update `markPastDue()` to set grace period dates (idempotent)
+- [x] Update `checkAccess()` to enforce grace period
+- [x] Handle `invoice.payment_failed` webhook
+- [x] Map `unpaid` status to `past_due`
+- [x] Clear grace period fields on `charge.paid`
+- [x] Create `suspendExpiredGracePeriods()` job
+- [x] Add job endpoint (`POST /jobs/suspend-expired-grace-periods`)
+- [x] Add cron (every 6 hours)
+- [x] Tests (333 tests passing)
 
 ---
 

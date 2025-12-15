@@ -13,6 +13,8 @@ import { db } from "../db";
 import { sendOTPEmail, sendWelcomeEmail } from "./email";
 import { orgAc, orgRoles, systemAc, systemRoles } from "./permissions";
 
+const isTest = process.env.NODE_ENV === "test";
+
 // Extended types with organization plugin fields
 export type AuthSession = Session & {
   activeOrganizationId: string | null;
@@ -69,6 +71,20 @@ export const auth = betterAuth({
     cookieCache: {
       enabled: true,
       maxAge: 5 * 60,
+    },
+  },
+  rateLimit: {
+    enabled: !isTest,
+    window: 60,
+    max: 100,
+    storage: "memory",
+    customRules: {
+      "/sign-in/*": { window: 900, max: 5 },
+      "/sign-up/*": { window: 60, max: 3 },
+      "/two-factor/*": { window: 60, max: 3 },
+      "/forgot-password/*": { window: 300, max: 3 },
+      "/email-otp/*": { window: 60, max: 5 },
+      "/get-session": false,
     },
   },
   databaseHooks: {

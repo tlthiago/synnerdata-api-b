@@ -47,3 +47,12 @@ export class InternalError extends AppError {
     super(message);
   }
 }
+
+export class RateLimitedError extends AppError {
+  status = 429 as const;
+  code = "RATE_LIMITED";
+
+  constructor(message = "Too many requests") {
+    super(message);
+  }
+}
