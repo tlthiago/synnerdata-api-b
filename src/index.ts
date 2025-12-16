@@ -3,13 +3,20 @@ import { openapi } from "@elysiajs/openapi";
 import { Elysia } from "elysia";
 import { rateLimit } from "elysia-rate-limit";
 import { toJSONSchema } from "zod";
+import { pool } from "./db";
 import { env } from "./env";
 import { betterAuthPlugin, OpenAPI } from "./lib/auth-plugin";
+import { parseOrigins } from "./lib/cors";
 import { cronPlugin } from "./lib/cron-plugin";
 import { errorPlugin } from "./lib/errors/error-plugin";
 import { healthPlugin } from "./lib/health";
 import { logger, loggerPlugin } from "./lib/logger";
+import { setupGracefulShutdown } from "./lib/shutdown";
+import { apiKeysController } from "./modules/api-keys";
+import { auditController } from "./modules/audit";
 import { paymentsController } from "./modules/payments";
+
+const corsOrigins = parseOrigins(env.CORS_ORIGIN);
 
 const isProduction = process.env.NODE_ENV === "production";
 
@@ -35,10 +42,17 @@ const app = new Elysia({
   .use(healthPlugin)
   .use(
     cors({
-      origin: env.CORS_ORIGIN,
+      origin: corsOrigins,
       methods: ["GET", "POST", "PUT", "DELETE", "OPTIONS"],
       credentials: true,
-      allowedHeaders: ["Content-Type", "Authorization"],
+      allowedHeaders: ["Content-Type", "Authorization", "X-Request-ID"],
+      exposeHeaders: [
+        "X-Request-ID",
+        "RateLimit-Limit",
+        "RateLimit-Remaining",
+        "RateLimit-Reset",
+      ],
+      maxAge: 86_400,
     })
   )
   .use(
@@ -72,8 +86,16 @@ const app = new Elysia({
   )
   .use(cronPlugin)
   .use(paymentsController)
+  .use(auditController)
+  .use(apiKeysController)
   .get("/", ({ redirect }) => redirect("/health"))
   .listen(env.PORT);
+
+setupGracefulShutdown({
+  app,
+  pool,
+  gracePeriodMs: isProduction ? 5000 : 1000,
+});
 
 logger.info({
   type: "app:start",

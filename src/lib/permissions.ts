@@ -2,10 +2,6 @@ import { createAccessControl } from "better-auth/plugins/access";
 import { adminAc, defaultStatements } from "better-auth/plugins/admin/access";
 import type { Role } from "@/db/schema";
 
-// ============================================================
-// SYSTEM-LEVEL ACCESS CONTROL (Admin Plugin)
-// ============================================================
-
 export const systemStatements = {
   ...defaultStatements,
   plan: ["create", "read", "update", "delete", "sync"],
@@ -20,16 +16,12 @@ export const systemRoles = {
   }),
   admin: systemAc.newRole({
     ...adminAc.statements,
-    plan: ["read"],
+    plan: ["create", "read", "update", "delete", "sync"],
   }),
   user: systemAc.newRole({
     plan: ["read"],
   }),
 };
-
-// ============================================================
-// ORGANIZATION-LEVEL ACCESS CONTROL (Organization Plugin)
-// ============================================================
 
 export const orgStatements = {
   organization: ["read", "update", "delete"],
@@ -40,6 +32,7 @@ export const orgStatements = {
   subscription: ["read", "update"],
   billing: ["read", "update"],
   report: ["read", "export"],
+  audit: ["read"],
 } as const;
 
 export type OrgPermissions = Partial<{
@@ -58,6 +51,7 @@ export const orgRoles: Record<Role, ReturnType<typeof orgAc.newRole>> = {
     subscription: ["read", "update"],
     billing: ["read", "update"],
     report: ["read", "export"],
+    audit: ["read"],
   }),
   manager: orgAc.newRole({
     organization: ["read"],
@@ -68,6 +62,7 @@ export const orgRoles: Record<Role, ReturnType<typeof orgAc.newRole>> = {
     subscription: ["read"],
     billing: [],
     report: ["read", "export"],
+    audit: [],
   }),
   supervisor: orgAc.newRole({
     organization: ["read"],
@@ -78,6 +73,7 @@ export const orgRoles: Record<Role, ReturnType<typeof orgAc.newRole>> = {
     subscription: ["read"],
     billing: [],
     report: ["read", "export"],
+    audit: [],
   }),
   viewer: orgAc.newRole({
     organization: ["read"],
@@ -88,14 +84,29 @@ export const orgRoles: Record<Role, ReturnType<typeof orgAc.newRole>> = {
     subscription: ["read"],
     billing: [],
     report: ["read"],
+    audit: [],
   }),
 };
-
-// ============================================================
-// ALIASES (backward compatibility)
-// ============================================================
 
 export const ac = orgAc;
 export const roles = orgRoles;
 export const statements = orgStatements;
 export type Permissions = OrgPermissions;
+
+export const apiKeyStatements = {
+  employees: ["read"],
+  occurrences: ["read"],
+  organizations: ["read"],
+  reports: ["read"],
+} as const;
+
+export type ApiKeyPermissions = Partial<{
+  [K in keyof typeof apiKeyStatements]: (typeof apiKeyStatements)[K][number][];
+}>;
+
+export const DEFAULT_API_KEY_PERMISSIONS: ApiKeyPermissions = {
+  employees: ["read"],
+  occurrences: ["read"],
+  organizations: ["read"],
+  reports: ["read"],
+};

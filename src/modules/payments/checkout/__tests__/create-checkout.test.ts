@@ -3,7 +3,7 @@ import { eq } from "drizzle-orm";
 import { db } from "@/db";
 import { schema } from "@/db/schema";
 import { env } from "@/env";
-import { proPlan, testPlans } from "@/test/fixtures/plans";
+import { diamondPlan, goldPlan, testPlans } from "@/test/fixtures/plans";
 import { createTestApp, type TestApp } from "@/test/helpers/app";
 import { seedPlans } from "@/test/helpers/seed";
 import { createTestSubscription } from "@/test/helpers/subscription";
@@ -14,6 +14,7 @@ import {
 import { CustomerService } from "../../customer/customer.service";
 
 const BASE_URL = env.API_URL;
+const DEFAULT_EMPLOYEE_COUNT = 15;
 
 describe("POST /v1/payments/checkout", () => {
   let app: TestApp;
@@ -45,7 +46,8 @@ describe("POST /v1/payments/checkout", () => {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
-          planId: "test-plan-pro",
+          planId: "test-plan-diamond",
+          employeeCount: DEFAULT_EMPLOYEE_COUNT,
           successUrl: "https://example.com/success",
         }),
       })
@@ -67,7 +69,8 @@ describe("POST /v1/payments/checkout", () => {
           "Content-Type": "application/json",
         },
         body: JSON.stringify({
-          planId: "test-plan-pro",
+          planId: "test-plan-diamond",
+          employeeCount: DEFAULT_EMPLOYEE_COUNT,
           successUrl: "https://example.com/success",
         }),
       })
@@ -88,7 +91,7 @@ describe("POST /v1/payments/checkout", () => {
       throw new Error("Organization not created");
     }
 
-    await createTestSubscription(orgId, "test-plan-pro", "active");
+    await createTestSubscription(orgId, "test-plan-diamond", "active");
 
     const response = await app.handle(
       new Request(`${BASE_URL}/v1/payments/checkout`, {
@@ -98,7 +101,8 @@ describe("POST /v1/payments/checkout", () => {
           "Content-Type": "application/json",
         },
         body: JSON.stringify({
-          planId: "test-plan-enterprise",
+          planId: "test-plan-platinum",
+          employeeCount: DEFAULT_EMPLOYEE_COUNT,
           successUrl: "https://example.com/success",
         }),
       })
@@ -123,6 +127,7 @@ describe("POST /v1/payments/checkout", () => {
         },
         body: JSON.stringify({
           planId: "non-existent-plan",
+          employeeCount: DEFAULT_EMPLOYEE_COUNT,
           successUrl: "https://example.com/success",
         }),
       })
@@ -147,6 +152,7 @@ describe("POST /v1/payments/checkout", () => {
         },
         body: JSON.stringify({
           planId: "test-plan-inactive",
+          employeeCount: DEFAULT_EMPLOYEE_COUNT,
           successUrl: "https://example.com/success",
         }),
       })
@@ -170,7 +176,8 @@ describe("POST /v1/payments/checkout", () => {
           "Content-Type": "application/json",
         },
         body: JSON.stringify({
-          planId: "test-plan-pro",
+          planId: "test-plan-diamond",
+          employeeCount: DEFAULT_EMPLOYEE_COUNT,
           successUrl: "not-a-valid-url",
         }),
       })
@@ -198,13 +205,58 @@ describe("POST /v1/payments/checkout", () => {
     expect(response.status).toBe(422);
   });
 
+  test("should reject missing employeeCount", async () => {
+    const { headers } = await createTestUserWithOrganization({
+      emailVerified: true,
+    });
+
+    const response = await app.handle(
+      new Request(`${BASE_URL}/v1/payments/checkout`, {
+        method: "POST",
+        headers: {
+          ...headers,
+          "Content-Type": "application/json",
+        },
+        body: JSON.stringify({
+          planId: "test-plan-diamond",
+          successUrl: "https://example.com/success",
+        }),
+      })
+    );
+
+    expect(response.status).toBe(422);
+  });
+
+  test("should reject employeeCount exceeding limit", async () => {
+    const { headers } = await createTestUserWithOrganization({
+      emailVerified: true,
+    });
+
+    const response = await app.handle(
+      new Request(`${BASE_URL}/v1/payments/checkout`, {
+        method: "POST",
+        headers: {
+          ...headers,
+          "Content-Type": "application/json",
+        },
+        body: JSON.stringify({
+          planId: "test-plan-diamond",
+          employeeCount: 500, // Exceeds MAX_EMPLOYEES
+          successUrl: "https://example.com/success",
+        }),
+      })
+    );
+
+    expect(response.status).toBe(422);
+  });
+
   test("should create payment link and return checkoutUrl and paymentLinkId", async () => {
     const { headers } = await createTestUserWithOrganization({
       emailVerified: true,
     });
 
-    if (!proPlan) {
-      throw new Error("Pro plan not found in fixtures");
+    if (!diamondPlan) {
+      throw new Error("Diamond plan not found in fixtures");
     }
 
     const response = await app.handle(
@@ -215,7 +267,8 @@ describe("POST /v1/payments/checkout", () => {
           "Content-Type": "application/json",
         },
         body: JSON.stringify({
-          planId: proPlan.id,
+          planId: diamondPlan.id,
+          employeeCount: DEFAULT_EMPLOYEE_COUNT,
           successUrl: "https://example.com/success",
         }),
       })
@@ -231,19 +284,20 @@ describe("POST /v1/payments/checkout", () => {
     expect(body.data.checkoutUrl).toContain("pagar.me");
   });
 
-  test("should sync plan to Pagarme if not yet synced", async () => {
+  test("should sync pricing tier plan to Pagarme if not yet synced", async () => {
     const { headers } = await createTestUserWithOrganization({
       emailVerified: true,
     });
 
-    if (!proPlan) {
-      throw new Error("Pro plan not found in fixtures");
+    if (!diamondPlan) {
+      throw new Error("Diamond plan not found in fixtures");
     }
 
+    // Reset Pagarme IDs for all pricing tiers of this plan
     await db
-      .update(schema.subscriptionPlans)
+      .update(schema.planPricingTiers)
       .set({ pagarmePlanIdMonthly: null, pagarmePlanIdYearly: null })
-      .where(eq(schema.subscriptionPlans.id, proPlan.id));
+      .where(eq(schema.planPricingTiers.planId, diamondPlan.id));
 
     const response = await app.handle(
       new Request(`${BASE_URL}/v1/payments/checkout`, {
@@ -253,7 +307,8 @@ describe("POST /v1/payments/checkout", () => {
           "Content-Type": "application/json",
         },
         body: JSON.stringify({
-          planId: proPlan.id,
+          planId: diamondPlan.id,
+          employeeCount: DEFAULT_EMPLOYEE_COUNT,
           successUrl: "https://example.com/success",
         }),
       })
@@ -261,25 +316,25 @@ describe("POST /v1/payments/checkout", () => {
 
     expect(response.status).toBe(200);
 
-    const [dbPlan] = await db
-      .select({
-        pagarmePlanIdMonthly: schema.subscriptionPlans.pagarmePlanIdMonthly,
-      })
-      .from(schema.subscriptionPlans)
-      .where(eq(schema.subscriptionPlans.id, proPlan.id))
-      .limit(1);
+    // Verify the pricing tier now has a Pagarme plan ID
+    const tiers = await db
+      .select()
+      .from(schema.planPricingTiers)
+      .where(eq(schema.planPricingTiers.planId, diamondPlan.id));
 
-    expect(dbPlan.pagarmePlanIdMonthly).toBeDefined();
-    expect(dbPlan.pagarmePlanIdMonthly).toStartWith("plan_");
+    // At least one tier should have a pagarmePlanIdMonthly
+    const syncedTier = tiers.find((t) => t.pagarmePlanIdMonthly !== null);
+    expect(syncedTier).toBeDefined();
+    expect(syncedTier?.pagarmePlanIdMonthly).toStartWith("plan_");
   });
 
-  test("should reuse existing pagarmePlanIdMonthly if already synced", async () => {
+  test("should reuse existing pagarmePlanId if already synced", async () => {
     const { headers } = await createTestUserWithOrganization({
       emailVerified: true,
     });
 
-    if (!proPlan) {
-      throw new Error("Pro plan not found in fixtures");
+    if (!diamondPlan) {
+      throw new Error("Diamond plan not found in fixtures");
     }
 
     const firstResponse = await app.handle(
@@ -290,22 +345,22 @@ describe("POST /v1/payments/checkout", () => {
           "Content-Type": "application/json",
         },
         body: JSON.stringify({
-          planId: proPlan.id,
+          planId: diamondPlan.id,
+          employeeCount: DEFAULT_EMPLOYEE_COUNT,
           successUrl: "https://example.com/success",
         }),
       })
     );
     expect(firstResponse.status).toBe(200);
 
-    const [planAfterFirst] = await db
-      .select({
-        pagarmePlanIdMonthly: schema.subscriptionPlans.pagarmePlanIdMonthly,
-      })
-      .from(schema.subscriptionPlans)
-      .where(eq(schema.subscriptionPlans.id, proPlan.id))
-      .limit(1);
+    const tiersAfterFirst = await db
+      .select()
+      .from(schema.planPricingTiers)
+      .where(eq(schema.planPricingTiers.planId, diamondPlan.id));
 
-    const firstPagarmePlanIdMonthly = planAfterFirst.pagarmePlanIdMonthly;
+    const firstPagarmePlanId = tiersAfterFirst.find(
+      (t) => t.pagarmePlanIdMonthly !== null
+    )?.pagarmePlanIdMonthly;
 
     const { headers: headers2 } = await createTestUserWithOrganization({
       emailVerified: true,
@@ -319,24 +374,24 @@ describe("POST /v1/payments/checkout", () => {
           "Content-Type": "application/json",
         },
         body: JSON.stringify({
-          planId: proPlan.id,
+          planId: diamondPlan.id,
+          employeeCount: DEFAULT_EMPLOYEE_COUNT,
           successUrl: "https://example.com/success",
         }),
       })
     );
     expect(secondResponse.status).toBe(200);
 
-    const [planAfterSecond] = await db
-      .select({
-        pagarmePlanIdMonthly: schema.subscriptionPlans.pagarmePlanIdMonthly,
-      })
-      .from(schema.subscriptionPlans)
-      .where(eq(schema.subscriptionPlans.id, proPlan.id))
-      .limit(1);
+    const tiersAfterSecond = await db
+      .select()
+      .from(schema.planPricingTiers)
+      .where(eq(schema.planPricingTiers.planId, diamondPlan.id));
 
-    expect(planAfterSecond.pagarmePlanIdMonthly).toBe(
-      firstPagarmePlanIdMonthly
-    );
+    const secondPagarmePlanId = tiersAfterSecond.find(
+      (t) => t.pagarmePlanIdMonthly !== null
+    )?.pagarmePlanIdMonthly;
+
+    expect(secondPagarmePlanId).toBe(firstPagarmePlanId);
   });
 
   test.each([
@@ -352,11 +407,11 @@ describe("POST /v1/payments/checkout", () => {
       throw new Error("Organization not created");
     }
 
-    if (!proPlan) {
-      throw new Error("Pro plan not found in fixtures");
+    if (!(diamondPlan && goldPlan)) {
+      throw new Error("Plans not found in fixtures");
     }
 
-    await createTestSubscription(orgId, "test-plan-starter", status);
+    await createTestSubscription(orgId, goldPlan.id, status);
 
     const response = await app.handle(
       new Request(`${BASE_URL}/v1/payments/checkout`, {
@@ -366,7 +421,8 @@ describe("POST /v1/payments/checkout", () => {
           "Content-Type": "application/json",
         },
         body: JSON.stringify({
-          planId: proPlan.id,
+          planId: diamondPlan.id,
+          employeeCount: DEFAULT_EMPLOYEE_COUNT,
           successUrl: "https://example.com/success",
         }),
       })
@@ -389,8 +445,8 @@ describe("POST /v1/payments/checkout", () => {
       throw new Error("Organization not created");
     }
 
-    if (!proPlan) {
-      throw new Error("Pro plan not found in fixtures");
+    if (!diamondPlan) {
+      throw new Error("Diamond plan not found in fixtures");
     }
 
     const [profile] = await db
@@ -411,7 +467,8 @@ describe("POST /v1/payments/checkout", () => {
           "Content-Type": "application/json",
         },
         body: JSON.stringify({
-          planId: proPlan.id,
+          planId: diamondPlan.id,
+          employeeCount: DEFAULT_EMPLOYEE_COUNT,
           successUrl: "https://example.com/success",
         }),
       })
@@ -435,8 +492,8 @@ describe("POST /v1/payments/checkout", () => {
       throw new Error("Organization not created");
     }
 
-    if (!proPlan) {
-      throw new Error("Pro plan not found in fixtures");
+    if (!diamondPlan) {
+      throw new Error("Diamond plan not found in fixtures");
     }
 
     const [profile] = await db
@@ -468,7 +525,8 @@ describe("POST /v1/payments/checkout", () => {
           "Content-Type": "application/json",
         },
         body: JSON.stringify({
-          planId: proPlan.id,
+          planId: diamondPlan.id,
+          employeeCount: DEFAULT_EMPLOYEE_COUNT,
           successUrl: "https://example.com/success",
         }),
       })
@@ -501,8 +559,8 @@ describe("POST /v1/payments/checkout", () => {
       throw new Error("Organization not created");
     }
 
-    if (!proPlan) {
-      throw new Error("Pro plan not found in fixtures");
+    if (!diamondPlan) {
+      throw new Error("Diamond plan not found in fixtures");
     }
 
     const response = await app.handle(
@@ -513,7 +571,8 @@ describe("POST /v1/payments/checkout", () => {
           "Content-Type": "application/json",
         },
         body: JSON.stringify({
-          planId: proPlan.id,
+          planId: diamondPlan.id,
+          employeeCount: DEFAULT_EMPLOYEE_COUNT,
           successUrl: "https://example.com/success",
         }),
       })
@@ -523,7 +582,6 @@ describe("POST /v1/payments/checkout", () => {
 
     const body = await response.json();
 
-    // const schema = await import("@/db/schema");
     const [checkout] = await db
       .select()
       .from(schema.pendingCheckouts)
@@ -532,7 +590,8 @@ describe("POST /v1/payments/checkout", () => {
 
     expect(checkout).toBeDefined();
     expect(checkout.organizationId).toBe(orgId);
-    expect(checkout.planId).toBe(proPlan.id);
+    expect(checkout.planId).toBe(diamondPlan.id);
+    expect(checkout.employeeCount).toBe(DEFAULT_EMPLOYEE_COUNT);
     expect(checkout.status).toBe("pending");
     expect(checkout.expiresAt).toBeInstanceOf(Date);
     expect(checkout.expiresAt.getTime()).toBeGreaterThan(Date.now());
@@ -572,7 +631,8 @@ describe("POST /v1/payments/checkout", () => {
           "Content-Type": "application/json",
         },
         body: JSON.stringify({
-          planId: "test-plan-pro",
+          planId: "test-plan-diamond",
+          employeeCount: DEFAULT_EMPLOYEE_COUNT,
           successUrl: "https://example.com/success",
         }),
       })
@@ -597,6 +657,7 @@ describe("POST /v1/payments/checkout", () => {
         },
         body: JSON.stringify({
           planId: "",
+          employeeCount: DEFAULT_EMPLOYEE_COUNT,
           successUrl: "https://example.com/success",
         }),
       })
@@ -612,8 +673,8 @@ describe("POST /v1/payments/checkout", () => {
       emailVerified: true,
     });
 
-    if (!proPlan) {
-      throw new Error("Pro plan not found in fixtures");
+    if (!diamondPlan) {
+      throw new Error("Diamond plan not found in fixtures");
     }
 
     const createPaymentLinkSpy = spyOn(
@@ -629,7 +690,8 @@ describe("POST /v1/payments/checkout", () => {
           "Content-Type": "application/json",
         },
         body: JSON.stringify({
-          planId: proPlan.id,
+          planId: diamondPlan.id,
+          employeeCount: DEFAULT_EMPLOYEE_COUNT,
           successUrl: "https://example.com/success",
         }),
       })

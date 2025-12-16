@@ -1,6 +1,7 @@
 import { eq } from "drizzle-orm";
 import { db } from "@/db";
 import { schema } from "@/db/schema";
+import { Retry } from "@/lib/utils/retry";
 import {
   CustomerCreationError,
   CustomerNotFoundError,
@@ -10,8 +11,8 @@ import { PagarmeClient } from "../pagarme/client";
 import type {
   BillingData,
   CreateCustomerInput,
+  ListCustomersData,
   ListCustomersInput,
-  ListCustomersResponse,
 } from "./customer.model";
 
 export abstract class CustomerService {
@@ -98,24 +99,28 @@ export abstract class CustomerService {
       phoneDigits.length > 11 ? phoneDigits.slice(4) : phoneDigits.slice(2);
 
     try {
-      const pagarmeCustomer = await PagarmeClient.createCustomer(
-        {
-          name,
-          email,
-          document: document.replace(/\D/g, ""),
-          type: "company",
-          phones: {
-            mobile_phone: {
-              country_code: countryCode,
-              area_code: areaCode,
-              number: phoneNumber,
+      const pagarmeCustomer = await Retry.withRetry(
+        () =>
+          PagarmeClient.createCustomer(
+            {
+              name,
+              email,
+              document: document.replace(/\D/g, ""),
+              type: "company",
+              phones: {
+                mobile_phone: {
+                  country_code: countryCode,
+                  area_code: areaCode,
+                  number: phoneNumber,
+                },
+              },
+              metadata: {
+                organization_id: organizationId,
+              },
             },
-          },
-          metadata: {
-            organization_id: organizationId,
-          },
-        },
-        `create-customer-${organizationId}`
+            `create-customer-${organizationId}`
+          ),
+        { maxAttempts: 3, delayMs: 1000 }
       );
 
       await db
@@ -137,21 +142,22 @@ export abstract class CustomerService {
     return profile?.pagarmeCustomerId ?? null;
   }
 
-  static async list(input: ListCustomersInput): Promise<ListCustomersResponse> {
-    const pagarmeResponse = await PagarmeClient.getCustomers({
-      name: input.name,
-      email: input.email,
-      document: input.document,
-      page: input.page,
-      size: input.size,
-    });
+  static async list(input: ListCustomersInput): Promise<ListCustomersData> {
+    const pagarmeResponse = await Retry.withRetry(
+      () =>
+        PagarmeClient.getCustomers({
+          name: input.name,
+          email: input.email,
+          document: input.document,
+          page: input.page,
+          size: input.size,
+        }),
+      { maxAttempts: 3, delayMs: 500 }
+    );
 
     return {
-      success: true as const,
-      data: {
-        customers: pagarmeResponse.data,
-        paging: pagarmeResponse.paging,
-      },
+      customers: pagarmeResponse.data,
+      paging: pagarmeResponse.paging,
     };
   }
 }

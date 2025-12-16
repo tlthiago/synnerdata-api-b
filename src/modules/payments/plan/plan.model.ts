@@ -2,9 +2,24 @@ import { z } from "zod";
 import { successResponseSchema } from "@/lib/responses/response.types";
 
 export const planLimitsSchema = z.object({
-  maxMembers: z.number().int().positive().describe("Maximum team members"),
-  maxProjects: z.number().int().positive().describe("Maximum projects"),
-  maxStorage: z.number().int().positive().describe("Maximum storage in MB"),
+  maxMembers: z
+    .number()
+    .int()
+    .positive()
+    .optional()
+    .describe("Maximum team members"),
+  maxProjects: z
+    .number()
+    .int()
+    .positive()
+    .optional()
+    .describe("Maximum projects"),
+  maxStorage: z
+    .number()
+    .int()
+    .positive()
+    .optional()
+    .describe("Maximum storage in MB"),
   features: z.array(z.string()).describe("List of enabled features"),
 });
 
@@ -60,23 +75,28 @@ const syncPlanDataSchema = z.object({
   pagarmePlanIdYearly: z.string().nullable().describe("Pagarme yearly plan ID"),
 });
 
+const pricingTierSchema = z.object({
+  id: z.string().describe("Pricing tier ID"),
+  minEmployees: z.number().int().describe("Minimum employees in this tier"),
+  maxEmployees: z.number().int().describe("Maximum employees in this tier"),
+  priceMonthly: z.number().int().describe("Monthly price in cents"),
+  priceYearly: z.number().int().describe("Yearly price in cents"),
+});
+
 const planListItemSchema = z.object({
   id: z.string().describe("Plan ID"),
   name: z.string().describe("Plan internal name"),
   displayName: z.string().describe("Plan display name"),
-  priceMonthly: z.number().int().describe("Monthly price in cents"),
-  priceYearly: z.number().int().describe("Yearly price in cents"),
-  monthlyEquivalent: z
-    .number()
-    .int()
-    .describe("Monthly equivalent when paying yearly"),
-  savingsYearly: z.number().int().describe("Yearly savings in cents"),
-  savingsPercent: z.number().int().describe("Yearly savings percentage"),
+  description: z.string().nullable().describe("Plan description"),
+  startingPrice: z.number().int().describe("Lowest monthly price in cents"),
   trialDays: z.number().int().describe("Trial period in days"),
   limits: planLimitsSchema.nullable().describe("Plan limits and quotas"),
   isActive: z.boolean().describe("Whether plan is active"),
   isPublic: z.boolean().describe("Whether plan is publicly visible"),
   sortOrder: z.number().int().describe("Display sort order"),
+  pricingTiers: z
+    .array(pricingTierSchema)
+    .describe("Pricing tiers by employee count"),
 });
 
 export const getPlanResponseSchema = successResponseSchema(planDataSchema);
@@ -100,3 +120,11 @@ export type CreatePlanResponse = z.infer<typeof createPlanResponseSchema>;
 export type UpdatePlanResponse = z.infer<typeof updatePlanResponseSchema>;
 export type DeletePlanResponse = z.infer<typeof deletePlanResponseSchema>;
 export type SyncPlanResponse = z.infer<typeof syncPlanResponseSchema>;
+
+// Data-only types for service layer
+export type ListPlansData = { plans: z.infer<typeof planListItemSchema>[] };
+export type GetPlanData = PlanData;
+export type CreatePlanData = PlanData;
+export type UpdatePlanData = PlanData;
+export type DeletePlanData = z.infer<typeof deletePlanDataSchema>;
+export type SyncPlanData = z.infer<typeof syncPlanDataSchema>;

@@ -1,29 +1,24 @@
 import { eq } from "drizzle-orm";
 import { db } from "@/db";
 import { schema } from "@/db/schema";
+import { Retry } from "@/lib/utils/retry";
 import { CustomerService } from "../customer/customer.service";
-import {
-  EmailNotVerifiedError,
-  YearlyBillingNotAvailableError,
-} from "../errors";
+import { EmailNotVerifiedError } from "../errors";
 import { PagarmeClient } from "../pagarme/client";
 import type { CreatePaymentLinkRequest } from "../pagarme/pagarme.types";
 import { PlanService } from "../plan/plan.service";
+import { PricingTierService } from "../pricing/pricing.service";
 import { SubscriptionService } from "../subscription/subscription.service";
-import type {
-  CreateCheckoutInput,
-  CreateCheckoutResponse,
-} from "./checkout.model";
+import type { CheckoutData, CreateCheckoutInput } from "./checkout.model";
 
 const CHECKOUT_EXPIRATION_HOURS = 24;
 
 export abstract class CheckoutService {
-  static async create(
-    input: CreateCheckoutInput
-  ): Promise<CreateCheckoutResponse> {
+  static async create(input: CreateCheckoutInput): Promise<CheckoutData> {
     const {
       organizationId,
       planId,
+      employeeCount,
       successUrl,
       userId,
       billingCycle = "monthly",
@@ -41,23 +36,26 @@ export abstract class CheckoutService {
 
     await SubscriptionService.ensureNoPaidSubscription(organizationId);
 
-    const plan = await PlanService.ensureSynced(planId);
+    // Validate employee count and get pricing tier
+    PricingTierService.validateEmployeeCount(employeeCount);
 
-    const pagarmePlanId =
-      billingCycle === "yearly"
-        ? plan.pagarmePlanIdYearly
-        : plan.pagarmePlanIdMonthly;
+    // Get plan details
+    const plan = await PlanService.getByIdForCheckout(planId);
 
-    if (!pagarmePlanId) {
-      throw new YearlyBillingNotAvailableError(planId);
-    }
+    // Get pricing tier with Pagarme plan (lazy creation)
+    const tier = await PricingTierService.getTierForCheckout(
+      planId,
+      employeeCount,
+      billingCycle
+    );
 
     const pagarmeCustomerId =
       await CustomerService.getCustomerId(organizationId);
 
+    const tierLabel = `${tier.minEmployees}-${tier.maxEmployees} funcionários`;
     const paymentLinkData: CreatePaymentLinkRequest = {
       type: "subscription",
-      name: `Upgrade para ${plan.displayName}${billingCycle === "yearly" ? " (Anual)" : ""}`,
+      name: `${plan.displayName} (${tierLabel})${billingCycle === "yearly" ? " - Anual" : ""}`,
       payment_settings: {
         accepted_payment_methods: ["credit_card"],
         credit_card_settings: {
@@ -68,7 +66,7 @@ export abstract class CheckoutService {
         recurrences: [
           {
             start_in: 1,
-            plan_id: pagarmePlanId,
+            plan_id: tier.pagarmePlanId,
           },
         ],
       },
@@ -77,6 +75,8 @@ export abstract class CheckoutService {
       metadata: {
         organization_id: organizationId,
         plan_id: planId,
+        pricing_tier_id: tier.id,
+        employee_count: String(employeeCount),
         billing_cycle: billingCycle,
       },
     };
@@ -87,9 +87,13 @@ export abstract class CheckoutService {
       };
     }
 
-    const paymentLink = await PagarmeClient.createPaymentLink(
-      paymentLinkData,
-      `checkout-${organizationId}-${planId}-${billingCycle}-${Date.now()}`
+    const paymentLink = await Retry.withRetry(
+      () =>
+        PagarmeClient.createPaymentLink(
+          paymentLinkData,
+          `checkout-${organizationId}-${planId}-${tier.id}-${billingCycle}-${Date.now()}`
+        ),
+      { maxAttempts: 3, delayMs: 1000 }
     );
 
     const expiresAt = new Date();
@@ -99,6 +103,8 @@ export abstract class CheckoutService {
       id: `checkout-${crypto.randomUUID()}`,
       organizationId,
       planId,
+      pricingTierId: tier.id,
+      employeeCount,
       billingCycle,
       paymentLinkId: paymentLink.id,
       status: "pending",
@@ -106,11 +112,8 @@ export abstract class CheckoutService {
     });
 
     return {
-      success: true as const,
-      data: {
-        checkoutUrl: paymentLink.url,
-        paymentLinkId: paymentLink.id,
-      },
+      checkoutUrl: paymentLink.url,
+      paymentLinkId: paymentLink.id,
     };
   }
 }

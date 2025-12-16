@@ -1,6 +1,6 @@
 # Payments Module - Backlog
 
-> Features pending implementation. Last updated: 2025-12-14
+> Features pending implementation. Last updated: 2025-12-15
 
 ## Progress Summary
 
@@ -10,9 +10,11 @@ AUTOMATION (Phase 7)           ████████████████�
 BILLING ANNUAL (8.2.1)         ████████████████████ 100% ✅
 SOFT CANCEL (8.3.3)            ████████████████████ 100% ✅
 GRACE PERIOD (8.3.1)           ████████████████████ 100% ✅
-IMPROVEMENTS (Phase 8)         ████████░░░░░░░░░░░░  40% 🟡
+PLAN CHANGE (8.2.2)            ████████████████████ 100% ✅
+PLAN LIMITS (8.3.2)            ████████████████████ 100% ✅
+IMPROVEMENTS (Phase 8)         ██████████████░░░░░░  70% 🟡
 
-OVERALL: ~90% (production ready, improvements ongoing)
+OVERALL: ~97% (production ready, improvements ongoing)
 ```
 
 ---
@@ -21,9 +23,9 @@ OVERALL: ~90% (production ready, improvements ongoing)
 
 | #     | Module                                                               | Priority   | Complexity | Status     |
 | ----- | -------------------------------------------------------------------- | ---------- | ---------- | ---------- |
-| 8.2.2 | [Plan Change (Upgrade/Downgrade)](#822-plan-change-upgradedowngrade) | **High**   | High       | ⏳ Pending |
+| 8.2.2 | [Plan Change (Upgrade/Downgrade)](#822-plan-change-upgradedowngrade) | **High**   | High       | ✅ Done    |
 | 8.3.1 | [Grace Period](#831-grace-period)                                    | **Medium** | Medium     | ✅ Done    |
-| 8.3.2 | [Plan Limits Enforcement](#832-plan-limits-enforcement)              | **Medium** | Medium     | ⏳ Pending |
+| 8.3.2 | [Plan Limits Enforcement](#832-plan-limits-enforcement)              | **Medium** | Medium     | ✅ Done    |
 | 8.3.3 | [Soft Cancel](#833-soft-cancel)                                      | **Medium** | Medium     | ✅ Done    |
 | 8.4   | [Promotion Codes (Coupons)](#84-promotion-codes)                     | Medium     | Medium     | ⏳ Pending |
 | 8.5   | [Seats for Teams](#85-seats-for-teams)                               | Medium     | Medium     | ⏳ Pending |
@@ -40,10 +42,10 @@ OVERALL: ~90% (production ready, improvements ongoing)
 1. ~~**8.3.3 Soft Cancel** - Prevent irreversible cancellations~~ ✅
 2. ~~**8.3.1 Grace Period** - Formalize past_due handling~~ ✅
 
-### Phase B: Revenue Growth
+### Phase B: Revenue Growth ✅
 
-3. **8.2.2 Plan Change** - Enable upsells
-4. **8.3.2 Plan Limits** - Enforce upgrade incentives
+3. ~~**8.2.2 Plan Change** - Enable upsells~~ ✅
+4. ~~**8.3.2 Plan Limits** - Enforce upgrade incentives~~ ✅
 
 ### Phase C: Acquisition & Retention
 
@@ -57,9 +59,9 @@ OVERALL: ~90% (production ready, improvements ongoing)
 
 ---
 
-## 8.2.2 Plan Change (Upgrade/Downgrade)
+## 8.2.2 Plan Change (Upgrade/Downgrade) ✅
 
-> **Priority:** High | **Complexity:** High
+> **Priority:** High | **Complexity:** High | **Status:** Done
 
 ### Problem
 
@@ -79,8 +81,8 @@ Calculate proration            Schedule for next cycle
 (manual)                       (pendingPlanId)
    │                               │
    ▼                               │
-Charge via Order               │
-(checkout)                     │
+Charge via Payment Link        │
+(proration amount)             │
    │                               │
    ▼                               ▼
 Cancel current subscription    Job processes at period end
@@ -93,60 +95,78 @@ via Payment Link               subscription
 ### Schema Changes
 
 ```typescript
-// org_subscriptions - add fields:
+// org_subscriptions - added fields:
 pendingPlanId: text("pending_plan_id"),
 pendingBillingCycle: text("pending_billing_cycle"),
 planChangeAt: timestamp("plan_change_at"),
 ```
 
-### New Endpoints
+### Endpoints
 
-| Method | Path                         | Description            |
-| ------ | ---------------------------- | ---------------------- |
-| POST   | `/subscription/change-plan`  | Upgrade/downgrade plan |
-| POST   | `/subscription/change-cycle` | Switch monthly/yearly  |
+| Method | Path                               | Description                |
+| ------ | ---------------------------------- | -------------------------- |
+| POST   | `/subscription/change-plan`        | Upgrade/downgrade plan     |
+| POST   | `/subscription/change-billing-cycle` | Switch monthly/yearly    |
+| GET    | `/subscription/scheduled-change`   | Get pending change info    |
+| DELETE | `/subscription/scheduled-change`   | Cancel pending change      |
 
-### Proration Calculation
+### Service Methods
 
 ```typescript
-const MS_PER_DAY = 1000 * 60 * 60 * 24;
+// PlanChangeService (plan-change.service.ts)
+static getChangeType(input): "upgrade" | "downgrade";
+static calculateProration(input): number;
+static changePlan(input): Promise<ChangePlanResponse>;
+static changeBillingCycle(input): Promise<ChangeBillingCycleResponse>;
+static getScheduledChange(organizationId): Promise<GetScheduledChangeResponse>;
+static cancelScheduledChange(input): Promise<CancelScheduledChangeResponse>;
+static executeScheduledChange(subscriptionId): Promise<void>;
+static getScheduledChangesForExecution(): Promise<OrgSubscription[]>;
+```
 
-function calculateProration(params: {
-  currentPrice: number;
-  newPrice: number;
-  periodStart: Date;
-  periodEnd: Date;
-  now: Date;
-}): { prorationAmount: number } {
-  const { currentPrice, newPrice, periodStart, periodEnd, now } = params;
+### Proration Formula
 
-  const totalDays = Math.ceil(
-    (periodEnd.getTime() - periodStart.getTime()) / MS_PER_DAY
-  );
-  const remainingDays = Math.max(
-    0,
-    Math.ceil((periodEnd.getTime() - now.getTime()) / MS_PER_DAY)
-  );
+```typescript
+// For upgrades: charge proportional to remaining days
+const priceDifference = newPlanPrice - currentPlanPrice;
+if (priceDifference <= 0) return 0; // Downgrades: no proration
 
-  const dailyRateCurrent = currentPrice / totalDays;
-  const creditAmount = Math.round(dailyRateCurrent * remainingDays);
+const totalDays = (periodEnd - periodStart) / MS_PER_DAY;
+const remainingDays = Math.max(0, (periodEnd - now) / MS_PER_DAY);
+const proration = Math.round(priceDifference * (remainingDays / totalDays));
 
-  const dailyRateNew = newPrice / totalDays;
-  const debitAmount = Math.round(dailyRateNew * remainingDays);
+// Minimum: 100 centavos (R$ 1.00 - Pagar.me minimum)
+```
 
-  return { prorationAmount: Math.max(0, debitAmount - creditAmount) };
-}
+### Billing Cycle Change Logic
+
+```typescript
+// Billing cycle change takes precedence over price comparison
+// - monthly → yearly = upgrade (more commitment)
+// - yearly → monthly = downgrade (less commitment)
+```
+
+### Hook Events
+
+```typescript
+"planChange.scheduled": { subscription, pendingPlanId, scheduledAt }
+"planChange.executed": { subscription, previousPlanId, prorationAmount? }
+"planChange.canceled": { subscription, canceledPlanId }
 ```
 
 ### Checklist
 
-- [ ] Add schema fields (`pendingPlanId`, `planChangeAt`)
-- [ ] Implement `calculateProration()` helper
-- [ ] Implement `POST /subscription/change-plan` endpoint
-- [ ] Implement `POST /subscription/change-cycle` endpoint
-- [ ] Create job for processing scheduled downgrades
-- [ ] Add webhook handler for new subscription after upgrade
-- [ ] Tests
+- [x] Add schema fields (`pendingPlanId`, `pendingBillingCycle`, `planChangeAt`)
+- [x] Implement `getChangeType()` helper
+- [x] Implement `calculateProration()` helper
+- [x] Implement `POST /subscription/change-plan` endpoint
+- [x] Implement `POST /subscription/change-billing-cycle` endpoint
+- [x] Implement `GET /subscription/scheduled-change` endpoint
+- [x] Implement `DELETE /subscription/scheduled-change` endpoint
+- [x] Create job for processing scheduled plan changes
+- [x] Add hook events for plan change lifecycle
+- [x] Add email notification for plan change executed
+- [x] Tests (43 tests passing)
 
 ---
 
@@ -202,9 +222,9 @@ const GRACE_PERIOD_DAYS = 15; // Aligned with Pagar.me 12-day retry cycle + 3 da
 
 ---
 
-## 8.3.2 Plan Limits Enforcement
+## 8.3.2 Plan Limits Enforcement ✅
 
-> **Priority:** Medium | **Complexity:** Medium
+> **Priority:** Medium | **Complexity:** Medium | **Status:** Done
 
 ### Problem
 
@@ -212,62 +232,67 @@ const GRACE_PERIOD_DAYS = 15; // Aligned with Pagar.me 12-day retry cycle + 3 da
 
 ### Solution
 
-Create `LimitsService` with verification methods.
+Created `LimitsService` with feature-based access control per plan.
 
-### New Service
+### Implemented Service
 
 ```typescript
 // src/modules/payments/limits/limits.service.ts
 
 export abstract class LimitsService {
-  static async canAddUser(organizationId: string): Promise<{
-    allowed: boolean;
-    current: number;
-    limit: number | null;
-    reason?: string;
-  }>;
+  // Check single feature (returns status, doesn't throw)
+  static async checkFeature(organizationId: string, featureName: string): Promise<CheckFeatureResponse>;
 
-  static async canCreateProject(organizationId: string): Promise<{...}>;
+  // Require feature (throws FeatureNotAvailableError if not available)
+  static async requireFeature(organizationId: string, featureName: string): Promise<void>;
 
-  static async hasFeature(organizationId: string, featureName: string): Promise<boolean>;
+  // Check multiple features at once
+  static async checkFeatures(organizationId: string, featureNames: string[]): Promise<CheckFeaturesResponse>;
 
-  static async getLimits(organizationId: string): Promise<{
-    plan: string;
-    limits: PlanLimits | null;
-    usage: { users, projects, storage };
-  }>;
+  // Get all available features for org's plan
+  static async getAvailableFeatures(organizationId: string): Promise<string[]>;
+
+  // Check if org has plan or higher tier (gold < diamond < platinum)
+  static async hasPlanOrHigher(organizationId: string, requiredPlan: string): Promise<boolean>;
 }
 ```
+
+### Feature Matrix
+
+| Feature              | Gold | Diamond | Platinum |
+| -------------------- | ---- | ------- | -------- |
+| terminated_employees | ✅   | ✅      | ✅       |
+| absences             | ✅   | ✅      | ✅       |
+| medical_certificates | ✅   | ✅      | ✅       |
+| accidents            | ✅   | ✅      | ✅       |
+| warnings             | ✅   | ✅      | ✅       |
+| employee_status      | ✅   | ✅      | ✅       |
+| birthdays            | ❌   | ✅      | ✅       |
+| ppe                  | ❌   | ✅      | ✅       |
+| employee_record      | ❌   | ✅      | ✅       |
+| payroll              | ❌   | ❌      | ✅       |
 
 ### Usage Example
 
 ```typescript
-// In member invite endpoint
-const canAdd = await LimitsService.canAddUser(organizationId);
-if (!canAdd.allowed) {
-  throw new LimitReachedError("users", canAdd.current, canAdd.limit);
-}
+// Check if feature is available (doesn't throw)
+const result = await LimitsService.checkFeature(organizationId, "payroll");
+// Returns: { success: true, data: { featureName, hasAccess, requiredPlan } }
+
+// Require feature (throws if not available)
+await LimitsService.requireFeature(organizationId, "payroll");
+// Throws FeatureNotAvailableError if org doesn't have access
 ```
 
-### New Errors
+### Implemented Error
 
 ```typescript
-export class LimitReachedError extends PaymentError {
-  status = 403;
-  constructor(resource: string, current: number, limit: number | null) {
-    super(
-      `Limit reached for ${resource} (${current}/${limit})`,
-      "LIMIT_REACHED",
-      { resource, current, limit }
-    );
-  }
-}
-
 export class FeatureNotAvailableError extends PaymentError {
   status = 403;
-  constructor(featureName: string) {
+  constructor(featureName: string, requiredPlan?: string) {
     super(`Feature not available: ${featureName}`, "FEATURE_NOT_AVAILABLE", {
       feature: featureName,
+      requiredPlan,
     });
   }
 }
@@ -275,12 +300,13 @@ export class FeatureNotAvailableError extends PaymentError {
 
 ### Checklist
 
-- [ ] Create `LimitsService` with verification methods
-- [ ] Add `LimitReachedError` and `FeatureNotAvailableError`
-- [ ] Integrate with member invite endpoint
-- [ ] Integrate with project creation endpoint
-- [ ] Add `GET /billing/limits` endpoint
-- [ ] Tests
+- [x] Create `LimitsService` with verification methods
+- [x] Add `FeatureNotAvailableError`
+- [x] Implement `checkFeature()` and `requireFeature()`
+- [x] Implement `checkFeatures()` for bulk checks
+- [x] Implement `getAvailableFeatures()`
+- [x] Implement `hasPlanOrHigher()`
+- [x] Tests (limits.service.test.ts)
 
 ---
 
@@ -675,13 +701,16 @@ if (hadPreviousSubscription.length > 0) {
 
 ## Decision Log
 
-| Date    | Decision                            | Rationale                                |
-| ------- | ----------------------------------- | ---------------------------------------- |
-| 2024-12 | Use cancel+recreate for plan change | API v5 has no direct plan change         |
-| 2024-12 | Soft cancel (delay Pagar.me call)   | Pagar.me cancellation is irreversible    |
-| 2024-12 | Manual proration calculation        | API v5 has no native proration           |
-| 2024-12 | Basic Auth for webhooks             | Pagar.me doesn't support HMAC signatures |
-| 2024-12 | Trial per organization (not user)   | Allows team members to share trial       |
+| Date    | Decision                                 | Rationale                                     |
+| ------- | ---------------------------------------- | --------------------------------------------- |
+| 2024-12 | Use cancel+recreate for plan change      | API v5 has no direct plan change              |
+| 2024-12 | Soft cancel (delay Pagar.me call)        | Pagar.me cancellation is irreversible         |
+| 2024-12 | Manual proration calculation             | API v5 has no native proration                |
+| 2024-12 | Basic Auth for webhooks                  | Pagar.me doesn't support HMAC signatures      |
+| 2024-12 | Trial per organization (not user)        | Allows team members to share trial            |
+| 2025-12 | Payment Link for upgrade proration       | Allows user to pay proration via checkout     |
+| 2025-12 | Billing cycle priority over price        | monthly→yearly=upgrade, yearly→monthly=downgrade |
+| 2025-12 | Schedule downgrades (no credit)          | Simplifies flow, user keeps current plan until period end |
 
 ---
 

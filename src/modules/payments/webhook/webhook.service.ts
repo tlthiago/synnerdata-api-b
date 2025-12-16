@@ -7,6 +7,49 @@ import { WebhookValidationError } from "../errors";
 import { PaymentHooks } from "../hooks";
 import type { ProcessWebhook } from "./webhook.model";
 
+type SubscriptionCreatedData = {
+  id: string;
+  code?: string;
+  status?: string;
+  start_at?: string;
+  current_period?: { start_at: string; end_at: string };
+  plan?: {
+    id: string;
+    metadata?: Record<string, string>;
+  };
+  customer?: {
+    id: string;
+    name: string;
+    email: string;
+    document: string;
+    document_type: "CPF" | "CNPJ";
+    type: "individual" | "company";
+    phones?: {
+      mobile_phone?: {
+        country_code: string;
+        area_code: string;
+        number: string;
+      };
+    };
+  };
+  card?: {
+    id: string;
+    last_four_digits: string;
+    brand: string;
+    exp_month: number;
+    exp_year: number;
+  };
+  metadata?: Record<string, string>;
+};
+
+type CheckoutInfo = {
+  organizationId: string;
+  planId?: string;
+  billingCycle: string;
+  pricingTierId?: string;
+  employeeCount?: number;
+};
+
 export abstract class WebhookService {
   static async process(
     payload: ProcessWebhook,
@@ -451,117 +494,34 @@ export abstract class WebhookService {
   }
 
   private static async handleSubscriptionCreated(payload: ProcessWebhook) {
-    const data = payload.data as {
-      id: string;
-      code?: string;
-      status?: string;
-      start_at?: string;
-      current_period?: { start_at: string; end_at: string };
-      plan?: {
-        id: string;
-        metadata?: Record<string, string>;
-      };
-      customer?: {
-        id: string;
-        name: string;
-        email: string;
-        document: string;
-        document_type: "CPF" | "CNPJ";
-        type: "individual" | "company";
-        phones?: {
-          mobile_phone?: {
-            country_code: string;
-            area_code: string;
-            number: string;
-          };
-        };
-      };
-      card?: {
-        id: string;
-        last_four_digits: string;
-        brand: string;
-        exp_month: number;
-        exp_year: number;
-      };
-      metadata?: Record<string, string>;
-    };
+    const data = payload.data as SubscriptionCreatedData;
+    const checkoutInfo = await WebhookService.resolveCheckoutInfo(data);
 
-    let organizationId = data.metadata?.organization_id;
-    let planId = data.metadata?.plan_id;
-    let billingCycle = data.metadata?.billing_cycle ?? "monthly";
-
-    if (!organizationId) {
-      const paymentLinkCode = data.code;
-
-      if (paymentLinkCode) {
-        const [checkout] = await db
-          .select({
-            organizationId: schema.pendingCheckouts.organizationId,
-            planId: schema.pendingCheckouts.planId,
-            billingCycle: schema.pendingCheckouts.billingCycle,
-            id: schema.pendingCheckouts.id,
-          })
-          .from(schema.pendingCheckouts)
-          .where(
-            and(
-              eq(schema.pendingCheckouts.paymentLinkId, paymentLinkCode),
-              eq(schema.pendingCheckouts.status, "pending")
-            )
-          )
-          .limit(1);
-
-        if (checkout) {
-          organizationId = checkout.organizationId;
-          planId = checkout.planId;
-          billingCycle = checkout.billingCycle ?? "monthly";
-
-          await db
-            .update(schema.pendingCheckouts)
-            .set({
-              status: "completed",
-              completedAt: new Date(),
-            })
-            .where(eq(schema.pendingCheckouts.id, checkout.id));
-        }
-      }
-    }
-
-    if (!organizationId) {
+    if (!checkoutInfo) {
       return;
     }
 
-    const getPeriodStart = () => {
-      if (data.start_at) {
-        return new Date(data.start_at);
-      }
-      if (data.current_period?.start_at) {
-        return new Date(data.current_period.start_at);
-      }
-      return new Date();
-    };
-    const periodStart = getPeriodStart();
+    const {
+      organizationId,
+      planId,
+      billingCycle,
+      pricingTierId,
+      employeeCount,
+    } = checkoutInfo;
+    const { periodStart, periodEnd } =
+      WebhookService.calculatePeriodDates(data);
 
-    const periodEnd = data.current_period?.end_at
-      ? new Date(data.current_period.end_at)
-      : (() => {
-          const end = new Date(periodStart);
-          end.setMonth(end.getMonth() + 1);
-          return end;
-        })();
-
-    await db
-      .update(schema.orgSubscriptions)
-      .set({
-        status: "active",
-        planId: planId ?? undefined,
-        pagarmeSubscriptionId: data.id,
-        pagarmeCustomerId: data.customer?.id,
-        currentPeriodStart: periodStart,
-        currentPeriodEnd: periodEnd,
-        billingCycle,
-        trialUsed: true,
-      })
-      .where(eq(schema.orgSubscriptions.organizationId, organizationId));
+    await WebhookService.activateSubscription({
+      organizationId,
+      planId,
+      pricingTierId,
+      employeeCount,
+      billingCycle,
+      pagarmeSubscriptionId: data.id,
+      pagarmeCustomerId: data.customer?.id,
+      periodStart,
+      periodEnd,
+    });
 
     if (data.customer) {
       await WebhookService.syncCustomerData(organizationId, data.customer);
@@ -583,6 +543,135 @@ export abstract class WebhookService {
       periodEnd,
       data.card?.last_four_digits
     );
+  }
+
+  private static async resolveCheckoutInfo(
+    data: SubscriptionCreatedData
+  ): Promise<CheckoutInfo | null> {
+    const metadataInfo = WebhookService.extractMetadataInfo(data);
+
+    if (metadataInfo.organizationId) {
+      return metadataInfo as CheckoutInfo;
+    }
+
+    const checkoutInfo = await WebhookService.findCheckoutByPaymentLink(
+      data.code
+    );
+    return checkoutInfo;
+  }
+
+  private static extractMetadataInfo(
+    data: SubscriptionCreatedData
+  ): Partial<CheckoutInfo> {
+    return {
+      organizationId: data.metadata?.organization_id,
+      planId: data.metadata?.plan_id,
+      billingCycle: data.metadata?.billing_cycle ?? "monthly",
+      pricingTierId: data.metadata?.pricing_tier_id,
+      employeeCount: data.metadata?.employee_count
+        ? Number.parseInt(data.metadata.employee_count, 10)
+        : undefined,
+    };
+  }
+
+  private static async findCheckoutByPaymentLink(
+    paymentLinkCode?: string
+  ): Promise<CheckoutInfo | null> {
+    if (!paymentLinkCode) {
+      return null;
+    }
+
+    const [checkout] = await db
+      .select({
+        organizationId: schema.pendingCheckouts.organizationId,
+        planId: schema.pendingCheckouts.planId,
+        billingCycle: schema.pendingCheckouts.billingCycle,
+        pricingTierId: schema.pendingCheckouts.pricingTierId,
+        employeeCount: schema.pendingCheckouts.employeeCount,
+        id: schema.pendingCheckouts.id,
+      })
+      .from(schema.pendingCheckouts)
+      .where(
+        and(
+          eq(schema.pendingCheckouts.paymentLinkId, paymentLinkCode),
+          eq(schema.pendingCheckouts.status, "pending")
+        )
+      )
+      .limit(1);
+
+    if (!checkout) {
+      return null;
+    }
+
+    await db
+      .update(schema.pendingCheckouts)
+      .set({
+        status: "completed",
+        completedAt: new Date(),
+      })
+      .where(eq(schema.pendingCheckouts.id, checkout.id));
+
+    return {
+      organizationId: checkout.organizationId,
+      planId: checkout.planId,
+      billingCycle: checkout.billingCycle ?? "monthly",
+      pricingTierId: checkout.pricingTierId ?? undefined,
+      employeeCount: checkout.employeeCount ?? undefined,
+    };
+  }
+
+  private static calculatePeriodDates(data: SubscriptionCreatedData): {
+    periodStart: Date;
+    periodEnd: Date;
+  } {
+    let periodStart: Date;
+
+    if (data.start_at) {
+      periodStart = new Date(data.start_at);
+    } else if (data.current_period?.start_at) {
+      periodStart = new Date(data.current_period.start_at);
+    } else {
+      periodStart = new Date();
+    }
+
+    let periodEnd: Date;
+
+    if (data.current_period?.end_at) {
+      periodEnd = new Date(data.current_period.end_at);
+    } else {
+      periodEnd = new Date(periodStart);
+      periodEnd.setMonth(periodEnd.getMonth() + 1);
+    }
+
+    return { periodStart, periodEnd };
+  }
+
+  private static async activateSubscription(params: {
+    organizationId: string;
+    planId?: string;
+    pricingTierId?: string;
+    employeeCount?: number;
+    billingCycle: string;
+    pagarmeSubscriptionId: string;
+    pagarmeCustomerId?: string;
+    periodStart: Date;
+    periodEnd: Date;
+  }) {
+    await db
+      .update(schema.orgSubscriptions)
+      .set({
+        status: "active",
+        planId: params.planId ?? undefined,
+        pricingTierId: params.pricingTierId ?? undefined,
+        employeeCount: params.employeeCount ?? undefined,
+        pagarmeSubscriptionId: params.pagarmeSubscriptionId,
+        pagarmeCustomerId: params.pagarmeCustomerId,
+        currentPeriodStart: params.periodStart,
+        currentPeriodEnd: params.periodEnd,
+        billingCycle: params.billingCycle,
+        trialUsed: true,
+      })
+      .where(eq(schema.orgSubscriptions.organizationId, params.organizationId));
   }
 
   private static async sendUpgradeEmail(

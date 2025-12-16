@@ -71,13 +71,15 @@ describe("GET /payments/plans", () => {
     expect(plan).toHaveProperty("id");
     expect(plan).toHaveProperty("name");
     expect(plan).toHaveProperty("displayName");
-    expect(plan).toHaveProperty("priceMonthly");
-    expect(plan).toHaveProperty("priceYearly");
+    expect(plan).toHaveProperty("description");
+    expect(plan).toHaveProperty("startingPrice");
     expect(plan).toHaveProperty("trialDays");
     expect(plan).toHaveProperty("limits");
     expect(plan).toHaveProperty("isActive");
     expect(plan).toHaveProperty("isPublic");
     expect(plan).toHaveProperty("sortOrder");
+    expect(plan).toHaveProperty("pricingTiers");
+    expect(plan.pricingTiers).toBeArray();
   });
 
   test("should return plan limits with correct structure", async () => {
@@ -90,11 +92,27 @@ describe("GET /payments/plans", () => {
     );
 
     if (plan?.limits) {
-      expect(plan.limits).toHaveProperty("maxMembers");
-      expect(plan.limits).toHaveProperty("maxProjects");
-      expect(plan.limits).toHaveProperty("maxStorage");
       expect(plan.limits).toHaveProperty("features");
       expect(plan.limits.features).toBeArray();
+    }
+  });
+
+  test("should return pricing tiers with correct structure", async () => {
+    const response = await app.handle(
+      new Request(`${BASE_URL}/v1/payments/plans`)
+    );
+    const body = await response.json();
+    const plan = body.data.plans.find(
+      (p: { pricingTiers: unknown[] }) => p.pricingTiers?.length > 0
+    );
+
+    if (plan?.pricingTiers?.[0]) {
+      const tier = plan.pricingTiers[0];
+      expect(tier).toHaveProperty("id");
+      expect(tier).toHaveProperty("minEmployees");
+      expect(tier).toHaveProperty("maxEmployees");
+      expect(tier).toHaveProperty("priceMonthly");
+      expect(tier).toHaveProperty("priceYearly");
     }
   });
 });

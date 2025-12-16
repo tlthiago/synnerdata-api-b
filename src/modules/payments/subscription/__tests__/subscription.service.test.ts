@@ -466,9 +466,8 @@ describe("SubscriptionService", () => {
         userId: "test-user",
       });
 
-      expect(result.success).toBe(true);
-      expect(result.data.cancelAtPeriodEnd).toBe(true);
-      expect(result.data.currentPeriodEnd).toBeDefined();
+      expect(result.cancelAtPeriodEnd).toBe(true);
+      expect(result.currentPeriodEnd).toBeDefined();
     });
   });
 
@@ -512,8 +511,7 @@ describe("SubscriptionService", () => {
         userId: "test-user",
       });
 
-      expect(result.success).toBe(true);
-      expect(result.data.restored).toBe(true);
+      expect(result.restored).toBe(true);
     });
 
     test("should throw error when not scheduled for cancellation", async () => {

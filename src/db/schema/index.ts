@@ -1,6 +1,9 @@
+import { auditLogRelations, auditLogs } from "./audit";
 import {
   accountRelations,
   accounts,
+  apikeys,
+  apikeysRelations,
   invitationRelations,
   invitations,
   memberRelations,
@@ -24,18 +27,15 @@ import {
   orgSubscriptions,
   pendingCheckoutRelations,
   pendingCheckouts,
+  planPricingTiers,
+  planPricingTiersRelations,
   subscriptionEventRelations,
   subscriptionEvents,
   subscriptionPlanRelations,
   subscriptionPlans,
 } from "./payments";
 
-/**
- * Schema object for use in queries.
- * Access tables as schema.users, schema.organizations, etc.
- */
 export const schema = {
-  // Auth (Better Auth)
   users,
   sessions,
   accounts,
@@ -44,22 +44,18 @@ export const schema = {
   members,
   invitations,
   subscriptions,
-  // Organization Profiles
+  apikeys,
   organizationProfiles,
-  // Payments
   orgSubscriptions,
   subscriptionEvents,
   subscriptionPlans,
+  planPricingTiers,
   pendingCheckouts,
+  auditLogs,
 };
 
-/**
- * Full schema including relations for Drizzle ORM.
- * Used internally by db/index.ts for db.query support.
- */
 export const fullSchema = {
   ...schema,
-  // Auth Relations
   userRelations,
   sessionRelations,
   accountRelations,
@@ -67,26 +63,35 @@ export const fullSchema = {
   memberRelations,
   invitationRelations,
   subscriptionRelations,
-  // Organization Profile Relations
+  apikeysRelations,
   organizationProfileRelations,
-  // Payment Relations
   orgSubscriptionRelations,
   subscriptionEventRelations,
   subscriptionPlanRelations,
+  planPricingTiersRelations,
   pendingCheckoutRelations,
+  auditLogRelations,
 };
 
-// Re-export types and values
+export type { AuditLog, NewAuditLog } from "./audit";
 export type { Role, SystemRole } from "./auth";
 export { roleValues, systemRoleValues } from "./auth";
 export type {
   NewOrgSubscription,
   NewPendingCheckout,
+  NewPlanPricingTier,
   NewSubscriptionEvent,
   NewSubscriptionPlan,
   OrgSubscription,
   PendingCheckout,
   PlanLimits,
+  PlanPricingTier,
   SubscriptionEvent,
   SubscriptionPlan,
+} from "./payments";
+export {
+  FEATURE_DISPLAY_NAMES,
+  MAX_EMPLOYEES,
+  PLAN_FEATURES,
+  YEARLY_DISCOUNT,
 } from "./payments";

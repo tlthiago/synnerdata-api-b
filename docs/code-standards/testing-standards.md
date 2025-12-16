@@ -307,6 +307,10 @@ test("should handle Pagarme API connection failure", async () => {
 
 ## Assertions Comuns
 
+### Testes E2E (Endpoints HTTP)
+
+Endpoints retornam envelope `{ success: true, data: {...} }`:
+
 ```typescript
 // Status HTTP
 expect(response.status).toBe(200);
@@ -316,13 +320,27 @@ expect(response.status).toBe(400);
 const body = await response.json();
 expect(body.error.code).toBe("EMAIL_NOT_VERIFIED");
 
-// Dados de resposta
+// Dados de resposta (via body.data)
 expect(body.data.checkoutUrl).toBeDefined();
 expect(body.data.checkoutUrl).toBeString();
 expect(body.data.checkoutUrl).toContain("pagar.me");
 
 // Prefixos de ID
 expect(body.data.paymentLinkId).toStartWith("pl_");
+```
+
+### Testes de Integração (Services)
+
+Services retornam dados puros (sem envelope):
+
+```typescript
+// Chamar service diretamente
+const result = await ResourceService.create(input);
+
+// Acessar propriedades diretamente (SEM .data)
+expect(result.id).toBeDefined();
+expect(result.plans).toBeArray();
+expect(result.plans.length).toBeGreaterThan(0);
 
 // Valores nulos
 expect(profile.pagarmeCustomerId).toBeNull();
@@ -334,6 +352,8 @@ expect(checkout.expiresAt.getTime()).toBeGreaterThan(Date.now());
 // Igualdade
 expect(planAfterSecond.pagarmePlanId).toBe(firstPagarmePlanId);
 ```
+
+> **IMPORTANTE**: Testes de service **NÃO** devem usar `.success` ou `.data` - services retornam dados puros.
 
 ---
 
@@ -743,6 +763,8 @@ test("should update status to expired", async () => {});
 
 ## Padrão de Teste
 
+> **IMPORTANTE**: Services retornam dados puros (sem envelope `{ success, data }`). Acesse propriedades diretamente no resultado.
+
 ```typescript
 describe("checkAccess", () => {
   test("should return active status with full access", async () => {
@@ -753,7 +775,7 @@ describe("checkAccess", () => {
     // 2. Act - executar método
     const result = await SubscriptionService.checkAccess(org.id);
 
-    // 3. Assert - validar resultado
+    // 3. Assert - validar resultado diretamente (SEM .data)
     expect(result.hasAccess).toBe(true);
     expect(result.status).toBe("active");
     expect(result.requiresPayment).toBe(false);
@@ -768,6 +790,7 @@ describe("checkAccess", () => {
 
     const result = await SubscriptionService.checkAccess(org.id);
 
+    // Propriedades acessadas diretamente
     expect(result.hasAccess).toBe(false);
     expect(result.status).toBe("trial_expired");
     expect(result.requiresPayment).toBe(true);
@@ -883,7 +906,10 @@ Para cada método interno do service:
 - [ ] Testar todos os cenários de retorno
 - [ ] Testar cenários de erro/throw
 - [ ] Validar efeitos no banco quando aplicável
+- [ ] **Acessar propriedades diretamente** (SEM `.success` ou `.data`)
 
 **Organização:**
 - [ ] Agrupar métodos relacionados
 - [ ] Ordem: queries → validações → mutações
+
+> **Lembrete**: Services retornam dados puros. Use `result.property`, não `result.data.property`.

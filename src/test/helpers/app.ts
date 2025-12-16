@@ -5,12 +5,10 @@ import { betterAuthPlugin } from "@/lib/auth-plugin";
 import { errorPlugin } from "@/lib/errors/error-plugin";
 import { healthPlugin } from "@/lib/health";
 import { loggerPlugin } from "@/lib/logger";
+import { apiKeysController } from "@/modules/api-keys";
+import { auditController } from "@/modules/audit";
 import { paymentsController } from "@/modules/payments";
 
-/**
- * Creates a test instance of the Elysia app.
- * Does not start listening - use app.handle() for testing.
- */
 export function createTestApp() {
   return new Elysia()
     .use(errorPlugin)
@@ -26,6 +24,8 @@ export function createTestApp() {
     )
     .use(betterAuthPlugin)
     .use(paymentsController)
+    .use(auditController)
+    .use(apiKeysController)
     .get("/", ({ redirect }) => redirect("/health"));
 }
 

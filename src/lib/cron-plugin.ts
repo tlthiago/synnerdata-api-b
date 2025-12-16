@@ -12,7 +12,7 @@ export const cronPlugin = new Elysia({ name: "cron-jobs" })
         const result = await JobsService.expireTrials();
         logger.info({
           type: "cron:expire-trials",
-          expired: result.data.expired.length,
+          expired: result.expired.length,
         });
       },
     })
@@ -25,7 +25,7 @@ export const cronPlugin = new Elysia({ name: "cron-jobs" })
         const result = await JobsService.notifyExpiringTrials();
         logger.info({
           type: "cron:notify-expiring-trials",
-          notified: result.data.notified.length,
+          notified: result.notified.length,
         });
       },
     })
@@ -38,7 +38,7 @@ export const cronPlugin = new Elysia({ name: "cron-jobs" })
         const result = await JobsService.processScheduledCancellations();
         logger.info({
           type: "cron:process-scheduled-cancellations",
-          canceled: result.data.canceled.length,
+          canceled: result.canceled.length,
         });
       },
     })
@@ -51,7 +51,7 @@ export const cronPlugin = new Elysia({ name: "cron-jobs" })
         const result = await JobsService.suspendExpiredGracePeriods();
         logger.info({
           type: "cron:suspend-expired-grace-periods",
-          suspended: result.data.suspended.length,
+          suspended: result.suspended.length,
         });
       },
     })

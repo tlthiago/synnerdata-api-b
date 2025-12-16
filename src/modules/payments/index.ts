@@ -4,6 +4,7 @@ import { checkoutController } from "./checkout";
 import { customerController } from "./customer";
 import { jobsController } from "./jobs";
 import { planProtectedController, planPublicController } from "./plan";
+import { planChangeController } from "./plan-change";
 import { subscriptionController } from "./subscription";
 import { webhookController } from "./webhook";
 
@@ -19,6 +20,7 @@ export const paymentsController = new Elysia({
   .use(planProtectedController)
   .use(checkoutController)
   .use(subscriptionController)
+  .use(planChangeController)
   .use(billingController)
   .use(customerController)
   // Internal routes (API key protected)
@@ -27,6 +29,8 @@ export const paymentsController = new Elysia({
 export { CustomerService } from "./customer/customer.service";
 export type { PaymentEventName, PaymentEvents } from "./hooks";
 export { PaymentHooks } from "./hooks";
+export { LimitsService } from "./limits/limits.service";
 export { PlanService } from "./plan/plan.service";
+export { PricingTierService } from "./pricing/pricing.service";
 // Re-export services for use in other parts of the application
 export { SubscriptionService } from "./subscription/subscription.service";

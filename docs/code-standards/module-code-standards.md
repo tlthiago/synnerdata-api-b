@@ -21,6 +21,7 @@ Domínios têm `errors.ts` na raiz: `src/modules/{domain}/errors.ts`
 ```typescript
 import { Elysia } from "elysia";
 import { betterAuthPlugin } from "@/lib/auth-plugin";
+import { wrapSuccess } from "@/lib/responses/envelope";
 import {
   forbiddenErrorSchema,
   notFoundErrorSchema,
@@ -38,12 +39,14 @@ export const resourceController = new Elysia({
   .use(betterAuthPlugin)           // OBRIGATÓRIO em cada controller
   .post(
     "/",
-    ({ user, session, body }) =>
-      ResourceService.create({
-        ...body,
-        userId: user.id,
-        organizationId: session.activeOrganizationId as string,
-      }),
+    async ({ user, session, body }) =>
+      wrapSuccess(
+        await ResourceService.create({
+          ...body,
+          userId: user.id,
+          organizationId: session.activeOrganizationId as string,
+        })
+      ),
     {
       auth: {
         permissions: { resource: ["create"] },  // create | read | update | delete
@@ -62,6 +65,11 @@ export const resourceController = new Elysia({
   );
 ```
 
+**Regras do Controller:**
+- Usar `wrapSuccess()` para encapsular a resposta: `wrapSuccess(await Service.method())`
+- Handler deve ser `async` quando usa `await`
+- O envelope `{ success: true, data: {...} }` é responsabilidade do controller, não do service
+
 ---
 
 ## Model (`{module}.model.ts`)
@@ -76,13 +84,13 @@ export const createResourceSchema = z.object({
   field2: z.httpUrl().describe("Callback URL"),
 });
 
-// Schema de dados da resposta
+// Schema de dados da resposta (sem envelope)
 const resourceDataSchema = z.object({
   id: z.string().describe("Resource ID"),
   field1: z.string().describe("Resource name"),
 });
 
-// Schema de resposta com envelope { success, data }
+// Schema de resposta com envelope { success, data } - para documentação OpenAPI
 export const createResourceResponseSchema = successResponseSchema(resourceDataSchema);
 
 // Tipos - SEMPRE inferir dos schemas
@@ -93,6 +101,9 @@ export type CreateResourceInput = CreateResource & {
 };
 export type ResourceData = z.infer<typeof resourceDataSchema>;
 export type CreateResourceResponse = z.infer<typeof createResourceResponseSchema>;
+
+// Tipo de dados para o service (sem envelope)
+export type CreateResourceData = ResourceData;
 ```
 
 **Nomenclatura:**
@@ -100,6 +111,7 @@ export type CreateResourceResponse = z.infer<typeof createResourceResponseSchema
 - Schema dados: `{resource}DataSchema`
 - Schema resposta: `{action}{Resource}ResponseSchema` (usa `successResponseSchema`)
 - Tipo input service: `{Action}{Resource}Input`
+- **Tipo dados service**: `{Action}{Resource}Data` (usado no retorno do service)
 
 ---
 
@@ -110,12 +122,12 @@ import { eq } from "drizzle-orm";
 import { db } from "@/db";
 import { schema } from "@/db/schema";
 import { ResourceNotFoundError } from "../errors";
-import type { CreateResourceInput, CreateResourceResponse } from "./{module}.model";
+import type { CreateResourceData, CreateResourceInput } from "./{module}.model";
 
 const EXPIRATION_HOURS = 24;  // Constantes: SCREAMING_SNAKE_CASE
 
 export abstract class ResourceService {
-  static async create(input: CreateResourceInput): Promise<CreateResourceResponse> {
+  static async create(input: CreateResourceInput): Promise<CreateResourceData> {
     const { organizationId, userId, field1 } = input;  // Desestruturar no início
 
     // 1. Validações de negócio
@@ -133,7 +145,7 @@ export abstract class ResourceService {
       organizationId,
     });
 
-    // 5. Retornar tipado
+    // 5. Retornar dados puros (sem envelope)
     return { id: result.id };
   }
 
@@ -149,7 +161,10 @@ export abstract class ResourceService {
 **Regras Service:**
 - Classe: `abstract class {Module}Service`
 - Métodos: `static async` com tipo retorno explícito
+- **Retorno**: Dados puros (ex: `{ id, name }`) - SEM envelope `{ success, data }`
 - Erros: importar de `../errors`, nunca strings
+
+> **IMPORTANTE**: O envelope de resposta `{ success: true, data: {...} }` é adicionado pelo controller via `wrapSuccess()`, não pelo service.
 
 ---
 
@@ -365,8 +380,11 @@ import type { CreateResourceInput } from "./{module}.model";
 
 **Novo módulo:**
 - [ ] `index.ts` com `betterAuthPlugin` e `auth: { permissions, requireOrganization }`
+- [ ] `index.ts` usa `wrapSuccess()` para encapsular respostas
 - [ ] `.model.ts` com schemas Zod e tipos inferidos (`z.infer`)
+- [ ] `.model.ts` tem tipos `*Data` para retorno do service
 - [ ] `.service.ts` como `abstract class` com métodos `static async`
+- [ ] `.service.ts` retorna dados puros (sem envelope `{ success, data }`)
 - [ ] Input type inclui `userId` + `organizationId`
 - [ ] IDs: `prefix-${Bun.randomUUIDv7()}`
 - [ ] Queries: Select API (não `db.query`)

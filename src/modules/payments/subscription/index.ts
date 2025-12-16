@@ -1,5 +1,6 @@
 import { Elysia } from "elysia";
 import { betterAuthPlugin } from "@/lib/auth-plugin";
+import { wrapSuccess } from "@/lib/responses/envelope";
 import {
   forbiddenErrorSchema,
   notFoundErrorSchema,
@@ -21,11 +22,13 @@ export const subscriptionController = new Elysia({
   .use(betterAuthPlugin)
   .get(
     "/",
-    ({ user, session }) =>
-      SubscriptionService.getByOrganizationId({
-        userId: user.id,
-        organizationId: session.activeOrganizationId as string,
-      }),
+    async ({ user, session }) =>
+      wrapSuccess(
+        await SubscriptionService.getByOrganizationId({
+          userId: user.id,
+          organizationId: session.activeOrganizationId as string,
+        })
+      ),
     {
       auth: {
         permissions: { subscription: ["read"] },
@@ -47,11 +50,13 @@ export const subscriptionController = new Elysia({
   )
   .post(
     "/cancel",
-    ({ user, session }) =>
-      SubscriptionService.cancel({
-        userId: user.id,
-        organizationId: session.activeOrganizationId as string,
-      }),
+    async ({ user, session }) =>
+      wrapSuccess(
+        await SubscriptionService.cancel({
+          userId: user.id,
+          organizationId: session.activeOrganizationId as string,
+        })
+      ),
     {
       auth: {
         permissions: { subscription: ["update"] },
@@ -73,11 +78,13 @@ export const subscriptionController = new Elysia({
   )
   .post(
     "/restore",
-    ({ user, session }) =>
-      SubscriptionService.restore({
-        userId: user.id,
-        organizationId: session.activeOrganizationId as string,
-      }),
+    async ({ user, session }) =>
+      wrapSuccess(
+        await SubscriptionService.restore({
+          userId: user.id,
+          organizationId: session.activeOrganizationId as string,
+        })
+      ),
     {
       auth: {
         permissions: { subscription: ["update"] },

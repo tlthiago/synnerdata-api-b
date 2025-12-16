@@ -7,12 +7,16 @@ import {
   sendTrialExpiringEmail,
 } from "@/lib/email";
 import { logger } from "@/lib/logger";
+import { Retry } from "@/lib/utils/retry";
 import { PaymentHooks } from "../hooks";
 import { PagarmeClient } from "../pagarme/client";
+import { PlanChangeService } from "../plan-change/plan-change.service";
 import type {
-  ExpireTrialsResponse,
-  NotifyExpiringTrialsResponse,
-  ProcessScheduledCancellationsResponse,
+  ExpireTrialsData,
+  NotifyExpiringTrialsData,
+  ProcessScheduledCancellationsData,
+  ProcessScheduledPlanChangesData,
+  SuspendExpiredGracePeriodsData,
 } from "./jobs.model";
 
 const DAYS_BEFORE_NOTIFICATION = 3;
@@ -43,7 +47,7 @@ export abstract class JobsService {
     return owner ?? null;
   }
 
-  static async expireTrials(): Promise<ExpireTrialsResponse> {
+  static async expireTrials(): Promise<ExpireTrialsData> {
     const now = new Date();
 
     const trialsToExpire = await db
@@ -103,15 +107,12 @@ export abstract class JobsService {
     });
 
     return {
-      success: true as const,
-      data: {
-        processed: trialsToExpire.length,
-        expired: expiredIds,
-      },
+      processed: trialsToExpire.length,
+      expired: expiredIds,
     };
   }
 
-  static async notifyExpiringTrials(): Promise<NotifyExpiringTrialsResponse> {
+  static async notifyExpiringTrials(): Promise<NotifyExpiringTrialsData> {
     const now = new Date();
     const notificationStart = new Date(
       now.getTime() + DAYS_BEFORE_NOTIFICATION * MS_PER_DAY
@@ -187,15 +188,12 @@ export abstract class JobsService {
     });
 
     return {
-      success: true as const,
-      data: {
-        processed: expiringTrials.length,
-        notified: notifiedIds,
-      },
+      processed: expiringTrials.length,
+      notified: notifiedIds,
     };
   }
 
-  static async processScheduledCancellations(): Promise<ProcessScheduledCancellationsResponse> {
+  static async processScheduledCancellations(): Promise<ProcessScheduledCancellationsData> {
     const now = new Date();
 
     const subscriptionsToCancel = await db
@@ -225,15 +223,21 @@ export abstract class JobsService {
 
     for (const { subscription, organization, plan } of subscriptionsToCancel) {
       if (subscription.pagarmeSubscriptionId) {
+        const pagarmeSubId = subscription.pagarmeSubscriptionId;
         try {
-          await PagarmeClient.cancelSubscription(
-            subscription.pagarmeSubscriptionId,
-            false
+          await Retry.withRetry(
+            () =>
+              PagarmeClient.cancelSubscription(
+                pagarmeSubId,
+                false,
+                `cancel-sub-job-${subscription.id}-${Date.now()}`
+              ),
+            { maxAttempts: 2, delayMs: 1000 }
           );
         } catch (error) {
           logger.error({
             type: "job:pagarme:cancel-subscription:failed",
-            pagarmeSubscriptionId: subscription.pagarmeSubscriptionId,
+            pagarmeSubscriptionId: pagarmeSubId,
             error: error instanceof Error ? error.message : String(error),
           });
           continue;
@@ -289,18 +293,12 @@ export abstract class JobsService {
     });
 
     return {
-      success: true as const,
-      data: {
-        processed: subscriptionsToCancel.length,
-        canceled: canceledIds,
-      },
+      processed: subscriptionsToCancel.length,
+      canceled: canceledIds,
     };
   }
 
-  static async suspendExpiredGracePeriods(): Promise<{
-    success: true;
-    data: { processed: number; suspended: string[] };
-  }> {
+  static async suspendExpiredGracePeriods(): Promise<SuspendExpiredGracePeriodsData> {
     const now = new Date();
 
     const expiredGracePeriods = await db
@@ -367,11 +365,43 @@ export abstract class JobsService {
     });
 
     return {
-      success: true as const,
-      data: {
-        processed: expiredGracePeriods.length,
-        suspended,
-      },
+      processed: expiredGracePeriods.length,
+      suspended,
+    };
+  }
+
+  static async processScheduledPlanChanges(): Promise<ProcessScheduledPlanChangesData> {
+    const scheduledChanges =
+      await PlanChangeService.getScheduledChangesForExecution();
+
+    const executed: string[] = [];
+    const failed: string[] = [];
+
+    for (const { id: subscriptionId } of scheduledChanges) {
+      try {
+        await PlanChangeService.executeScheduledChange(subscriptionId);
+        executed.push(subscriptionId);
+      } catch (error) {
+        failed.push(subscriptionId);
+        logger.error({
+          type: "job:process-scheduled-plan-change:failed",
+          subscriptionId,
+          error: error instanceof Error ? error.message : String(error),
+        });
+      }
+    }
+
+    logger.info({
+      type: "job:process-scheduled-plan-changes:complete",
+      processed: scheduledChanges.length,
+      executed: executed.length,
+      failed: failed.length,
+    });
+
+    return {
+      processed: scheduledChanges.length,
+      executed,
+      failed,
     };
   }
 }

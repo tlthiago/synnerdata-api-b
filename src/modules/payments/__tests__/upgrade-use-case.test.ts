@@ -1,9 +1,9 @@
 import { beforeAll, describe, expect, test } from "bun:test";
-import { eq } from "drizzle-orm";
+import { and, eq, gte, lte } from "drizzle-orm";
 import { db } from "@/db";
 import { schema } from "@/db/schema";
 import { env } from "@/env";
-import { proPlan, starterPlan } from "@/test/fixtures/plans";
+import { diamondPlan, goldPlan } from "@/test/fixtures/plans";
 import { createTestApp, type TestApp } from "@/test/helpers/app";
 import { seedPlans } from "@/test/helpers/seed";
 import { createTestSubscription } from "@/test/helpers/subscription";
@@ -12,6 +12,7 @@ import { createWebhookRequest, webhookPayloads } from "@/test/helpers/webhook";
 
 const BASE_URL = env.API_URL;
 const WEBHOOK_URL = `${BASE_URL}/v1/payments/webhooks/pagarme`;
+const DEFAULT_EMPLOYEE_COUNT = 15;
 
 describe("Upgrade Use Case: Trial → Paid Subscription", () => {
   let app: TestApp;
@@ -23,12 +24,12 @@ describe("Upgrade Use Case: Trial → Paid Subscription", () => {
     app = createTestApp();
     await seedPlans();
 
-    // Reset pagarmePlanIds for pro plan to test sync
-    if (proPlan) {
+    // Reset pagarmePlanIds for diamond plan to test sync
+    if (diamondPlan) {
       await db
         .update(schema.subscriptionPlans)
         .set({ pagarmePlanIdMonthly: null, pagarmePlanIdYearly: null })
-        .where(eq(schema.subscriptionPlans.id, proPlan.id));
+        .where(eq(schema.subscriptionPlans.id, diamondPlan.id));
     }
   });
 
@@ -47,8 +48,8 @@ describe("Upgrade Use Case: Trial → Paid Subscription", () => {
     });
 
     test("should create trial subscription for organization", async () => {
-      if (!starterPlan) {
-        throw new Error("Starter plan not found in fixtures");
+      if (!goldPlan) {
+        throw new Error("Gold plan not found in fixtures");
       }
 
       // Delete any existing subscriptions for this org to ensure clean state
@@ -56,7 +57,7 @@ describe("Upgrade Use Case: Trial → Paid Subscription", () => {
         .delete(schema.orgSubscriptions)
         .where(eq(schema.orgSubscriptions.organizationId, organizationId));
 
-      await createTestSubscription(organizationId, starterPlan.id, "trial");
+      await createTestSubscription(organizationId, goldPlan.id, "trial");
 
       const [subscription] = await db
         .select()
@@ -86,8 +87,8 @@ describe("Upgrade Use Case: Trial → Paid Subscription", () => {
     test(
       "should create payment link for upgrade",
       async () => {
-        if (!proPlan) {
-          throw new Error("Pro plan not found in fixtures");
+        if (!diamondPlan) {
+          throw new Error("Diamond plan not found in fixtures");
         }
 
         const response = await app.handle(
@@ -99,7 +100,8 @@ describe("Upgrade Use Case: Trial → Paid Subscription", () => {
             },
             body: JSON.stringify({
               organizationId,
-              planId: proPlan.id,
+              planId: diamondPlan.id,
+              employeeCount: DEFAULT_EMPLOYEE_COUNT,
               successUrl: "https://example.com/success",
             }),
           })
@@ -119,27 +121,35 @@ describe("Upgrade Use Case: Trial → Paid Subscription", () => {
       { timeout: 30_000 }
     );
 
-    test("should sync plan to Pagarme", async () => {
-      if (!proPlan) {
-        throw new Error("Pro plan not found in fixtures");
+    test("should create pricing tier plan in Pagarme", async () => {
+      if (!diamondPlan) {
+        throw new Error("Diamond plan not found in fixtures");
       }
 
-      const [dbPlan] = await db
-        .select({
-          pagarmePlanIdMonthly: schema.subscriptionPlans.pagarmePlanIdMonthly,
-        })
-        .from(schema.subscriptionPlans)
-        .where(eq(schema.subscriptionPlans.id, proPlan.id))
+      // The pricing tier for the employee count should have a Pagarme plan ID
+      // DEFAULT_EMPLOYEE_COUNT = 15 falls in the 11-50 tier
+      const [tier] = await db
+        .select()
+        .from(schema.planPricingTiers)
+        .where(
+          and(
+            eq(schema.planPricingTiers.planId, diamondPlan.id),
+            lte(schema.planPricingTiers.minEmployees, DEFAULT_EMPLOYEE_COUNT),
+            gte(schema.planPricingTiers.maxEmployees, DEFAULT_EMPLOYEE_COUNT)
+          )
+        )
         .limit(1);
 
-      expect(dbPlan.pagarmePlanIdMonthly).toBeDefined();
-      expect(dbPlan.pagarmePlanIdMonthly).toBeString();
-      expect(dbPlan.pagarmePlanIdMonthly?.startsWith("plan_")).toBe(true);
+      expect(tier).toBeDefined();
+      // After checkout, the tier should have a pagarmePlanIdMonthly
+      expect(tier.pagarmePlanIdMonthly).toBeDefined();
+      expect(tier.pagarmePlanIdMonthly).toBeString();
+      expect(tier.pagarmePlanIdMonthly?.startsWith("plan_")).toBe(true);
     });
 
     test("should create pending checkout record", async () => {
-      if (!proPlan) {
-        throw new Error("Pro plan not found in fixtures");
+      if (!diamondPlan) {
+        throw new Error("Diamond plan not found in fixtures");
       }
 
       const [checkout] = await db
@@ -150,8 +160,9 @@ describe("Upgrade Use Case: Trial → Paid Subscription", () => {
 
       expect(checkout).toBeDefined();
       expect(checkout.organizationId).toBe(organizationId);
-      expect(checkout.planId).toBe(proPlan.id);
+      expect(checkout.planId).toBe(diamondPlan.id);
       expect(checkout.status).toBe("pending");
+      expect(checkout.employeeCount).toBe(DEFAULT_EMPLOYEE_COUNT);
       expect(checkout.expiresAt).toBeInstanceOf(Date);
       expect(checkout.expiresAt.getTime()).toBeGreaterThan(Date.now());
     });
@@ -272,8 +283,8 @@ describe("Upgrade Use Case: Trial → Paid Subscription", () => {
 
   describe("Fase 5: Validação Final", () => {
     test("should have complete active subscription", async () => {
-      if (!proPlan) {
-        throw new Error("Pro plan not found in fixtures");
+      if (!diamondPlan) {
+        throw new Error("Diamond plan not found in fixtures");
       }
 
       const [subscription] = await db
@@ -299,12 +310,12 @@ describe("Upgrade Use Case: Trial → Paid Subscription", () => {
       expect(subscription.trialUsed).toBe(true);
 
       // Plan
-      expect(subscription.planId).toBe(proPlan.id);
+      expect(subscription.planId).toBe(diamondPlan.id);
     });
 
     test("should reject new checkout for already active subscription", async () => {
-      if (!proPlan) {
-        throw new Error("Pro plan not found in fixtures");
+      if (!diamondPlan) {
+        throw new Error("Diamond plan not found in fixtures");
       }
 
       const response = await app.handle(
@@ -316,7 +327,8 @@ describe("Upgrade Use Case: Trial → Paid Subscription", () => {
           },
           body: JSON.stringify({
             organizationId,
-            planId: proPlan.id,
+            planId: diamondPlan.id,
+            employeeCount: DEFAULT_EMPLOYEE_COUNT,
             successUrl: "https://example.com/success",
           }),
         })

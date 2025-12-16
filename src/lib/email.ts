@@ -444,6 +444,73 @@ export async function sendSubscriptionCanceledEmail(
 }
 
 // ============================================================
+// PLAN CHANGE EMAILS
+// ============================================================
+
+type PlanChangeExecutedEmailParams = {
+  to: string;
+  organizationName: string;
+  previousPlanName: string;
+  newPlanName: string;
+};
+
+export async function sendPlanChangeExecutedEmail(
+  params: PlanChangeExecutedEmailParams
+): Promise<void> {
+  const { to, organizationName, previousPlanName, newPlanName } = params;
+
+  const html = `
+    <div style="font-family: Arial, sans-serif; max-width: 600px; margin: 0 auto; padding: 20px;">
+      <h1 style="color: #333;">Mudança de Plano Executada</h1>
+
+      <p>Olá <strong>${organizationName}</strong>,</p>
+
+      <p>Sua mudança de plano foi concluída com sucesso!</p>
+
+      <hr style="border: 1px solid #eee; margin: 20px 0;">
+
+      <h2 style="color: #333;">Detalhes da Mudança</h2>
+
+      <table style="width: 100%; border-collapse: collapse;">
+        <tr>
+          <td style="padding: 8px 0;"><strong>Plano anterior:</strong></td>
+          <td style="padding: 8px 0;">${previousPlanName}</td>
+        </tr>
+        <tr>
+          <td style="padding: 8px 0;"><strong>Novo plano:</strong></td>
+          <td style="padding: 8px 0;">${newPlanName}</td>
+        </tr>
+      </table>
+
+      <hr style="border: 1px solid #eee; margin: 20px 0;">
+
+      <p>Você agora tem acesso a todos os recursos do plano ${newPlanName}!</p>
+
+      <p>
+        <a href="${env.APP_URL}/billing"
+           style="display: inline-block; background: #007bff; color: white; padding: 12px 24px; text-decoration: none; border-radius: 4px;">
+          Gerenciar Assinatura
+        </a>
+      </p>
+
+      <p style="color: #666; font-size: 14px; margin-top: 30px;">
+        Precisa de ajuda? Responda este email.
+      </p>
+
+      <p style="color: #999; font-size: 12px;">
+        Equipe Synnerdata
+      </p>
+    </div>
+  `;
+
+  await sendEmail({
+    to,
+    subject: `Mudança de Plano Concluída - ${newPlanName} - Synnerdata`,
+    html,
+  });
+}
+
+// ============================================================
 // WELCOME EMAIL
 // ============================================================
 

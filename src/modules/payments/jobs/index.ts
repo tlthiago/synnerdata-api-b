@@ -1,10 +1,13 @@
 import { Elysia, t } from "elysia";
 import { env } from "@/env";
+import { wrapSuccess } from "@/lib/responses/envelope";
 import { unauthorizedErrorSchema } from "@/lib/responses/response.types";
 import {
   expireTrialsResponseSchema,
   notifyExpiringTrialsResponseSchema,
   processScheduledCancellationsResponseSchema,
+  processScheduledPlanChangesResponseSchema,
+  suspendExpiredGracePeriodsResponseSchema,
 } from "./jobs.model";
 import { JobsService } from "./jobs.service";
 
@@ -29,20 +32,24 @@ export const jobsController = new Elysia({
   },
   (app) =>
     app
-      .post("/expire-trials", () => JobsService.expireTrials(), {
-        response: {
-          200: expireTrialsResponseSchema,
-          401: unauthorizedErrorSchema,
-        },
-        detail: {
-          summary: "Expire overdue trials",
-          description:
-            "Manually trigger the job that expires all trials past their end date.",
-        },
-      })
+      .post(
+        "/expire-trials",
+        async () => wrapSuccess(await JobsService.expireTrials()),
+        {
+          response: {
+            200: expireTrialsResponseSchema,
+            401: unauthorizedErrorSchema,
+          },
+          detail: {
+            summary: "Expire overdue trials",
+            description:
+              "Manually trigger the job that expires all trials past their end date.",
+          },
+        }
+      )
       .post(
         "/notify-expiring-trials",
-        () => JobsService.notifyExpiringTrials(),
+        async () => wrapSuccess(await JobsService.notifyExpiringTrials()),
         {
           response: {
             200: notifyExpiringTrialsResponseSchema,
@@ -57,7 +64,8 @@ export const jobsController = new Elysia({
       )
       .post(
         "/process-cancellations",
-        () => JobsService.processScheduledCancellations(),
+        async () =>
+          wrapSuccess(await JobsService.processScheduledCancellations()),
         {
           response: {
             200: processScheduledCancellationsResponseSchema,
@@ -72,22 +80,32 @@ export const jobsController = new Elysia({
       )
       .post(
         "/suspend-expired-grace-periods",
-        () => JobsService.suspendExpiredGracePeriods(),
+        async () => wrapSuccess(await JobsService.suspendExpiredGracePeriods()),
         {
           response: {
-            200: t.Object({
-              success: t.Literal(true),
-              data: t.Object({
-                processed: t.Number(),
-                suspended: t.Array(t.String()),
-              }),
-            }),
+            200: suspendExpiredGracePeriodsResponseSchema,
             401: unauthorizedErrorSchema,
           },
           detail: {
             summary: "Suspend expired grace periods",
             description:
               "Manually trigger the job that suspends subscriptions with expired grace periods (past_due > 15 days).",
+          },
+        }
+      )
+      .post(
+        "/process-scheduled-plan-changes",
+        async () =>
+          wrapSuccess(await JobsService.processScheduledPlanChanges()),
+        {
+          response: {
+            200: processScheduledPlanChangesResponseSchema,
+            401: unauthorizedErrorSchema,
+          },
+          detail: {
+            summary: "Process scheduled plan changes",
+            description:
+              "Manually trigger the job that executes scheduled plan changes (downgrades) at the end of the billing period.",
           },
         }
       )

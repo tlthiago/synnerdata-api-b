@@ -1,12 +1,20 @@
 import { betterAuth } from "better-auth";
 import { drizzleAdapter } from "better-auth/adapters/drizzle";
 import type { Organization } from "better-auth/plugins";
-import { admin, emailOTP, openAPI, organization } from "better-auth/plugins";
+import {
+  admin,
+  apiKey,
+  emailOTP,
+  openAPI,
+  organization,
+} from "better-auth/plugins";
 import type { Session, User } from "better-auth/types";
 import { eq } from "drizzle-orm";
 import { fullSchema, schema } from "@/db/schema";
 import { env } from "@/env";
+import { parseOrigins } from "@/lib/cors";
 import { logger } from "@/lib/logger";
+import { AuditService } from "@/modules/audit/audit.service";
 import { PlanService } from "@/modules/payments/plan/plan.service";
 import { SubscriptionService } from "@/modules/payments/subscription/subscription.service";
 import { db } from "../db";
@@ -14,6 +22,7 @@ import { sendOTPEmail, sendWelcomeEmail } from "./email";
 import { orgAc, orgRoles, systemAc, systemRoles } from "./permissions";
 
 const isTest = process.env.NODE_ENV === "test";
+const trustedOrigins = parseOrigins(env.CORS_ORIGIN);
 
 // Extended types with organization plugin fields
 export type AuthSession = Session & {
@@ -50,9 +59,50 @@ async function handleWelcomeEmail(user: {
   }
 }
 
+async function auditUserCreate(user: {
+  id: string;
+  email: string;
+}): Promise<void> {
+  await AuditService.log({
+    action: "create",
+    resource: "user",
+    resourceId: user.id,
+    userId: user.id,
+    changes: { after: { id: user.id, email: user.email } },
+  });
+}
+
+async function auditLogin(session: {
+  id: string;
+  userId: string;
+  activeOrganizationId?: string | null;
+}): Promise<void> {
+  await AuditService.log({
+    action: "login",
+    resource: "session",
+    resourceId: session.id,
+    userId: session.userId,
+    organizationId: session.activeOrganizationId ?? null,
+  });
+}
+
+async function auditOrganizationCreate(
+  org: { id: string; name: string },
+  userId: string
+): Promise<void> {
+  await AuditService.log({
+    action: "create",
+    resource: "organization",
+    resourceId: org.id,
+    userId,
+    organizationId: org.id,
+    changes: { after: { id: org.id, name: org.name } },
+  });
+}
+
 export const auth = betterAuth({
   basePath: "/auth/api",
-  trustedOrigins: [env.CORS_ORIGIN],
+  trustedOrigins,
   database: drizzleAdapter(db, {
     provider: "pg",
     usePlural: true,
@@ -116,7 +166,7 @@ export const auth = betterAuth({
           return Promise.resolve({ data: user });
         },
         after: async (user) => {
-          await handleWelcomeEmail(user);
+          await Promise.all([handleWelcomeEmail(user), auditUserCreate(user)]);
         },
       },
     },
@@ -135,6 +185,9 @@ export const auth = betterAuth({
             },
           };
         },
+        after: async (session) => {
+          await auditLogin(session);
+        },
       },
     },
   },
@@ -152,13 +205,18 @@ export const auth = betterAuth({
       organizationHooks: {
         afterCreateOrganization: async ({
           organization: org,
+          member,
         }: {
           organization: Organization;
+          member: { userId: string };
         }) => {
           const plan = await PlanService.getByName(DEFAULT_TRIAL_PLAN_NAME);
-          if (plan) {
-            await SubscriptionService.createTrial(org.id, plan.id);
-          }
+          await Promise.all([
+            plan
+              ? SubscriptionService.createTrial(org.id, plan.id)
+              : Promise.resolve(),
+            auditOrganizationCreate(org, member.userId),
+          ]);
         },
       },
     }),
@@ -168,6 +226,24 @@ export const auth = betterAuth({
       disableSignUp: false,
       async sendVerificationOTP({ email, otp, type }) {
         await sendOTPEmail({ email, otp, type });
+      },
+    }),
+    apiKey({
+      enableMetadata: true,
+      enableSessionForAPIKeys: true,
+      apiKeyHeaders: ["x-api-key"],
+      rateLimit: {
+        enabled: !isTest,
+        timeWindow: 60 * 1000,
+        maxRequests: 100,
+      },
+      permissions: {
+        defaultPermissions: {
+          employees: ["read"],
+          occurrences: ["read"],
+          organizations: ["read"],
+          reports: ["read"],
+        },
       },
     }),
   ],

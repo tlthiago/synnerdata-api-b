@@ -33,6 +33,22 @@ export type PaymentEvents = {
     amount: number;
     reason?: string;
   };
+  "planChange.scheduled": {
+    subscription: OrgSubscription;
+    pendingPlanId: string;
+    pendingBillingCycle: string | null;
+    scheduledAt: Date;
+  };
+  "planChange.executed": {
+    subscription: OrgSubscription;
+    previousPlanId: string;
+    previousBillingCycle: string | null;
+    prorationAmount?: number;
+  };
+  "planChange.canceled": {
+    subscription: OrgSubscription;
+    canceledPlanId: string;
+  };
 };
 
 // ============================================================

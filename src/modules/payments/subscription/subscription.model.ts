@@ -98,3 +98,12 @@ export type CancelSubscriptionResponse = z.infer<
 export type RestoreSubscriptionResponse = z.infer<
   typeof restoreSubscriptionResponseSchema
 >;
+
+// Data-only types for service layer
+export type GetSubscriptionData = SubscriptionData;
+export type CancelSubscriptionData = z.infer<
+  typeof cancelSubscriptionDataSchema
+>;
+export type RestoreSubscriptionData = z.infer<
+  typeof restoreSubscriptionDataSchema
+>;

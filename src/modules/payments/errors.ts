@@ -251,3 +251,93 @@ export class PagarmeTimeoutError extends PaymentError {
     super(`Pagarme API timeout: ${endpoint}`, "PAGARME_TIMEOUT", { endpoint });
   }
 }
+
+export class SamePlanError extends PaymentError {
+  status = 400;
+
+  constructor() {
+    super("Already subscribed to this plan", "SAME_PLAN");
+  }
+}
+
+export class SameBillingCycleError extends PaymentError {
+  status = 400;
+
+  constructor() {
+    super("Already on this billing cycle", "SAME_BILLING_CYCLE");
+  }
+}
+
+export class SubscriptionNotActiveError extends PaymentError {
+  status = 400;
+
+  constructor() {
+    super(
+      "Subscription must be active to change plans",
+      "SUBSCRIPTION_NOT_ACTIVE"
+    );
+  }
+}
+
+export class PlanChangeInProgressError extends PaymentError {
+  status = 400;
+
+  constructor() {
+    super(
+      "A plan change is already scheduled. Cancel it first to make a new change.",
+      "PLAN_CHANGE_IN_PROGRESS"
+    );
+  }
+}
+
+export class NoScheduledChangeError extends PaymentError {
+  status = 400;
+
+  constructor() {
+    super("No scheduled plan change to cancel", "NO_SCHEDULED_CHANGE");
+  }
+}
+
+export class EmployeeCountExceedsLimitError extends PaymentError {
+  status = 400;
+
+  constructor(employeeCount: number, maxAllowed = 180) {
+    super(
+      `Para ${employeeCount} funcionários, entre em contato para um plano Enterprise`,
+      "EMPLOYEE_COUNT_EXCEEDS_LIMIT",
+      { employeeCount, maxAllowed }
+    );
+  }
+}
+
+export class EmployeeCountRequiredError extends PaymentError {
+  status = 400;
+
+  constructor() {
+    super("Employee count is required for checkout", "EMPLOYEE_COUNT_REQUIRED");
+  }
+}
+
+export class PricingTierNotFoundError extends PaymentError {
+  status = 404;
+
+  constructor(planId: string, employeeCount: number) {
+    super(
+      `No pricing tier found for ${employeeCount} employees in plan ${planId}`,
+      "PRICING_TIER_NOT_FOUND",
+      { planId, employeeCount }
+    );
+  }
+}
+
+export class FeatureNotAvailableError extends PaymentError {
+  status = 403;
+
+  constructor(featureName: string) {
+    super(
+      `Feature "${featureName}" is not available in your current plan`,
+      "FEATURE_NOT_AVAILABLE",
+      { featureName }
+    );
+  }
+}

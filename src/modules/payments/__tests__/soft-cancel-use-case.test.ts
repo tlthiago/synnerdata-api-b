@@ -225,8 +225,7 @@ describe("Soft Cancel Use Case: Cancel → Restore → Cancel → Job Processes"
       // No mock needed - pagarmeSubscriptionId is null, so job skips Pagar.me call
       const result = await JobsService.processScheduledCancellations();
 
-      expect(result.success).toBe(true);
-      expect(result.data.processed).toBeGreaterThanOrEqual(1);
+      expect(result.processed).toBeGreaterThanOrEqual(1);
     });
 
     test("should change status to canceled after job runs", async () => {

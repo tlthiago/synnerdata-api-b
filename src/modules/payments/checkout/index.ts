@@ -1,5 +1,6 @@
 import { Elysia } from "elysia";
 import { betterAuthPlugin } from "@/lib/auth-plugin";
+import { wrapSuccess } from "@/lib/responses/envelope";
 import {
   forbiddenErrorSchema,
   notFoundErrorSchema,
@@ -20,12 +21,14 @@ export const checkoutController = new Elysia({
   .use(betterAuthPlugin)
   .post(
     "/",
-    ({ user, session, body }) =>
-      CheckoutService.create({
-        ...body,
-        userId: user.id,
-        organizationId: session.activeOrganizationId as string,
-      }),
+    async ({ user, session, body }) =>
+      wrapSuccess(
+        await CheckoutService.create({
+          ...body,
+          userId: user.id,
+          organizationId: session.activeOrganizationId as string,
+        })
+      ),
     {
       auth: {
         permissions: { subscription: ["update"] },

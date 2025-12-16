@@ -1,5 +1,6 @@
 import { Elysia } from "elysia";
 import { betterAuthPlugin } from "@/lib/auth-plugin";
+import { wrapSuccess } from "@/lib/responses/envelope";
 import {
   forbiddenErrorSchema,
   unauthorizedErrorSchema,
@@ -19,14 +20,16 @@ export const customerController = new Elysia({
   .use(betterAuthPlugin)
   .get(
     "/",
-    ({ query }) =>
-      CustomerService.list({
-        name: query.name,
-        email: query.email,
-        document: query.document,
-        page: query.page,
-        size: query.size,
-      }),
+    async ({ query }) =>
+      wrapSuccess(
+        await CustomerService.list({
+          name: query.name,
+          email: query.email,
+          document: query.document,
+          page: query.page,
+          size: query.size,
+        })
+      ),
     {
       auth: {
         requireAdmin: true,

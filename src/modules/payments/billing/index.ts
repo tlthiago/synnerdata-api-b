@@ -1,5 +1,6 @@
 import { Elysia } from "elysia";
 import { betterAuthPlugin } from "@/lib/auth-plugin";
+import { wrapSuccess } from "@/lib/responses/envelope";
 import {
   forbiddenErrorSchema,
   notFoundErrorSchema,
@@ -27,11 +28,13 @@ export const billingController = new Elysia({
   .use(betterAuthPlugin)
   .get(
     "/invoices",
-    ({ session, query }) =>
-      BillingService.listInvoices({
-        ...query,
-        organizationId: session.activeOrganizationId as string,
-      }),
+    async ({ session, query }) =>
+      wrapSuccess(
+        await BillingService.listInvoices({
+          ...query,
+          organizationId: session.activeOrganizationId as string,
+        })
+      ),
     {
       auth: {
         permissions: { billing: ["read"] },
@@ -54,10 +57,12 @@ export const billingController = new Elysia({
   )
   .get(
     "/invoices/:id/download",
-    ({ session, params }) =>
-      BillingService.getInvoiceDownloadUrl(
-        params.id,
-        session.activeOrganizationId as string
+    async ({ session, params }) =>
+      wrapSuccess(
+        await BillingService.getInvoiceDownloadUrl(
+          params.id,
+          session.activeOrganizationId as string
+        )
       ),
     {
       auth: {
@@ -80,11 +85,13 @@ export const billingController = new Elysia({
   )
   .post(
     "/update-card",
-    ({ session, body }) =>
-      BillingService.updateCard({
-        ...body,
-        organizationId: session.activeOrganizationId as string,
-      }),
+    async ({ session, body }) =>
+      wrapSuccess(
+        await BillingService.updateCard({
+          ...body,
+          organizationId: session.activeOrganizationId as string,
+        })
+      ),
     {
       auth: {
         permissions: { billing: ["update"] },
@@ -107,10 +114,12 @@ export const billingController = new Elysia({
   )
   .get(
     "/usage",
-    ({ session }) =>
-      BillingService.getUsage({
-        organizationId: session.activeOrganizationId as string,
-      }),
+    async ({ session }) =>
+      wrapSuccess(
+        await BillingService.getUsage({
+          organizationId: session.activeOrganizationId as string,
+        })
+      ),
     {
       auth: {
         permissions: { billing: ["read"] },
@@ -131,11 +140,13 @@ export const billingController = new Elysia({
   )
   .put(
     "/info",
-    ({ session, body }) =>
-      BillingService.updateBillingInfo({
-        ...body,
-        organizationId: session.activeOrganizationId as string,
-      }),
+    async ({ session, body }) =>
+      wrapSuccess(
+        await BillingService.updateBillingInfo({
+          ...body,
+          organizationId: session.activeOrganizationId as string,
+        })
+      ),
     {
       auth: {
         permissions: { billing: ["update"] },

@@ -58,8 +58,7 @@ describe("JobsService", () => {
 
       const result = await JobsService.expireTrials();
 
-      expect(result.success).toBe(true);
-      expect(result.data.expired.length).toBeGreaterThanOrEqual(1);
+      expect(result.expired.length).toBeGreaterThanOrEqual(1);
 
       const [subscription] = await db
         .select()
@@ -88,7 +87,7 @@ describe("JobsService", () => {
         .limit(1);
 
       expect(subscription.status).toBe("trial");
-      expect(result.data.expired).not.toContain(subscription.id);
+      expect(result.expired).not.toContain(subscription.id);
     });
 
     test("should not affect active subscriptions", async () => {
@@ -113,11 +112,10 @@ describe("JobsService", () => {
     test("should return correct response structure", async () => {
       const result = await JobsService.expireTrials();
 
-      expect(result.success).toBe(true);
-      expect(result.data).toHaveProperty("processed");
-      expect(result.data).toHaveProperty("expired");
-      expect(typeof result.data.processed).toBe("number");
-      expect(Array.isArray(result.data.expired)).toBe(true);
+      expect(result).toHaveProperty("processed");
+      expect(result).toHaveProperty("expired");
+      expect(typeof result.processed).toBe("number");
+      expect(Array.isArray(result.expired)).toBe(true);
     });
   });
 
@@ -149,11 +147,10 @@ describe("JobsService", () => {
 
       const result = await JobsService.notifyExpiringTrials();
 
-      expect(result.success).toBe(true);
-      expect(result.data).toHaveProperty("processed");
-      expect(result.data).toHaveProperty("notified");
-      expect(typeof result.data.processed).toBe("number");
-      expect(Array.isArray(result.data.notified)).toBe(true);
+      expect(result).toHaveProperty("processed");
+      expect(result).toHaveProperty("notified");
+      expect(typeof result.processed).toBe("number");
+      expect(Array.isArray(result.notified)).toBe(true);
     });
 
     test("should not notify trials expiring in less than 3 days", async () => {
@@ -181,7 +178,7 @@ describe("JobsService", () => {
         .where(eq(schema.orgSubscriptions.organizationId, org.id))
         .limit(1);
 
-      expect(result.data.notified).not.toContain(subscription.id);
+      expect(result.notified).not.toContain(subscription.id);
     });
 
     test("should not notify trials expiring in more than 4 days", async () => {
@@ -209,7 +206,7 @@ describe("JobsService", () => {
         .where(eq(schema.orgSubscriptions.organizationId, org.id))
         .limit(1);
 
-      expect(result.data.notified).not.toContain(subscription.id);
+      expect(result.notified).not.toContain(subscription.id);
     });
 
     test("should skip organizations without owner", async () => {
@@ -237,17 +234,16 @@ describe("JobsService", () => {
         .where(eq(schema.orgSubscriptions.organizationId, org.id))
         .limit(1);
 
-      expect(result.data.notified).not.toContain(subscription.id);
+      expect(result.notified).not.toContain(subscription.id);
     });
 
     test("should return correct response structure", async () => {
       const result = await JobsService.notifyExpiringTrials();
 
-      expect(result.success).toBe(true);
-      expect(result.data).toHaveProperty("processed");
-      expect(result.data).toHaveProperty("notified");
-      expect(typeof result.data.processed).toBe("number");
-      expect(Array.isArray(result.data.notified)).toBe(true);
+      expect(result).toHaveProperty("processed");
+      expect(result).toHaveProperty("notified");
+      expect(typeof result.processed).toBe("number");
+      expect(Array.isArray(result.notified)).toBe(true);
     });
   });
 
@@ -282,8 +278,6 @@ describe("JobsService", () => {
 
       const result = await JobsService.processScheduledCancellations();
 
-      expect(result.success).toBe(true);
-
       const [subscription] = await db
         .select()
         .from(schema.orgSubscriptions)
@@ -291,7 +285,7 @@ describe("JobsService", () => {
         .limit(1);
 
       expect(subscription.status).toBe("canceled");
-      expect(result.data.canceled).toContain(subscription.id);
+      expect(result.canceled).toContain(subscription.id);
     });
 
     test("should not cancel subscriptions still within period", async () => {
@@ -323,7 +317,7 @@ describe("JobsService", () => {
         .limit(1);
 
       expect(subscription.status).toBe("active");
-      expect(result.data.canceled).not.toContain(subscription.id);
+      expect(result.canceled).not.toContain(subscription.id);
     });
 
     test("should not cancel subscriptions without cancelAtPeriodEnd flag", async () => {
@@ -354,7 +348,7 @@ describe("JobsService", () => {
         .limit(1);
 
       expect(subscription.status).toBe("active");
-      expect(result.data.canceled).not.toContain(subscription.id);
+      expect(result.canceled).not.toContain(subscription.id);
     });
 
     test("should not cancel already canceled subscriptions", async () => {
@@ -384,17 +378,16 @@ describe("JobsService", () => {
 
       const result = await JobsService.processScheduledCancellations();
 
-      expect(result.data.canceled).not.toContain(subscriptionBefore.id);
+      expect(result.canceled).not.toContain(subscriptionBefore.id);
     });
 
     test("should return correct response structure", async () => {
       const result = await JobsService.processScheduledCancellations();
 
-      expect(result.success).toBe(true);
-      expect(result.data).toHaveProperty("processed");
-      expect(result.data).toHaveProperty("canceled");
-      expect(typeof result.data.processed).toBe("number");
-      expect(Array.isArray(result.data.canceled)).toBe(true);
+      expect(result).toHaveProperty("processed");
+      expect(result).toHaveProperty("canceled");
+      expect(typeof result.processed).toBe("number");
+      expect(Array.isArray(result.canceled)).toBe(true);
     });
   });
 });

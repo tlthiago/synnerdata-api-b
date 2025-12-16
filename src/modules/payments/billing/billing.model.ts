@@ -130,3 +130,10 @@ export type UpdateBillingInfoInput = UpdateBillingInfo & {
 export type UpdateBillingInfoResponse = z.infer<
   typeof updateBillingInfoResponseSchema
 >;
+
+// Data-only types for service layer
+export type ListInvoicesData = z.infer<typeof listInvoicesDataSchema>;
+export type DownloadInvoiceData = z.infer<typeof downloadInvoiceDataSchema>;
+export type UpdateCardData = z.infer<typeof updateCardDataSchema>;
+export type GetUsageData = z.infer<typeof getUsageDataSchema>;
+export type UpdateBillingInfoData = z.infer<typeof updateBillingInfoDataSchema>;

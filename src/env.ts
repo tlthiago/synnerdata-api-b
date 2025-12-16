@@ -22,6 +22,9 @@ const envSchema = z.object({
   ADMIN_EMAILS: z.string().default(""),
   // Internal API key for scheduled jobs endpoints
   INTERNAL_API_KEY: z.string().min(32),
+  // PII Encryption key - 32 bytes hex (64 characters)
+  // Generate with: openssl rand -hex 32
+  PII_ENCRYPTION_KEY: z.string().length(64),
 });
 
 export const env = envSchema.parse(process.env);

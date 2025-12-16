@@ -10,12 +10,12 @@ import {
 } from "../errors";
 import { PaymentHooks } from "../hooks";
 import type {
+  CancelSubscriptionData,
   CancelSubscriptionInput,
-  CancelSubscriptionResponse,
+  GetSubscriptionData,
   GetSubscriptionInput,
-  GetSubscriptionResponse,
+  RestoreSubscriptionData,
   RestoreSubscriptionInput,
-  RestoreSubscriptionResponse,
 } from "./subscription.model";
 
 type Subscription = typeof schema.orgSubscriptions.$inferSelect;
@@ -38,7 +38,7 @@ export abstract class SubscriptionService {
 
   static async getByOrganizationId(
     input: GetSubscriptionInput
-  ): Promise<GetSubscriptionResponse> {
+  ): Promise<GetSubscriptionData> {
     const { organizationId } = input;
 
     const [result] = await db
@@ -61,34 +61,31 @@ export abstract class SubscriptionService {
     const { subscription, plan } = result;
 
     return {
-      success: true as const,
-      data: {
-        id: subscription.id,
-        organizationId: subscription.organizationId,
-        status: subscription.status,
-        plan: {
-          id: plan.id,
-          name: plan.name,
-          displayName: plan.displayName,
-          limits: plan.limits,
-        },
-        billingCycle: subscription.billingCycle as "monthly" | "yearly" | null,
-        trialStart: subscription.trialStart?.toISOString() ?? null,
-        trialEnd: subscription.trialEnd?.toISOString() ?? null,
-        trialUsed: subscription.trialUsed,
-        currentPeriodStart:
-          subscription.currentPeriodStart?.toISOString() ?? null,
-        currentPeriodEnd: subscription.currentPeriodEnd?.toISOString() ?? null,
-        cancelAtPeriodEnd: subscription.cancelAtPeriodEnd,
-        canceledAt: subscription.canceledAt?.toISOString() ?? null,
-        seats: subscription.seats,
+      id: subscription.id,
+      organizationId: subscription.organizationId,
+      status: subscription.status,
+      plan: {
+        id: plan.id,
+        name: plan.name,
+        displayName: plan.displayName,
+        limits: plan.limits,
       },
+      billingCycle: subscription.billingCycle as "monthly" | "yearly" | null,
+      trialStart: subscription.trialStart?.toISOString() ?? null,
+      trialEnd: subscription.trialEnd?.toISOString() ?? null,
+      trialUsed: subscription.trialUsed,
+      currentPeriodStart:
+        subscription.currentPeriodStart?.toISOString() ?? null,
+      currentPeriodEnd: subscription.currentPeriodEnd?.toISOString() ?? null,
+      cancelAtPeriodEnd: subscription.cancelAtPeriodEnd,
+      canceledAt: subscription.canceledAt?.toISOString() ?? null,
+      seats: subscription.seats,
     };
   }
 
   static async cancel(
     input: CancelSubscriptionInput
-  ): Promise<CancelSubscriptionResponse> {
+  ): Promise<CancelSubscriptionData> {
     const { organizationId, userId } = input;
 
     const subscription =
@@ -152,17 +149,14 @@ export abstract class SubscriptionService {
     }
 
     return {
-      success: true as const,
-      data: {
-        cancelAtPeriodEnd: true,
-        currentPeriodEnd: subscription.currentPeriodEnd?.toISOString() ?? null,
-      },
+      cancelAtPeriodEnd: true,
+      currentPeriodEnd: subscription.currentPeriodEnd?.toISOString() ?? null,
     };
   }
 
   static async restore(
     input: RestoreSubscriptionInput
-  ): Promise<RestoreSubscriptionResponse> {
+  ): Promise<RestoreSubscriptionData> {
     const { organizationId } = input;
 
     const subscription =
@@ -205,10 +199,7 @@ export abstract class SubscriptionService {
     }
 
     return {
-      success: true as const,
-      data: {
-        restored: true,
-      },
+      restored: true,
     };
   }
 

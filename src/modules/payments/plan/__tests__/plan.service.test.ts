@@ -2,7 +2,7 @@ import { afterAll, beforeAll, describe, expect, test } from "bun:test";
 import { eq } from "drizzle-orm";
 import { db } from "@/db";
 import { schema } from "@/db/schema";
-import { proPlan, testPlans } from "@/test/fixtures/plans";
+import { diamondPlan, testPlans } from "@/test/fixtures/plans";
 import { seedPlans } from "@/test/helpers/seed";
 import { PlanNotAvailableError, PlanNotFoundError } from "../../errors";
 import { PlanService } from "../plan.service";
@@ -26,11 +26,10 @@ describe("PlanService", () => {
     test("should return only active and public plans", async () => {
       const response = await PlanService.list();
 
-      expect(response.success).toBe(true);
-      expect(response.data.plans).toBeArray();
-      expect(response.data.plans.length).toBeGreaterThan(0);
+      expect(response.plans).toBeArray();
+      expect(response.plans.length).toBeGreaterThan(0);
 
-      for (const plan of response.data.plans) {
+      for (const plan of response.plans) {
         expect(plan.isActive).toBe(true);
         expect(plan.isPublic).toBe(true);
       }
@@ -38,7 +37,7 @@ describe("PlanService", () => {
 
     test("should return plans ordered by sortOrder", async () => {
       const response = await PlanService.list();
-      const plans = response.data.plans;
+      const plans = response.plans;
 
       for (let i = 1; i < plans.length; i++) {
         expect(plans[i].sortOrder).toBeGreaterThanOrEqual(
@@ -49,23 +48,24 @@ describe("PlanService", () => {
 
     test("should return correct plan properties", async () => {
       const response = await PlanService.list();
-      const plan = response.data.plans[0];
+      const plan = response.plans[0];
 
       expect(plan).toHaveProperty("id");
       expect(plan).toHaveProperty("name");
       expect(plan).toHaveProperty("displayName");
-      expect(plan).toHaveProperty("priceMonthly");
-      expect(plan).toHaveProperty("priceYearly");
+      expect(plan).toHaveProperty("description");
+      expect(plan).toHaveProperty("startingPrice");
       expect(plan).toHaveProperty("trialDays");
       expect(plan).toHaveProperty("limits");
       expect(plan).toHaveProperty("isActive");
       expect(plan).toHaveProperty("isPublic");
       expect(plan).toHaveProperty("sortOrder");
+      expect(plan).toHaveProperty("pricingTiers");
     });
 
     test("should not return inactive plans", async () => {
       const response = await PlanService.list();
-      const inactivePlan = response.data.plans.find((p) => p.name === "legacy");
+      const inactivePlan = response.plans.find((p) => p.name === "legacy");
 
       expect(inactivePlan).toBeUndefined();
     });
@@ -73,17 +73,16 @@ describe("PlanService", () => {
 
   describe("getById()", () => {
     test("should return plan by id", async () => {
-      if (!proPlan) {
-        throw new Error("Pro plan not found in fixtures");
+      if (!diamondPlan) {
+        throw new Error("Diamond plan not found in fixtures");
       }
 
-      const response = await PlanService.getById(proPlan.id);
+      const response = await PlanService.getById(diamondPlan.id);
 
-      expect(response.success).toBe(true);
-      expect(response.data.id).toBe(proPlan.id);
-      expect(response.data.name).toBe(proPlan.name);
-      expect(response.data.displayName).toBe(proPlan.displayName);
-      expect(response.data.priceMonthly).toBe(proPlan.priceMonthly);
+      expect(response.id).toBe(diamondPlan.id);
+      expect(response.name).toBe(diamondPlan.name);
+      expect(response.displayName).toBe(diamondPlan.displayName);
+      expect(response.priceMonthly).toBe(diamondPlan.priceMonthly);
     });
 
     test("should throw PlanNotFoundError for non-existent plan", () => {
@@ -100,21 +99,20 @@ describe("PlanService", () => {
 
       const response = await PlanService.getById(inactivePlan.id);
 
-      expect(response.success).toBe(true);
-      expect(response.data.isActive).toBe(false);
+      expect(response.isActive).toBe(false);
     });
   });
 
   describe("getByIdForCheckout()", () => {
     test("should return active plan for checkout", async () => {
-      if (!proPlan) {
-        throw new Error("Pro plan not found in fixtures");
+      if (!diamondPlan) {
+        throw new Error("Diamond plan not found in fixtures");
       }
 
-      const plan = await PlanService.getByIdForCheckout(proPlan.id);
+      const plan = await PlanService.getByIdForCheckout(diamondPlan.id);
 
       expect(plan).toBeDefined();
-      expect(plan.id).toBe(proPlan.id);
+      expect(plan.id).toBe(diamondPlan.id);
       expect(plan.isActive).toBe(true);
     });
 
@@ -138,10 +136,10 @@ describe("PlanService", () => {
 
   describe("getByName()", () => {
     test("should return plan by name", async () => {
-      const plan = await PlanService.getByName("pro");
+      const plan = await PlanService.getByName("diamond");
 
       expect(plan).toBeDefined();
-      expect(plan?.name).toBe("pro");
+      expect(plan?.name).toBe("diamond");
     });
 
     test("should return null for non-existent name", async () => {
@@ -184,26 +182,25 @@ describe("PlanService - Pagarme Sync", () => {
 
   describe("syncToPagarme()", () => {
     test("should return existing pagarmePlanIdMonthly if already synced", async () => {
-      if (!proPlan) {
-        throw new Error("Pro plan not found in fixtures");
+      if (!diamondPlan) {
+        throw new Error("Diamond plan not found in fixtures");
       }
 
       // Set pagarmePlanIdMonthly manually (simulating already synced)
       await db
         .update(schema.subscriptionPlans)
         .set({ pagarmePlanIdMonthly: "plan_existing_123" })
-        .where(eq(schema.subscriptionPlans.id, proPlan.id));
+        .where(eq(schema.subscriptionPlans.id, diamondPlan.id));
 
-      const response = await PlanService.syncToPagarme(proPlan.id);
+      const response = await PlanService.syncToPagarme(diamondPlan.id);
 
-      expect(response.success).toBe(true);
-      expect(response.data.pagarmePlanIdMonthly).toBe("plan_existing_123");
+      expect(response.pagarmePlanIdMonthly).toBe("plan_existing_123");
 
       // Reset for other tests
       await db
         .update(schema.subscriptionPlans)
         .set({ pagarmePlanIdMonthly: null, pagarmePlanIdYearly: null })
-        .where(eq(schema.subscriptionPlans.id, proPlan.id));
+        .where(eq(schema.subscriptionPlans.id, diamondPlan.id));
     });
 
     test("should throw PlanNotFoundError for non-existent plan", () => {
@@ -213,31 +210,28 @@ describe("PlanService - Pagarme Sync", () => {
     });
 
     test("should create monthly and yearly plans in Pagarme", async () => {
-      if (!proPlan) {
-        throw new Error("Pro plan not found in fixtures");
+      if (!diamondPlan) {
+        throw new Error("Diamond plan not found in fixtures");
       }
 
       // Ensure plan has no pagarmePlanIds
       await db
         .update(schema.subscriptionPlans)
         .set({ pagarmePlanIdMonthly: null, pagarmePlanIdYearly: null })
-        .where(eq(schema.subscriptionPlans.id, proPlan.id));
+        .where(eq(schema.subscriptionPlans.id, diamondPlan.id));
 
       // This will call the real Pagarme API
-      const response = await PlanService.syncToPagarme(proPlan.id);
+      const response = await PlanService.syncToPagarme(diamondPlan.id);
 
       // Verify response structure
-      expect(response.success).toBe(true);
-      expect(response.data.pagarmePlanIdMonthly).toBeDefined();
-      expect(typeof response.data.pagarmePlanIdMonthly).toBe("string");
-      expect(response.data.pagarmePlanIdMonthly?.startsWith("plan_")).toBe(
-        true
-      );
+      expect(response.pagarmePlanIdMonthly).toBeDefined();
+      expect(typeof response.pagarmePlanIdMonthly).toBe("string");
+      expect(response.pagarmePlanIdMonthly?.startsWith("plan_")).toBe(true);
 
-      // Yearly plan should also be created since proPlan has priceYearly > 0
-      expect(response.data.pagarmePlanIdYearly).toBeDefined();
-      expect(typeof response.data.pagarmePlanIdYearly).toBe("string");
-      expect(response.data.pagarmePlanIdYearly?.startsWith("plan_")).toBe(true);
+      // Yearly plan should also be created since diamondPlan has priceYearly > 0
+      expect(response.pagarmePlanIdYearly).toBeDefined();
+      expect(typeof response.pagarmePlanIdYearly).toBe("string");
+      expect(response.pagarmePlanIdYearly?.startsWith("plan_")).toBe(true);
 
       // Verify it was saved in the database
       const [dbPlan] = await db
@@ -246,42 +240,38 @@ describe("PlanService - Pagarme Sync", () => {
           pagarmePlanIdYearly: schema.subscriptionPlans.pagarmePlanIdYearly,
         })
         .from(schema.subscriptionPlans)
-        .where(eq(schema.subscriptionPlans.id, proPlan.id))
+        .where(eq(schema.subscriptionPlans.id, diamondPlan.id))
         .limit(1);
 
-      expect(dbPlan?.pagarmePlanIdMonthly).toBe(
-        response.data.pagarmePlanIdMonthly
-      );
-      expect(dbPlan?.pagarmePlanIdYearly).toBe(
-        response.data.pagarmePlanIdYearly
-      );
+      expect(dbPlan?.pagarmePlanIdMonthly).toBe(response.pagarmePlanIdMonthly);
+      expect(dbPlan?.pagarmePlanIdYearly).toBe(response.pagarmePlanIdYearly);
     });
   });
 
   describe("ensureSynced()", () => {
     test("should return plan with pagarmePlanIdMonthly when already synced", async () => {
-      if (!proPlan) {
-        throw new Error("Pro plan not found in fixtures");
+      if (!diamondPlan) {
+        throw new Error("Diamond plan not found in fixtures");
       }
 
       // Set pagarmePlanIdMonthly manually
       await db
         .update(schema.subscriptionPlans)
         .set({ pagarmePlanIdMonthly: "plan_synced_456" })
-        .where(eq(schema.subscriptionPlans.id, proPlan.id));
+        .where(eq(schema.subscriptionPlans.id, diamondPlan.id));
 
-      const plan = await PlanService.ensureSynced(proPlan.id);
+      const plan = await PlanService.ensureSynced(diamondPlan.id);
 
       expect(plan).toBeDefined();
       expect(plan.pagarmePlanIdMonthly).toBe("plan_synced_456");
-      expect(plan.id).toBe(proPlan.id);
-      expect(plan.name).toBe(proPlan.name);
+      expect(plan.id).toBe(diamondPlan.id);
+      expect(plan.name).toBe(diamondPlan.name);
 
       // Reset for other tests
       await db
         .update(schema.subscriptionPlans)
         .set({ pagarmePlanIdMonthly: null, pagarmePlanIdYearly: null })
-        .where(eq(schema.subscriptionPlans.id, proPlan.id));
+        .where(eq(schema.subscriptionPlans.id, diamondPlan.id));
     });
 
     test("should throw PlanNotFoundError for non-existent plan", () => {
@@ -302,24 +292,24 @@ describe("PlanService - Pagarme Sync", () => {
     });
 
     test("should sync plan to Pagarme if not yet synced", async () => {
-      if (!proPlan) {
-        throw new Error("Pro plan not found in fixtures");
+      if (!diamondPlan) {
+        throw new Error("Diamond plan not found in fixtures");
       }
 
       // Ensure plan has no pagarmePlanIds
       await db
         .update(schema.subscriptionPlans)
         .set({ pagarmePlanIdMonthly: null, pagarmePlanIdYearly: null })
-        .where(eq(schema.subscriptionPlans.id, proPlan.id));
+        .where(eq(schema.subscriptionPlans.id, diamondPlan.id));
 
       // This will call the real Pagarme API
-      const plan = await PlanService.ensureSynced(proPlan.id);
+      const plan = await PlanService.ensureSynced(diamondPlan.id);
 
       // Verify plan was returned with pagarmePlanIdMonthly
       expect(plan).toBeDefined();
       expect(plan.pagarmePlanIdMonthly).toBeDefined();
       expect(typeof plan.pagarmePlanIdMonthly).toBe("string");
-      expect(plan.id).toBe(proPlan.id);
+      expect(plan.id).toBe(diamondPlan.id);
 
       // Verify it was saved in the database
       const [dbPlan] = await db
@@ -327,7 +317,7 @@ describe("PlanService - Pagarme Sync", () => {
           pagarmePlanIdMonthly: schema.subscriptionPlans.pagarmePlanIdMonthly,
         })
         .from(schema.subscriptionPlans)
-        .where(eq(schema.subscriptionPlans.id, proPlan.id))
+        .where(eq(schema.subscriptionPlans.id, diamondPlan.id))
         .limit(1);
 
       expect(dbPlan?.pagarmePlanIdMonthly).toBe(plan.pagarmePlanIdMonthly);
@@ -340,14 +330,14 @@ describe("PlanService - Pagarme API Request Structure", () => {
   // without calling the API
 
   test("should have correct plan request structure for Pagarme", () => {
-    if (!proPlan) {
-      throw new Error("Pro plan not found in fixtures");
+    if (!diamondPlan) {
+      throw new Error("Diamond plan not found in fixtures");
     }
 
     // This documents the expected structure for createPlan
     const expectedRequest = {
-      name: proPlan.name,
-      description: proPlan.displayName,
+      name: diamondPlan.name,
+      description: diamondPlan.displayName,
       currency: "BRL",
       interval: "month",
       interval_count: 1,
@@ -355,31 +345,31 @@ describe("PlanService - Pagarme API Request Structure", () => {
       payment_methods: ["credit_card"],
       items: [
         {
-          name: proPlan.displayName,
+          name: diamondPlan.displayName,
           quantity: 1,
           pricing_scheme: {
-            price: proPlan.priceMonthly,
+            price: diamondPlan.priceMonthly,
             scheme_type: "unit",
           },
         },
       ],
       metadata: {
-        local_plan_id: proPlan.id,
+        local_plan_id: diamondPlan.id,
       },
     };
 
-    expect(expectedRequest.name).toBe("pro");
+    expect(expectedRequest.name).toBe("diamond");
     expect(expectedRequest.currency).toBe("BRL");
     expect(expectedRequest.interval).toBe("month");
-    expect(expectedRequest.items[0].pricing_scheme.price).toBe(9900);
+    expect(expectedRequest.items[0].pricing_scheme.price).toBe(49_900);
   });
 
   test("should use correct idempotency key format", () => {
-    if (!proPlan) {
-      throw new Error("Pro plan not found in fixtures");
+    if (!diamondPlan) {
+      throw new Error("Diamond plan not found in fixtures");
     }
 
-    const expectedIdempotencyKey = `create-plan-${proPlan.id}`;
-    expect(expectedIdempotencyKey).toBe("create-plan-test-plan-pro");
+    const expectedIdempotencyKey = `create-plan-${diamondPlan.id}`;
+    expect(expectedIdempotencyKey).toBe("create-plan-test-plan-diamond");
   });
 });

@@ -2,6 +2,7 @@ import { eq, sql } from "drizzle-orm";
 import { db } from "@/db";
 import { schema } from "@/db/schema";
 import type { OrgSubscription, PlanLimits } from "@/db/schema/payments";
+import { Retry } from "@/lib/utils/retry";
 import {
   CustomerNotFoundError,
   InvoiceNotFoundError,
@@ -9,16 +10,16 @@ import {
 } from "../errors";
 import { PagarmeClient } from "../pagarme/client";
 import type {
-  DownloadInvoiceResponse,
+  DownloadInvoiceData,
+  GetUsageData,
   GetUsageInput,
-  GetUsageResponse,
   InvoiceData,
+  ListInvoicesData,
   ListInvoicesInput,
-  ListInvoicesResponse,
+  UpdateBillingInfoData,
   UpdateBillingInfoInput,
-  UpdateBillingInfoResponse,
+  UpdateCardData,
   UpdateCardInput,
-  UpdateCardResponse,
 } from "./billing.model";
 
 export abstract class BillingService {
@@ -46,7 +47,7 @@ export abstract class BillingService {
 
   static async listInvoices(
     input: ListInvoicesInput
-  ): Promise<ListInvoicesResponse> {
+  ): Promise<ListInvoicesData> {
     const { organizationId, page, limit } = input;
 
     const subscription =
@@ -58,21 +59,23 @@ export abstract class BillingService {
 
     if (!subscription.pagarmeSubscriptionId) {
       return {
-        success: true as const,
-        data: {
-          invoices: [],
-          total: 0,
-          page,
-          limit,
-        },
+        invoices: [],
+        total: 0,
+        page,
+        limit,
       };
     }
 
-    const response = await PagarmeClient.getInvoices({
-      subscriptionId: subscription.pagarmeSubscriptionId,
-      page,
-      size: limit,
-    });
+    const pagarmeSubId = subscription.pagarmeSubscriptionId;
+    const response = await Retry.withRetry(
+      () =>
+        PagarmeClient.getInvoices({
+          subscriptionId: pagarmeSubId,
+          page,
+          size: limit,
+        }),
+      { maxAttempts: 3, delayMs: 500 }
+    );
 
     const invoices: InvoiceData[] = response.data.map((invoice) => ({
       id: invoice.id,
@@ -85,20 +88,17 @@ export abstract class BillingService {
     }));
 
     return {
-      success: true as const,
-      data: {
-        invoices,
-        total: response.paging.total,
-        page,
-        limit,
-      },
+      invoices,
+      total: response.paging.total,
+      page,
+      limit,
     };
   }
 
   static async getInvoiceDownloadUrl(
     invoiceId: string,
     organizationId: string
-  ): Promise<DownloadInvoiceResponse> {
+  ): Promise<DownloadInvoiceData> {
     const subscription =
       await BillingService.findSubscriptionByOrganizationId(organizationId);
 
@@ -106,21 +106,21 @@ export abstract class BillingService {
       throw new SubscriptionNotFoundError(organizationId);
     }
 
-    const invoice = await PagarmeClient.getInvoice(invoiceId);
+    const invoice = await Retry.withRetry(
+      () => PagarmeClient.getInvoice(invoiceId),
+      { maxAttempts: 3, delayMs: 500 }
+    );
 
     if (!invoice.url) {
       throw new InvoiceNotFoundError(invoiceId);
     }
 
     return {
-      success: true as const,
-      data: {
-        downloadUrl: invoice.url,
-      },
+      downloadUrl: invoice.url,
     };
   }
 
-  static async updateCard(input: UpdateCardInput): Promise<UpdateCardResponse> {
+  static async updateCard(input: UpdateCardInput): Promise<UpdateCardData> {
     const { organizationId, cardId } = input;
 
     const subscription =
@@ -130,20 +130,23 @@ export abstract class BillingService {
       throw new SubscriptionNotFoundError(organizationId);
     }
 
-    await PagarmeClient.updateSubscriptionCard(
-      subscription.pagarmeSubscriptionId,
-      cardId
+    const pagarmeSubId = subscription.pagarmeSubscriptionId;
+    await Retry.withRetry(
+      () =>
+        PagarmeClient.updateSubscriptionCard(
+          pagarmeSubId,
+          cardId,
+          `update-card-${organizationId}-${Date.now()}`
+        ),
+      { maxAttempts: 2, delayMs: 1000 }
     );
 
     return {
-      success: true as const,
-      data: {
-        updated: true as const,
-      },
+      updated: true as const,
     };
   }
 
-  static async getUsage(input: GetUsageInput): Promise<GetUsageResponse> {
+  static async getUsage(input: GetUsageInput): Promise<GetUsageData> {
     const { organizationId } = input;
 
     const [result] = await db
@@ -174,29 +177,26 @@ export abstract class BillingService {
     const membersLimit = limits?.maxMembers ?? null;
 
     return {
-      success: true as const,
-      data: {
-        plan: {
-          name: result.plan.name,
-          displayName: result.plan.displayName,
-        },
-        usage: {
-          members: {
-            current: membersCurrent,
-            limit: membersLimit,
-            percentage: membersLimit
-              ? Math.round((membersCurrent / membersLimit) * 100)
-              : null,
-          },
-        },
-        features: limits?.features ?? [],
+      plan: {
+        name: result.plan.name,
+        displayName: result.plan.displayName,
       },
+      usage: {
+        members: {
+          current: membersCurrent,
+          limit: membersLimit,
+          percentage: membersLimit
+            ? Math.round((membersCurrent / membersLimit) * 100)
+            : null,
+        },
+      },
+      features: limits?.features ?? [],
     };
   }
 
   static async updateBillingInfo(
     input: UpdateBillingInfoInput
-  ): Promise<UpdateBillingInfoResponse> {
+  ): Promise<UpdateBillingInfoData> {
     const { organizationId, address, ...data } = input;
 
     const profile =
@@ -225,12 +225,22 @@ export abstract class BillingService {
       .where(eq(schema.organizationProfiles.organizationId, organizationId));
 
     if (profile.pagarmeCustomerId) {
-      await PagarmeClient.updateCustomer(profile.pagarmeCustomerId, {
-        name: data.legalName ?? profile.legalName ?? profile.tradeName,
-        document: data.taxId?.replace(/\D/g, "") ?? profile.taxId ?? undefined,
-      });
+      const customerId = profile.pagarmeCustomerId;
+      await Retry.withRetry(
+        () =>
+          PagarmeClient.updateCustomer(
+            customerId,
+            {
+              name: data.legalName ?? profile.legalName ?? profile.tradeName,
+              document:
+                data.taxId?.replace(/\D/g, "") ?? profile.taxId ?? undefined,
+            },
+            `update-customer-${organizationId}-${Date.now()}`
+          ),
+        { maxAttempts: 2, delayMs: 1000 }
+      );
     }
 
-    return { success: true as const, data: { updated: true as const } };
+    return { updated: true as const };
   }
 }

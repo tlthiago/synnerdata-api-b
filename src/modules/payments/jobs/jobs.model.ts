@@ -42,3 +42,33 @@ export type ProcessScheduledCancellationsData = z.infer<
 export type ProcessScheduledCancellationsResponse = z.infer<
   typeof processScheduledCancellationsResponseSchema
 >;
+
+const processScheduledPlanChangesDataSchema = z.object({
+  processed: z.number().describe("Total scheduled changes processed"),
+  executed: z.array(z.string()).describe("IDs of executed plan changes"),
+  failed: z.array(z.string()).describe("IDs of failed plan changes"),
+});
+
+export const processScheduledPlanChangesResponseSchema = successResponseSchema(
+  processScheduledPlanChangesDataSchema
+);
+
+export type ProcessScheduledPlanChangesData = z.infer<
+  typeof processScheduledPlanChangesDataSchema
+>;
+export type ProcessScheduledPlanChangesResponse = z.infer<
+  typeof processScheduledPlanChangesResponseSchema
+>;
+
+const suspendExpiredGracePeriodsDataSchema = z.object({
+  processed: z.number().describe("Total subscriptions processed"),
+  suspended: z.array(z.string()).describe("IDs of suspended subscriptions"),
+});
+
+export const suspendExpiredGracePeriodsResponseSchema = successResponseSchema(
+  suspendExpiredGracePeriodsDataSchema
+);
+
+export type SuspendExpiredGracePeriodsData = z.infer<
+  typeof suspendExpiredGracePeriodsDataSchema
+>;

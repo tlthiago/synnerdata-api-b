@@ -97,10 +97,12 @@ export abstract class PagarmeClient {
 
   static async updateCustomer(
     customerId: string,
-    data: Partial<CreateCustomerRequest>
+    data: Partial<CreateCustomerRequest>,
+    idempotencyKey?: string
   ): Promise<PagarmeCustomer> {
     return PagarmeClient.request("PUT", `/customers/${customerId}`, {
       body: data,
+      idempotencyKey,
     });
   }
 
@@ -149,21 +151,24 @@ export abstract class PagarmeClient {
 
   static async cancelSubscription(
     subscriptionId: string,
-    cancelPendingInvoices = true
+    cancelPendingInvoices = true,
+    idempotencyKey?: string
   ): Promise<PagarmeSubscription> {
     return PagarmeClient.request("DELETE", `/subscriptions/${subscriptionId}`, {
       body: { cancel_pending_invoices: cancelPendingInvoices },
+      idempotencyKey,
     });
   }
 
   static async updateSubscriptionCard(
     subscriptionId: string,
-    cardId: string
+    cardId: string,
+    idempotencyKey?: string
   ): Promise<PagarmeSubscription> {
     return PagarmeClient.request(
       "PATCH",
       `/subscriptions/${subscriptionId}/card`,
-      { body: { card_id: cardId } }
+      { body: { card_id: cardId }, idempotencyKey }
     );
   }
 
