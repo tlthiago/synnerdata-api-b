@@ -10,6 +10,10 @@ export type AuthOptions =
       requireOrganization?: boolean;
       requireAdmin?: boolean;
       requireSuperAdmin?: boolean;
+      requireActiveSubscription?: boolean;
+      requireFeature?: string;
+      requireFeatures?: string[];
+      allowAdminBypass?: boolean;
     };
 
 type ParsedAuthOptions = {
@@ -17,6 +21,10 @@ type ParsedAuthOptions = {
   requireOrganization: boolean;
   requireAdmin: boolean;
   requireSuperAdmin: boolean;
+  requireActiveSubscription: boolean;
+  requireFeature?: string;
+  requireFeatures?: string[];
+  allowAdminBypass: boolean;
 };
 
 class NoActiveOrganizationError extends ForbiddenError {
@@ -48,6 +56,10 @@ function parseOptions(options: AuthOptions): ParsedAuthOptions | null {
     requireOrganization: options.requireOrganization ?? false,
     requireAdmin: options.requireAdmin ?? false,
     requireSuperAdmin: options.requireSuperAdmin ?? false,
+    requireActiveSubscription: options.requireActiveSubscription ?? false,
+    requireFeature: options.requireFeature,
+    requireFeatures: options.requireFeatures,
+    allowAdminBypass: options.allowAdminBypass ?? true,
   };
 }
 
@@ -68,6 +80,91 @@ function validateRoleRequirements(
   }
   if (options.requireAdmin && !isSystemAdmin(userRole)) {
     throw new AdminRequiredError();
+  }
+}
+
+function isApiKeyAuthentication(session: AuthSession): boolean {
+  return !!(session as AuthSession & { apiKeyId?: string }).apiKeyId;
+}
+
+function canBypassSubscriptionCheck(
+  user: AuthUser,
+  session: AuthSession,
+  allowBypass: boolean
+): boolean {
+  if (!allowBypass) {
+    return false;
+  }
+  return isSystemAdmin(user.role) || isApiKeyAuthentication(session);
+}
+
+async function validateActiveSubscription(
+  organizationId: string
+): Promise<void> {
+  const { SubscriptionService } = await import("@/modules/payments");
+  const access = await SubscriptionService.checkAccess(organizationId);
+  if (!access.hasAccess) {
+    const { SubscriptionRequiredError } = await import(
+      "./errors/subscription-errors"
+    );
+    throw new SubscriptionRequiredError(access.status);
+  }
+}
+
+async function validateFeatureAccess(
+  organizationId: string,
+  featureName: string
+): Promise<void> {
+  const { LimitsService } = await import("@/modules/payments");
+  const result = await LimitsService.checkFeature(organizationId, featureName);
+  if (!result.hasAccess) {
+    const { FeatureNotAvailableError } = await import(
+      "./errors/subscription-errors"
+    );
+    throw new FeatureNotAvailableError(
+      featureName,
+      result.requiredPlan ?? undefined
+    );
+  }
+}
+
+function needsSubscriptionValidation(options: ParsedAuthOptions): boolean {
+  return (
+    options.requireActiveSubscription ||
+    !!options.requireFeature ||
+    (options.requireFeatures !== undefined &&
+      options.requireFeatures.length > 0)
+  );
+}
+
+async function validateSubscriptionAndFeatures(
+  organizationId: string | null,
+  options: ParsedAuthOptions,
+  canBypass: boolean
+): Promise<void> {
+  if (canBypass) {
+    return;
+  }
+
+  if (!organizationId) {
+    if (needsSubscriptionValidation(options)) {
+      throw new NoActiveOrganizationError();
+    }
+    return;
+  }
+
+  if (options.requireActiveSubscription) {
+    await validateActiveSubscription(organizationId);
+  }
+
+  if (options.requireFeature) {
+    await validateFeatureAccess(organizationId, options.requireFeature);
+  }
+
+  if (options.requireFeatures) {
+    for (const feature of options.requireFeatures) {
+      await validateFeatureAccess(organizationId, feature);
+    }
   }
 }
 
@@ -111,8 +208,19 @@ export const betterAuthPlugin = new Elysia({ name: "better-auth" })
           return { user, session };
         }
 
-        await validatePermissions(headers, session, parsed);
         validateRoleRequirements(user.role, parsed);
+        await validatePermissions(headers, session, parsed);
+
+        const canBypass = canBypassSubscriptionCheck(
+          user,
+          session,
+          parsed.allowAdminBypass
+        );
+        await validateSubscriptionAndFeatures(
+          session.activeOrganizationId,
+          parsed,
+          canBypass
+        );
 
         return { user, session };
       },

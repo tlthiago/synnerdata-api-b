@@ -171,10 +171,6 @@ describe("Payment Failure Webhook Validation", () => {
         .where(eq(schema.orgSubscriptions.organizationId, org.id))
         .limit(1);
 
-      // Verifica se 'unpaid' é tratado
-      console.log(`[VALIDAÇÃO] Status após 'unpaid': ${subscription.status}`);
-
-      // GAP-05 corrigido: unpaid agora é mapeado para past_due
       expect(subscription.status).toBe("past_due");
     });
   });
@@ -385,10 +381,6 @@ describe("Payment Failure Webhook Validation", () => {
         .where(eq(schema.orgSubscriptions.organizationId, org.id))
         .limit(1);
 
-      console.log("[VALIDAÇÃO] Campos de grace period:");
-      console.log(`  - pastDueSince: ${subscription.pastDueSince}`);
-      console.log(`  - gracePeriodEnds: ${subscription.gracePeriodEnds}`);
-
       expect(subscription.status).toBe("past_due");
       expect(subscription.pastDueSince).not.toBeNull();
       expect(subscription.gracePeriodEnds).not.toBeNull();
@@ -450,11 +442,6 @@ describe("Payment Failure Webhook Validation", () => {
         .where(eq(schema.orgSubscriptions.organizationId, org.id))
         .limit(1);
 
-      console.log("[VALIDAÇÃO] Após charge.paid:");
-      console.log(`  - status: ${subscription.status}`);
-      console.log(`  - pastDueSince: ${subscription.pastDueSince}`);
-      console.log(`  - gracePeriodEnds: ${subscription.gracePeriodEnds}`);
-
       expect(subscription.status).toBe("active");
       expect(subscription.pastDueSince).toBeNull();
       expect(subscription.gracePeriodEnds).toBeNull();
@@ -502,54 +489,15 @@ describe("Payment Failure Webhook Validation", () => {
   });
 
   describe("6. Resumo de Correções Implementadas", () => {
-    test("RELATÓRIO: Gaps corrigidos para Grace Period", () => {
-      console.log(`\n${"=".repeat(60)}`);
-      console.log("RELATÓRIO DE GAPS CORRIGIDOS - GRACE PERIOD IMPLEMENTATION");
-      console.log(`${"=".repeat(60)}\n`);
-
+    test("todos os gaps foram corrigidos para Grace Period", () => {
       const gaps = [
-        {
-          id: "GAP-01",
-          issue: "invoice.payment_failed tratado",
-          status: "CORRIGIDO",
-          action: "Consolidado com charge.payment_failed",
-        },
-        {
-          id: "GAP-02",
-          issue: "Campos pastDueSince e gracePeriodEnds existem",
-          status: "CORRIGIDO",
-          action: "Colunas adicionadas na tabela orgSubscriptions",
-        },
-        {
-          id: "GAP-03",
-          issue: "markPastDue() é idempotente",
-          status: "CORRIGIDO",
-          action: "Não reseta datas se já está em past_due",
-        },
-        {
-          id: "GAP-04",
-          issue: "charge.paid limpa campos de grace period",
-          status: "CORRIGIDO",
-          action: "pastDueSince/gracePeriodEnds são limpos",
-        },
-        {
-          id: "GAP-05",
-          issue: "Status 'unpaid' mapeado para past_due",
-          status: "CORRIGIDO",
-          action: "Mapeamento unpaid → past_due adicionado",
-        },
+        { id: "GAP-01", status: "CORRIGIDO" },
+        { id: "GAP-02", status: "CORRIGIDO" },
+        { id: "GAP-03", status: "CORRIGIDO" },
+        { id: "GAP-04", status: "CORRIGIDO" },
+        { id: "GAP-05", status: "CORRIGIDO" },
       ];
 
-      for (const gap of gaps) {
-        console.log(`[${gap.id}] ${gap.issue}`);
-        console.log(`   Status: ${gap.status}`);
-        console.log(`   Ação: ${gap.action}`);
-        console.log("");
-      }
-
-      console.log(`${"=".repeat(60)}\n`);
-
-      // Todos os gaps foram corrigidos
       expect(gaps.every((g) => g.status === "CORRIGIDO")).toBe(true);
     });
   });

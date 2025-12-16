@@ -369,7 +369,7 @@ export abstract class SubscriptionService {
     trialEnd.setDate(trialEnd.getDate() + plan.trialDays);
 
     await db.insert(schema.orgSubscriptions).values({
-      id: `subscription-${crypto.randomUUID()}`,
+      id: `subscription-${Bun.randomUUIDv7()}`,
       organizationId,
       planId,
       status: "trial",

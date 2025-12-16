@@ -1,5 +1,6 @@
 import { Elysia } from "elysia";
 import { betterAuthPlugin } from "@/lib/auth-plugin";
+import { wrapSuccess } from "@/lib/responses/envelope";
 import {
   forbiddenErrorSchema,
   unauthorizedErrorSchema,
@@ -20,23 +21,19 @@ export const auditController = new Elysia({
   .use(betterAuthPlugin)
   .get(
     "/",
-    async ({ session, query }) => {
-      const logs = await AuditService.getByOrganization(
-        session.activeOrganizationId as string,
-        {
-          resource: query.resource,
-          startDate: query.startDate,
-          endDate: query.endDate,
-          limit: query.limit,
-          offset: query.offset,
-        }
-      );
-
-      return {
-        success: true as const,
-        data: logs,
-      };
-    },
+    async ({ session, query }) =>
+      wrapSuccess(
+        await AuditService.getByOrganization(
+          session.activeOrganizationId as string,
+          {
+            resource: query.resource,
+            startDate: query.startDate,
+            endDate: query.endDate,
+            limit: query.limit,
+            offset: query.offset,
+          }
+        )
+      ),
     {
       auth: {
         permissions: { audit: ["read"] },
@@ -57,17 +54,10 @@ export const auditController = new Elysia({
   )
   .get(
     "/:resource/:resourceId",
-    async ({ params }) => {
-      const logs = await AuditService.getByResource(
-        params.resource,
-        params.resourceId
-      );
-
-      return {
-        success: true as const,
-        data: logs,
-      };
-    },
+    async ({ params }) =>
+      wrapSuccess(
+        await AuditService.getByResource(params.resource, params.resourceId)
+      ),
     {
       auth: {
         permissions: { audit: ["read"] },

@@ -1,4 +1,4 @@
-import { AppError } from "../../lib/errors/base-error";
+import { AppError } from "@/lib/errors/base-error";
 
 export class ApiKeyError extends AppError {
   status = 400;

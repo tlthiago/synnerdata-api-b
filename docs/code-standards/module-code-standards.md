@@ -107,11 +107,32 @@ export type CreateResourceData = ResourceData;
 ```
 
 **Nomenclatura:**
+
 - Schema entrada: `{action}{Resource}Schema`
 - Schema dados: `{resource}DataSchema`
 - Schema resposta: `{action}{Resource}ResponseSchema` (usa `successResponseSchema`)
 - Tipo input service: `{Action}{Resource}Input`
 - **Tipo dados service**: `{Action}{Resource}Data` (usado no retorno do service)
+
+**Regras de Schema:**
+
+- **SEMPRE usar Zod** (`z`) para schemas, **NUNCA** usar `t` (TypeBox/Elysia)
+- Para tipos de **input** (campos com `.default()` são opcionais): usar `z.input<typeof schema>`
+- Para tipos de **output** (após parsing, com defaults aplicados): usar `z.infer<typeof schema>`
+
+```typescript
+// Schema com default
+export const querySchema = z.object({
+  limit: z.coerce.number().default(50),
+  offset: z.coerce.number().default(0),
+});
+
+// Tipo para INPUT do service (limit e offset são opcionais)
+export type QueryOptions = z.input<typeof querySchema>;
+
+// Tipo para OUTPUT após parsing (limit e offset são obrigatórios)
+export type ParsedQuery = z.infer<typeof querySchema>;
+```
 
 ---
 
@@ -256,7 +277,7 @@ const results = await db
 
 // INSERT
 await db.insert(schema.resources).values({
-  id: `prefix-${Bun.randomUUIDv7()}`,
+  id: `prefix-${Bun.randomUUIDv7()}`,  // SEMPRE Bun.randomUUIDv7(), NUNCA crypto.randomUUID()
   organizationId,
   status: "pending",
 });
@@ -362,17 +383,22 @@ Estrutura de `details` em erros de validação:
 import { eq } from "drizzle-orm";
 import { z } from "zod";
 
-// 2. Aliases internos
+// 2. Aliases internos - SEMPRE usar @/, nunca caminhos relativos como ../../
 import { db } from "@/db";
 import { schema } from "@/db/schema";
 
-// 3. Relativos do domínio
+// 3. Relativos do domínio (apenas dentro do mesmo domínio)
 import { SomeError } from "../errors";
 import { OtherService } from "../other/other.service";
 
 // 4. Locais - USAR import type para tipos
 import type { CreateResourceInput } from "./{module}.model";
 ```
+
+**Regras de Import:**
+- **SEMPRE** usar alias `@/` para imports de `lib/`, `db/`, `env`, etc.
+- **NUNCA** usar caminhos relativos longos como `../../lib/` ou `../../../db/`
+- Imports relativos (`../`) são permitidos apenas dentro do mesmo domínio
 
 ---
 
@@ -386,9 +412,10 @@ import type { CreateResourceInput } from "./{module}.model";
 - [ ] `.service.ts` como `abstract class` com métodos `static async`
 - [ ] `.service.ts` retorna dados puros (sem envelope `{ success, data }`)
 - [ ] Input type inclui `userId` + `organizationId`
-- [ ] IDs: `prefix-${Bun.randomUUIDv7()}`
+- [ ] IDs: `prefix-${Bun.randomUUIDv7()}` - **NUNCA** usar `crypto.randomUUID()`
 - [ ] Queries: Select API (não `db.query`)
 - [ ] Erros: classes em `../errors`, nunca strings
+- [ ] Imports: usar `@/` para `lib/`, `db/`, `env` - nunca `../../`
 
 **Manutenção:**
 - [ ] Não quebrar API existente
@@ -396,4 +423,9 @@ import type { CreateResourceInput } from "./{module}.model";
 - [ ] Extrair queries duplicadas em métodos privados (`findBy*`)
 - [ ] Operações inversas devem ser simétricas (cancel/restore, enable/disable)
 - [ ] `npx ultracite fix` antes de finalizar
-- [ ] **Não adicionar comentários no código** - prefira código autoexplicativo (exceto `biome-ignore` quando necessário)
+
+**Comentários:**
+
+- [ ] **Não adicionar comentários JSDoc** em métodos/classes - nomes devem ser autoexplicativos
+- [ ] **Não adicionar comentários óbvios** como `// Log the error` ou `// Get user by id`
+- [ ] Comentários permitidos apenas para: lógica complexa não óbvia, `biome-ignore`, TODOs temporários

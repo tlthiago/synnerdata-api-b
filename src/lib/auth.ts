@@ -33,7 +33,7 @@ export type AuthUser = User & {
   role: string;
 };
 
-const DEFAULT_TRIAL_PLAN_NAME = "starter";
+const DEFAULT_TRIAL_PLAN_NAME = "platinum";
 
 function getAdminEmails(): { superAdmins: string[]; admins: string[] } {
   const superAdmins = env.SUPER_ADMIN_EMAILS.split(",").filter(Boolean);

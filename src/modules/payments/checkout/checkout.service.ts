@@ -100,7 +100,7 @@ export abstract class CheckoutService {
     expiresAt.setHours(expiresAt.getHours() + CHECKOUT_EXPIRATION_HOURS);
 
     await db.insert(schema.pendingCheckouts).values({
-      id: `checkout-${crypto.randomUUID()}`,
+      id: `checkout-${Bun.randomUUIDv7()}`,
       organizationId,
       planId,
       pricingTierId: tier.id,

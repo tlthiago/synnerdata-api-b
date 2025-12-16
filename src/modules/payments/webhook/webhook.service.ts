@@ -68,7 +68,7 @@ export abstract class WebhookService {
       return;
     }
 
-    const eventId = `event-${crypto.randomUUID()}`;
+    const eventId = `event-${Bun.randomUUIDv7()}`;
     await db.insert(schema.subscriptionEvents).values({
       id: eventId,
       pagarmeEventId: payload.id,

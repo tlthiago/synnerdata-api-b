@@ -3,10 +3,24 @@ import { db } from "@/db";
 import { type PLAN_FEATURES, schema } from "@/db/schema";
 import { FeatureNotAvailableError } from "../errors";
 import type {
+  CapabilitiesData,
   CheckFeatureData,
   CheckFeaturesData,
   FeatureAccess,
 } from "./limits.model";
+
+const ALL_FEATURE_NAMES = [
+  "terminated_employees",
+  "absences",
+  "medical_certificates",
+  "accidents",
+  "warnings",
+  "employee_status",
+  "birthdays",
+  "ppe",
+  "employee_record",
+  "payroll",
+] as const;
 
 // Maps features to the minimum plan that includes them
 const FEATURE_TO_PLAN: Record<string, keyof typeof PLAN_FEATURES> = {
@@ -126,6 +140,56 @@ export abstract class LimitsService {
     }
 
     return PLAN_ORDER[currentPlanKey] >= PLAN_ORDER[requiredPlan];
+  }
+
+  /**
+   * Gets comprehensive capabilities for an organization.
+   * Returns subscription status, plan info, and all features with access.
+   */
+  static async getCapabilities(
+    organizationId: string
+  ): Promise<CapabilitiesData> {
+    const { SubscriptionService } = await import(
+      "../subscription/subscription.service"
+    );
+
+    const access = await SubscriptionService.checkAccess(organizationId);
+    const {
+      planName,
+      planDisplayName,
+      features: availableFeatures,
+    } = await LimitsService.getPlanInfo(organizationId);
+
+    const features: FeatureAccess[] = ALL_FEATURE_NAMES.map((featureName) => {
+      const hasAccess = availableFeatures.includes(featureName);
+      const requiredPlan = FEATURE_TO_PLAN[featureName];
+
+      return {
+        featureName,
+        hasAccess,
+        requiredPlan: requiredPlan ? PLAN_DISPLAY_NAMES[requiredPlan] : null,
+      };
+    });
+
+    const isValidPlan =
+      planName !== "none" && planName !== "expired" && planName !== "unknown";
+
+    return {
+      subscription: {
+        status: access.status,
+        hasAccess: access.hasAccess,
+        daysRemaining: access.daysRemaining,
+        requiresPayment: access.requiresPayment,
+      },
+      plan: isValidPlan
+        ? {
+            name: planName,
+            displayName: planDisplayName,
+          }
+        : null,
+      features,
+      availableFeatures,
+    };
   }
 
   private static async getPlanFeatures(

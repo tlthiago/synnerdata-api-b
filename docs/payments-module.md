@@ -519,7 +519,7 @@ const access = await SubscriptionService.checkAccess(organizationId);
 ### Listen to payment events
 
 ```typescript
-import { PaymentHooks } from "@/modules/payments";
+import { PaymentHooks } from "@/modules/payments/hooks";
 
 PaymentHooks.on("subscription.activated", async ({ subscription }) => {
   // Handle activation

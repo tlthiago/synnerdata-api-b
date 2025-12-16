@@ -7,6 +7,8 @@ import {
   unauthorizedErrorSchema,
   validationErrorSchema,
 } from "@/lib/responses/response.types";
+import { capabilitiesResponseSchema } from "../limits/limits.model";
+import { LimitsService } from "../limits/limits.service";
 import {
   cancelSubscriptionResponseSchema,
   getSubscriptionResponseSchema,
@@ -45,6 +47,31 @@ export const subscriptionController = new Elysia({
         summary: "Get organization subscription",
         description:
           "Returns the subscription details for the active organization, including plan information, trial status, and billing period.",
+      },
+    }
+  )
+  .get(
+    "/capabilities",
+    async ({ session }) =>
+      wrapSuccess(
+        await LimitsService.getCapabilities(
+          session.activeOrganizationId as string
+        )
+      ),
+    {
+      auth: {
+        requireOrganization: true,
+      },
+      response: {
+        200: capabilitiesResponseSchema,
+        422: validationErrorSchema,
+        401: unauthorizedErrorSchema,
+        403: forbiddenErrorSchema,
+      },
+      detail: {
+        summary: "Get organization capabilities",
+        description:
+          "Returns the organization's subscription status, current plan, and all available features with access information.",
       },
     }
   )

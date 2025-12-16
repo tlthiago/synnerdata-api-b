@@ -3,23 +3,13 @@ import { db } from "@/db";
 import type { AuditLog } from "@/db/schema";
 import { schema } from "@/db/schema";
 import { logger } from "@/lib/logger";
-import type { AuditLogEntry, AuditQueryOptions } from "./audit.types";
+import type { AuditLogEntry, AuditQueryOptions } from "./audit.model";
 
-/**
- * Audit Service
- *
- * Handles audit log operations for compliance (LGPD, labor law).
- * Log failures are silently caught to avoid breaking main operations.
- */
 export abstract class AuditService {
-  /**
-   * Log an audit event.
-   * Failures are silently caught to avoid breaking main operations.
-   */
   static async log(entry: AuditLogEntry): Promise<void> {
     try {
       await db.insert(schema.auditLogs).values({
-        id: `audit-${crypto.randomUUID()}`,
+        id: `audit-${Bun.randomUUIDv7()}`,
         organizationId: entry.organizationId ?? null,
         userId: entry.userId,
         action: entry.action,
@@ -30,7 +20,6 @@ export abstract class AuditService {
         userAgent: entry.userAgent ?? null,
       });
     } catch (error) {
-      // Log failure should not break the main operation
       logger.error({
         type: "audit:log:failed",
         entry,
@@ -39,9 +28,6 @@ export abstract class AuditService {
     }
   }
 
-  /**
-   * Get audit logs for an organization with optional filters.
-   */
   static getByOrganization(
     organizationId: string,
     options?: AuditQueryOptions
@@ -77,9 +63,6 @@ export abstract class AuditService {
       .offset(options?.offset ?? 0);
   }
 
-  /**
-   * Get audit history for a specific resource.
-   */
   static getByResource(
     resource: string,
     resourceId: string

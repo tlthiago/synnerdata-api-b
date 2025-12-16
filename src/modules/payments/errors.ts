@@ -1,4 +1,4 @@
-import { AppError } from "../../lib/errors/base-error";
+import { AppError } from "@/lib/errors/base-error";
 
 export class PaymentError extends AppError {
   status = 400;

@@ -10,7 +10,7 @@ import { eq } from "drizzle-orm";
 import { db } from "@/db";
 import { schema } from "@/db/schema";
 import { env } from "@/env";
-import { SubscriptionService } from "@/modules/payments";
+import { SubscriptionService } from "@/modules/payments/subscription/subscription.service";
 import { starterPlan } from "@/test/fixtures/plans";
 import { createTestApp, type TestApp } from "@/test/helpers/app";
 import { waitForOTP } from "@/test/helpers/mailhog";

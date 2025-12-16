@@ -315,6 +315,142 @@ describe("LimitsService", () => {
     });
   });
 
+  describe("getCapabilities()", () => {
+    test("should return full capabilities for active subscription", async () => {
+      const { organizationId } = await createTestUserWithOrganization({
+        emailVerified: true,
+      });
+
+      if (!diamondPlan) {
+        throw new Error("Diamond plan not found in fixtures");
+      }
+
+      await createTestSubscription(organizationId, diamondPlan.id, "active");
+
+      const capabilities = await LimitsService.getCapabilities(organizationId);
+
+      expect(capabilities.subscription.status).toBe("active");
+      expect(capabilities.subscription.hasAccess).toBe(true);
+      expect(capabilities.subscription.requiresPayment).toBe(false);
+      expect(capabilities.plan).not.toBeNull();
+      expect(capabilities.plan?.name).toBe("diamond");
+      expect(capabilities.plan?.displayName).toBe("Test Diamond");
+      expect(capabilities.features).toBeArray();
+      expect(capabilities.availableFeatures).toContain("birthdays");
+      expect(capabilities.availableFeatures).not.toContain("payroll");
+    });
+
+    test("should return full capabilities for trial subscription", async () => {
+      const { organizationId } = await createTestUserWithOrganization({
+        emailVerified: true,
+      });
+
+      if (!platinumPlan) {
+        throw new Error("Platinum plan not found in fixtures");
+      }
+
+      await createTestSubscription(organizationId, platinumPlan.id, "trial");
+
+      const capabilities = await LimitsService.getCapabilities(organizationId);
+
+      expect(capabilities.subscription.status).toBe("trial");
+      expect(capabilities.subscription.hasAccess).toBe(true);
+      expect(capabilities.subscription.daysRemaining).toBeGreaterThan(0);
+      expect(capabilities.plan?.name).toBe("platinum");
+      expect(capabilities.availableFeatures).toContain("payroll");
+    });
+
+    test("should return no access for expired subscription", async () => {
+      const { organizationId } = await createTestUserWithOrganization({
+        emailVerified: true,
+      });
+
+      if (!goldPlan) {
+        throw new Error("Gold plan not found in fixtures");
+      }
+
+      await createTestSubscription(organizationId, goldPlan.id, {
+        status: "expired",
+      });
+
+      const capabilities = await LimitsService.getCapabilities(organizationId);
+
+      expect(capabilities.subscription.status).toBe("expired");
+      expect(capabilities.subscription.hasAccess).toBe(false);
+      expect(capabilities.subscription.requiresPayment).toBe(true);
+      expect(capabilities.plan).toBeNull();
+      expect(capabilities.availableFeatures.length).toBe(0);
+    });
+
+    test("should return no access for canceled subscription", async () => {
+      const { organizationId } = await createTestUserWithOrganization({
+        emailVerified: true,
+      });
+
+      if (!goldPlan) {
+        throw new Error("Gold plan not found in fixtures");
+      }
+
+      await createTestSubscription(organizationId, goldPlan.id, {
+        status: "canceled",
+      });
+
+      const capabilities = await LimitsService.getCapabilities(organizationId);
+
+      expect(capabilities.subscription.status).toBe("canceled");
+      expect(capabilities.subscription.hasAccess).toBe(false);
+      expect(capabilities.plan).toBeNull();
+    });
+
+    test("should return no subscription status for org without subscription", async () => {
+      const { organizationId } = await createTestUserWithOrganization({
+        emailVerified: true,
+      });
+
+      await db
+        .delete(schema.orgSubscriptions)
+        .where(eq(schema.orgSubscriptions.organizationId, organizationId));
+
+      const capabilities = await LimitsService.getCapabilities(organizationId);
+
+      expect(capabilities.subscription.status).toBe("no_subscription");
+      expect(capabilities.subscription.hasAccess).toBe(false);
+      expect(capabilities.subscription.requiresPayment).toBe(true);
+      expect(capabilities.plan).toBeNull();
+      expect(capabilities.availableFeatures.length).toBe(0);
+    });
+
+    test("should include all features with access status", async () => {
+      const { organizationId } = await createTestUserWithOrganization({
+        emailVerified: true,
+      });
+
+      if (!goldPlan) {
+        throw new Error("Gold plan not found in fixtures");
+      }
+
+      await createTestSubscription(organizationId, goldPlan.id, "active");
+
+      const capabilities = await LimitsService.getCapabilities(organizationId);
+
+      // Should have all features listed
+      expect(capabilities.features.length).toBeGreaterThan(0);
+
+      // Gold features should have access
+      const absencesFeature = capabilities.features.find(
+        (f) => f.featureName === "absences"
+      );
+      expect(absencesFeature?.hasAccess).toBe(true);
+
+      // Platinum features should not have access and show required plan
+      const payrollFeature = capabilities.features.find(
+        (f) => f.featureName === "payroll"
+      );
+      expect(payrollFeature?.hasAccess).toBe(false);
+      expect(payrollFeature?.requiredPlan).toBe("Platina");
+    });
+  });
+
   describe("Plan feature inheritance", () => {
     test("diamond plan should have all gold features plus diamond features", async () => {
       const { organizationId } = await createTestUserWithOrganization({

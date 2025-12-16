@@ -42,3 +42,46 @@ export type CheckFeaturesData = {
   planName: string;
   planDisplayName: string;
 };
+
+// Capabilities endpoint types
+export const capabilitiesResponseSchema = successResponseSchema(
+  z.object({
+    subscription: z.object({
+      status: z
+        .enum([
+          "active",
+          "trial",
+          "trial_expired",
+          "expired",
+          "canceled",
+          "past_due",
+          "no_subscription",
+        ])
+        .describe("Current subscription status"),
+      hasAccess: z
+        .boolean()
+        .describe("Whether the user has access to features"),
+      daysRemaining: z
+        .number()
+        .nullable()
+        .describe("Days remaining in trial or grace period"),
+      requiresPayment: z.boolean().describe("Whether payment is required"),
+    }),
+    plan: z
+      .object({
+        name: z.string().describe("Plan internal name"),
+        displayName: z.string().describe("Plan display name"),
+      })
+      .nullable()
+      .describe("Current plan info"),
+    features: z
+      .array(featureAccessSchema)
+      .describe("All features with access status"),
+    availableFeatures: z
+      .array(z.string())
+      .describe("List of available feature names"),
+  })
+);
+
+export type CapabilitiesResponse = z.infer<typeof capabilitiesResponseSchema>;
+export type CapabilitiesData = CapabilitiesResponse["data"];

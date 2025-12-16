@@ -8,29 +8,20 @@ import { planChangeController } from "./plan-change";
 import { subscriptionController } from "./subscription";
 import { webhookController } from "./webhook";
 
+export { LimitsService } from "./limits/limits.service";
+export { SubscriptionService } from "./subscription/subscription.service";
+
 export const paymentsController = new Elysia({
   name: "payments",
   prefix: "/v1/payments",
   detail: { tags: ["Payments"] },
 })
-  // Public routes (no auth required)
   .use(planPublicController)
   .use(webhookController)
-  // Protected routes - each controller manages its own auth via macros
   .use(planProtectedController)
   .use(checkoutController)
   .use(subscriptionController)
   .use(planChangeController)
   .use(billingController)
   .use(customerController)
-  // Internal routes (API key protected)
   .use(jobsController);
-
-export { CustomerService } from "./customer/customer.service";
-export type { PaymentEventName, PaymentEvents } from "./hooks";
-export { PaymentHooks } from "./hooks";
-export { LimitsService } from "./limits/limits.service";
-export { PlanService } from "./plan/plan.service";
-export { PricingTierService } from "./pricing/pricing.service";
-// Re-export services for use in other parts of the application
-export { SubscriptionService } from "./subscription/subscription.service";
