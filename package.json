@@ -21,7 +21,13 @@
     "db:down": "docker compose down",
     "prepare": "husky",
     "commit": "cz",
-    "secrets:check": "secretlint --secretlintignore .gitignore \"**/*\""
+    "secrets:check": "secretlint \"**/*\"",
+    "lint:types": "bun x tsc --noEmit",
+    "lint:check": "bun x ultracite check",
+    "lint:fix": "bun x ultracite fix",
+    "lint": "bun run lint:types && bun run lint:check",
+    "check": "bun run lint && bun run secrets:check",
+    "ci": "bun run check && bun run test"
   },
   "dependencies": {
     "@bogeychan/elysia-logger": "^0.1.10",
