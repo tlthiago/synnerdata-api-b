@@ -569,3 +569,167 @@ export async function sendWelcomeEmail(
     html,
   });
 }
+
+// ============================================================
+// PAYMENT FAILED EMAIL
+// ============================================================
+
+type PaymentFailedEmailParams = {
+  to: string;
+  organizationName: string;
+  planName: string;
+  gracePeriodEnds: Date;
+  errorMessage?: string;
+};
+
+export async function sendPaymentFailedEmail(
+  params: PaymentFailedEmailParams
+): Promise<void> {
+  const { to, organizationName, planName, gracePeriodEnds, errorMessage } =
+    params;
+
+  const formattedGracePeriodEnds = new Intl.DateTimeFormat("pt-BR", {
+    day: "2-digit",
+    month: "long",
+    year: "numeric",
+  }).format(gracePeriodEnds);
+
+  const html = `
+    <div style="font-family: Arial, sans-serif; max-width: 600px; margin: 0 auto; padding: 20px;">
+      <h1 style="color: #d9534f;">Falha no Pagamento</h1>
+
+      <p>Olá <strong>${organizationName}</strong>,</p>
+
+      <p>
+        Não foi possível processar o pagamento da sua assinatura do plano <strong>${planName}</strong>.
+      </p>
+
+      ${
+        errorMessage
+          ? `
+      <div style="background: #f8d7da; border-left: 4px solid #d9534f; padding: 15px; margin: 20px 0;">
+        <p style="margin: 0; color: #721c24;">
+          <strong>Motivo:</strong> ${errorMessage}
+        </p>
+      </div>
+      `
+          : ""
+      }
+
+      <hr style="border: 1px solid #eee; margin: 20px 0;">
+
+      <h2 style="color: #333;">O que acontece agora?</h2>
+
+      <p>
+        Sua assinatura está em <strong>período de graça</strong> e continuará funcionando
+        normalmente até <strong>${formattedGracePeriodEnds}</strong>.
+      </p>
+
+      <div style="background: #fff8e6; border-left: 4px solid #f0ad4e; padding: 15px; margin: 20px 0;">
+        <p style="margin: 0; color: #8a6d3b;">
+          <strong>Importante:</strong> Se o pagamento não for regularizado até ${formattedGracePeriodEnds},
+          sua assinatura será cancelada automaticamente.
+        </p>
+      </div>
+
+      <h2 style="color: #333;">Como resolver?</h2>
+
+      <p>Atualize seu método de pagamento para evitar a interrupção do serviço:</p>
+
+      <p>
+        <a href="${env.APP_URL}/billing"
+           style="display: inline-block; background: #007bff; color: white; padding: 12px 24px; text-decoration: none; border-radius: 4px;">
+          Atualizar Pagamento
+        </a>
+      </p>
+
+      <hr style="border: 1px solid #eee; margin: 20px 0;">
+
+      <p style="color: #666; font-size: 14px;">
+        Precisa de ajuda? Responda este email ou entre em contato com nosso suporte.
+      </p>
+
+      <p style="color: #999; font-size: 12px;">
+        Equipe Synnerdata
+      </p>
+    </div>
+  `;
+
+  await sendEmail({
+    to,
+    subject: `Falha no Pagamento - ${planName} - Synnerdata`,
+    html,
+  });
+}
+
+// ============================================================
+// CHECKOUT LINK EMAIL
+// ============================================================
+
+type CheckoutLinkEmailParams = {
+  to: string;
+  userName: string;
+  organizationName: string;
+  planName: string;
+  checkoutUrl: string;
+  expiresAt: Date;
+};
+
+export async function sendCheckoutLinkEmail(
+  params: CheckoutLinkEmailParams
+): Promise<void> {
+  const { to, userName, organizationName, planName, checkoutUrl, expiresAt } =
+    params;
+
+  const formattedExpiresAt = new Intl.DateTimeFormat("pt-BR", {
+    day: "2-digit",
+    month: "long",
+    year: "numeric",
+    hour: "2-digit",
+    minute: "2-digit",
+  }).format(expiresAt);
+
+  const html = `
+    <div style="font-family: Arial, sans-serif; max-width: 600px; margin: 0 auto; padding: 20px;">
+      <h1 style="color: #333;">Complete seu upgrade para o Plano ${planName}</h1>
+
+      <p>Olá <strong>${userName}</strong>,</p>
+
+      <p>
+        Você iniciou o upgrade da organização <strong>${organizationName}</strong>
+        para o plano <strong>${planName}</strong>.
+      </p>
+
+      <p>Clique no botão abaixo para continuar com o pagamento:</p>
+
+      <p>
+        <a href="${checkoutUrl}"
+           style="display: inline-block; background: #007bff; color: white; padding: 12px 24px; text-decoration: none; border-radius: 4px;">
+          Continuar Pagamento
+        </a>
+      </p>
+
+      <hr style="border: 1px solid #eee; margin: 20px 0;">
+
+      <div style="background: #fff8e6; border-left: 4px solid #f0ad4e; padding: 15px; margin: 20px 0;">
+        <p style="margin: 0; color: #8a6d3b;">
+          <strong>Este link expira em ${formattedExpiresAt}.</strong>
+        </p>
+      </div>
+
+      <p style="color: #666; font-size: 14px;">
+        Se você não solicitou este upgrade, ignore este email.
+      </p>
+
+      <p style="color: #999; font-size: 12px;">
+        Equipe Synnerdata
+      </p>
+    </div>
+  `;
+
+  await sendEmail({
+    to,
+    subject: `Complete seu upgrade para o Plano ${planName} - Synnerdata`,
+    html,
+  });
+}

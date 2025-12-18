@@ -752,6 +752,41 @@ export abstract class PlanChangeService {
       expiresAt,
     });
 
+    // Send checkout link email to organization owner
+    const [emailData] = await db
+      .select({
+        userEmail: schema.users.email,
+        userName: schema.users.name,
+        organizationName: schema.organizations.name,
+      })
+      .from(schema.members)
+      .innerJoin(schema.users, eq(schema.users.id, schema.members.userId))
+      .innerJoin(
+        schema.organizations,
+        eq(schema.organizations.id, schema.members.organizationId)
+      )
+      .where(
+        and(
+          eq(schema.members.organizationId, organizationId),
+          eq(schema.members.role, "owner")
+        )
+      )
+      .limit(1);
+
+    if (emailData) {
+      const { sendCheckoutLinkEmail } = await import("@/lib/email");
+      await sendCheckoutLinkEmail({
+        to: emailData.userEmail,
+        userName: emailData.userName,
+        organizationName: emailData.organizationName,
+        planName: newPlan.displayName,
+        checkoutUrl: paymentLink.url,
+        expiresAt,
+      }).catch(() => {
+        // Email failure should not fail checkout
+      });
+    }
+
     return paymentLink.url;
   }
 
@@ -855,6 +890,41 @@ export abstract class PlanChangeService {
       status: "pending",
       expiresAt,
     });
+
+    // Send checkout link email to organization owner
+    const [emailData] = await db
+      .select({
+        userEmail: schema.users.email,
+        userName: schema.users.name,
+        organizationName: schema.organizations.name,
+      })
+      .from(schema.members)
+      .innerJoin(schema.users, eq(schema.users.id, schema.members.userId))
+      .innerJoin(
+        schema.organizations,
+        eq(schema.organizations.id, schema.members.organizationId)
+      )
+      .where(
+        and(
+          eq(schema.members.organizationId, organizationId),
+          eq(schema.members.role, "owner")
+        )
+      )
+      .limit(1);
+
+    if (emailData) {
+      const { sendCheckoutLinkEmail } = await import("@/lib/email");
+      await sendCheckoutLinkEmail({
+        to: emailData.userEmail,
+        userName: emailData.userName,
+        organizationName: emailData.organizationName,
+        planName: plan.displayName,
+        checkoutUrl: paymentLink.url,
+        expiresAt,
+      }).catch(() => {
+        // Email failure should not fail checkout
+      });
+    }
 
     return paymentLink.url;
   }

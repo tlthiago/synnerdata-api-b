@@ -111,6 +111,35 @@ export abstract class CheckoutService {
       expiresAt,
     });
 
+    // Send checkout link email
+    const [emailData] = await db
+      .select({
+        userName: schema.users.name,
+        userEmail: schema.users.email,
+        organizationName: schema.organizations.name,
+      })
+      .from(schema.users)
+      .innerJoin(
+        schema.organizations,
+        eq(schema.organizations.id, organizationId)
+      )
+      .where(eq(schema.users.id, userId))
+      .limit(1);
+
+    if (emailData) {
+      const { sendCheckoutLinkEmail } = await import("@/lib/email");
+      await sendCheckoutLinkEmail({
+        to: emailData.userEmail,
+        userName: emailData.userName,
+        organizationName: emailData.organizationName,
+        planName: plan.displayName,
+        checkoutUrl: paymentLink.url,
+        expiresAt,
+      }).catch(() => {
+        // Email failure should not fail checkout
+      });
+    }
+
     return {
       checkoutUrl: paymentLink.url,
       paymentLinkId: paymentLink.id,

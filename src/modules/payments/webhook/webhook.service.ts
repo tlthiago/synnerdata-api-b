@@ -237,12 +237,64 @@ export abstract class WebhookService {
       .where(eq(schema.orgSubscriptions.organizationId, organizationId))
       .limit(1);
 
+    const errorMessage =
+      data.last_transaction?.gateway_response?.message ?? "Payment failed";
+
     if (subscription) {
       PaymentHooks.emit("charge.failed", {
         subscriptionId: subscription.id,
         invoiceId: data.invoice?.id ?? "",
-        error:
-          data.last_transaction?.gateway_response?.message ?? "Payment failed",
+        error: errorMessage,
+      });
+
+      // Send payment failed email to organization owner
+      await WebhookService.sendPaymentFailedEmail(
+        subscription,
+        organizationId,
+        errorMessage
+      );
+    }
+  }
+
+  private static async sendPaymentFailedEmail(
+    subscription: typeof schema.orgSubscriptions.$inferSelect,
+    organizationId: string,
+    errorMessage: string
+  ): Promise<void> {
+    const [emailData] = await db
+      .select({
+        userEmail: schema.users.email,
+        organizationName: schema.organizations.name,
+        planName: schema.subscriptionPlans.displayName,
+      })
+      .from(schema.members)
+      .innerJoin(schema.users, eq(schema.users.id, schema.members.userId))
+      .innerJoin(
+        schema.organizations,
+        eq(schema.organizations.id, schema.members.organizationId)
+      )
+      .innerJoin(
+        schema.subscriptionPlans,
+        eq(schema.subscriptionPlans.id, subscription.planId)
+      )
+      .where(
+        and(
+          eq(schema.members.organizationId, organizationId),
+          eq(schema.members.role, "owner")
+        )
+      )
+      .limit(1);
+
+    if (emailData && subscription.gracePeriodEnds) {
+      const { sendPaymentFailedEmail } = await import("@/lib/email");
+      await sendPaymentFailedEmail({
+        to: emailData.userEmail,
+        organizationName: emailData.organizationName,
+        planName: emailData.planName,
+        gracePeriodEnds: subscription.gracePeriodEnds,
+        errorMessage,
+      }).catch(() => {
+        // Email failure should not fail webhook processing
       });
     }
   }

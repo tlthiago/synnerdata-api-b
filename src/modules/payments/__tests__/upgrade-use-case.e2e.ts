@@ -220,6 +220,17 @@ test.describe("Upgrade Use Case E2E: Trial → Paid Subscription (Real Webhook)"
 
     console.log(`  Pending checkout created: ${pendingCheckout.id}`);
 
+    // Verify checkout link email was sent via Mailhog
+    const { waitForCheckoutEmail } = await import("@/test/helpers/mailhog");
+    const checkoutEmail = await waitForCheckoutEmail(user.email);
+
+    expect(checkoutEmail.subject).toContain("Complete seu upgrade");
+    expect(checkoutEmail.checkoutUrl).toBe(checkoutUrl);
+    expect(checkoutEmail.planName).toBe(proPlan.displayName);
+
+    console.log(`  Checkout email sent to: ${user.email}`);
+    console.log(`  Email subject: ${checkoutEmail.subject}`);
+
     // Verify subscription is still in trial
     const [subscriptionBeforePayment] = await db
       .select()

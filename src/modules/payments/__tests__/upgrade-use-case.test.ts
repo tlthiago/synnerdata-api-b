@@ -18,7 +18,9 @@ describe("Upgrade Use Case: Trial → Paid Subscription", () => {
   let app: TestApp;
   let sessionHeaders: Record<string, string>;
   let organizationId: string;
+  let userEmail: string;
   let paymentLinkId: string;
+  let checkoutUrl: string;
 
   beforeAll(async () => {
     app = createTestApp();
@@ -44,6 +46,7 @@ describe("Upgrade Use Case: Trial → Paid Subscription", () => {
       expect(result.user.emailVerified).toBe(true);
 
       organizationId = result.organizationId;
+      userEmail = result.user.email;
       sessionHeaders = result.headers;
     });
 
@@ -117,6 +120,7 @@ describe("Upgrade Use Case: Trial → Paid Subscription", () => {
         expect(body.data.paymentLinkId).toStartWith("pl_");
 
         paymentLinkId = body.data.paymentLinkId;
+        checkoutUrl = body.data.checkoutUrl;
       },
       { timeout: 30_000 }
     );
@@ -165,6 +169,19 @@ describe("Upgrade Use Case: Trial → Paid Subscription", () => {
       expect(checkout.employeeCount).toBe(DEFAULT_EMPLOYEE_COUNT);
       expect(checkout.expiresAt).toBeInstanceOf(Date);
       expect(checkout.expiresAt.getTime()).toBeGreaterThan(Date.now());
+    });
+
+    test("should send checkout link email", async () => {
+      if (!diamondPlan) {
+        throw new Error("Diamond plan not found in fixtures");
+      }
+
+      const { waitForCheckoutEmail } = await import("@/test/helpers/mailhog");
+      const emailData = await waitForCheckoutEmail(userEmail);
+
+      expect(emailData.subject).toContain("Complete seu upgrade");
+      expect(emailData.checkoutUrl).toBe(checkoutUrl);
+      expect(emailData.planName).toBe(diamondPlan.displayName);
     });
 
     test("should still have trial subscription (not activated yet)", async () => {

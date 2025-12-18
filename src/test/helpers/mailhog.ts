@@ -148,3 +148,193 @@ export async function waitForOTP(
 
   throw new Error(`OTP not found for ${email} after ${maxRetries} retries`);
 }
+
+// ============================================================
+// CHECKOUT EMAIL
+// ============================================================
+
+export type CheckoutEmailData = {
+  subject: string;
+  checkoutUrl: string;
+  planName: string;
+  body: string;
+};
+
+const CHECKOUT_URL_REGEX = /href=["']([^"']*pagar\.me[^"']*)["']/i;
+const CHECKOUT_SUBJECT_PATTERN = "Complete seu upgrade";
+const PLAN_NAME_FROM_SUBJECT_REGEX = /Plano\s+([^-]+)\s*-\s*Synnerdata/i;
+
+function extractCheckoutUrlFromBody(htmlBody: string): string | null {
+  const decodedBody = htmlBody.replace(/=3D/g, "=").replace(/=\r?\n/g, "");
+  const match = decodedBody.match(CHECKOUT_URL_REGEX);
+  return match?.[1] ?? null;
+}
+
+function extractPlanNameFromSubject(subject: string): string {
+  const match = subject.match(PLAN_NAME_FROM_SUBJECT_REGEX);
+  return match?.[1]?.trim() ?? "";
+}
+
+function isCheckoutEmail(message: MailHogMessage): boolean {
+  const subject = message.Content.Headers.Subject?.[0] ?? "";
+  return subject.includes(CHECKOUT_SUBJECT_PATTERN);
+}
+
+async function tryGetCheckoutEmail(
+  email: string
+): Promise<CheckoutEmailData | null> {
+  const messages = await searchEmailsByRecipient(email);
+
+  const checkoutEmail = messages.find(isCheckoutEmail);
+
+  if (!checkoutEmail) {
+    return null;
+  }
+
+  const subject = checkoutEmail.Content.Headers.Subject?.[0] ?? "";
+  const body = checkoutEmail.Content.Body;
+  const checkoutUrl = extractCheckoutUrlFromBody(body);
+
+  if (!checkoutUrl) {
+    throw new Error(
+      `Found checkout email for ${email} but could not extract checkout URL from body.`
+    );
+  }
+
+  return {
+    subject,
+    checkoutUrl,
+    planName: extractPlanNameFromSubject(subject),
+    body,
+  };
+}
+
+export async function waitForCheckoutEmail(
+  email: string,
+  maxRetries = DEFAULT_MAX_RETRIES,
+  delayMs = DEFAULT_RETRY_DELAY_MS
+): Promise<CheckoutEmailData> {
+  for (let attempt = 1; attempt <= maxRetries; attempt++) {
+    try {
+      const emailData = await tryGetCheckoutEmail(email);
+
+      if (emailData) {
+        return emailData;
+      }
+
+      if (attempt >= maxRetries) {
+        throw new Error(
+          `No checkout email found for ${email} after ${maxRetries} attempts.`
+        );
+      }
+
+      await delay(delayMs);
+    } catch (error) {
+      if (error instanceof TypeError && error.message.includes("fetch")) {
+        throwMailHogUnavailableError();
+      }
+
+      if (attempt >= maxRetries) {
+        throw error;
+      }
+
+      await delay(delayMs);
+    }
+  }
+
+  throw new Error(
+    `Checkout email not found for ${email} after ${maxRetries} retries`
+  );
+}
+
+// ============================================================
+// PAYMENT FAILED EMAIL
+// ============================================================
+
+export type PaymentFailedEmailData = {
+  subject: string;
+  planName: string;
+  errorMessage: string | null;
+  body: string;
+};
+
+const PAYMENT_FAILED_SUBJECT_PATTERN = "Falha no Pagamento";
+const PAYMENT_FAILED_ERROR_REGEX = /<strong>Motivo:<\/strong>\s*([^<]+)<\/p>/i;
+const PAYMENT_FAILED_PLAN_NAME_REGEX =
+  /Falha no Pagamento\s*-\s*([^-]+)\s*-\s*Synnerdata/i;
+
+function isPaymentFailedEmail(message: MailHogMessage): boolean {
+  const subject = message.Content.Headers.Subject?.[0] ?? "";
+  return subject.includes(PAYMENT_FAILED_SUBJECT_PATTERN);
+}
+
+function extractErrorMessageFromBody(htmlBody: string): string | null {
+  const decodedBody = htmlBody.replace(/=3D/g, "=").replace(/=\r?\n/g, "");
+  const match = decodedBody.match(PAYMENT_FAILED_ERROR_REGEX);
+  return match?.[1]?.trim() ?? null;
+}
+
+function extractPlanNameFromPaymentFailedSubject(subject: string): string {
+  const match = subject.match(PAYMENT_FAILED_PLAN_NAME_REGEX);
+  return match?.[1]?.trim() ?? "";
+}
+
+async function tryGetPaymentFailedEmail(
+  email: string
+): Promise<PaymentFailedEmailData | null> {
+  const messages = await searchEmailsByRecipient(email);
+
+  const paymentFailedEmail = messages.find(isPaymentFailedEmail);
+
+  if (!paymentFailedEmail) {
+    return null;
+  }
+
+  const subject = paymentFailedEmail.Content.Headers.Subject?.[0] ?? "";
+  const body = paymentFailedEmail.Content.Body;
+
+  return {
+    subject,
+    planName: extractPlanNameFromPaymentFailedSubject(subject),
+    errorMessage: extractErrorMessageFromBody(body),
+    body,
+  };
+}
+
+export async function waitForPaymentFailedEmail(
+  email: string,
+  maxRetries = DEFAULT_MAX_RETRIES,
+  delayMs = DEFAULT_RETRY_DELAY_MS
+): Promise<PaymentFailedEmailData> {
+  for (let attempt = 1; attempt <= maxRetries; attempt++) {
+    try {
+      const emailData = await tryGetPaymentFailedEmail(email);
+
+      if (emailData) {
+        return emailData;
+      }
+
+      if (attempt >= maxRetries) {
+        throw new Error(
+          `No payment failed email found for ${email} after ${maxRetries} attempts.`
+        );
+      }
+
+      await delay(delayMs);
+    } catch (error) {
+      if (error instanceof TypeError && error.message.includes("fetch")) {
+        throwMailHogUnavailableError();
+      }
+
+      if (attempt >= maxRetries) {
+        throw error;
+      }
+
+      await delay(delayMs);
+    }
+  }
+
+  throw new Error(
+    `Payment failed email not found for ${email} after ${maxRetries} retries`
+  );
+}

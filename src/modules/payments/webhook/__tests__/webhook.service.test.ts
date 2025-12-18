@@ -230,6 +230,52 @@ describe("WebhookService", () => {
         WebhookService.process(payload, authHeader, rawBody)
       ).resolves.toBeUndefined();
     });
+
+    test("should send payment failed email to organization owner", async () => {
+      const { addMemberToOrganization } = await import(
+        "@/test/helpers/organization"
+      );
+      const { createTestUser } = await import("@/test/helpers/user");
+      const { waitForPaymentFailedEmail } = await import(
+        "@/test/helpers/mailhog"
+      );
+
+      const ownerResult = await createTestUser({ emailVerified: true });
+      const org = await createTestOrganization();
+      await addMemberToOrganization(ownerResult, {
+        organizationId: org.id,
+        role: "owner",
+      });
+      await createActiveSubscription(org.id, "test-plan-pro");
+
+      const payload = createPayload("charge.payment_failed", {
+        metadata: { organization_id: org.id },
+        invoice: { id: "inv_email_test" },
+        last_transaction: {
+          gateway_response: { message: "Insufficient funds" },
+        },
+      });
+      const rawBody = JSON.stringify(payload);
+      const authHeader = createValidAuthHeader();
+
+      await WebhookService.process(payload, authHeader, rawBody);
+
+      // Verify subscription is past_due
+      const [subscription] = await db
+        .select()
+        .from(schema.orgSubscriptions)
+        .where(eq(schema.orgSubscriptions.organizationId, org.id))
+        .limit(1);
+
+      expect(subscription.status).toBe("past_due");
+
+      // Verify payment failed email was sent
+      const emailData = await waitForPaymentFailedEmail(ownerResult.user.email);
+
+      expect(emailData.subject).toContain("Falha no Pagamento");
+      expect(emailData.planName).toBe("Pro");
+      expect(emailData.errorMessage).toBe("Insufficient funds");
+    });
   });
 
   describe("handleSubscriptionCanceled", () => {
