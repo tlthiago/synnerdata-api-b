@@ -1,7 +1,7 @@
 import { beforeAll, describe, expect, test } from "bun:test";
 import { Elysia, t } from "elysia";
-import { AppError } from "../base-error";
-import { errorPlugin } from "../error-plugin";
+import { AppError } from "@/lib/errors/base-error";
+import { errorPlugin } from "@/lib/errors/error-plugin";
 
 class TestDomainError extends AppError {
   status = 400;

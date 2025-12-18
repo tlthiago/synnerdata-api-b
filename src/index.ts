@@ -11,7 +11,7 @@ import { cronPlugin } from "./lib/cron-plugin";
 import { errorPlugin } from "./lib/errors/error-plugin";
 import { healthPlugin } from "./lib/health";
 import { logger, loggerPlugin } from "./lib/logger";
-import { setupGracefulShutdown } from "./lib/shutdown";
+import { setupGracefulShutdown } from "./lib/shutdown/shutdown";
 import { apiKeysController } from "./modules/api-keys";
 import { auditController } from "./modules/audit";
 import { paymentsController } from "./modules/payments";

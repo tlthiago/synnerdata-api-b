@@ -38,7 +38,7 @@ describe("POST /v1/payments/subscription/change-billing-cycle", () => {
       emailVerified: true,
     });
 
-    await createActiveSubscription(organizationId, "test-plan-pro");
+    await createActiveSubscription(organizationId, "test-plan-diamond");
 
     const response = await app.handle(
       new Request(`${BASE_URL}/v1/payments/subscription/change-billing-cycle`, {
@@ -61,7 +61,7 @@ describe("POST /v1/payments/subscription/change-billing-cycle", () => {
       emailVerified: true,
     });
 
-    await createActiveSubscription(organizationId, "test-plan-pro");
+    await createActiveSubscription(organizationId, "test-plan-diamond");
 
     // Set to yearly billing cycle
     await db
@@ -105,7 +105,7 @@ describe("POST /v1/payments/subscription/change-billing-cycle", () => {
       emailVerified: true,
     });
 
-    await createActiveSubscription(organizationId, "test-plan-pro");
+    await createActiveSubscription(organizationId, "test-plan-diamond");
 
     const response = await app.handle(
       new Request(`${BASE_URL}/v1/payments/subscription/change-billing-cycle`, {
@@ -125,7 +125,7 @@ describe("POST /v1/payments/subscription/change-billing-cycle", () => {
       emailVerified: true,
     });
 
-    await createActiveSubscription(organizationId, "test-plan-pro");
+    await createActiveSubscription(organizationId, "test-plan-diamond");
 
     const response = await app.handle(
       new Request(`${BASE_URL}/v1/payments/subscription/change-billing-cycle`, {
@@ -145,7 +145,7 @@ describe("POST /v1/payments/subscription/change-billing-cycle", () => {
       emailVerified: true,
     });
 
-    await createActiveSubscription(organizationId, "test-plan-pro");
+    await createActiveSubscription(organizationId, "test-plan-diamond");
 
     const response = await app.handle(
       new Request(`${BASE_URL}/v1/payments/subscription/change-billing-cycle`, {

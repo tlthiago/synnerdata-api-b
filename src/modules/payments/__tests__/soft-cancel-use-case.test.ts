@@ -10,13 +10,13 @@ import { eq } from "drizzle-orm";
 import { db } from "@/db";
 import { schema } from "@/db/schema";
 import { env } from "@/env";
+import { JobsService } from "@/modules/payments/jobs/jobs.service";
+import { SubscriptionService } from "@/modules/payments/subscription/subscription.service";
 import { proPlan } from "@/test/fixtures/plans";
 import { createTestApp, type TestApp } from "@/test/helpers/app";
 import { seedPlans } from "@/test/helpers/seed";
 import { createActiveSubscription } from "@/test/helpers/subscription";
 import { createTestUserWithOrganization } from "@/test/helpers/user";
-import { JobsService } from "../jobs/jobs.service";
-import { SubscriptionService } from "../subscription/subscription.service";
 
 const BASE_URL = env.API_URL;
 

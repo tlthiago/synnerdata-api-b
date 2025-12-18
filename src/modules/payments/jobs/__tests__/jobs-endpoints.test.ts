@@ -71,7 +71,7 @@ describe("POST /v1/payments/jobs/expire-trials", () => {
     const org = await createTestOrganization();
     createdOrganizations.push(org);
 
-    await createTestSubscription(org.id, "test-plan-pro", {
+    await createTestSubscription(org.id, "test-plan-diamond", {
       status: "trial",
       trialDays: -1,
     });
@@ -185,7 +185,7 @@ describe("POST /v1/payments/jobs/notify-expiring-trials", () => {
       role: "owner",
     });
 
-    await createTestSubscription(org.id, "test-plan-pro", {
+    await createTestSubscription(org.id, "test-plan-diamond", {
       status: "trial",
       trialDays: 3,
     });

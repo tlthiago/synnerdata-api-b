@@ -10,6 +10,7 @@ import {
 } from "better-auth/plugins";
 import type { Session, User } from "better-auth/types";
 import { eq } from "drizzle-orm";
+import { db } from "@/db";
 import { fullSchema, schema } from "@/db/schema";
 import { env } from "@/env";
 import { parseOrigins } from "@/lib/cors";
@@ -17,7 +18,6 @@ import { logger } from "@/lib/logger";
 import { AuditService } from "@/modules/audit/audit.service";
 import { PlanService } from "@/modules/payments/plan/plan.service";
 import { SubscriptionService } from "@/modules/payments/subscription/subscription.service";
-import { db } from "../db";
 import { sendOTPEmail, sendWelcomeEmail } from "./email";
 import { orgAc, orgRoles, systemAc, systemRoles } from "./permissions";
 

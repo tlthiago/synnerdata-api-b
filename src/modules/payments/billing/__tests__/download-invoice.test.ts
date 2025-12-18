@@ -2,6 +2,7 @@ import { beforeAll, describe, expect, spyOn, test } from "bun:test";
 import { env } from "@/env";
 import { createTestApp, type TestApp } from "@/test/helpers/app";
 import { seedPlans } from "@/test/helpers/seed";
+import { skipIntegration } from "@/test/helpers/skip-integration";
 import {
   createActiveSubscription,
   createTestSubscription,
@@ -63,51 +64,64 @@ describe("GET /v1/payments/billing/invoices/:id/download", () => {
     expect(body.error.code).toBe("SUBSCRIPTION_NOT_FOUND");
   });
 
-  test("should return 404 for non-existent invoice in Pagarme", async () => {
-    const { headers, organizationId } = await createTestUserWithOrganization({
-      emailVerified: true,
-    });
+  test.skipIf(skipIntegration)(
+    "should return 404 for non-existent invoice in Pagarme",
+    async () => {
+      const { headers, organizationId } = await createTestUserWithOrganization({
+        emailVerified: true,
+      });
 
-    await createActiveSubscription(
-      organizationId,
-      "test-plan-pro",
-      "sub_KeLr0VRSY0SZQ74O"
-    );
+      await createActiveSubscription(
+        organizationId,
+        "test-plan-diamond",
+        "sub_KeLr0VRSY0SZQ74O"
+      );
 
-    // Try to download a non-existent invoice - Pagarme will return 404
-    const response = await app.handle(
-      new Request(
-        `${BASE_URL}/v1/payments/billing/invoices/inv_nonexistent/download`,
-        {
-          method: "GET",
-          headers,
-        }
-      )
-    );
+      // Try to download a non-existent invoice - Pagarme will return 404
+      const response = await app.handle(
+        new Request(
+          `${BASE_URL}/v1/payments/billing/invoices/inv_nonexistent/download`,
+          {
+            method: "GET",
+            headers,
+          }
+        )
+      );
 
-    // Pagarme returns 400 or 404 for non-existent invoice
-    expect([400, 404, 500]).toContain(response.status);
-  });
+      // Pagarme returns 400 or 404 for non-existent invoice
+      expect([400, 404, 500]).toContain(response.status);
+    }
+  );
 
-  test("should allow trial subscription to attempt invoice download", async () => {
-    const { headers, organizationId } = await createTestUserWithOrganization({
-      emailVerified: true,
-    });
+  test.skipIf(skipIntegration)(
+    "should allow trial subscription to attempt invoice download",
+    async () => {
+      const { headers, organizationId } = await createTestUserWithOrganization({
+        emailVerified: true,
+      });
 
-    await createTestSubscription(organizationId, "test-plan-pro", "trial");
+      await createTestSubscription(
+        organizationId,
+        "test-plan-diamond",
+        "trial"
+      );
 
-    // Trial subscriptions have no pagarmeSubscriptionId
-    // The service should still try to fetch from Pagarme (and fail with 404)
-    const response = await app.handle(
-      new Request(`${BASE_URL}/v1/payments/billing/invoices/inv_123/download`, {
-        method: "GET",
-        headers,
-      })
-    );
+      // Trial subscriptions have no pagarmeSubscriptionId
+      // The service should still try to fetch from Pagarme (and fail with 404)
+      const response = await app.handle(
+        new Request(
+          `${BASE_URL}/v1/payments/billing/invoices/inv_123/download`,
+          {
+            method: "GET",
+            headers,
+          }
+        )
+      );
 
-    // Should fail when trying to fetch invoice from Pagarme
-    expect([400, 404, 500]).toContain(response.status);
-  });
+      // Should fail when trying to fetch invoice from Pagarme
+      expect([400, 404, 500]).toContain(response.status);
+    }
+  );
 
   test.each([
     "viewer",
@@ -122,7 +136,7 @@ describe("GET /v1/payments/billing/invoices/:id/download", () => {
       emailVerified: true,
     });
 
-    await createTestSubscription(organizationId, "test-plan-pro", "trial");
+    await createTestSubscription(organizationId, "test-plan-diamond", "trial");
 
     const memberResult = await createTestUser({ emailVerified: true });
     await addMemberToOrganization(memberResult, {
@@ -151,7 +165,7 @@ describe("GET /v1/payments/billing/invoices/:id/download", () => {
 
     await createActiveSubscription(
       organizationId,
-      "test-plan-pro",
+      "test-plan-diamond",
       "sub_test_123"
     );
 

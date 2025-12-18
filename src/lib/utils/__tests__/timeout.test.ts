@@ -1,5 +1,5 @@
 import { describe, expect, test } from "bun:test";
-import { Timeout, TimeoutError } from "../timeout";
+import { Timeout, TimeoutError } from "@/lib/utils/timeout";
 
 describe("TimeoutError", () => {
   test("should have correct name property", () => {

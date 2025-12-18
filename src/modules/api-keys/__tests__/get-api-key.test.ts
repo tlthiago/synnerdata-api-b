@@ -1,11 +1,11 @@
 import { beforeAll, describe, expect, test } from "bun:test";
 import { env } from "@/env";
+import { ApiKeyService } from "@/modules/api-keys/api-key.service";
 import { createTestApp, type TestApp } from "@/test/helpers/app";
 import {
   createTestAdminUser,
   createTestUserWithOrganization,
 } from "@/test/helpers/user";
-import { ApiKeyService } from "../api-key.service";
 
 const BASE_URL = env.API_URL;
 

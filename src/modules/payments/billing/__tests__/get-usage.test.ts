@@ -65,7 +65,7 @@ describe("GET /v1/payments/billing/usage", () => {
       emailVerified: true,
     });
 
-    await createTestSubscription(organizationId, "test-plan-pro", "trial");
+    await createTestSubscription(organizationId, "test-plan-diamond", "trial");
 
     const response = await app.handle(
       new Request(`${BASE_URL}/v1/payments/billing/usage`, {
@@ -91,7 +91,7 @@ describe("GET /v1/payments/billing/usage", () => {
       emailVerified: true,
     });
 
-    await createTestSubscription(organizationId, "test-plan-pro", "trial");
+    await createTestSubscription(organizationId, "test-plan-diamond", "trial");
 
     const response = await app.handle(
       new Request(`${BASE_URL}/v1/payments/billing/usage`, {
@@ -118,7 +118,7 @@ describe("GET /v1/payments/billing/usage", () => {
       emailVerified: true,
     });
 
-    await createTestSubscription(organizationId, "test-plan-pro", "trial");
+    await createTestSubscription(organizationId, "test-plan-diamond", "trial");
 
     const memberResult = await createTestUser({ emailVerified: true });
     await addMemberToOrganization(memberResult, {

@@ -3,8 +3,8 @@ import { and, eq } from "drizzle-orm";
 import { db } from "@/db";
 import { schema } from "@/db/schema";
 import { env } from "@/env";
-import { WebhookValidationError } from "../errors";
-import { PaymentHooks } from "../hooks";
+import { WebhookValidationError } from "@/modules/payments/errors";
+import { PaymentHooks } from "@/modules/payments/hooks";
 import type { ProcessWebhook } from "./webhook.model";
 
 type SubscriptionCreatedData = {

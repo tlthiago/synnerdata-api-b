@@ -91,7 +91,7 @@ describe("POST /v1/payments/webhooks/pagarme", () => {
 
   test("should process valid webhook and return success response", async () => {
     const org = await createTestOrganization();
-    await createTestSubscription(org.id, "test-plan-pro", "trial");
+    await createTestSubscription(org.id, "test-plan-diamond", "trial");
 
     const payload = createWebhookPayload("charge.paid", {
       metadata: { organization_id: org.id },
@@ -180,13 +180,13 @@ describe("POST /v1/payments/webhooks/pagarme", () => {
 
   test("should process subscription.created and activate subscription", async () => {
     const org = await createTestOrganization();
-    const checkout = await createPendingCheckout(org.id, "test-plan-pro");
-    await createTestSubscription(org.id, "test-plan-pro", "trial");
+    const checkout = await createPendingCheckout(org.id, "test-plan-diamond");
+    await createTestSubscription(org.id, "test-plan-diamond", "trial");
 
     const payload = createWebhookPayload("subscription.created", {
       id: `sub_${crypto.randomUUID()}`,
       code: checkout.paymentLinkId,
-      metadata: { organization_id: org.id, plan_id: "test-plan-pro" },
+      metadata: { organization_id: org.id, plan_id: "test-plan-diamond" },
       customer: { id: "cus_123", name: "Test", document: "12345678909" },
       current_period: {
         start_at: new Date().toISOString(),
@@ -219,8 +219,8 @@ describe("POST /v1/payments/webhooks/pagarme", () => {
 
   test("should mark pending checkout as completed on subscription.created", async () => {
     const org = await createTestOrganization();
-    const checkout = await createPendingCheckout(org.id, "test-plan-pro");
-    await createTestSubscription(org.id, "test-plan-pro", "trial");
+    const checkout = await createPendingCheckout(org.id, "test-plan-diamond");
+    await createTestSubscription(org.id, "test-plan-diamond", "trial");
 
     const payload = createWebhookPayload("subscription.created", {
       id: `sub_${crypto.randomUUID()}`,
@@ -254,7 +254,7 @@ describe("POST /v1/payments/webhooks/pagarme", () => {
 
   test("should update subscription to past_due on charge.payment_failed", async () => {
     const org = await createTestOrganization();
-    await createTestSubscription(org.id, "test-plan-pro", "active");
+    await createTestSubscription(org.id, "test-plan-diamond", "active");
 
     const payload = createWebhookPayload("charge.payment_failed", {
       metadata: { organization_id: org.id },
@@ -285,7 +285,7 @@ describe("POST /v1/payments/webhooks/pagarme", () => {
 
   test("should update subscription to canceled on subscription.canceled", async () => {
     const org = await createTestOrganization();
-    await createTestSubscription(org.id, "test-plan-pro", "active");
+    await createTestSubscription(org.id, "test-plan-diamond", "active");
 
     const payload = createWebhookPayload("subscription.canceled", {
       id: "sub_123",

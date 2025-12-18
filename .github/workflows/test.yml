@@ -36,6 +36,9 @@ jobs:
       DATABASE_URL: postgresql://postgres:postgres@localhost:5432/synnerdata_test
       SMTP_HOST: localhost
       SMTP_PORT: 1025
+      SUPER_ADMIN_EMAILS: superadmin@test.com
+      ADMIN_EMAILS: admin@test.com
+      SKIP_INTEGRATION_TESTS: "true"
       BETTER_AUTH_SECRET: ${{ secrets.BETTER_AUTH_SECRET }}
       PAGARME_BASE_URL: ${{ secrets.PAGARME_BASE_URL }}
       PAGARME_SECRET_KEY: ${{ secrets.PAGARME_SECRET_KEY }}

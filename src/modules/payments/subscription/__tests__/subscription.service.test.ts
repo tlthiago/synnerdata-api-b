@@ -2,6 +2,8 @@ import { beforeAll, describe, expect, test } from "bun:test";
 import { eq } from "drizzle-orm";
 import { db } from "@/db";
 import { schema } from "@/db/schema";
+import { SubscriptionAlreadyActiveError } from "@/modules/payments/errors";
+import { SubscriptionService } from "@/modules/payments/subscription/subscription.service";
 import { createTestOrganization } from "@/test/helpers/organization";
 import { seedPlans } from "@/test/helpers/seed";
 import {
@@ -10,8 +12,6 @@ import {
   createExpiredSubscription,
   createTestSubscription,
 } from "@/test/helpers/subscription";
-import { SubscriptionAlreadyActiveError } from "../../errors";
-import { SubscriptionService } from "../subscription.service";
 
 describe("SubscriptionService", () => {
   beforeAll(async () => {
@@ -21,7 +21,7 @@ describe("SubscriptionService", () => {
   describe("hasActiveSubscription", () => {
     test("should return true for active subscription", async () => {
       const org = await createTestOrganization();
-      await createActiveSubscription(org.id, "test-plan-pro");
+      await createActiveSubscription(org.id, "test-plan-diamond");
 
       const result = await SubscriptionService.hasActiveSubscription(org.id);
 
@@ -30,7 +30,7 @@ describe("SubscriptionService", () => {
 
     test("should return true for trial subscription", async () => {
       const org = await createTestOrganization();
-      await createTestSubscription(org.id, "test-plan-pro", "trial");
+      await createTestSubscription(org.id, "test-plan-diamond", "trial");
 
       const result = await SubscriptionService.hasActiveSubscription(org.id);
 
@@ -39,7 +39,7 @@ describe("SubscriptionService", () => {
 
     test("should return false for canceled subscription", async () => {
       const org = await createTestOrganization();
-      await createCanceledSubscription(org.id, "test-plan-pro");
+      await createCanceledSubscription(org.id, "test-plan-diamond");
 
       const result = await SubscriptionService.hasActiveSubscription(org.id);
 
@@ -48,7 +48,7 @@ describe("SubscriptionService", () => {
 
     test("should return false for expired subscription", async () => {
       const org = await createTestOrganization();
-      await createExpiredSubscription(org.id, "test-plan-pro");
+      await createExpiredSubscription(org.id, "test-plan-diamond");
 
       const result = await SubscriptionService.hasActiveSubscription(org.id);
 
@@ -67,7 +67,7 @@ describe("SubscriptionService", () => {
   describe("hasPaidSubscription", () => {
     test("should return true for active subscription", async () => {
       const org = await createTestOrganization();
-      await createActiveSubscription(org.id, "test-plan-pro");
+      await createActiveSubscription(org.id, "test-plan-diamond");
 
       const result = await SubscriptionService.hasPaidSubscription(org.id);
 
@@ -76,7 +76,7 @@ describe("SubscriptionService", () => {
 
     test("should return false for trial subscription", async () => {
       const org = await createTestOrganization();
-      await createTestSubscription(org.id, "test-plan-pro", "trial");
+      await createTestSubscription(org.id, "test-plan-diamond", "trial");
 
       const result = await SubscriptionService.hasPaidSubscription(org.id);
 
@@ -85,7 +85,7 @@ describe("SubscriptionService", () => {
 
     test("should return false for canceled subscription", async () => {
       const org = await createTestOrganization();
-      await createCanceledSubscription(org.id, "test-plan-pro");
+      await createCanceledSubscription(org.id, "test-plan-diamond");
 
       const result = await SubscriptionService.hasPaidSubscription(org.id);
 
@@ -104,7 +104,7 @@ describe("SubscriptionService", () => {
   describe("ensureNoPaidSubscription", () => {
     test("should not throw for trial subscription", async () => {
       const org = await createTestOrganization();
-      await createTestSubscription(org.id, "test-plan-pro", "trial");
+      await createTestSubscription(org.id, "test-plan-diamond", "trial");
 
       await expect(
         SubscriptionService.ensureNoPaidSubscription(org.id)
@@ -113,7 +113,7 @@ describe("SubscriptionService", () => {
 
     test("should not throw for canceled subscription", async () => {
       const org = await createTestOrganization();
-      await createCanceledSubscription(org.id, "test-plan-pro");
+      await createCanceledSubscription(org.id, "test-plan-diamond");
 
       await expect(
         SubscriptionService.ensureNoPaidSubscription(org.id)
@@ -130,7 +130,7 @@ describe("SubscriptionService", () => {
 
     test("should throw SubscriptionAlreadyActiveError for active subscription", async () => {
       const org = await createTestOrganization();
-      await createActiveSubscription(org.id, "test-plan-pro");
+      await createActiveSubscription(org.id, "test-plan-diamond");
 
       await expect(
         SubscriptionService.ensureNoPaidSubscription(org.id)
@@ -153,7 +153,7 @@ describe("SubscriptionService", () => {
 
     test("should return active status with full access", async () => {
       const org = await createTestOrganization();
-      await createActiveSubscription(org.id, "test-plan-pro");
+      await createActiveSubscription(org.id, "test-plan-diamond");
 
       const result = await SubscriptionService.checkAccess(org.id);
 
@@ -166,7 +166,7 @@ describe("SubscriptionService", () => {
 
     test("should return trial status with days remaining", async () => {
       const org = await createTestOrganization();
-      await createTestSubscription(org.id, "test-plan-pro", {
+      await createTestSubscription(org.id, "test-plan-diamond", {
         status: "trial",
         trialDays: 14,
       });
@@ -183,7 +183,7 @@ describe("SubscriptionService", () => {
 
     test("should return trial_expired when trial has ended", async () => {
       const org = await createTestOrganization();
-      await createTestSubscription(org.id, "test-plan-pro", {
+      await createTestSubscription(org.id, "test-plan-diamond", {
         status: "trial",
         trialDays: -1,
       });
@@ -199,7 +199,7 @@ describe("SubscriptionService", () => {
 
     test("should return canceled status without access", async () => {
       const org = await createTestOrganization();
-      await createCanceledSubscription(org.id, "test-plan-pro");
+      await createCanceledSubscription(org.id, "test-plan-diamond");
 
       const result = await SubscriptionService.checkAccess(org.id);
 
@@ -210,7 +210,7 @@ describe("SubscriptionService", () => {
 
     test("should return expired status without access", async () => {
       const org = await createTestOrganization();
-      await createExpiredSubscription(org.id, "test-plan-pro");
+      await createExpiredSubscription(org.id, "test-plan-diamond");
 
       const result = await SubscriptionService.checkAccess(org.id);
 
@@ -221,7 +221,7 @@ describe("SubscriptionService", () => {
 
     test("should return past_due status with access", async () => {
       const org = await createTestOrganization();
-      await createTestSubscription(org.id, "test-plan-pro", {
+      await createTestSubscription(org.id, "test-plan-diamond", {
         status: "past_due",
       });
 
@@ -244,7 +244,7 @@ describe("SubscriptionService", () => {
 
     test("should return false when trial was already used", async () => {
       const org = await createTestOrganization();
-      await createActiveSubscription(org.id, "test-plan-pro");
+      await createActiveSubscription(org.id, "test-plan-diamond");
 
       const result = await SubscriptionService.canUseTrial(org.id);
 
@@ -253,7 +253,7 @@ describe("SubscriptionService", () => {
 
     test("should return false for current trial subscription", async () => {
       const org = await createTestOrganization();
-      await createTestSubscription(org.id, "test-plan-pro", "trial");
+      await createTestSubscription(org.id, "test-plan-diamond", "trial");
 
       const result = await SubscriptionService.canUseTrial(org.id);
 
@@ -265,7 +265,7 @@ describe("SubscriptionService", () => {
     test("should create trial subscription with correct dates", async () => {
       const org = await createTestOrganization();
 
-      await SubscriptionService.createTrial(org.id, "test-plan-pro");
+      await SubscriptionService.createTrial(org.id, "test-plan-diamond");
 
       const [subscription] = await db
         .select()
@@ -275,7 +275,7 @@ describe("SubscriptionService", () => {
 
       expect(subscription).toBeDefined();
       expect(subscription.status).toBe("trial");
-      expect(subscription.planId).toBe("test-plan-pro");
+      expect(subscription.planId).toBe("test-plan-diamond");
       expect(subscription.trialStart).toBeInstanceOf(Date);
       expect(subscription.trialEnd).toBeInstanceOf(Date);
       expect(subscription.trialUsed).toBe(true);
@@ -295,7 +295,7 @@ describe("SubscriptionService", () => {
   describe("activate", () => {
     test("should activate subscription with billing period", async () => {
       const org = await createTestOrganization();
-      await createTestSubscription(org.id, "test-plan-pro", "trial");
+      await createTestSubscription(org.id, "test-plan-diamond", "trial");
 
       const periodStart = new Date();
       const periodEnd = new Date();
@@ -324,7 +324,7 @@ describe("SubscriptionService", () => {
 
     test("should clear cancellation flags when activating", async () => {
       const org = await createTestOrganization();
-      await createCanceledSubscription(org.id, "test-plan-pro");
+      await createCanceledSubscription(org.id, "test-plan-diamond");
 
       await db
         .update(schema.orgSubscriptions)
@@ -357,7 +357,7 @@ describe("SubscriptionService", () => {
   describe("markPastDue", () => {
     test("should update subscription status to past_due", async () => {
       const org = await createTestOrganization();
-      await createActiveSubscription(org.id, "test-plan-pro");
+      await createActiveSubscription(org.id, "test-plan-diamond");
 
       await SubscriptionService.markPastDue(org.id);
 
@@ -376,7 +376,7 @@ describe("SubscriptionService", () => {
       const org = await createTestOrganization();
       const subscriptionId = await createTestSubscription(
         org.id,
-        "test-plan-pro",
+        "test-plan-diamond",
         "trial"
       );
 
@@ -395,7 +395,7 @@ describe("SubscriptionService", () => {
       const org = await createTestOrganization();
       const subscriptionId = await createActiveSubscription(
         org.id,
-        "test-plan-pro"
+        "test-plan-diamond"
       );
 
       await SubscriptionService.expireTrial(subscriptionId);
@@ -419,7 +419,7 @@ describe("SubscriptionService", () => {
   describe("cancel", () => {
     test("should set cancelAtPeriodEnd without changing status (soft cancel)", async () => {
       const org = await createTestOrganization();
-      await createActiveSubscription(org.id, "test-plan-pro");
+      await createActiveSubscription(org.id, "test-plan-diamond");
 
       await SubscriptionService.cancel({
         organizationId: org.id,
@@ -439,7 +439,7 @@ describe("SubscriptionService", () => {
 
     test("should cancel trial subscription without changing status", async () => {
       const org = await createTestOrganization();
-      await createTestSubscription(org.id, "test-plan-pro", "trial");
+      await createTestSubscription(org.id, "test-plan-diamond", "trial");
 
       await SubscriptionService.cancel({
         organizationId: org.id,
@@ -459,7 +459,7 @@ describe("SubscriptionService", () => {
 
     test("should return cancelAtPeriodEnd true and currentPeriodEnd", async () => {
       const org = await createTestOrganization();
-      await createActiveSubscription(org.id, "test-plan-pro");
+      await createActiveSubscription(org.id, "test-plan-diamond");
 
       const result = await SubscriptionService.cancel({
         organizationId: org.id,
@@ -474,7 +474,7 @@ describe("SubscriptionService", () => {
   describe("restore", () => {
     test("should clear cancellation flags", async () => {
       const org = await createTestOrganization();
-      await createActiveSubscription(org.id, "test-plan-pro");
+      await createActiveSubscription(org.id, "test-plan-diamond");
 
       await db
         .update(schema.orgSubscriptions)
@@ -499,7 +499,7 @@ describe("SubscriptionService", () => {
 
     test("should return restored true", async () => {
       const org = await createTestOrganization();
-      await createActiveSubscription(org.id, "test-plan-pro");
+      await createActiveSubscription(org.id, "test-plan-diamond");
 
       await db
         .update(schema.orgSubscriptions)
@@ -517,7 +517,7 @@ describe("SubscriptionService", () => {
     test("should throw error when not scheduled for cancellation", async () => {
       const { SubscriptionNotRestorableError } = await import("../../errors");
       const org = await createTestOrganization();
-      await createActiveSubscription(org.id, "test-plan-pro");
+      await createActiveSubscription(org.id, "test-plan-diamond");
 
       await expect(
         SubscriptionService.restore({
@@ -530,7 +530,7 @@ describe("SubscriptionService", () => {
     test("should throw error for canceled subscription", async () => {
       const { SubscriptionNotRestorableError } = await import("../../errors");
       const org = await createTestOrganization();
-      await createCanceledSubscription(org.id, "test-plan-pro");
+      await createCanceledSubscription(org.id, "test-plan-diamond");
 
       await expect(
         SubscriptionService.restore({

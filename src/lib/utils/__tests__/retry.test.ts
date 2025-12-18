@@ -1,5 +1,5 @@
 import { describe, expect, test } from "bun:test";
-import { Retry } from "../retry";
+import { Retry } from "@/lib/utils/retry";
 
 describe("Retry", () => {
   describe("withRetry", () => {

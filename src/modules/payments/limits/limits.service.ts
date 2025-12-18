@@ -1,7 +1,7 @@
 import { eq } from "drizzle-orm";
 import { db } from "@/db";
 import { type PLAN_FEATURES, schema } from "@/db/schema";
-import { FeatureNotAvailableError } from "../errors";
+import { FeatureNotAvailableError } from "@/modules/payments/errors";
 import type {
   CapabilitiesData,
   CheckFeatureData,

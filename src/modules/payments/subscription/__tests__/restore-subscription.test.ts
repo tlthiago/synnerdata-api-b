@@ -58,7 +58,7 @@ describe("POST /v1/payments/subscription/restore", () => {
       emailVerified: true,
     });
 
-    await createActiveSubscription(organizationId, "test-plan-pro");
+    await createActiveSubscription(organizationId, "test-plan-diamond");
 
     const response = await app.handle(
       new Request(`${BASE_URL}/v1/payments/subscription/restore`, {
@@ -77,7 +77,7 @@ describe("POST /v1/payments/subscription/restore", () => {
       emailVerified: true,
     });
 
-    await createTestSubscription(organizationId, "test-plan-pro", "trial");
+    await createTestSubscription(organizationId, "test-plan-diamond", "trial");
 
     const response = await app.handle(
       new Request(`${BASE_URL}/v1/payments/subscription/restore`, {
@@ -96,7 +96,7 @@ describe("POST /v1/payments/subscription/restore", () => {
       emailVerified: true,
     });
 
-    await createExpiredSubscription(organizationId, "test-plan-pro");
+    await createExpiredSubscription(organizationId, "test-plan-diamond");
 
     await db
       .update(schema.orgSubscriptions)
@@ -120,7 +120,7 @@ describe("POST /v1/payments/subscription/restore", () => {
       emailVerified: true,
     });
 
-    await createCanceledSubscription(organizationId, "test-plan-pro");
+    await createCanceledSubscription(organizationId, "test-plan-diamond");
 
     const response = await app.handle(
       new Request(`${BASE_URL}/v1/payments/subscription/restore`, {
@@ -139,7 +139,7 @@ describe("POST /v1/payments/subscription/restore", () => {
       emailVerified: true,
     });
 
-    await createTestSubscription(organizationId, "test-plan-pro", "trial");
+    await createTestSubscription(organizationId, "test-plan-diamond", "trial");
 
     await db
       .update(schema.orgSubscriptions)
@@ -174,7 +174,7 @@ describe("POST /v1/payments/subscription/restore", () => {
       emailVerified: true,
     });
 
-    await createActiveSubscription(organizationId, "test-plan-pro");
+    await createActiveSubscription(organizationId, "test-plan-diamond");
 
     await db
       .update(schema.orgSubscriptions)
@@ -209,7 +209,7 @@ describe("POST /v1/payments/subscription/restore", () => {
       emailVerified: true,
     });
 
-    await createActiveSubscription(organizationId, "test-plan-pro");
+    await createActiveSubscription(organizationId, "test-plan-diamond");
 
     await db
       .update(schema.orgSubscriptions)
@@ -246,7 +246,7 @@ describe("POST /v1/payments/subscription/restore", () => {
       emailVerified: true,
     });
 
-    await createActiveSubscription(organizationId, "test-plan-pro");
+    await createActiveSubscription(organizationId, "test-plan-diamond");
 
     await db
       .update(schema.orgSubscriptions)

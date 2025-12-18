@@ -1,5 +1,5 @@
 import { describe, expect, test } from "bun:test";
-import { PII } from "../pii";
+import { PII } from "@/lib/crypto/pii";
 
 describe("PII", () => {
   describe("encrypt", () => {

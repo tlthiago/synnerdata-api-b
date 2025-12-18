@@ -58,7 +58,7 @@ describe("POST /v1/payments/subscription/cancel", () => {
       emailVerified: true,
     });
 
-    await createCanceledSubscription(organizationId, "test-plan-pro");
+    await createCanceledSubscription(organizationId, "test-plan-diamond");
 
     const response = await app.handle(
       new Request(`${BASE_URL}/v1/payments/subscription/cancel`, {
@@ -77,7 +77,7 @@ describe("POST /v1/payments/subscription/cancel", () => {
       emailVerified: true,
     });
 
-    await createExpiredSubscription(organizationId, "test-plan-pro");
+    await createExpiredSubscription(organizationId, "test-plan-diamond");
 
     const response = await app.handle(
       new Request(`${BASE_URL}/v1/payments/subscription/cancel`, {
@@ -96,7 +96,7 @@ describe("POST /v1/payments/subscription/cancel", () => {
       emailVerified: true,
     });
 
-    await createTestSubscription(organizationId, "test-plan-pro", {
+    await createTestSubscription(organizationId, "test-plan-diamond", {
       status: "past_due",
     });
 
@@ -117,7 +117,7 @@ describe("POST /v1/payments/subscription/cancel", () => {
       emailVerified: true,
     });
 
-    await createActiveSubscription(organizationId, "test-plan-pro");
+    await createActiveSubscription(organizationId, "test-plan-diamond");
 
     const response = await app.handle(
       new Request(`${BASE_URL}/v1/payments/subscription/cancel`, {
@@ -139,7 +139,7 @@ describe("POST /v1/payments/subscription/cancel", () => {
       emailVerified: true,
     });
 
-    await createTestSubscription(organizationId, "test-plan-pro", "trial");
+    await createTestSubscription(organizationId, "test-plan-diamond", "trial");
 
     const response = await app.handle(
       new Request(`${BASE_URL}/v1/payments/subscription/cancel`, {
@@ -160,7 +160,7 @@ describe("POST /v1/payments/subscription/cancel", () => {
       emailVerified: true,
     });
 
-    await createActiveSubscription(organizationId, "test-plan-pro");
+    await createActiveSubscription(organizationId, "test-plan-diamond");
 
     const response = await app.handle(
       new Request(`${BASE_URL}/v1/payments/subscription/cancel`, {
@@ -187,7 +187,7 @@ describe("POST /v1/payments/subscription/cancel", () => {
       emailVerified: true,
     });
 
-    await createTestSubscription(organizationId, "test-plan-pro", "trial");
+    await createTestSubscription(organizationId, "test-plan-diamond", "trial");
 
     const response = await app.handle(
       new Request(`${BASE_URL}/v1/payments/subscription/cancel`, {
@@ -218,7 +218,7 @@ describe("POST /v1/payments/subscription/cancel", () => {
 
     await createActiveSubscription(
       organizationId,
-      "test-plan-pro",
+      "test-plan-diamond",
       "sub_test_soft_cancel"
     );
 
@@ -253,7 +253,7 @@ describe("POST /v1/payments/subscription/cancel", () => {
       emailVerified: true,
     });
 
-    await createActiveSubscription(organizationId, "test-plan-pro");
+    await createActiveSubscription(organizationId, "test-plan-diamond");
 
     const memberResult = await createTestUser({ emailVerified: true });
 

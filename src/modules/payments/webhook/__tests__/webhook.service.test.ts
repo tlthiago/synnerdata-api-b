@@ -3,6 +3,8 @@ import { eq } from "drizzle-orm";
 import { db } from "@/db";
 import { schema } from "@/db/schema";
 import { env } from "@/env";
+import type { ProcessWebhook } from "@/modules/payments/webhook/webhook.model";
+import { WebhookService } from "@/modules/payments/webhook/webhook.service";
 import { createPendingCheckout } from "@/test/helpers/checkout";
 import { createTestOrganization } from "@/test/helpers/organization";
 import { seedPlans } from "@/test/helpers/seed";
@@ -10,8 +12,6 @@ import {
   createActiveSubscription,
   createTestSubscription,
 } from "@/test/helpers/subscription";
-import type { ProcessWebhook } from "../webhook.model";
-import { WebhookService } from "../webhook.service";
 
 function createValidAuthHeader(): string {
   const credentials = `${env.PAGARME_WEBHOOK_USERNAME}:${env.PAGARME_WEBHOOK_PASSWORD}`;
@@ -128,7 +128,7 @@ describe("WebhookService", () => {
   describe("handleChargePaid", () => {
     test("should update subscription to active", async () => {
       const org = await createTestOrganization();
-      await createTestSubscription(org.id, "test-plan-pro", "trial");
+      await createTestSubscription(org.id, "test-plan-diamond", "trial");
 
       const payload = createPayload("charge.paid", {
         metadata: { organization_id: org.id },
@@ -155,7 +155,7 @@ describe("WebhookService", () => {
 
     test("should set currentPeriodStart and currentPeriodEnd", async () => {
       const org = await createTestOrganization();
-      await createTestSubscription(org.id, "test-plan-pro", "trial");
+      await createTestSubscription(org.id, "test-plan-diamond", "trial");
 
       const startAt = new Date();
       const endAt = new Date(Date.now() + 30 * 24 * 60 * 60 * 1000);
@@ -199,7 +199,7 @@ describe("WebhookService", () => {
   describe("handleChargeFailed", () => {
     test("should update subscription to past_due", async () => {
       const org = await createTestOrganization();
-      await createActiveSubscription(org.id, "test-plan-pro");
+      await createActiveSubscription(org.id, "test-plan-diamond");
 
       const payload = createPayload("charge.payment_failed", {
         metadata: { organization_id: org.id },
@@ -246,7 +246,7 @@ describe("WebhookService", () => {
         organizationId: org.id,
         role: "owner",
       });
-      await createActiveSubscription(org.id, "test-plan-pro");
+      await createActiveSubscription(org.id, "test-plan-diamond");
 
       const payload = createPayload("charge.payment_failed", {
         metadata: { organization_id: org.id },
@@ -273,7 +273,7 @@ describe("WebhookService", () => {
       const emailData = await waitForPaymentFailedEmail(ownerResult.user.email);
 
       expect(emailData.subject).toContain("Falha no Pagamento");
-      expect(emailData.planName).toBe("Pro");
+      expect(emailData.planName).toBe("Test Diamond");
       expect(emailData.errorMessage).toBe("Insufficient funds");
     });
   });
@@ -281,7 +281,7 @@ describe("WebhookService", () => {
   describe("handleSubscriptionCanceled", () => {
     test("should update subscription to canceled", async () => {
       const org = await createTestOrganization();
-      await createActiveSubscription(org.id, "test-plan-pro");
+      await createActiveSubscription(org.id, "test-plan-diamond");
 
       const payload = createPayload("subscription.canceled", {
         id: "sub_cancel_123",
@@ -305,7 +305,7 @@ describe("WebhookService", () => {
     test("should find subscription by pagarmeSubscriptionId when no metadata", async () => {
       const org = await createTestOrganization();
       const pagarmeSubId = `sub_${crypto.randomUUID()}`;
-      await createActiveSubscription(org.id, "test-plan-pro", pagarmeSubId);
+      await createActiveSubscription(org.id, "test-plan-diamond", pagarmeSubId);
 
       const payload = createPayload("subscription.canceled", {
         id: pagarmeSubId,
@@ -348,7 +348,7 @@ describe("WebhookService", () => {
         organizationId: org.id,
         role: "owner",
       });
-      await createActiveSubscription(org.id, "test-plan-pro");
+      await createActiveSubscription(org.id, "test-plan-diamond");
 
       const payload = createPayload("subscription.canceled", {
         id: "sub_cancel_email_test",
@@ -386,7 +386,7 @@ describe("WebhookService", () => {
         role: "owner",
       });
       const pagarmeSubId = `sub_email_${crypto.randomUUID()}`;
-      await createActiveSubscription(org.id, "test-plan-pro", pagarmeSubId);
+      await createActiveSubscription(org.id, "test-plan-diamond", pagarmeSubId);
 
       const payload = createPayload("subscription.canceled", {
         id: pagarmeSubId,
@@ -411,7 +411,7 @@ describe("WebhookService", () => {
 
     test("should cancel subscription even when organization has no owner (no email sent)", async () => {
       const org = await createTestOrganization();
-      await createActiveSubscription(org.id, "test-plan-pro");
+      await createActiveSubscription(org.id, "test-plan-diamond");
 
       const payload = createPayload("subscription.canceled", {
         id: "sub_no_owner",
@@ -439,8 +439,8 @@ describe("WebhookService", () => {
   describe("handleSubscriptionCreated", () => {
     test("should activate subscription via pending checkout lookup", async () => {
       const org = await createTestOrganization();
-      const checkout = await createPendingCheckout(org.id, "test-plan-pro");
-      await createTestSubscription(org.id, "test-plan-pro", "trial");
+      const checkout = await createPendingCheckout(org.id, "test-plan-diamond");
+      await createTestSubscription(org.id, "test-plan-diamond", "trial");
 
       const payload = createPayload("subscription.created", {
         id: `sub_${crypto.randomUUID()}`,
@@ -467,8 +467,8 @@ describe("WebhookService", () => {
 
     test("should mark pending checkout as completed", async () => {
       const org = await createTestOrganization();
-      const checkout = await createPendingCheckout(org.id, "test-plan-pro");
-      await createTestSubscription(org.id, "test-plan-pro", "trial");
+      const checkout = await createPendingCheckout(org.id, "test-plan-diamond");
+      await createTestSubscription(org.id, "test-plan-diamond", "trial");
 
       const payload = createPayload("subscription.created", {
         id: `sub_${crypto.randomUUID()}`,
@@ -495,8 +495,8 @@ describe("WebhookService", () => {
 
     test("should sync customer data to organization profile", async () => {
       const org = await createTestOrganization();
-      const checkout = await createPendingCheckout(org.id, "test-plan-pro");
-      await createTestSubscription(org.id, "test-plan-pro", "trial");
+      const checkout = await createPendingCheckout(org.id, "test-plan-diamond");
+      await createTestSubscription(org.id, "test-plan-diamond", "trial");
 
       const customerId = `cus_${crypto.randomUUID().slice(0, 8)}`;
       const payload = createPayload("subscription.created", {
@@ -535,11 +535,11 @@ describe("WebhookService", () => {
 
     test("should work with metadata.organization_id (direct)", async () => {
       const org = await createTestOrganization();
-      await createTestSubscription(org.id, "test-plan-pro", "trial");
+      await createTestSubscription(org.id, "test-plan-diamond", "trial");
 
       const payload = createPayload("subscription.created", {
         id: `sub_${crypto.randomUUID()}`,
-        metadata: { organization_id: org.id, plan_id: "test-plan-pro" },
+        metadata: { organization_id: org.id, plan_id: "test-plan-diamond" },
         current_period: {
           start_at: new Date().toISOString(),
           end_at: new Date(Date.now() + 30 * 24 * 60 * 60 * 1000).toISOString(),
@@ -574,8 +574,8 @@ describe("WebhookService", () => {
 
     test("should set pagarmeSubscriptionId and pagarmeCustomerId", async () => {
       const org = await createTestOrganization();
-      const checkout = await createPendingCheckout(org.id, "test-plan-pro");
-      await createTestSubscription(org.id, "test-plan-pro", "trial");
+      const checkout = await createPendingCheckout(org.id, "test-plan-diamond");
+      await createTestSubscription(org.id, "test-plan-diamond", "trial");
 
       const subId = `sub_${crypto.randomUUID()}`;
       const payload = createPayload("subscription.created", {
@@ -606,7 +606,7 @@ describe("WebhookService", () => {
   describe("handleChargeRefunded", () => {
     test("should cancel subscription when charge is refunded via metadata", async () => {
       const org = await createTestOrganization();
-      await createActiveSubscription(org.id, "test-plan-pro");
+      await createActiveSubscription(org.id, "test-plan-diamond");
 
       const payload = createPayload("charge.refunded", {
         id: "ch_refund_123",
@@ -631,7 +631,7 @@ describe("WebhookService", () => {
     test("should cancel subscription when charge is refunded via pagarmeSubscriptionId", async () => {
       const org = await createTestOrganization();
       const pagarmeSubId = `sub_${crypto.randomUUID()}`;
-      await createActiveSubscription(org.id, "test-plan-pro", pagarmeSubId);
+      await createActiveSubscription(org.id, "test-plan-diamond", pagarmeSubId);
 
       const payload = createPayload("charge.refunded", {
         id: "ch_refund_456",
@@ -669,7 +669,7 @@ describe("WebhookService", () => {
 
     test("should record refund event in subscriptionEvents", async () => {
       const org = await createTestOrganization();
-      await createActiveSubscription(org.id, "test-plan-pro");
+      await createActiveSubscription(org.id, "test-plan-diamond");
 
       const eventId = `evt_refund_${crypto.randomUUID()}`;
       const payload: ProcessWebhook = {
@@ -700,7 +700,7 @@ describe("WebhookService", () => {
 
     test("should handle refund with reason from gateway response", async () => {
       const org = await createTestOrganization();
-      await createActiveSubscription(org.id, "test-plan-pro");
+      await createActiveSubscription(org.id, "test-plan-diamond");
 
       const payload = createPayload("charge.refunded", {
         id: "ch_refund_reason",
@@ -729,7 +729,7 @@ describe("WebhookService", () => {
     test("should update subscription status when changed", async () => {
       const org = await createTestOrganization();
       const pagarmeSubId = `sub_${crypto.randomUUID()}`;
-      await createActiveSubscription(org.id, "test-plan-pro", pagarmeSubId);
+      await createActiveSubscription(org.id, "test-plan-diamond", pagarmeSubId);
 
       const payload = createPayload("subscription.updated", {
         id: pagarmeSubId,
@@ -753,7 +753,7 @@ describe("WebhookService", () => {
     test("should update current period dates", async () => {
       const org = await createTestOrganization();
       const pagarmeSubId = `sub_${crypto.randomUUID()}`;
-      await createActiveSubscription(org.id, "test-plan-pro", pagarmeSubId);
+      await createActiveSubscription(org.id, "test-plan-diamond", pagarmeSubId);
 
       const newPeriodStart = new Date();
       const newPeriodEnd = new Date();
@@ -783,7 +783,7 @@ describe("WebhookService", () => {
 
     test("should find subscription by metadata organization_id", async () => {
       const org = await createTestOrganization();
-      await createActiveSubscription(org.id, "test-plan-pro");
+      await createActiveSubscription(org.id, "test-plan-diamond");
 
       const payload = createPayload("subscription.updated", {
         id: "sub_any",
@@ -820,7 +820,7 @@ describe("WebhookService", () => {
     test("should not update status if same as current", async () => {
       const org = await createTestOrganization();
       const pagarmeSubId = `sub_${crypto.randomUUID()}`;
-      await createActiveSubscription(org.id, "test-plan-pro", pagarmeSubId);
+      await createActiveSubscription(org.id, "test-plan-diamond", pagarmeSubId);
 
       const payload = createPayload("subscription.updated", {
         id: pagarmeSubId,
@@ -844,7 +844,7 @@ describe("WebhookService", () => {
     test("should map pending status to past_due", async () => {
       const org = await createTestOrganization();
       const pagarmeSubId = `sub_${crypto.randomUUID()}`;
-      await createActiveSubscription(org.id, "test-plan-pro", pagarmeSubId);
+      await createActiveSubscription(org.id, "test-plan-diamond", pagarmeSubId);
 
       const payload = createPayload("subscription.updated", {
         id: pagarmeSubId,
@@ -867,7 +867,7 @@ describe("WebhookService", () => {
     test("should map failed status to past_due", async () => {
       const org = await createTestOrganization();
       const pagarmeSubId = `sub_${crypto.randomUUID()}`;
-      await createActiveSubscription(org.id, "test-plan-pro", pagarmeSubId);
+      await createActiveSubscription(org.id, "test-plan-diamond", pagarmeSubId);
 
       const payload = createPayload("subscription.updated", {
         id: pagarmeSubId,
@@ -890,7 +890,7 @@ describe("WebhookService", () => {
     test("should record update event in subscriptionEvents", async () => {
       const org = await createTestOrganization();
       const pagarmeSubId = `sub_${crypto.randomUUID()}`;
-      await createActiveSubscription(org.id, "test-plan-pro", pagarmeSubId);
+      await createActiveSubscription(org.id, "test-plan-diamond", pagarmeSubId);
 
       const eventId = `evt_update_${crypto.randomUUID()}`;
       const payload: ProcessWebhook = {

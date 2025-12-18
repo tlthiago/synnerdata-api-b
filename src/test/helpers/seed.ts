@@ -1,6 +1,6 @@
 import { db } from "@/db";
 import { schema } from "@/db/schema";
-import { testPlans, testPricingTiers } from "../fixtures/plans";
+import { testPlans, testPricingTiers } from "@/test/fixtures/plans";
 
 /**
  * Seeds subscription plans and pricing tiers for testing.

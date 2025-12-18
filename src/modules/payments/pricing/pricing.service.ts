@@ -12,8 +12,8 @@ import {
   EmployeeCountRequiredError,
   PlanNotFoundError,
   PricingTierNotFoundError,
-} from "../errors";
-import { PagarmeClient } from "../pagarme/client";
+} from "@/modules/payments/errors";
+import { PagarmeClient } from "@/modules/payments/pagarme/client";
 import type {
   BillingCycle,
   GetPricingTierData,

@@ -2,6 +2,7 @@ import { beforeAll, describe, expect, spyOn, test } from "bun:test";
 import { env } from "@/env";
 import { createTestApp, type TestApp } from "@/test/helpers/app";
 import { seedPlans } from "@/test/helpers/seed";
+import { skipIntegration } from "@/test/helpers/skip-integration";
 import {
   createActiveSubscription,
   createTestSubscription,
@@ -72,7 +73,7 @@ describe("POST /v1/payments/billing/update-card", () => {
       emailVerified: true,
     });
 
-    await createTestSubscription(organizationId, "test-plan-pro", "trial");
+    await createTestSubscription(organizationId, "test-plan-diamond", "trial");
 
     const response = await app.handle(
       new Request(`${BASE_URL}/v1/payments/billing/update-card`, {
@@ -92,7 +93,11 @@ describe("POST /v1/payments/billing/update-card", () => {
       emailVerified: true,
     });
 
-    await createActiveSubscription(organizationId, "test-plan-pro", "sub_123");
+    await createActiveSubscription(
+      organizationId,
+      "test-plan-diamond",
+      "sub_123"
+    );
 
     const response = await app.handle(
       new Request(`${BASE_URL}/v1/payments/billing/update-card`, {
@@ -110,7 +115,11 @@ describe("POST /v1/payments/billing/update-card", () => {
       emailVerified: true,
     });
 
-    await createActiveSubscription(organizationId, "test-plan-pro", "sub_123");
+    await createActiveSubscription(
+      organizationId,
+      "test-plan-diamond",
+      "sub_123"
+    );
 
     const response = await app.handle(
       new Request(`${BASE_URL}/v1/payments/billing/update-card`, {
@@ -123,30 +132,33 @@ describe("POST /v1/payments/billing/update-card", () => {
     expect(response.status).toBe(422);
   });
 
-  test("should fail with invalid cardId in Pagarme", async () => {
-    const { headers, organizationId } = await createTestUserWithOrganization({
-      emailVerified: true,
-    });
+  test.skipIf(skipIntegration)(
+    "should fail with invalid cardId in Pagarme",
+    async () => {
+      const { headers, organizationId } = await createTestUserWithOrganization({
+        emailVerified: true,
+      });
 
-    // Use a real Pagarme subscription ID
-    await createActiveSubscription(
-      organizationId,
-      "test-plan-pro",
-      "sub_KeLr0VRSY0SZQ74O"
-    );
+      // Use a real Pagarme subscription ID
+      await createActiveSubscription(
+        organizationId,
+        "test-plan-diamond",
+        "sub_KeLr0VRSY0SZQ74O"
+      );
 
-    // Try to update with an invalid card ID - Pagarme should reject it
-    const response = await app.handle(
-      new Request(`${BASE_URL}/v1/payments/billing/update-card`, {
-        method: "POST",
-        headers: { ...headers, "Content-Type": "application/json" },
-        body: JSON.stringify({ cardId: "card_invalid_123" }),
-      })
-    );
+      // Try to update with an invalid card ID - Pagarme should reject it
+      const response = await app.handle(
+        new Request(`${BASE_URL}/v1/payments/billing/update-card`, {
+          method: "POST",
+          headers: { ...headers, "Content-Type": "application/json" },
+          body: JSON.stringify({ cardId: "card_invalid_123" }),
+        })
+      );
 
-    // Pagarme returns error for invalid card ID
-    expect([400, 404, 422, 500]).toContain(response.status);
-  });
+      // Pagarme returns error for invalid card ID
+      expect([400, 404, 422, 500]).toContain(response.status);
+    }
+  );
 
   test.each([
     "viewer",
@@ -161,7 +173,11 @@ describe("POST /v1/payments/billing/update-card", () => {
       emailVerified: true,
     });
 
-    await createActiveSubscription(organizationId, "test-plan-pro", "sub_123");
+    await createActiveSubscription(
+      organizationId,
+      "test-plan-diamond",
+      "sub_123"
+    );
 
     const memberResult = await createTestUser({ emailVerified: true });
     await addMemberToOrganization(memberResult, {
@@ -194,7 +210,7 @@ describe("POST /v1/payments/billing/update-card", () => {
 
     await createActiveSubscription(
       organizationId,
-      "test-plan-pro",
+      "test-plan-diamond",
       "sub_test_123"
     );
 

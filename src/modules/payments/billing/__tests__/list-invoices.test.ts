@@ -2,6 +2,7 @@ import { beforeAll, describe, expect, spyOn, test } from "bun:test";
 import { env } from "@/env";
 import { createTestApp, type TestApp } from "@/test/helpers/app";
 import { seedPlans } from "@/test/helpers/seed";
+import { skipIntegration } from "@/test/helpers/skip-integration";
 import {
   createActiveSubscription,
   createTestSubscription,
@@ -68,7 +69,7 @@ describe("GET /v1/payments/billing/invoices", () => {
       emailVerified: true,
     });
 
-    await createTestSubscription(organizationId, "test-plan-pro", "trial");
+    await createTestSubscription(organizationId, "test-plan-diamond", "trial");
 
     const response = await app.handle(
       new Request(`${BASE_URL}/v1/payments/billing/invoices`, {
@@ -84,48 +85,51 @@ describe("GET /v1/payments/billing/invoices", () => {
     expect(body.data.total).toBe(0);
   });
 
-  test("should call Pagarme API for active subscription with pagarmeSubscriptionId", async () => {
-    const { headers, organizationId } = await createTestUserWithOrganization({
-      emailVerified: true,
-    });
+  test.skipIf(skipIntegration)(
+    "should call Pagarme API for active subscription with pagarmeSubscriptionId",
+    async () => {
+      const { headers, organizationId } = await createTestUserWithOrganization({
+        emailVerified: true,
+      });
 
-    // Use a real Pagarme subscription ID from sandbox
-    // This subscription may or may not exist/have invoices depending on sandbox state
-    await createActiveSubscription(
-      organizationId,
-      "test-plan-pro",
-      "sub_KeLr0VRSY0SZQ74O" // Real Pagarme sandbox subscription
-    );
+      // Use a real Pagarme subscription ID from sandbox
+      // This subscription may or may not exist/have invoices depending on sandbox state
+      await createActiveSubscription(
+        organizationId,
+        "test-plan-diamond",
+        "sub_KeLr0VRSY0SZQ74O" // Real Pagarme sandbox subscription
+      );
 
-    const response = await app.handle(
-      new Request(`${BASE_URL}/v1/payments/billing/invoices`, {
-        method: "GET",
-        headers,
-      })
-    );
+      const response = await app.handle(
+        new Request(`${BASE_URL}/v1/payments/billing/invoices`, {
+          method: "GET",
+          headers,
+        })
+      );
 
-    // The API should either return invoices or an error from Pagarme
-    // Depending on whether the subscription exists in sandbox
-    if (response.status === 200) {
-      const body = await response.json();
-      expect(body.success).toBe(true);
-      expect(body.data).toHaveProperty("invoices");
-      expect(body.data).toHaveProperty("total");
-      expect(body.data).toHaveProperty("page");
-      expect(body.data).toHaveProperty("limit");
-      expect(Array.isArray(body.data.invoices)).toBe(true);
-    } else {
-      // Subscription may not exist in Pagarme sandbox anymore
-      expect([400, 404, 422, 500]).toContain(response.status);
+      // The API should either return invoices or an error from Pagarme
+      // Depending on whether the subscription exists in sandbox
+      if (response.status === 200) {
+        const body = await response.json();
+        expect(body.success).toBe(true);
+        expect(body.data).toHaveProperty("invoices");
+        expect(body.data).toHaveProperty("total");
+        expect(body.data).toHaveProperty("page");
+        expect(body.data).toHaveProperty("limit");
+        expect(Array.isArray(body.data.invoices)).toBe(true);
+      } else {
+        // Subscription may not exist in Pagarme sandbox anymore
+        expect([400, 404, 422, 500]).toContain(response.status);
+      }
     }
-  });
+  );
 
   test("should accept pagination parameters", async () => {
     const { headers, organizationId } = await createTestUserWithOrganization({
       emailVerified: true,
     });
 
-    await createTestSubscription(organizationId, "test-plan-pro", "trial");
+    await createTestSubscription(organizationId, "test-plan-diamond", "trial");
 
     const response = await app.handle(
       new Request(`${BASE_URL}/v1/payments/billing/invoices?page=2&limit=10`, {
@@ -145,7 +149,7 @@ describe("GET /v1/payments/billing/invoices", () => {
       emailVerified: true,
     });
 
-    await createTestSubscription(organizationId, "test-plan-pro", "trial");
+    await createTestSubscription(organizationId, "test-plan-diamond", "trial");
 
     const response = await app.handle(
       new Request(`${BASE_URL}/v1/payments/billing/invoices`, {
@@ -173,7 +177,7 @@ describe("GET /v1/payments/billing/invoices", () => {
       emailVerified: true,
     });
 
-    await createTestSubscription(organizationId, "test-plan-pro", "trial");
+    await createTestSubscription(organizationId, "test-plan-diamond", "trial");
 
     const memberResult = await createTestUser({ emailVerified: true });
     await addMemberToOrganization(memberResult, {
@@ -202,7 +206,7 @@ describe("GET /v1/payments/billing/invoices", () => {
 
     await createActiveSubscription(
       organizationId,
-      "test-plan-pro",
+      "test-plan-diamond",
       "sub_real_123"
     );
 

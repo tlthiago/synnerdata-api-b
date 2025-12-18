@@ -2,8 +2,8 @@ import { afterAll, describe, expect, test } from "bun:test";
 import { eq } from "drizzle-orm";
 import { db } from "@/db";
 import { schema } from "@/db/schema";
+import { AuditService } from "@/modules/audit/audit.service";
 import { createTestOrganization } from "@/test/helpers/organization";
-import { AuditService } from "../audit.service";
 
 describe("AuditService", () => {
   const testOrgIds: string[] = [];

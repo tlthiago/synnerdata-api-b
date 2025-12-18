@@ -2,20 +2,20 @@ import { beforeAll, describe, expect, test } from "bun:test";
 import { eq } from "drizzle-orm";
 import { db } from "@/db";
 import { schema } from "@/db/schema";
-import { createTestOrganization } from "@/test/helpers/organization";
-import { seedPlans } from "@/test/helpers/seed";
-import {
-  createActiveSubscription,
-  createTestSubscription,
-} from "@/test/helpers/subscription";
 import {
   NoScheduledChangeError,
   PlanChangeInProgressError,
   SameBillingCycleError,
   SamePlanError,
   SubscriptionNotActiveError,
-} from "../../errors";
-import { PlanChangeService } from "../plan-change.service";
+} from "@/modules/payments/errors";
+import { PlanChangeService } from "@/modules/payments/plan-change/plan-change.service";
+import { createTestOrganization } from "@/test/helpers/organization";
+import { seedPlans } from "@/test/helpers/seed";
+import {
+  createActiveSubscription,
+  createTestSubscription,
+} from "@/test/helpers/subscription";
 
 describe("PlanChangeService", () => {
   beforeAll(async () => {
@@ -198,7 +198,7 @@ describe("PlanChangeService", () => {
   describe("getScheduledChange", () => {
     test("should return hasScheduledChange false when no change is scheduled", async () => {
       const org = await createTestOrganization();
-      await createActiveSubscription(org.id, "test-plan-pro");
+      await createActiveSubscription(org.id, "test-plan-diamond");
 
       const result = await PlanChangeService.getScheduledChange(org.id);
 
@@ -208,7 +208,7 @@ describe("PlanChangeService", () => {
 
     test("should return scheduled change details when change is pending", async () => {
       const org = await createTestOrganization();
-      await createActiveSubscription(org.id, "test-plan-pro");
+      await createActiveSubscription(org.id, "test-plan-diamond");
 
       const scheduledAt = new Date();
       scheduledAt.setDate(scheduledAt.getDate() + 30);
@@ -216,7 +216,7 @@ describe("PlanChangeService", () => {
       await db
         .update(schema.orgSubscriptions)
         .set({
-          pendingPlanId: "test-plan-starter",
+          pendingPlanId: "test-plan-gold",
           pendingBillingCycle: "monthly",
           planChangeAt: scheduledAt,
         })
@@ -225,7 +225,7 @@ describe("PlanChangeService", () => {
       const result = await PlanChangeService.getScheduledChange(org.id);
 
       expect(result.hasScheduledChange).toBe(true);
-      expect(result.change?.pendingPlanId).toBe("test-plan-starter");
+      expect(result.change?.pendingPlanId).toBe("test-plan-gold");
       expect(result.change?.pendingBillingCycle).toBe("monthly");
     });
   });
@@ -233,7 +233,7 @@ describe("PlanChangeService", () => {
   describe("cancelScheduledChange", () => {
     test("should cancel a scheduled plan change", async () => {
       const org = await createTestOrganization();
-      await createActiveSubscription(org.id, "test-plan-pro");
+      await createActiveSubscription(org.id, "test-plan-diamond");
 
       const scheduledAt = new Date();
       scheduledAt.setDate(scheduledAt.getDate() + 30);
@@ -241,7 +241,7 @@ describe("PlanChangeService", () => {
       await db
         .update(schema.orgSubscriptions)
         .set({
-          pendingPlanId: "test-plan-starter",
+          pendingPlanId: "test-plan-gold",
           pendingBillingCycle: "monthly",
           planChangeAt: scheduledAt,
         })
@@ -267,7 +267,7 @@ describe("PlanChangeService", () => {
 
     test("should throw NoScheduledChangeError when no change is scheduled", async () => {
       const org = await createTestOrganization();
-      await createActiveSubscription(org.id, "test-plan-pro");
+      await createActiveSubscription(org.id, "test-plan-diamond");
 
       await expect(
         PlanChangeService.cancelScheduledChange({
@@ -281,13 +281,13 @@ describe("PlanChangeService", () => {
   describe("changePlan validation", () => {
     test("should throw SamePlanError for same plan", async () => {
       const org = await createTestOrganization();
-      await createActiveSubscription(org.id, "test-plan-pro");
+      await createActiveSubscription(org.id, "test-plan-diamond");
 
       await expect(
         PlanChangeService.changePlan({
           userId: "test-user",
           organizationId: org.id,
-          newPlanId: "test-plan-pro",
+          newPlanId: "test-plan-diamond",
           successUrl: "https://example.com/success",
         })
       ).rejects.toBeInstanceOf(SamePlanError);
@@ -295,13 +295,13 @@ describe("PlanChangeService", () => {
 
     test("should throw SubscriptionNotActiveError for trial subscription", async () => {
       const org = await createTestOrganization();
-      await createTestSubscription(org.id, "test-plan-pro", "trial");
+      await createTestSubscription(org.id, "test-plan-diamond", "trial");
 
       await expect(
         PlanChangeService.changePlan({
           userId: "test-user",
           organizationId: org.id,
-          newPlanId: "test-plan-starter",
+          newPlanId: "test-plan-gold",
           successUrl: "https://example.com/success",
         })
       ).rejects.toBeInstanceOf(SubscriptionNotActiveError);
@@ -309,7 +309,7 @@ describe("PlanChangeService", () => {
 
     test("should throw PlanChangeInProgressError when change is already scheduled", async () => {
       const org = await createTestOrganization();
-      await createActiveSubscription(org.id, "test-plan-pro");
+      await createActiveSubscription(org.id, "test-plan-diamond");
 
       const scheduledAt = new Date();
       scheduledAt.setDate(scheduledAt.getDate() + 30);
@@ -317,7 +317,7 @@ describe("PlanChangeService", () => {
       await db
         .update(schema.orgSubscriptions)
         .set({
-          pendingPlanId: "test-plan-starter",
+          pendingPlanId: "test-plan-gold",
           planChangeAt: scheduledAt,
         })
         .where(eq(schema.orgSubscriptions.organizationId, org.id));
@@ -326,7 +326,7 @@ describe("PlanChangeService", () => {
         PlanChangeService.changePlan({
           userId: "test-user",
           organizationId: org.id,
-          newPlanId: "test-plan-enterprise",
+          newPlanId: "test-plan-platinum",
           successUrl: "https://example.com/success",
         })
       ).rejects.toBeInstanceOf(PlanChangeInProgressError);
@@ -334,7 +334,7 @@ describe("PlanChangeService", () => {
 
     test("should throw SubscriptionNotActiveError when cancelAtPeriodEnd is true", async () => {
       const org = await createTestOrganization();
-      await createActiveSubscription(org.id, "test-plan-pro");
+      await createActiveSubscription(org.id, "test-plan-diamond");
 
       await db
         .update(schema.orgSubscriptions)
@@ -345,7 +345,7 @@ describe("PlanChangeService", () => {
         PlanChangeService.changePlan({
           userId: "test-user",
           organizationId: org.id,
-          newPlanId: "test-plan-starter",
+          newPlanId: "test-plan-gold",
           successUrl: "https://example.com/success",
         })
       ).rejects.toBeInstanceOf(SubscriptionNotActiveError);
@@ -355,7 +355,7 @@ describe("PlanChangeService", () => {
   describe("changeBillingCycle validation", () => {
     test("should throw SameBillingCycleError for same billing cycle", async () => {
       const org = await createTestOrganization();
-      await createActiveSubscription(org.id, "test-plan-pro");
+      await createActiveSubscription(org.id, "test-plan-diamond");
 
       await expect(
         PlanChangeService.changeBillingCycle({

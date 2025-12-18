@@ -2,6 +2,7 @@ import { afterAll, beforeAll, describe, expect, test } from "bun:test";
 import { eq } from "drizzle-orm";
 import { db } from "@/db";
 import { schema } from "@/db/schema";
+import { JobsService } from "@/modules/payments/jobs/jobs.service";
 import {
   addMemberToOrganization,
   createTestOrganization,
@@ -10,7 +11,6 @@ import {
 import { seedPlans } from "@/test/helpers/seed";
 import { createTestSubscription } from "@/test/helpers/subscription";
 import { createTestUser, type TestUserResult } from "@/test/helpers/user";
-import { JobsService } from "../jobs.service";
 
 describe("JobsService", () => {
   const createdOrganizations: TestOrganization[] = [];
@@ -51,7 +51,7 @@ describe("JobsService", () => {
       const org = await createTestOrganization();
       createdOrganizations.push(org);
 
-      await createTestSubscription(org.id, "test-plan-pro", {
+      await createTestSubscription(org.id, "test-plan-diamond", {
         status: "trial",
         trialDays: -1,
       });
@@ -73,7 +73,7 @@ describe("JobsService", () => {
       const org = await createTestOrganization();
       createdOrganizations.push(org);
 
-      await createTestSubscription(org.id, "test-plan-pro", {
+      await createTestSubscription(org.id, "test-plan-diamond", {
         status: "trial",
         trialDays: 14,
       });
@@ -94,7 +94,7 @@ describe("JobsService", () => {
       const org = await createTestOrganization();
       createdOrganizations.push(org);
 
-      await createTestSubscription(org.id, "test-plan-pro", {
+      await createTestSubscription(org.id, "test-plan-diamond", {
         status: "active",
       });
 
@@ -132,7 +132,7 @@ describe("JobsService", () => {
         role: "owner",
       });
 
-      await createTestSubscription(org.id, "test-plan-pro", {
+      await createTestSubscription(org.id, "test-plan-diamond", {
         status: "trial",
         trialDays: 3,
       });
@@ -165,7 +165,7 @@ describe("JobsService", () => {
         role: "owner",
       });
 
-      await createTestSubscription(org.id, "test-plan-pro", {
+      await createTestSubscription(org.id, "test-plan-diamond", {
         status: "trial",
         trialDays: 1,
       });
@@ -193,7 +193,7 @@ describe("JobsService", () => {
         role: "owner",
       });
 
-      await createTestSubscription(org.id, "test-plan-pro", {
+      await createTestSubscription(org.id, "test-plan-diamond", {
         status: "trial",
         trialDays: 10,
       });
@@ -216,7 +216,7 @@ describe("JobsService", () => {
       const now = new Date();
       const trialEnd = new Date(now.getTime() + 3.5 * 24 * 60 * 60 * 1000);
 
-      await createTestSubscription(org.id, "test-plan-pro", {
+      await createTestSubscription(org.id, "test-plan-diamond", {
         status: "trial",
         trialDays: 3,
       });
@@ -263,7 +263,7 @@ describe("JobsService", () => {
       const pastDate = new Date();
       pastDate.setDate(pastDate.getDate() - 1);
 
-      await createTestSubscription(org.id, "test-plan-pro", {
+      await createTestSubscription(org.id, "test-plan-diamond", {
         status: "active",
       });
 
@@ -295,7 +295,7 @@ describe("JobsService", () => {
       const futureDate = new Date();
       futureDate.setDate(futureDate.getDate() + 5);
 
-      await createTestSubscription(org.id, "test-plan-pro", {
+      await createTestSubscription(org.id, "test-plan-diamond", {
         status: "active",
       });
 
@@ -327,7 +327,7 @@ describe("JobsService", () => {
       const pastDate = new Date();
       pastDate.setDate(pastDate.getDate() - 1);
 
-      await createTestSubscription(org.id, "test-plan-pro", {
+      await createTestSubscription(org.id, "test-plan-diamond", {
         status: "active",
       });
 
@@ -358,7 +358,7 @@ describe("JobsService", () => {
       const pastDate = new Date();
       pastDate.setDate(pastDate.getDate() - 1);
 
-      await createTestSubscription(org.id, "test-plan-pro", {
+      await createTestSubscription(org.id, "test-plan-diamond", {
         status: "canceled",
       });
 

@@ -7,8 +7,8 @@ import {
   unauthorizedErrorSchema,
   validationErrorSchema,
 } from "@/lib/responses/response.types";
-import { capabilitiesResponseSchema } from "../limits/limits.model";
-import { LimitsService } from "../limits/limits.service";
+import { capabilitiesResponseSchema } from "@/modules/payments/limits/limits.model";
+import { LimitsService } from "@/modules/payments/limits/limits.service";
 import {
   cancelSubscriptionResponseSchema,
   getSubscriptionResponseSchema,

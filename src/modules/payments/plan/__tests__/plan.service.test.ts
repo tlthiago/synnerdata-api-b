@@ -2,10 +2,14 @@ import { afterAll, beforeAll, describe, expect, test } from "bun:test";
 import { eq } from "drizzle-orm";
 import { db } from "@/db";
 import { schema } from "@/db/schema";
+import {
+  PlanNotAvailableError,
+  PlanNotFoundError,
+} from "@/modules/payments/errors";
+import { PlanService } from "@/modules/payments/plan/plan.service";
 import { diamondPlan, testPlans } from "@/test/fixtures/plans";
 import { seedPlans } from "@/test/helpers/seed";
-import { PlanNotAvailableError, PlanNotFoundError } from "../../errors";
-import { PlanService } from "../plan.service";
+import { skipIntegration } from "@/test/helpers/skip-integration";
 
 describe("PlanService", () => {
   beforeAll(async () => {
@@ -157,7 +161,7 @@ describe("PlanService", () => {
   });
 });
 
-describe("PlanService - Pagarme Sync", () => {
+describe.skipIf(skipIntegration)("PlanService - Pagarme Sync", () => {
   beforeAll(async () => {
     await seedPlans();
 

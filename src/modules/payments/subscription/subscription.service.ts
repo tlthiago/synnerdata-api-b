@@ -7,8 +7,8 @@ import {
   SubscriptionNotCancelableError,
   SubscriptionNotFoundError,
   SubscriptionNotRestorableError,
-} from "../errors";
-import { PaymentHooks } from "../hooks";
+} from "@/modules/payments/errors";
+import { PaymentHooks } from "@/modules/payments/hooks";
 import type {
   CancelSubscriptionData,
   CancelSubscriptionInput,

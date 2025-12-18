@@ -300,7 +300,7 @@ test.describe("Checkout Flow E2E", () => {
     // Attempt to call checkout API without auth cookie
     const response = await request.post(`${API_URL}/v1/payments/checkout`, {
       data: {
-        planId: "test-plan-pro",
+        planId: "test-plan-diamond",
         employeeCount: 10,
         successUrl: SUCCESS_URL,
       },

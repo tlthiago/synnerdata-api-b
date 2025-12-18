@@ -8,9 +8,9 @@ import {
 } from "@/lib/email";
 import { logger } from "@/lib/logger";
 import { Retry } from "@/lib/utils/retry";
-import { PaymentHooks } from "../hooks";
-import { PagarmeClient } from "../pagarme/client";
-import { PlanChangeService } from "../plan-change/plan-change.service";
+import { PaymentHooks } from "@/modules/payments/hooks";
+import { PagarmeClient } from "@/modules/payments/pagarme/client";
+import { PlanChangeService } from "@/modules/payments/plan-change/plan-change.service";
 import type {
   ExpireTrialsData,
   NotifyExpiringTrialsData,

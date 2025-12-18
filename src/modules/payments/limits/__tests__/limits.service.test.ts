@@ -2,12 +2,12 @@ import { beforeAll, describe, expect, test } from "bun:test";
 import { eq } from "drizzle-orm";
 import { db } from "@/db";
 import { PLAN_FEATURES, schema } from "@/db/schema";
+import { FeatureNotAvailableError } from "@/modules/payments/errors";
+import { LimitsService } from "@/modules/payments/limits/limits.service";
 import { diamondPlan, goldPlan, platinumPlan } from "@/test/fixtures/plans";
 import { seedPlans } from "@/test/helpers/seed";
 import { createTestSubscription } from "@/test/helpers/subscription";
 import { createTestUserWithOrganization } from "@/test/helpers/user";
-import { FeatureNotAvailableError } from "../../errors";
-import { LimitsService } from "../limits.service";
 
 describe("LimitsService", () => {
   beforeAll(async () => {

@@ -54,7 +54,7 @@ describe("GET /v1/payments/subscription", () => {
       emailVerified: true,
     });
 
-    await createTestSubscription(organizationId, "test-plan-pro", "trial");
+    await createTestSubscription(organizationId, "test-plan-diamond", "trial");
 
     const response = await app.handle(
       new Request(`${BASE_URL}/v1/payments/subscription`, {
@@ -71,9 +71,9 @@ describe("GET /v1/payments/subscription", () => {
     expect(body.data.organizationId).toBe(organizationId);
     expect(body.data.status).toBe("trial");
     expect(body.data.plan).toBeDefined();
-    expect(body.data.plan.id).toBe("test-plan-pro");
-    expect(body.data.plan.name).toBe("pro");
-    expect(body.data.plan.displayName).toBe("Pro");
+    expect(body.data.plan.id).toBe("test-plan-diamond");
+    expect(body.data.plan.name).toBe("diamond");
+    expect(body.data.plan.displayName).toBe("Test Diamond");
     expect(body.data.plan.limits).toBeDefined();
   });
 
@@ -82,7 +82,7 @@ describe("GET /v1/payments/subscription", () => {
       emailVerified: true,
     });
 
-    await createActiveSubscription(organizationId, "test-plan-pro");
+    await createActiveSubscription(organizationId, "test-plan-diamond");
 
     const response = await app.handle(
       new Request(`${BASE_URL}/v1/payments/subscription`, {
@@ -104,7 +104,7 @@ describe("GET /v1/payments/subscription", () => {
       emailVerified: true,
     });
 
-    await createTestSubscription(organizationId, "test-plan-pro", {
+    await createTestSubscription(organizationId, "test-plan-diamond", {
       status: "trial",
       trialDays: 14,
     });
@@ -132,7 +132,7 @@ describe("GET /v1/payments/subscription", () => {
 
     await createActiveSubscription(
       organizationId,
-      "test-plan-pro",
+      "test-plan-diamond",
       "sub_test123"
     );
 
@@ -156,7 +156,7 @@ describe("GET /v1/payments/subscription", () => {
       emailVerified: true,
     });
 
-    await createCanceledSubscription(organizationId, "test-plan-pro");
+    await createCanceledSubscription(organizationId, "test-plan-diamond");
 
     const response = await app.handle(
       new Request(`${BASE_URL}/v1/payments/subscription`, {
@@ -176,7 +176,7 @@ describe("GET /v1/payments/subscription", () => {
       emailVerified: true,
     });
 
-    await createTestSubscription(organizationId, "test-plan-pro", "trial");
+    await createTestSubscription(organizationId, "test-plan-diamond", "trial");
 
     const response = await app.handle(
       new Request(`${BASE_URL}/v1/payments/subscription`, {
@@ -201,7 +201,7 @@ describe("GET /v1/payments/subscription", () => {
       emailVerified: true,
     });
 
-    await createTestSubscription(organizationId, "test-plan-pro", "trial");
+    await createTestSubscription(organizationId, "test-plan-diamond", "trial");
 
     const memberResult = await createTestUser({ emailVerified: true });
 

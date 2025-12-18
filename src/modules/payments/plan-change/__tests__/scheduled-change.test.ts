@@ -33,7 +33,7 @@ describe("GET /v1/payments/subscription/scheduled-change", () => {
       emailVerified: true,
     });
 
-    await createActiveSubscription(organizationId, "test-plan-pro");
+    await createActiveSubscription(organizationId, "test-plan-diamond");
 
     const response = await app.handle(
       new Request(`${BASE_URL}/v1/payments/subscription/scheduled-change`, {
@@ -55,7 +55,7 @@ describe("GET /v1/payments/subscription/scheduled-change", () => {
       emailVerified: true,
     });
 
-    await createActiveSubscription(organizationId, "test-plan-pro");
+    await createActiveSubscription(organizationId, "test-plan-diamond");
 
     const scheduledAt = new Date();
     scheduledAt.setDate(scheduledAt.getDate() + 30);
@@ -63,7 +63,7 @@ describe("GET /v1/payments/subscription/scheduled-change", () => {
     await db
       .update(schema.orgSubscriptions)
       .set({
-        pendingPlanId: "test-plan-starter",
+        pendingPlanId: "test-plan-gold",
         pendingBillingCycle: "monthly",
         planChangeAt: scheduledAt,
       })
@@ -82,7 +82,7 @@ describe("GET /v1/payments/subscription/scheduled-change", () => {
     expect(body.success).toBe(true);
     expect(body.data.hasScheduledChange).toBe(true);
     expect(body.data.change).toBeDefined();
-    expect(body.data.change.pendingPlanId).toBe("test-plan-starter");
+    expect(body.data.change.pendingPlanId).toBe("test-plan-gold");
     expect(body.data.change.pendingBillingCycle).toBe("monthly");
     expect(body.data.change.scheduledAt).toBeDefined();
   });
@@ -111,7 +111,7 @@ describe("DELETE /v1/payments/subscription/scheduled-change", () => {
       emailVerified: true,
     });
 
-    await createActiveSubscription(organizationId, "test-plan-pro");
+    await createActiveSubscription(organizationId, "test-plan-diamond");
 
     const scheduledAt = new Date();
     scheduledAt.setDate(scheduledAt.getDate() + 30);
@@ -119,7 +119,7 @@ describe("DELETE /v1/payments/subscription/scheduled-change", () => {
     await db
       .update(schema.orgSubscriptions)
       .set({
-        pendingPlanId: "test-plan-starter",
+        pendingPlanId: "test-plan-gold",
         pendingBillingCycle: "monthly",
         planChangeAt: scheduledAt,
       })
@@ -155,7 +155,7 @@ describe("DELETE /v1/payments/subscription/scheduled-change", () => {
       emailVerified: true,
     });
 
-    await createActiveSubscription(organizationId, "test-plan-pro");
+    await createActiveSubscription(organizationId, "test-plan-diamond");
 
     const response = await app.handle(
       new Request(`${BASE_URL}/v1/payments/subscription/scheduled-change`, {

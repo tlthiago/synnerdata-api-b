@@ -3,18 +3,19 @@ import { eq } from "drizzle-orm";
 import { db } from "@/db";
 import { MAX_EMPLOYEES, schema, YEARLY_DISCOUNT } from "@/db/schema";
 import {
+  EmployeeCountExceedsLimitError,
+  EmployeeCountRequiredError,
+  PlanNotFoundError,
+  PricingTierNotFoundError,
+} from "@/modules/payments/errors";
+import { PricingTierService } from "@/modules/payments/pricing/pricing.service";
+import {
   diamondPlan,
   getTierForEmployeeCount,
   testPricingTiers,
 } from "@/test/fixtures/plans";
 import { seedPlans } from "@/test/helpers/seed";
-import {
-  EmployeeCountExceedsLimitError,
-  EmployeeCountRequiredError,
-  PlanNotFoundError,
-  PricingTierNotFoundError,
-} from "../../errors";
-import { PricingTierService } from "../pricing.service";
+import { skipIntegration } from "@/test/helpers/skip-integration";
 
 describe("PricingTierService", () => {
   beforeAll(async () => {
@@ -243,7 +244,7 @@ describe("PricingTierService", () => {
     });
   });
 
-  describe("ensurePagarmePlan()", () => {
+  describe.skipIf(skipIntegration)("ensurePagarmePlan() - Pagarme API", () => {
     test(
       "should create monthly Pagarme plan for tier",
       async () => {
@@ -355,7 +356,7 @@ describe("PricingTierService", () => {
     });
   });
 
-  describe("getTierForCheckout()", () => {
+  describe.skipIf(skipIntegration)("getTierForCheckout() - Pagarme API", () => {
     test(
       "should return tier with Pagarme plan id",
       async () => {

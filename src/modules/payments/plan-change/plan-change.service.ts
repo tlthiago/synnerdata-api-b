@@ -2,7 +2,7 @@ import { and, eq, isNotNull, lte } from "drizzle-orm";
 import { db } from "@/db";
 import { schema } from "@/db/schema";
 import { Retry } from "@/lib/utils/retry";
-import { CustomerService } from "../customer/customer.service";
+import { CustomerService } from "@/modules/payments/customer/customer.service";
 import {
   NoScheduledChangeError,
   PlanChangeInProgressError,
@@ -12,11 +12,11 @@ import {
   SubscriptionNotActiveError,
   SubscriptionNotFoundError,
   YearlyBillingNotAvailableError,
-} from "../errors";
-import { PaymentHooks } from "../hooks";
-import { PagarmeClient } from "../pagarme/client";
-import type { CreatePaymentLinkRequest } from "../pagarme/pagarme.types";
-import { PlanService } from "../plan/plan.service";
+} from "@/modules/payments/errors";
+import { PaymentHooks } from "@/modules/payments/hooks";
+import { PagarmeClient } from "@/modules/payments/pagarme/client";
+import type { CreatePaymentLinkRequest } from "@/modules/payments/pagarme/pagarme.types";
+import { PlanService } from "@/modules/payments/plan/plan.service";
 import type {
   CalculateProrationInput,
   CancelScheduledChangeData,

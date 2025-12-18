@@ -18,11 +18,11 @@ import { eq } from "drizzle-orm";
 import { db } from "@/db";
 import { schema } from "@/db/schema";
 import { env } from "@/env";
+import type { ProcessWebhook } from "@/modules/payments/webhook/webhook.model";
+import { WebhookService } from "@/modules/payments/webhook/webhook.service";
 import { createTestOrganization } from "@/test/helpers/organization";
 import { seedPlans } from "@/test/helpers/seed";
 import { createActiveSubscription } from "@/test/helpers/subscription";
-import type { ProcessWebhook } from "../webhook/webhook.model";
-import { WebhookService } from "../webhook/webhook.service";
 
 function createValidAuthHeader(): string {
   const credentials = `${env.PAGARME_WEBHOOK_USERNAME}:${env.PAGARME_WEBHOOK_PASSWORD}`;
@@ -49,7 +49,7 @@ describe("Payment Failure Webhook Validation", () => {
   describe("1. Eventos Suportados", () => {
     test("charge.payment_failed DEVE marcar assinatura como past_due", async () => {
       const org = await createTestOrganization();
-      await createActiveSubscription(org.id, "test-plan-pro");
+      await createActiveSubscription(org.id, "test-plan-diamond");
 
       const payload = createPayload("charge.payment_failed", {
         metadata: { organization_id: org.id },
@@ -76,7 +76,7 @@ describe("Payment Failure Webhook Validation", () => {
 
     test("invoice.payment_failed DEVE marcar como past_due (GAP-01 corrigido)", async () => {
       const org = await createTestOrganization();
-      await createActiveSubscription(org.id, "test-plan-pro");
+      await createActiveSubscription(org.id, "test-plan-diamond");
 
       const payload = createPayload("invoice.payment_failed", {
         metadata: { organization_id: org.id },
@@ -102,7 +102,7 @@ describe("Payment Failure Webhook Validation", () => {
     test("subscription.updated com status 'pending' DEVE marcar como past_due", async () => {
       const org = await createTestOrganization();
       const pagarmeSubId = `sub_${crypto.randomUUID()}`;
-      await createActiveSubscription(org.id, "test-plan-pro", pagarmeSubId);
+      await createActiveSubscription(org.id, "test-plan-diamond", pagarmeSubId);
 
       const payload = createPayload("subscription.updated", {
         id: pagarmeSubId,
@@ -127,7 +127,7 @@ describe("Payment Failure Webhook Validation", () => {
     test("subscription.updated com status 'failed' DEVE marcar como past_due", async () => {
       const org = await createTestOrganization();
       const pagarmeSubId = `sub_${crypto.randomUUID()}`;
-      await createActiveSubscription(org.id, "test-plan-pro", pagarmeSubId);
+      await createActiveSubscription(org.id, "test-plan-diamond", pagarmeSubId);
 
       const payload = createPayload("subscription.updated", {
         id: pagarmeSubId,
@@ -152,7 +152,7 @@ describe("Payment Failure Webhook Validation", () => {
     test("subscription.updated com status 'unpaid' DEVE marcar como past_due (GAP-05 corrigido)", async () => {
       const org = await createTestOrganization();
       const pagarmeSubId = `sub_${crypto.randomUUID()}`;
-      await createActiveSubscription(org.id, "test-plan-pro", pagarmeSubId);
+      await createActiveSubscription(org.id, "test-plan-diamond", pagarmeSubId);
 
       const payload = createPayload("subscription.updated", {
         id: pagarmeSubId,
@@ -178,7 +178,7 @@ describe("Payment Failure Webhook Validation", () => {
   describe("2. Comportamento com Múltiplas Falhas (Simulação de Retries)", () => {
     test("múltiplos charge.payment_failed consecutivos mantêm status past_due", async () => {
       const org = await createTestOrganization();
-      await createActiveSubscription(org.id, "test-plan-pro");
+      await createActiveSubscription(org.id, "test-plan-diamond");
       const authHeader = createValidAuthHeader();
 
       // Simula 4 retries do Pagar.me (padrão: 4 tentativas a cada 3 dias)
@@ -218,7 +218,7 @@ describe("Payment Failure Webhook Validation", () => {
 
     test("todos os eventos de falha são registrados em subscriptionEvents", async () => {
       const org = await createTestOrganization();
-      await createActiveSubscription(org.id, "test-plan-pro");
+      await createActiveSubscription(org.id, "test-plan-diamond");
       const authHeader = createValidAuthHeader();
 
       const eventIds: string[] = [];
@@ -263,7 +263,7 @@ describe("Payment Failure Webhook Validation", () => {
   describe("3. Resolução de Pagamento (past_due → active)", () => {
     test("charge.paid DEVE restaurar assinatura de past_due para active", async () => {
       const org = await createTestOrganization();
-      await createActiveSubscription(org.id, "test-plan-pro");
+      await createActiveSubscription(org.id, "test-plan-diamond");
       const authHeader = createValidAuthHeader();
 
       // 1. Primeiro, simula falha de pagamento
@@ -316,7 +316,7 @@ describe("Payment Failure Webhook Validation", () => {
 
     test("charge.paid após múltiplas falhas DEVE restaurar para active", async () => {
       const org = await createTestOrganization();
-      await createActiveSubscription(org.id, "test-plan-pro");
+      await createActiveSubscription(org.id, "test-plan-diamond");
       const authHeader = createValidAuthHeader();
 
       // Simula 3 falhas (dias 0, 3, 6)
@@ -362,7 +362,7 @@ describe("Payment Failure Webhook Validation", () => {
   describe("4. Validação de Campos para Grace Period", () => {
     test("charge.payment_failed DEVE definir pastDueSince e gracePeriodEnds (GAP-02/03 corrigido)", async () => {
       const org = await createTestOrganization();
-      await createActiveSubscription(org.id, "test-plan-pro");
+      await createActiveSubscription(org.id, "test-plan-diamond");
 
       const payload = createPayload("charge.payment_failed", {
         metadata: { organization_id: org.id },
@@ -398,7 +398,7 @@ describe("Payment Failure Webhook Validation", () => {
 
     test("charge.paid DEVE limpar campos de grace period (GAP-04 corrigido)", async () => {
       const org = await createTestOrganization();
-      await createActiveSubscription(org.id, "test-plan-pro");
+      await createActiveSubscription(org.id, "test-plan-diamond");
       const authHeader = createValidAuthHeader();
 
       // Falha primeiro
@@ -451,7 +451,7 @@ describe("Payment Failure Webhook Validation", () => {
   describe("5. Idempotência", () => {
     test("evento duplicado com mesmo pagarmeEventId NÃO é reprocessado", async () => {
       const org = await createTestOrganization();
-      await createActiveSubscription(org.id, "test-plan-pro");
+      await createActiveSubscription(org.id, "test-plan-diamond");
       const authHeader = createValidAuthHeader();
 
       const eventId = `evt_idempotent_${crypto.randomUUID()}`;

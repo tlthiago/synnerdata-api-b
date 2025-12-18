@@ -1,5 +1,9 @@
 import { env } from "@/env";
-import { CheckoutError, PagarmeApiError, PagarmeTimeoutError } from "../errors";
+import {
+  CheckoutError,
+  PagarmeApiError,
+  PagarmeTimeoutError,
+} from "@/modules/payments/errors";
 import type {
   CreateAccessTokenResponse,
   CreateCustomerRequest,

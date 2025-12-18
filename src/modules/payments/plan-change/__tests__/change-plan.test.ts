@@ -32,7 +32,7 @@ describe("POST /v1/payments/subscription/change-plan", () => {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
-          newPlanId: "test-plan-enterprise",
+          newPlanId: "test-plan-platinum",
           successUrl: "https://example.com/success",
         }),
       })
@@ -46,14 +46,14 @@ describe("POST /v1/payments/subscription/change-plan", () => {
       emailVerified: true,
     });
 
-    await createActiveSubscription(organizationId, "test-plan-pro");
+    await createActiveSubscription(organizationId, "test-plan-diamond");
 
     const response = await app.handle(
       new Request(`${BASE_URL}/v1/payments/subscription/change-plan`, {
         method: "POST",
         headers: { ...headers, "Content-Type": "application/json" },
         body: JSON.stringify({
-          newPlanId: "test-plan-pro",
+          newPlanId: "test-plan-diamond",
           successUrl: "https://example.com/success",
         }),
       })
@@ -69,14 +69,14 @@ describe("POST /v1/payments/subscription/change-plan", () => {
       emailVerified: true,
     });
 
-    await createTestSubscription(organizationId, "test-plan-pro", "trial");
+    await createTestSubscription(organizationId, "test-plan-diamond", "trial");
 
     const response = await app.handle(
       new Request(`${BASE_URL}/v1/payments/subscription/change-plan`, {
         method: "POST",
         headers: { ...headers, "Content-Type": "application/json" },
         body: JSON.stringify({
-          newPlanId: "test-plan-starter",
+          newPlanId: "test-plan-gold",
           successUrl: "https://example.com/success",
         }),
       })
@@ -92,7 +92,7 @@ describe("POST /v1/payments/subscription/change-plan", () => {
       emailVerified: true,
     });
 
-    await createActiveSubscription(organizationId, "test-plan-pro");
+    await createActiveSubscription(organizationId, "test-plan-diamond");
 
     const scheduledAt = new Date();
     scheduledAt.setDate(scheduledAt.getDate() + 30);
@@ -100,7 +100,7 @@ describe("POST /v1/payments/subscription/change-plan", () => {
     await db
       .update(schema.orgSubscriptions)
       .set({
-        pendingPlanId: "test-plan-starter",
+        pendingPlanId: "test-plan-gold",
         planChangeAt: scheduledAt,
       })
       .where(eq(schema.orgSubscriptions.organizationId, organizationId));
@@ -110,7 +110,7 @@ describe("POST /v1/payments/subscription/change-plan", () => {
         method: "POST",
         headers: { ...headers, "Content-Type": "application/json" },
         body: JSON.stringify({
-          newPlanId: "test-plan-enterprise",
+          newPlanId: "test-plan-platinum",
           successUrl: "https://example.com/success",
         }),
       })
@@ -126,14 +126,14 @@ describe("POST /v1/payments/subscription/change-plan", () => {
       emailVerified: true,
     });
 
-    await createCanceledSubscription(organizationId, "test-plan-pro");
+    await createCanceledSubscription(organizationId, "test-plan-diamond");
 
     const response = await app.handle(
       new Request(`${BASE_URL}/v1/payments/subscription/change-plan`, {
         method: "POST",
         headers: { ...headers, "Content-Type": "application/json" },
         body: JSON.stringify({
-          newPlanId: "test-plan-starter",
+          newPlanId: "test-plan-gold",
           successUrl: "https://example.com/success",
         }),
       })
@@ -149,7 +149,7 @@ describe("POST /v1/payments/subscription/change-plan", () => {
       emailVerified: true,
     });
 
-    await createActiveSubscription(organizationId, "test-plan-pro");
+    await createActiveSubscription(organizationId, "test-plan-diamond");
 
     const response = await app.handle(
       new Request(`${BASE_URL}/v1/payments/subscription/change-plan`, {
@@ -169,14 +169,14 @@ describe("POST /v1/payments/subscription/change-plan", () => {
       emailVerified: true,
     });
 
-    await createActiveSubscription(organizationId, "test-plan-pro");
+    await createActiveSubscription(organizationId, "test-plan-diamond");
 
     const response = await app.handle(
       new Request(`${BASE_URL}/v1/payments/subscription/change-plan`, {
         method: "POST",
         headers: { ...headers, "Content-Type": "application/json" },
         body: JSON.stringify({
-          newPlanId: "test-plan-starter",
+          newPlanId: "test-plan-gold",
         }),
       })
     );
@@ -189,7 +189,7 @@ describe("POST /v1/payments/subscription/change-plan", () => {
       emailVerified: true,
     });
 
-    await createActiveSubscription(organizationId, "test-plan-pro");
+    await createActiveSubscription(organizationId, "test-plan-diamond");
 
     const response = await app.handle(
       new Request(`${BASE_URL}/v1/payments/subscription/change-plan`, {
@@ -212,7 +212,7 @@ describe("POST /v1/payments/subscription/change-plan", () => {
       emailVerified: true,
     });
 
-    await createActiveSubscription(organizationId, "test-plan-pro");
+    await createActiveSubscription(organizationId, "test-plan-diamond");
 
     const memberResult = await createTestUser({ emailVerified: true });
 
@@ -229,7 +229,7 @@ describe("POST /v1/payments/subscription/change-plan", () => {
           "Content-Type": "application/json",
         },
         body: JSON.stringify({
-          newPlanId: "test-plan-enterprise",
+          newPlanId: "test-plan-platinum",
           successUrl: "https://example.com/success",
         }),
       })
@@ -244,14 +244,14 @@ describe("POST /v1/payments/subscription/change-plan", () => {
     });
 
     // Pro -> Starter is a downgrade
-    await createActiveSubscription(organizationId, "test-plan-pro");
+    await createActiveSubscription(organizationId, "test-plan-diamond");
 
     const response = await app.handle(
       new Request(`${BASE_URL}/v1/payments/subscription/change-plan`, {
         method: "POST",
         headers: { ...headers, "Content-Type": "application/json" },
         body: JSON.stringify({
-          newPlanId: "test-plan-starter",
+          newPlanId: "test-plan-gold",
           successUrl: "https://example.com/success",
         }),
       })
@@ -265,7 +265,7 @@ describe("POST /v1/payments/subscription/change-plan", () => {
     expect(body.data.immediate).toBe(false);
     expect(body.data.scheduledAt).toBeDefined();
     expect(body.data.newPlan).toBeDefined();
-    expect(body.data.newPlan.id).toBe("test-plan-starter");
+    expect(body.data.newPlan.id).toBe("test-plan-gold");
 
     // Verify DB was updated
     const [subscription] = await db
@@ -274,7 +274,7 @@ describe("POST /v1/payments/subscription/change-plan", () => {
       .where(eq(schema.orgSubscriptions.organizationId, organizationId))
       .limit(1);
 
-    expect(subscription.pendingPlanId).toBe("test-plan-starter");
+    expect(subscription.pendingPlanId).toBe("test-plan-gold");
     expect(subscription.planChangeAt).toBeInstanceOf(Date);
   });
 });
