@@ -11,15 +11,9 @@ const isTest = process.env.NODE_ENV === "test";
 const isProduction = process.env.NODE_ENV === "production";
 
 /**
- * Generates a request ID using UUIDv7 (Bun) or UUIDv4 (Node.js fallback)
- * UUIDv7 is time-sortable, UUIDv4 is random
+ * Generates a request ID using UUIDv4
  */
-const generateRequestId = (): string => {
-  if (typeof Bun !== "undefined") {
-    return `req-${Bun.randomUUIDv7()}`;
-  }
-  return `req-${randomUUID()}`;
-};
+const generateRequestId = (): string => `req-${randomUUID()}`;
 
 const getLogLevel = () => {
   if (isTest) {

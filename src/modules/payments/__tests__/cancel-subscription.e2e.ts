@@ -114,6 +114,7 @@ test.describe("Soft Cancel Subscription E2E: Active → Cancel → Restore → C
         },
         body: JSON.stringify({
           planId: proPlan.id,
+          employeeCount: 10,
           successUrl: `${TUNNEL_URL}/checkout/success`,
         }),
       })
@@ -377,6 +378,7 @@ test.describe("Soft Cancel Subscription E2E: Active → Cancel → Restore → C
         },
         body: JSON.stringify({
           planId: proPlan.id,
+          employeeCount: 10,
           successUrl: `${TUNNEL_URL}/checkout/success`,
         }),
       })

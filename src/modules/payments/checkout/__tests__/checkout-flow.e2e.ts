@@ -64,6 +64,7 @@ test.describe("Checkout Flow E2E", () => {
         },
         body: JSON.stringify({
           planId: proPlan.id,
+          employeeCount: 10,
           successUrl: SUCCESS_URL,
         }),
       })
@@ -265,6 +266,7 @@ test.describe("Checkout Flow E2E", () => {
         },
         body: JSON.stringify({
           planId: proPlan.id,
+          employeeCount: 10,
           successUrl: SUCCESS_URL,
         }),
       })
@@ -299,6 +301,7 @@ test.describe("Checkout Flow E2E", () => {
     const response = await request.post(`${API_URL}/v1/payments/checkout`, {
       data: {
         planId: "test-plan-pro",
+        employeeCount: 10,
         successUrl: SUCCESS_URL,
       },
     });

@@ -188,7 +188,7 @@ SMTP_PASS=
 1. **Seguir padrões de código**: [`docs/code-standards/module-code-standards.md`](./docs/code-standards/module-code-standards.md)
 2. **Seguir padrões de testes**: [`docs/code-standards/testing-standards.md`](./docs/code-standards/testing-standards.md)
 3. Usar `betterAuthPlugin` com `auth: { permissions, requireOrganization }`
-4. IDs com formato `{prefix}-${Bun.randomUUIDv7()}`
+4. IDs com formato `{prefix}-${crypto.randomUUID()}`
 5. Erros de domínio em `errors.ts` do domínio pai
 6. Sempre filtrar por `organizationId` nas queries
 7. Incluir soft delete columns em tabelas de domínio

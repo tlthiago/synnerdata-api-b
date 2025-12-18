@@ -62,12 +62,12 @@ test.describe("Upgrade Use Case E2E: Trial → Paid Subscription (Real Webhook)"
     }
     await seedPlans();
 
-    // Reset pagarmePlanIds for pro plan to test sync
+    // Reset pagarmePlanIds for pricing tiers to test sync
     if (proPlan) {
       await db
-        .update(schema.subscriptionPlans)
+        .update(schema.planPricingTiers)
         .set({ pagarmePlanIdMonthly: null, pagarmePlanIdYearly: null })
-        .where(eq(schema.subscriptionPlans.id, proPlan.id));
+        .where(eq(schema.planPricingTiers.planId, proPlan.id));
     }
   });
 
@@ -155,6 +155,7 @@ test.describe("Upgrade Use Case E2E: Trial → Paid Subscription (Real Webhook)"
         },
         body: JSON.stringify({
           planId: proPlan.id,
+          employeeCount: 10,
           successUrl: `${TUNNEL_URL}/checkout/success`,
         }),
       })
@@ -174,19 +175,36 @@ test.describe("Upgrade Use Case E2E: Trial → Paid Subscription (Real Webhook)"
     console.log(`  Payment Link ID: ${paymentLinkId}`);
     console.log(`  Webhook URL: ${TUNNEL_URL}/v1/payments/webhooks/pagarme`);
 
-    // Verify plan was synced to Pagarme
-    const [syncedPlan] = await db
+    // Verify pricing tier was synced to Pagarme
+    const [pendingCheckoutWithTier] = await db
       .select({
-        pagarmePlanIdMonthly: schema.subscriptionPlans.pagarmePlanIdMonthly,
+        pricingTierId: schema.pendingCheckouts.pricingTierId,
       })
-      .from(schema.subscriptionPlans)
-      .where(eq(schema.subscriptionPlans.id, proPlan.id))
+      .from(schema.pendingCheckouts)
+      .where(eq(schema.pendingCheckouts.paymentLinkId, paymentLinkId))
       .limit(1);
 
-    expect(syncedPlan.pagarmePlanIdMonthly).toBeDefined();
-    expect(syncedPlan.pagarmePlanIdMonthly?.startsWith("plan_")).toBe(true);
+    expect(pendingCheckoutWithTier.pricingTierId).toBeDefined();
 
-    console.log(`  Plan synced to Pagarme: ${syncedPlan.pagarmePlanIdMonthly}`);
+    const [syncedTier] = await db
+      .select({
+        pagarmePlanIdMonthly: schema.planPricingTiers.pagarmePlanIdMonthly,
+      })
+      .from(schema.planPricingTiers)
+      .where(
+        eq(
+          schema.planPricingTiers.id,
+          pendingCheckoutWithTier.pricingTierId as string
+        )
+      )
+      .limit(1);
+
+    expect(syncedTier.pagarmePlanIdMonthly).toBeDefined();
+    expect(syncedTier.pagarmePlanIdMonthly?.startsWith("plan_")).toBe(true);
+
+    console.log(
+      `  Pricing tier synced to Pagarme: ${syncedTier.pagarmePlanIdMonthly}`
+    );
 
     // Verify pending checkout was created
     const [pendingCheckout] = await db
@@ -464,6 +482,7 @@ test.describe("Upgrade Use Case E2E: Trial → Paid Subscription (Real Webhook)"
         },
         body: JSON.stringify({
           planId: proPlan.id,
+          employeeCount: 10,
           successUrl: `${TUNNEL_URL}/checkout/success`,
         }),
       })

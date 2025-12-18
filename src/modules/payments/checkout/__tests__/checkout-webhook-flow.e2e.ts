@@ -67,6 +67,7 @@ test.describe("Checkout + Webhook E2E Flow", () => {
         },
         body: JSON.stringify({
           planId: proPlan.id,
+          employeeCount: 10,
           successUrl: `${TUNNEL_URL}/checkout/success`,
         }),
       })

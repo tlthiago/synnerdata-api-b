@@ -162,7 +162,7 @@ export abstract class ResourceService {
 
     // 4. Persistir
     await db.insert(schema.resources).values({
-      id: `resource-${Bun.randomUUIDv7()}`,  // ID: prefix-uuid (v7 for time-ordering)
+      id: `resource-${crypto.randomUUID()}`,  // ID: prefix-uuid
       organizationId,
     });
 
@@ -277,7 +277,7 @@ const results = await db
 
 // INSERT
 await db.insert(schema.resources).values({
-  id: `prefix-${Bun.randomUUIDv7()}`,  // SEMPRE Bun.randomUUIDv7(), NUNCA crypto.randomUUID()
+  id: `prefix-${crypto.randomUUID()}`,
   organizationId,
   status: "pending",
 });
@@ -412,7 +412,7 @@ import type { CreateResourceInput } from "./{module}.model";
 - [ ] `.service.ts` como `abstract class` com métodos `static async`
 - [ ] `.service.ts` retorna dados puros (sem envelope `{ success, data }`)
 - [ ] Input type inclui `userId` + `organizationId`
-- [ ] IDs: `prefix-${Bun.randomUUIDv7()}` - **NUNCA** usar `crypto.randomUUID()`
+- [ ] IDs: `prefix-${crypto.randomUUID()}`
 - [ ] Queries: Select API (não `db.query`)
 - [ ] Erros: classes em `../errors`, nunca strings
 - [ ] Imports: usar `@/` para `lib/`, `db/`, `env` - nunca `../../`

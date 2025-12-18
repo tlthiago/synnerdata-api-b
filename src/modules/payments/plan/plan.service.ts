@@ -159,7 +159,7 @@ export abstract class PlanService {
       throw new PlanNameAlreadyExistsError(data.name);
     }
 
-    const planId = `plan-${Bun.randomUUIDv7()}`;
+    const planId = `plan-${crypto.randomUUID()}`;
 
     const [plan] = await db
       .insert(schema.subscriptionPlans)

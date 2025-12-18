@@ -3,17 +3,8 @@ import { Elysia } from "elysia";
 import { loggerPlugin } from "..";
 
 // UUIDv4: xxxxxxxx-xxxx-4xxx-yxxx-xxxxxxxxxxxx (version 4)
-// UUIDv7: xxxxxxxx-xxxx-7xxx-yxxx-xxxxxxxxxxxx (version 7, time-sortable)
 const UUID_V4_PATTERN =
   /^req-[0-9a-f]{8}-[0-9a-f]{4}-4[0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/;
-const UUID_V7_PATTERN =
-  /^req-[0-9a-f]{8}-[0-9a-f]{4}-7[0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/;
-
-// In Bun environment, UUIDv7 is used; in Node.js (Playwright), UUIDv4 is used
-const isBunEnvironment = typeof Bun !== "undefined";
-const EXPECTED_UUID_PATTERN = isBunEnvironment
-  ? UUID_V7_PATTERN
-  : UUID_V4_PATTERN;
 const REQUEST_ID_PATTERN =
   /^req-[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/;
 
@@ -47,7 +38,7 @@ describe("Logger Plugin", () => {
       expect(requestId1).not.toBe(requestId2);
     });
 
-    test("should use correct UUID format (v7 in Bun, v4 in Node.js)", async () => {
+    test("should use UUIDv4 format", async () => {
       const app = new Elysia()
         .use(loggerPlugin)
         .get("/test", () => ({ message: "ok" }));
@@ -55,7 +46,7 @@ describe("Logger Plugin", () => {
       const response = await app.handle(new Request("http://localhost/test"));
       const requestId = response.headers.get("X-Request-ID");
 
-      expect(requestId).toMatch(EXPECTED_UUID_PATTERN);
+      expect(requestId).toMatch(UUID_V4_PATTERN);
     });
   });
 

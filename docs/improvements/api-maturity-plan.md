@@ -336,7 +336,7 @@ export abstract class AuditService {
   static async log(entry: AuditLogEntry): Promise<void> {
     try {
       await db.insert(auditLogs).values({
-        id: `audit-${Bun.randomUUIDv7()}`,
+        id: `audit-${crypto.randomUUID()}`,
         organizationId: entry.organizationId ?? null,
         userId: entry.userId,
         action: entry.action,
@@ -877,7 +877,7 @@ export const logger = createPinoLogger({
 export const loggerPlugin = new Elysia({ name: "logger" })
   // Gerar request ID único
   .derive({ as: "global" }, () => ({
-    requestId: `req-${Bun.randomUUIDv7()}`,
+    requestId: `req-${crypto.randomUUID()}`,
     requestStart: performance.now(),
   }))
   // Integrar pino ao contexto (ctx.log)
@@ -1131,7 +1131,7 @@ O logger plugin implementa:
 ```typescript
 // Implementado em src/lib/logger/index.ts
 .derive({ as: "global" }, () => ({
-  requestId: `req-${Bun.randomUUIDv7()}`,
+  requestId: `req-${crypto.randomUUID()}`,
 }))
 .onAfterHandle({ as: "global" }, ({ set, requestId }) => {
   set.headers["X-Request-ID"] = requestId;
@@ -1431,7 +1431,7 @@ export abstract class AnonymizeService {
 
     // Registrar no audit log
     await db.insert(schema.auditLogs).values({
-      id: `audit-${Bun.randomUUIDv7()}`,
+      id: `audit-${crypto.randomUUID()}`,
       organizationId,
       userId: requestedBy,
       action: "delete",

@@ -9,7 +9,7 @@ export abstract class AuditService {
   static async log(entry: AuditLogEntry): Promise<void> {
     try {
       await db.insert(schema.auditLogs).values({
-        id: `audit-${Bun.randomUUIDv7()}`,
+        id: `audit-${crypto.randomUUID()}`,
         organizationId: entry.organizationId ?? null,
         userId: entry.userId,
         action: entry.action,
