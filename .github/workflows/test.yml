@@ -8,6 +8,7 @@ jobs:
   test:
     name: Unit Tests
     runs-on: ubuntu-latest
+    environment: CI/CD
 
     services:
       postgres:
