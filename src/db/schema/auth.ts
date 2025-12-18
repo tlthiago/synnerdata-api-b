@@ -3,10 +3,24 @@ import {
   boolean,
   index,
   integer,
+  pgEnum,
   pgTable,
   text,
   timestamp,
 } from "drizzle-orm/pg-core";
+
+// ============================================================
+// SYSTEM ROLES (for admin plugin - user.role)
+// ============================================================
+export const systemRoleValues = ["super_admin", "admin", "user"] as const;
+export type SystemRole = (typeof systemRoleValues)[number];
+
+// ============================================================
+// ORGANIZATION MEMBER ROLES (for organization plugin - member.role)
+// ============================================================
+export const roleValues = ["owner", "manager", "supervisor", "viewer"] as const;
+export const roleEnum = pgEnum("member_role", roleValues);
+export type Role = (typeof roleValues)[number];
 
 export const users = pgTable("users", {
   id: text("id").primaryKey(),
@@ -15,9 +29,12 @@ export const users = pgTable("users", {
   emailVerified: boolean("email_verified").default(false).notNull(),
   image: text("image"),
   pagarmeCustomerId: text("pagarme_customer_id"),
+  role: text("role").default("user"),
+  banned: boolean("banned").default(false),
+  banReason: text("ban_reason"),
+  banExpires: timestamp("ban_expires"),
   createdAt: timestamp("created_at").defaultNow().notNull(),
   updatedAt: timestamp("updated_at")
-    .defaultNow()
     .$onUpdate(() => /* @__PURE__ */ new Date())
     .notNull(),
 });
@@ -38,6 +55,7 @@ export const sessions = pgTable(
       .notNull()
       .references(() => users.id, { onDelete: "cascade" }),
     activeOrganizationId: text("active_organization_id"),
+    impersonatedBy: text("impersonated_by"),
   },
   (table) => [index("sessions_userId_idx").on(table.userId)]
 );
@@ -101,7 +119,7 @@ export const members = pgTable(
     userId: text("user_id")
       .notNull()
       .references(() => users.id, { onDelete: "cascade" }),
-    role: text("role").default("member").notNull(),
+    role: roleEnum("role").default("viewer").notNull(),
     createdAt: timestamp("created_at").notNull(),
   },
   (table) => [
@@ -118,7 +136,7 @@ export const invitations = pgTable(
       .notNull()
       .references(() => organizations.id, { onDelete: "cascade" }),
     email: text("email").notNull(),
-    role: text("role"),
+    role: roleEnum("role").default("viewer").notNull(),
     status: text("status").default("pending").notNull(),
     expiresAt: timestamp("expires_at").notNull(),
     createdAt: timestamp("created_at").defaultNow().notNull(),
@@ -203,6 +221,45 @@ export const invitationRelations = relations(invitations, ({ one }) => ({
 export const subscriptionRelations = relations(subscriptions, ({ one }) => ({
   user: one(users, {
     fields: [subscriptions.referenceId],
+    references: [users.id],
+  }),
+}));
+
+export const apikeys = pgTable(
+  "apikeys",
+  {
+    id: text("id").primaryKey(),
+    name: text("name"),
+    start: text("start"),
+    prefix: text("prefix"),
+    key: text("key").notNull(),
+    userId: text("user_id")
+      .notNull()
+      .references(() => users.id, { onDelete: "cascade" }),
+    refillInterval: integer("refill_interval"),
+    refillAmount: integer("refill_amount"),
+    lastRefillAt: timestamp("last_refill_at"),
+    enabled: boolean("enabled").default(true).notNull(),
+    rateLimitEnabled: boolean("rate_limit_enabled").default(false),
+    rateLimitTimeWindow: integer("rate_limit_time_window"),
+    rateLimitMax: integer("rate_limit_max"),
+    requestCount: integer("request_count").default(0),
+    remaining: integer("remaining"),
+    lastRequest: timestamp("last_request"),
+    expiresAt: timestamp("expires_at"),
+    createdAt: timestamp("created_at").defaultNow().notNull(),
+    updatedAt: timestamp("updated_at")
+      .$onUpdate(() => new Date())
+      .notNull(),
+    permissions: text("permissions"),
+    metadata: text("metadata"),
+  },
+  (table) => [index("apikeys_userId_idx").on(table.userId)]
+);
+
+export const apikeysRelations = relations(apikeys, ({ one }) => ({
+  user: one(users, {
+    fields: [apikeys.userId],
     references: [users.id],
   }),
 }));
