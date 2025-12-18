@@ -58,5 +58,8 @@ jobs:
       - name: Setup database
         run: bun run db:push
 
+      - name: Seed database
+        run: bun run db:seed
+
       - name: Run tests
         run: bun run test
