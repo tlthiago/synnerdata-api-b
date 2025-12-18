@@ -1,0 +1,37 @@
+# Dependencies
+node_modules
+
+# Build outputs
+dist
+server
+
+# Git
+.git
+.gitignore
+
+# IDE
+.vscode
+.idea
+
+# Documentation
+*.md
+docs
+
+# Tests
+coverage
+test-results
+playwright-report
+
+# Environment
+.env*
+!.env.example
+
+# Claude
+.claude
+
+# Misc
+Dockerfile*
+docker-compose*
+.dockerignore
+Makefile
+*.log
