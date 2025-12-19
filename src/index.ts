@@ -20,7 +20,7 @@ const corsOrigins = parseOrigins(env.CORS_ORIGIN);
 
 const isProduction = process.env.NODE_ENV === "production";
 
-const RATE_LIMIT_SKIP_PATHS = ["/health", "/health/live", "/auth/api"];
+const RATE_LIMIT_SKIP_PATHS = ["/health", "/health/live", "/api/auth"];
 
 const app = new Elysia({
   serve: {

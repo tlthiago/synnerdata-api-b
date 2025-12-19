@@ -47,7 +47,7 @@ describe("Admin Signup Use Case: Criação de Usuários com Roles de Sistema", (
   describe("Super Admin Signup", () => {
     test("should create super_admin user when email is in SUPER_ADMIN_EMAILS", async () => {
       const sendResponse = await app.handle(
-        new Request(`${BASE_URL}/auth/api/email-otp/send-verification-otp`, {
+        new Request(`${BASE_URL}/api/auth/email-otp/send-verification-otp`, {
           method: "POST",
           headers: { "Content-Type": "application/json" },
           body: JSON.stringify({
@@ -60,7 +60,7 @@ describe("Admin Signup Use Case: Criação de Usuários com Roles de Sistema", (
 
       const otp = await waitForOTP(superAdminEmail);
       const signInResponse = await app.handle(
-        new Request(`${BASE_URL}/auth/api/sign-in/email-otp`, {
+        new Request(`${BASE_URL}/api/auth/sign-in/email-otp`, {
           method: "POST",
           headers: { "Content-Type": "application/json" },
           body: JSON.stringify({
@@ -94,7 +94,7 @@ describe("Admin Signup Use Case: Criação de Usuários com Roles de Sistema", (
 
     test("super_admin should have admin capabilities in session", async () => {
       await app.handle(
-        new Request(`${BASE_URL}/auth/api/email-otp/send-verification-otp`, {
+        new Request(`${BASE_URL}/api/auth/email-otp/send-verification-otp`, {
           method: "POST",
           headers: { "Content-Type": "application/json" },
           body: JSON.stringify({
@@ -106,7 +106,7 @@ describe("Admin Signup Use Case: Criação de Usuários com Roles de Sistema", (
 
       const otp = await waitForOTP(superAdminEmail);
       const signInResponse = await app.handle(
-        new Request(`${BASE_URL}/auth/api/sign-in/email-otp`, {
+        new Request(`${BASE_URL}/api/auth/sign-in/email-otp`, {
           method: "POST",
           headers: { "Content-Type": "application/json" },
           body: JSON.stringify({
@@ -119,7 +119,7 @@ describe("Admin Signup Use Case: Criação de Usuários com Roles de Sistema", (
       const sessionCookies = signInResponse.headers.get("set-cookie") ?? "";
 
       const sessionResponse = await app.handle(
-        new Request(`${BASE_URL}/auth/api/get-session`, {
+        new Request(`${BASE_URL}/api/auth/get-session`, {
           method: "GET",
           headers: { Cookie: sessionCookies },
         })
@@ -135,7 +135,7 @@ describe("Admin Signup Use Case: Criação de Usuários com Roles de Sistema", (
   describe("Admin Signup", () => {
     test("should create admin user when email is in ADMIN_EMAILS", async () => {
       const sendResponse = await app.handle(
-        new Request(`${BASE_URL}/auth/api/email-otp/send-verification-otp`, {
+        new Request(`${BASE_URL}/api/auth/email-otp/send-verification-otp`, {
           method: "POST",
           headers: { "Content-Type": "application/json" },
           body: JSON.stringify({
@@ -148,7 +148,7 @@ describe("Admin Signup Use Case: Criação de Usuários com Roles de Sistema", (
 
       const otp = await waitForOTP(adminEmail);
       const signInResponse = await app.handle(
-        new Request(`${BASE_URL}/auth/api/sign-in/email-otp`, {
+        new Request(`${BASE_URL}/api/auth/sign-in/email-otp`, {
           method: "POST",
           headers: { "Content-Type": "application/json" },
           body: JSON.stringify({
@@ -182,7 +182,7 @@ describe("Admin Signup Use Case: Criação de Usuários com Roles de Sistema", (
 
     test("admin should have admin role in session", async () => {
       await app.handle(
-        new Request(`${BASE_URL}/auth/api/email-otp/send-verification-otp`, {
+        new Request(`${BASE_URL}/api/auth/email-otp/send-verification-otp`, {
           method: "POST",
           headers: { "Content-Type": "application/json" },
           body: JSON.stringify({
@@ -194,7 +194,7 @@ describe("Admin Signup Use Case: Criação de Usuários com Roles de Sistema", (
 
       const otp = await waitForOTP(adminEmail);
       const signInResponse = await app.handle(
-        new Request(`${BASE_URL}/auth/api/sign-in/email-otp`, {
+        new Request(`${BASE_URL}/api/auth/sign-in/email-otp`, {
           method: "POST",
           headers: { "Content-Type": "application/json" },
           body: JSON.stringify({
@@ -207,7 +207,7 @@ describe("Admin Signup Use Case: Criação de Usuários com Roles de Sistema", (
       const sessionCookies = signInResponse.headers.get("set-cookie") ?? "";
 
       const sessionResponse = await app.handle(
-        new Request(`${BASE_URL}/auth/api/get-session`, {
+        new Request(`${BASE_URL}/api/auth/get-session`, {
           method: "GET",
           headers: { Cookie: sessionCookies },
         })
@@ -223,7 +223,7 @@ describe("Admin Signup Use Case: Criação de Usuários com Roles de Sistema", (
   describe("Regular User Signup", () => {
     test("should create regular user with role 'user' for non-admin emails", async () => {
       const sendResponse = await app.handle(
-        new Request(`${BASE_URL}/auth/api/email-otp/send-verification-otp`, {
+        new Request(`${BASE_URL}/api/auth/email-otp/send-verification-otp`, {
           method: "POST",
           headers: { "Content-Type": "application/json" },
           body: JSON.stringify({
@@ -236,7 +236,7 @@ describe("Admin Signup Use Case: Criação de Usuários com Roles de Sistema", (
 
       const otp = await waitForOTP(regularEmail);
       const signInResponse = await app.handle(
-        new Request(`${BASE_URL}/auth/api/sign-in/email-otp`, {
+        new Request(`${BASE_URL}/api/auth/sign-in/email-otp`, {
           method: "POST",
           headers: { "Content-Type": "application/json" },
           body: JSON.stringify({
@@ -270,7 +270,7 @@ describe("Admin Signup Use Case: Criação de Usuários com Roles de Sistema", (
 
     test("regular user should have user role in session", async () => {
       await app.handle(
-        new Request(`${BASE_URL}/auth/api/email-otp/send-verification-otp`, {
+        new Request(`${BASE_URL}/api/auth/email-otp/send-verification-otp`, {
           method: "POST",
           headers: { "Content-Type": "application/json" },
           body: JSON.stringify({
@@ -282,7 +282,7 @@ describe("Admin Signup Use Case: Criação de Usuários com Roles de Sistema", (
 
       const otp = await waitForOTP(regularEmail);
       const signInResponse = await app.handle(
-        new Request(`${BASE_URL}/auth/api/sign-in/email-otp`, {
+        new Request(`${BASE_URL}/api/auth/sign-in/email-otp`, {
           method: "POST",
           headers: { "Content-Type": "application/json" },
           body: JSON.stringify({
@@ -295,7 +295,7 @@ describe("Admin Signup Use Case: Criação de Usuários com Roles de Sistema", (
       const sessionCookies = signInResponse.headers.get("set-cookie") ?? "";
 
       const sessionResponse = await app.handle(
-        new Request(`${BASE_URL}/auth/api/get-session`, {
+        new Request(`${BASE_URL}/api/auth/get-session`, {
           method: "GET",
           headers: { Cookie: sessionCookies },
         })
