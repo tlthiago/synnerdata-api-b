@@ -101,7 +101,7 @@ async function auditOrganizationCreate(
 }
 
 export const auth = betterAuth({
-  basePath: "/auth/api",
+  basePath: "/api/auth",
   trustedOrigins,
   database: drizzleAdapter(db, {
     provider: "pg",

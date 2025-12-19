@@ -100,7 +100,7 @@ export async function setActiveOrganization(
   const app = createTestApp();
 
   const response = await app.handle(
-    new Request("http://localhost/auth/api/organization/set-active", {
+    new Request("http://localhost/api/auth/organization/set-active", {
       method: "POST",
       headers: {
         "Content-Type": "application/json",

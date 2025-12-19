@@ -3,7 +3,7 @@ import { Elysia } from "elysia";
 import { rateLimit } from "elysia-rate-limit";
 import { errorPlugin } from "@/lib/errors/error-plugin";
 
-const RATE_LIMIT_SKIP_PATHS = ["/health", "/health/live", "/auth/api"];
+const RATE_LIMIT_SKIP_PATHS = ["/health", "/health/live", "/api/auth"];
 
 function createTestApp(maxRequests = 5) {
   return new Elysia()
@@ -25,7 +25,7 @@ function createTestApp(maxRequests = 5) {
     .get("/test", () => ({ success: true, data: "ok" }))
     .get("/health", () => ({ status: "healthy" }))
     .get("/health/live", () => ({ status: "live" }))
-    .get("/auth/api/session", () => ({ session: null }));
+    .get("/api/auth/session", () => ({ session: null }));
 }
 
 describe("Rate Limiting", () => {
@@ -112,9 +112,9 @@ describe("Rate Limiting", () => {
       expect(response.headers.get("RateLimit-Limit")).toBeNull();
     });
 
-    test("should not include rate limit headers on /auth/api/* paths", async () => {
+    test("should not include rate limit headers on /api/auth/* paths", async () => {
       const response = await app.handle(
-        new Request("http://localhost/auth/api/session")
+        new Request("http://localhost/api/auth/session")
       );
 
       expect(response.status).toBe(200);

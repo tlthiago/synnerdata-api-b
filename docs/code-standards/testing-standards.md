@@ -531,7 +531,7 @@ describe("Signup Use Case", () => {
   describe("Fase 2: Onboarding", () => {
     test("should create organization", async () => {
       const response = await app.handle(
-        new Request(`${BASE_URL}/auth/api/organization/create`, {
+        new Request(`${BASE_URL}/api/auth/organization/create`, {
           headers: { Cookie: sessionCookies },  // Usa estado da fase anterior
           // ...
         })

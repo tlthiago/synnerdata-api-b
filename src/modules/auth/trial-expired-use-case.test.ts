@@ -80,7 +80,7 @@ describe("Trial Expired Use Case: Usuário com Trial Expirado", () => {
     test("should create user via OTP sign-in", async () => {
       // Send OTP
       const sendResponse = await app.handle(
-        new Request(`${BASE_URL}/auth/api/email-otp/send-verification-otp`, {
+        new Request(`${BASE_URL}/api/auth/email-otp/send-verification-otp`, {
           method: "POST",
           headers: { "Content-Type": "application/json" },
           body: JSON.stringify({
@@ -94,7 +94,7 @@ describe("Trial Expired Use Case: Usuário com Trial Expirado", () => {
       // Get OTP and sign in
       const otp = await waitForOTP(testEmail);
       const signInResponse = await app.handle(
-        new Request(`${BASE_URL}/auth/api/sign-in/email-otp`, {
+        new Request(`${BASE_URL}/api/auth/sign-in/email-otp`, {
           method: "POST",
           headers: { "Content-Type": "application/json" },
           body: JSON.stringify({
@@ -110,7 +110,7 @@ describe("Trial Expired Use Case: Usuário com Trial Expirado", () => {
 
     test("should create organization with trial", async () => {
       const response = await app.handle(
-        new Request(`${BASE_URL}/auth/api/organization/create`, {
+        new Request(`${BASE_URL}/api/auth/organization/create`, {
           method: "POST",
           headers: {
             "Content-Type": "application/json",

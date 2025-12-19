@@ -41,7 +41,7 @@ Este documento detalha as funcionalidades e ferramentas necessárias para elevar
         ┌─────────────────────┴─────────────────────┐
         │                                           │
         ▼                                           ▼
-  /auth/api/*                                   /v1/*
+  /api/auth/*                                   /v1/*
         │                                           │
         ▼                                           ▼
 ┌───────────────────┐                     ┌───────────────────┐
@@ -53,12 +53,12 @@ Este documento detalha as funcionalidades e ferramentas necessárias para elevar
 
 #### Por que duas camadas?
 
-O rate limiting do Better Auth **só protege rotas de autenticação** (`/auth/api/*`). Rotas autenticadas como `/v1/employees` usam apenas `auth.api.getSession()` para validar o token, que é uma consulta ao banco/cache **sem passar pelo rate limiter**.
+O rate limiting do Better Auth **só protege rotas de autenticação** (`/api/auth/*`). Rotas autenticadas como `/v1/employees` usam apenas `auth.api.getSession()` para validar o token, que é uma consulta ao banco/cache **sem passar pelo rate limiter**.
 
 | Endpoint                           | Camada            | Motivo                         |
 | ---------------------------------- | ----------------- | ------------------------------ |
-| `POST /auth/api/sign-in/email`     | Better Auth       | Passa pelo `auth.handler`      |
-| `POST /auth/api/two-factor/verify` | Better Auth       | Passa pelo `auth.handler`      |
+| `POST /api/auth/sign-in/email`     | Better Auth       | Passa pelo `auth.handler`      |
+| `POST /api/auth/two-factor/verify` | Better Auth       | Passa pelo `auth.handler`      |
 | `GET /v1/employees`                | elysia-rate-limit | Usa `getSession()` diretamente |
 | `POST /v1/payments/checkout`       | elysia-rate-limit | Usa `getSession()` diretamente |
 
@@ -119,7 +119,7 @@ const app = new Elysia()
         const url = new URL(request.url);
         // Skip para health checks e rotas do Better Auth
         return (
-          url.pathname === "/health" || url.pathname.startsWith("/auth/api")
+          url.pathname === "/health" || url.pathname.startsWith("/api/auth")
         );
       },
     })
@@ -1864,7 +1864,7 @@ serve: {
 **2. Elysia Rate Limit (API geral):**
 - ✅ Plugin `elysia-rate-limit` instalado
 - ✅ Configurado em `src/index.ts` para proteger rotas gerais
-- ✅ Skip para /health, /health/live e /auth/api/*
+- ✅ Skip para /health, /health/live e /api/auth/*
 - ✅ Headers RateLimit-* habilitados
 
 **Configuração:**

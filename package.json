@@ -2,7 +2,7 @@
   "name": "synnerdata-api-b",
   "version": "1.0.50",
   "scripts": {
-    "dev": "bun run --watch src/index.ts",
+    "dev": "bun db:start && bun run --watch src/index.ts",
     "build": "bun build --compile --minify-whitespace --minify-syntax --target bun --outfile server ./src/index.ts",
     "start": "NODE_ENV=production ./server",
     "test": "NODE_ENV=test bun test --env-file .env",

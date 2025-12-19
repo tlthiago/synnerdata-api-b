@@ -42,7 +42,7 @@ describe("Signup Use Case: Novo Usuário até Trial Ativo", () => {
   describe("Fase 1: Autenticação Passwordless", () => {
     test("should send OTP to new email", async () => {
       const response = await app.handle(
-        new Request(`${BASE_URL}/auth/api/email-otp/send-verification-otp`, {
+        new Request(`${BASE_URL}/api/auth/email-otp/send-verification-otp`, {
           method: "POST",
           headers: { "Content-Type": "application/json" },
           body: JSON.stringify({
@@ -57,7 +57,7 @@ describe("Signup Use Case: Novo Usuário até Trial Ativo", () => {
 
     test("should reject invalid OTP", async () => {
       const response = await app.handle(
-        new Request(`${BASE_URL}/auth/api/sign-in/email-otp`, {
+        new Request(`${BASE_URL}/api/auth/sign-in/email-otp`, {
           method: "POST",
           headers: { "Content-Type": "application/json" },
           body: JSON.stringify({
@@ -74,7 +74,7 @@ describe("Signup Use Case: Novo Usuário até Trial Ativo", () => {
       const otp = await waitForOTP(testEmail);
 
       const response = await app.handle(
-        new Request(`${BASE_URL}/auth/api/sign-in/email-otp`, {
+        new Request(`${BASE_URL}/api/auth/sign-in/email-otp`, {
           method: "POST",
           headers: { "Content-Type": "application/json" },
           body: JSON.stringify({
@@ -130,7 +130,7 @@ describe("Signup Use Case: Novo Usuário até Trial Ativo", () => {
       sendWelcomeEmailSpy.mockRejectedValueOnce(new Error("SMTP error"));
 
       await app.handle(
-        new Request(`${BASE_URL}/auth/api/email-otp/send-verification-otp`, {
+        new Request(`${BASE_URL}/api/auth/email-otp/send-verification-otp`, {
           method: "POST",
           headers: { "Content-Type": "application/json" },
           body: JSON.stringify({
@@ -142,7 +142,7 @@ describe("Signup Use Case: Novo Usuário até Trial Ativo", () => {
 
       const otp = await waitForOTP(failEmail);
       const signInResponse = await app.handle(
-        new Request(`${BASE_URL}/auth/api/sign-in/email-otp`, {
+        new Request(`${BASE_URL}/api/auth/sign-in/email-otp`, {
           method: "POST",
           headers: { "Content-Type": "application/json" },
           body: JSON.stringify({
@@ -173,7 +173,7 @@ describe("Signup Use Case: Novo Usuário até Trial Ativo", () => {
   describe("Fase 2: Onboarding", () => {
     test("should allow updating user name", async () => {
       const response = await app.handle(
-        new Request(`${BASE_URL}/auth/api/update-user`, {
+        new Request(`${BASE_URL}/api/auth/update-user`, {
           method: "POST",
           headers: {
             "Content-Type": "application/json",
@@ -198,7 +198,7 @@ describe("Signup Use Case: Novo Usuário até Trial Ativo", () => {
 
     test("should create organization", async () => {
       const response = await app.handle(
-        new Request(`${BASE_URL}/auth/api/organization/create`, {
+        new Request(`${BASE_URL}/api/auth/organization/create`, {
           method: "POST",
           headers: {
             "Content-Type": "application/json",
@@ -232,7 +232,7 @@ describe("Signup Use Case: Novo Usuário até Trial Ativo", () => {
 
     test("should set activeOrganizationId in session", async () => {
       const response = await app.handle(
-        new Request(`${BASE_URL}/auth/api/get-session`, {
+        new Request(`${BASE_URL}/api/auth/get-session`, {
           method: "GET",
           headers: {
             Cookie: sessionCookies,
@@ -306,7 +306,7 @@ describe("Signup Use Case: Novo Usuário até Trial Ativo", () => {
     test("should list user as member of organization", async () => {
       const response = await app.handle(
         new Request(
-          `${BASE_URL}/auth/api/organization/list-members?organizationId=${organizationId}`,
+          `${BASE_URL}/api/auth/organization/list-members?organizationId=${organizationId}`,
           {
             method: "GET",
             headers: {
@@ -330,7 +330,7 @@ describe("Signup Use Case: Novo Usuário até Trial Ativo", () => {
 
     test("should return correct session data", async () => {
       const response = await app.handle(
-        new Request(`${BASE_URL}/auth/api/get-session`, {
+        new Request(`${BASE_URL}/api/auth/get-session`, {
           method: "GET",
           headers: {
             Cookie: sessionCookies,
@@ -351,7 +351,7 @@ describe("Signup Use Case: Novo Usuário até Trial Ativo", () => {
 
       // Send new OTP
       const sendResponse = await app.handle(
-        new Request(`${BASE_URL}/auth/api/email-otp/send-verification-otp`, {
+        new Request(`${BASE_URL}/api/auth/email-otp/send-verification-otp`, {
           method: "POST",
           headers: { "Content-Type": "application/json" },
           body: JSON.stringify({
@@ -365,7 +365,7 @@ describe("Signup Use Case: Novo Usuário até Trial Ativo", () => {
       // Get OTP and sign in
       const otp = await waitForOTP(testEmail);
       const signInResponse = await app.handle(
-        new Request(`${BASE_URL}/auth/api/sign-in/email-otp`, {
+        new Request(`${BASE_URL}/api/auth/sign-in/email-otp`, {
           method: "POST",
           headers: { "Content-Type": "application/json" },
           body: JSON.stringify({

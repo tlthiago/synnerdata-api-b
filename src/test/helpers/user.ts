@@ -47,7 +47,7 @@ export async function createTestUser(
 
   // Step 1: Send OTP to email
   const sendOtpResponse = await app.handle(
-    new Request("http://localhost/auth/api/email-otp/send-verification-otp", {
+    new Request("http://localhost/api/auth/email-otp/send-verification-otp", {
       method: "POST",
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify({ email, type: "sign-in" }),
@@ -66,7 +66,7 @@ export async function createTestUser(
 
   // Step 3: Sign in with OTP
   const signInResponse = await app.handle(
-    new Request("http://localhost/auth/api/sign-in/email-otp", {
+    new Request("http://localhost/api/auth/sign-in/email-otp", {
       method: "POST",
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify({ email, otp }),

@@ -96,7 +96,7 @@ export const loggerPlugin = new Elysia({ name: "logger" })
           return (
             path === "/health" ||
             path === "/health/live" ||
-            path.startsWith("/auth/api")
+            path.startsWith("/api/auth")
           );
         },
       },
