@@ -56,9 +56,8 @@ const PLANS_CONFIG = [
   {
     id: "plan-gold",
     name: "gold",
-    displayName: "Ouro",
-    description:
-      "Plano básico com recursos essenciais de gestão de funcionários",
+    displayName: "Ouro Insights",
+    description: "Essencial para contratações eficazes",
     trialDays: 14,
     limits: {
       features: PLAN_FEATURES.gold as unknown as string[],
@@ -71,8 +70,8 @@ const PLANS_CONFIG = [
   {
     id: "plan-diamond",
     name: "diamond",
-    displayName: "Diamante",
-    description: "Plano intermediário com recursos avançados e relatórios",
+    displayName: "Diamante Analytics",
+    description: "Todos os recursos premium",
     trialDays: 14,
     limits: {
       features: PLAN_FEATURES.diamond as unknown as string[],
@@ -85,8 +84,8 @@ const PLANS_CONFIG = [
   {
     id: "plan-platinum",
     name: "platinum",
-    displayName: "Platina",
-    description: "Plano completo com todos os recursos incluindo folha",
+    displayName: "Platina Vision",
+    description: "Recursos avançados de analytics",
     trialDays: 14,
     limits: {
       features: PLAN_FEATURES.platinum as unknown as string[],

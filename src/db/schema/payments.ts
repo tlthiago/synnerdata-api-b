@@ -75,6 +75,7 @@ export const FEATURE_DISPLAY_NAMES: Record<string, string> = {
 
 export const MAX_EMPLOYEES = 180;
 export const YEARLY_DISCOUNT = 0.2; // 20% discount
+export const DEFAULT_TRIAL_PLAN_NAME = "platinum"; // Trial always uses the most complete plan
 
 export const subscriptionPlans = pgTable("subscription_plans", {
   id: text("id").primaryKey(),

@@ -30,15 +30,45 @@ const calculateYearlyPrice = (monthlyPrice: number): number => {
   return yearlyFullPrice - discount;
 };
 
-// Test plans - simplified set for testing
+// Employee tier ranges - 10 tiers matching production
+const EMPLOYEE_TIERS = [
+  { min: 0, max: 10 },
+  { min: 11, max: 20 },
+  { min: 21, max: 30 },
+  { min: 31, max: 40 },
+  { min: 41, max: 50 },
+  { min: 51, max: 60 },
+  { min: 61, max: 70 },
+  { min: 71, max: 80 },
+  { min: 81, max: 90 },
+  { min: 91, max: 180 },
+] as const;
+
+// Monthly prices in cents per tier for each plan
+const TIER_PRICES = {
+  gold: [
+    39_900, 44_990, 49_990, 55_990, 61_990, 69_990, 77_990, 86_990, 96_990,
+    107_990,
+  ],
+  diamond: [
+    49_900, 55_990, 61_990, 68_990, 76_090, 84_990, 94_090, 104_990, 115_990,
+    128_890,
+  ],
+  platinum: [
+    59_900, 66_990, 73_990, 82_190, 91_290, 101_590, 112_990, 125_290, 139_990,
+    154_990,
+  ],
+} as const;
+
+// Test plans - matching production structure
 export const testPlans: TestPlan[] = [
   {
     id: "test-plan-gold",
     name: "gold",
-    displayName: "Test Gold",
-    description: "Test Gold plan",
-    priceMonthly: 39_900,
-    priceYearly: calculateYearlyPrice(39_900),
+    displayName: "Ouro Insights",
+    description: "Essencial para contratações eficazes",
+    priceMonthly: TIER_PRICES.gold[0],
+    priceYearly: calculateYearlyPrice(TIER_PRICES.gold[0]),
     trialDays: 14,
     limits: {
       features: PLAN_FEATURES.gold as unknown as string[],
@@ -50,10 +80,10 @@ export const testPlans: TestPlan[] = [
   {
     id: "test-plan-diamond",
     name: "diamond",
-    displayName: "Test Diamond",
-    description: "Test Diamond plan",
-    priceMonthly: 49_900,
-    priceYearly: calculateYearlyPrice(49_900),
+    displayName: "Diamante Analytics",
+    description: "Todos os recursos premium",
+    priceMonthly: TIER_PRICES.diamond[0],
+    priceYearly: calculateYearlyPrice(TIER_PRICES.diamond[0]),
     trialDays: 14,
     limits: {
       features: PLAN_FEATURES.diamond as unknown as string[],
@@ -65,10 +95,10 @@ export const testPlans: TestPlan[] = [
   {
     id: "test-plan-platinum",
     name: "platinum",
-    displayName: "Test Platinum",
-    description: "Test Platinum plan",
-    priceMonthly: 59_900,
-    priceYearly: calculateYearlyPrice(59_900),
+    displayName: "Platina Vision",
+    description: "Recursos avançados de analytics",
+    priceMonthly: TIER_PRICES.platinum[0],
+    priceYearly: calculateYearlyPrice(TIER_PRICES.platinum[0]),
     trialDays: 14,
     limits: {
       features: PLAN_FEATURES.platinum as unknown as string[],
@@ -87,90 +117,51 @@ export const testPlans: TestPlan[] = [
     limits: {
       features: ["basic"],
     },
-    isActive: false, // Plan not available for new subscriptions
+    isActive: false,
     isPublic: false,
     sortOrder: 99,
   },
 ];
 
-// Test pricing tiers - 3 tiers per plan for testing (simplified)
-export const testPricingTiers: TestPricingTier[] = [
-  // Gold tiers
-  {
-    id: "test-tier-gold-0-10",
-    planId: "test-plan-gold",
-    minEmployees: 0,
-    maxEmployees: 10,
-    priceMonthly: 39_900,
-    priceYearly: calculateYearlyPrice(39_900),
-  },
-  {
-    id: "test-tier-gold-11-50",
-    planId: "test-plan-gold",
-    minEmployees: 11,
-    maxEmployees: 50,
-    priceMonthly: 61_990,
-    priceYearly: calculateYearlyPrice(61_990),
-  },
-  {
-    id: "test-tier-gold-51-180",
-    planId: "test-plan-gold",
-    minEmployees: 51,
-    maxEmployees: 180,
-    priceMonthly: 107_990,
-    priceYearly: calculateYearlyPrice(107_990),
-  },
-  // Diamond tiers
-  {
-    id: "test-tier-diamond-0-10",
-    planId: "test-plan-diamond",
-    minEmployees: 0,
-    maxEmployees: 10,
-    priceMonthly: 49_900,
-    priceYearly: calculateYearlyPrice(49_900),
-  },
-  {
-    id: "test-tier-diamond-11-50",
-    planId: "test-plan-diamond",
-    minEmployees: 11,
-    maxEmployees: 50,
-    priceMonthly: 76_090,
-    priceYearly: calculateYearlyPrice(76_090),
-  },
-  {
-    id: "test-tier-diamond-51-180",
-    planId: "test-plan-diamond",
-    minEmployees: 51,
-    maxEmployees: 180,
-    priceMonthly: 128_890,
-    priceYearly: calculateYearlyPrice(128_890),
-  },
-  // Platinum tiers
-  {
-    id: "test-tier-platinum-0-10",
-    planId: "test-plan-platinum",
-    minEmployees: 0,
-    maxEmployees: 10,
-    priceMonthly: 59_900,
-    priceYearly: calculateYearlyPrice(59_900),
-  },
-  {
-    id: "test-tier-platinum-11-50",
-    planId: "test-plan-platinum",
-    minEmployees: 11,
-    maxEmployees: 50,
-    priceMonthly: 91_290,
-    priceYearly: calculateYearlyPrice(91_290),
-  },
-  {
-    id: "test-tier-platinum-51-180",
-    planId: "test-plan-platinum",
-    minEmployees: 51,
-    maxEmployees: 180,
-    priceMonthly: 154_990,
-    priceYearly: calculateYearlyPrice(154_990),
-  },
-];
+// Generate pricing tiers for each plan
+function generatePricingTiers(): TestPricingTier[] {
+  const tiers: TestPricingTier[] = [];
+
+  const planConfigs = [
+    { planId: "test-plan-gold", name: "gold", prices: TIER_PRICES.gold },
+    {
+      planId: "test-plan-diamond",
+      name: "diamond",
+      prices: TIER_PRICES.diamond,
+    },
+    {
+      planId: "test-plan-platinum",
+      name: "platinum",
+      prices: TIER_PRICES.platinum,
+    },
+  ];
+
+  for (const config of planConfigs) {
+    for (let i = 0; i < EMPLOYEE_TIERS.length; i++) {
+      const tier = EMPLOYEE_TIERS[i];
+      const priceMonthly = config.prices[i];
+
+      tiers.push({
+        id: `test-tier-${config.name}-${tier.min}-${tier.max}`,
+        planId: config.planId,
+        minEmployees: tier.min,
+        maxEmployees: tier.max,
+        priceMonthly,
+        priceYearly: calculateYearlyPrice(priceMonthly),
+      });
+    }
+  }
+
+  return tiers;
+}
+
+// Test pricing tiers - 10 tiers per plan (30 total)
+export const testPricingTiers: TestPricingTier[] = generatePricingTiers();
 
 export const activePlans = testPlans.filter((p) => p.isActive && p.isPublic);
 export const goldPlan = testPlans.find((p) => p.name === "gold");
