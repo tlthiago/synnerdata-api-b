@@ -73,7 +73,7 @@ describe("GET /v1/payments/subscription", () => {
     expect(body.data.plan).toBeDefined();
     expect(body.data.plan.id).toBe("test-plan-diamond");
     expect(body.data.plan.name).toBe("diamond");
-    expect(body.data.plan.displayName).toBe("Test Diamond");
+    expect(body.data.plan.displayName).toBe("Diamante Analytics");
     expect(body.data.plan.limits).toBeDefined();
   });
 

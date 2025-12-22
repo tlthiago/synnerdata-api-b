@@ -99,20 +99,20 @@ describe("PricingTierService", () => {
       expect(response1.tier.minEmployees).toBe(0);
       expect(response1.tier.maxEmployees).toBe(10);
 
-      // Test tier 11-50
+      // Test tier 21-30 (25 employees)
       const response2 = await PricingTierService.getTierForEmployeeCount(
         diamondPlan.id,
         25
       );
-      expect(response2.tier.minEmployees).toBe(11);
-      expect(response2.tier.maxEmployees).toBe(50);
+      expect(response2.tier.minEmployees).toBe(21);
+      expect(response2.tier.maxEmployees).toBe(30);
 
-      // Test tier 51-180
+      // Test tier 91-180 (100 employees)
       const response3 = await PricingTierService.getTierForEmployeeCount(
         diamondPlan.id,
         100
       );
-      expect(response3.tier.minEmployees).toBe(51);
+      expect(response3.tier.minEmployees).toBe(91);
       expect(response3.tier.maxEmployees).toBe(180);
     });
 
@@ -200,7 +200,7 @@ describe("PricingTierService", () => {
       );
 
       expect(response.tiers).toBeArray();
-      expect(response.tiers.length).toBe(3); // We have 3 tiers per plan in fixtures
+      expect(response.tiers.length).toBe(10); // We have 10 tiers per plan in fixtures
     });
 
     test("should return tiers ordered by minEmployees", async () => {
@@ -374,7 +374,7 @@ describe("PricingTierService", () => {
         expect(result.pagarmePlanId).toBeDefined();
         expect(result.pagarmePlanId).toStartWith("plan_");
         expect(result.minEmployees).toBe(11);
-        expect(result.maxEmployees).toBe(50);
+        expect(result.maxEmployees).toBe(20); // Tier 11-20 for 15 employees
       },
       { timeout: 30_000 }
     );

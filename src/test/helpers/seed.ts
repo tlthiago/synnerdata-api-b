@@ -1,26 +1,58 @@
+import { inArray, or } from "drizzle-orm";
 import { db } from "@/db";
 import { schema } from "@/db/schema";
 import { testPlans, testPricingTiers } from "@/test/fixtures/plans";
 
 /**
  * Seeds subscription plans and pricing tiers for testing.
- * Uses onConflictDoNothing to be idempotent.
+ * Clears existing data and replaces with current fixture data.
  */
 export async function seedPlans(): Promise<void> {
-  // Seed plans first
-  for (const plan of testPlans) {
+  const testPlanIds = testPlans.map((p) => p.id);
+  const testPlanNames = testPlans.map((p) => p.name);
+
+  // Find all plan IDs that match test plan IDs or names (includes production plans)
+  const existingPlans = await db
+    .select({ id: schema.subscriptionPlans.id })
+    .from(schema.subscriptionPlans)
+    .where(
+      or(
+        inArray(schema.subscriptionPlans.id, testPlanIds),
+        inArray(schema.subscriptionPlans.name, testPlanNames)
+      )
+    );
+  const allPlanIdsToClean = existingPlans.map((p) => p.id);
+
+  if (allPlanIdsToClean.length > 0) {
+    // Clear pending checkouts
     await db
-      .insert(schema.subscriptionPlans)
-      .values(plan)
-      .onConflictDoNothing({ target: schema.subscriptionPlans.id });
+      .delete(schema.pendingCheckouts)
+      .where(inArray(schema.pendingCheckouts.planId, allPlanIdsToClean));
+
+    // Clear org subscriptions
+    await db
+      .delete(schema.orgSubscriptions)
+      .where(inArray(schema.orgSubscriptions.planId, allPlanIdsToClean));
+
+    // Clear pricing tiers
+    await db
+      .delete(schema.planPricingTiers)
+      .where(inArray(schema.planPricingTiers.planId, allPlanIdsToClean));
+
+    // Clear plans
+    await db
+      .delete(schema.subscriptionPlans)
+      .where(inArray(schema.subscriptionPlans.id, allPlanIdsToClean));
+  }
+
+  // Seed plans
+  for (const plan of testPlans) {
+    await db.insert(schema.subscriptionPlans).values(plan);
   }
 
   // Seed pricing tiers
   for (const tier of testPricingTiers) {
-    await db
-      .insert(schema.planPricingTiers)
-      .values(tier)
-      .onConflictDoNothing({ target: schema.planPricingTiers.id });
+    await db.insert(schema.planPricingTiers).values(tier);
   }
 }
 

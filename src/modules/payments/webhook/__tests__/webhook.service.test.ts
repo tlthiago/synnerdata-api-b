@@ -273,7 +273,7 @@ describe("WebhookService", () => {
       const emailData = await waitForPaymentFailedEmail(ownerResult.user.email);
 
       expect(emailData.subject).toContain("Falha no Pagamento");
-      expect(emailData.planName).toBe("Test Diamond");
+      expect(emailData.planName).toBe("Diamante Analytics");
       expect(emailData.errorMessage).toBe("Insufficient funds");
     });
   });

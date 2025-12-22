@@ -90,6 +90,7 @@ export type {
   SubscriptionPlan,
 } from "./payments";
 export {
+  DEFAULT_TRIAL_PLAN_NAME,
   FEATURE_DISPLAY_NAMES,
   MAX_EMPLOYEES,
   PLAN_FEATURES,

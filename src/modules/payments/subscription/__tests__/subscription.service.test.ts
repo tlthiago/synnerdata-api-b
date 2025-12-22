@@ -262,10 +262,10 @@ describe("SubscriptionService", () => {
   });
 
   describe("createTrial", () => {
-    test("should create trial subscription with correct dates", async () => {
+    test("should create trial subscription with platinum plan", async () => {
       const org = await createTestOrganization();
 
-      await SubscriptionService.createTrial(org.id, "test-plan-diamond");
+      await SubscriptionService.createTrial(org.id);
 
       const [subscription] = await db
         .select()
@@ -275,20 +275,11 @@ describe("SubscriptionService", () => {
 
       expect(subscription).toBeDefined();
       expect(subscription.status).toBe("trial");
-      expect(subscription.planId).toBe("test-plan-diamond");
+      expect(subscription.planId).toBe("test-plan-platinum");
       expect(subscription.trialStart).toBeInstanceOf(Date);
       expect(subscription.trialEnd).toBeInstanceOf(Date);
       expect(subscription.trialUsed).toBe(true);
       expect(subscription.seats).toBe(1);
-    });
-
-    test("should throw PlanNotFoundError for non-existent plan", async () => {
-      const { PlanNotFoundError } = await import("../../errors");
-      const org = await createTestOrganization();
-
-      await expect(
-        SubscriptionService.createTrial(org.id, "non-existent-plan")
-      ).rejects.toBeInstanceOf(PlanNotFoundError);
     });
   });
 

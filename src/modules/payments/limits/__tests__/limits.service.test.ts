@@ -133,7 +133,7 @@ describe("LimitsService", () => {
 
       expect(result.features.length).toBe(3);
       expect(result.planName).toBe("diamond");
-      expect(result.planDisplayName).toBe("Test Diamond");
+      expect(result.planDisplayName).toBe(diamondPlan?.displayName);
 
       const absences = result.features.find(
         (f) => f.featureName === "absences"
@@ -334,7 +334,7 @@ describe("LimitsService", () => {
       expect(capabilities.subscription.requiresPayment).toBe(false);
       expect(capabilities.plan).not.toBeNull();
       expect(capabilities.plan?.name).toBe("diamond");
-      expect(capabilities.plan?.displayName).toBe("Test Diamond");
+      expect(capabilities.plan?.displayName).toBe(diamondPlan?.displayName);
       expect(capabilities.features).toBeArray();
       expect(capabilities.availableFeatures).toContain("birthdays");
       expect(capabilities.availableFeatures).not.toContain("payroll");
