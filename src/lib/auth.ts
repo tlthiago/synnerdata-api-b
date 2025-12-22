@@ -16,7 +16,6 @@ import { env } from "@/env";
 import { parseOrigins } from "@/lib/cors";
 import { logger } from "@/lib/logger";
 import { AuditService } from "@/modules/audit/audit.service";
-import { PlanService } from "@/modules/payments/plan/plan.service";
 import { SubscriptionService } from "@/modules/payments/subscription/subscription.service";
 import { sendOTPEmail, sendWelcomeEmail } from "./email";
 import { orgAc, orgRoles, systemAc, systemRoles } from "./permissions";
@@ -32,8 +31,6 @@ export type AuthSession = Session & {
 export type AuthUser = User & {
   role: string;
 };
-
-const DEFAULT_TRIAL_PLAN_NAME = "platinum";
 
 function getAdminEmails(): { superAdmins: string[]; admins: string[] } {
   const superAdmins = env.SUPER_ADMIN_EMAILS.split(",").filter(Boolean);
@@ -210,11 +207,8 @@ export const auth = betterAuth({
           organization: Organization;
           member: { userId: string };
         }) => {
-          const plan = await PlanService.getByName(DEFAULT_TRIAL_PLAN_NAME);
           await Promise.all([
-            plan
-              ? SubscriptionService.createTrial(org.id, plan.id)
-              : Promise.resolve(),
+            SubscriptionService.createTrial(org.id),
             auditOrganizationCreate(org, member.userId),
           ]);
         },

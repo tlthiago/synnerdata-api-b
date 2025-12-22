@@ -104,6 +104,17 @@ export class TrialExpiredError extends PaymentError {
   }
 }
 
+export class TrialPlanNotConfiguredError extends PaymentError {
+  status = 500;
+
+  constructor() {
+    super(
+      "Trial plan is not configured. Please contact support.",
+      "TRIAL_PLAN_NOT_CONFIGURED"
+    );
+  }
+}
+
 export class PlanNotFoundError extends PaymentError {
   status = 404;
 

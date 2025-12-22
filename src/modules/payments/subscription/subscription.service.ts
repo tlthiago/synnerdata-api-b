@@ -2,7 +2,6 @@ import { eq } from "drizzle-orm";
 import { db } from "@/db";
 import { schema } from "@/db/schema";
 import {
-  PlanNotFoundError,
   SubscriptionAlreadyActiveError,
   SubscriptionNotCancelableError,
   SubscriptionNotFoundError,
@@ -347,21 +346,28 @@ export abstract class SubscriptionService {
     return !subscription?.trialUsed;
   }
 
-  static async createTrial(
-    organizationId: string,
-    planId: string
-  ): Promise<void> {
+  /**
+   * Creates a trial subscription for an organization.
+   * Trial always uses the most complete plan (Platinum) so users can
+   * experience all features before choosing which plan to subscribe to.
+   */
+  static async createTrial(organizationId: string): Promise<void> {
+    const { DEFAULT_TRIAL_PLAN_NAME } = await import("@/db/schema");
+    const { TrialPlanNotConfiguredError } = await import(
+      "@/modules/payments/errors"
+    );
+
     const [plan] = await db
       .select({
         id: schema.subscriptionPlans.id,
         trialDays: schema.subscriptionPlans.trialDays,
       })
       .from(schema.subscriptionPlans)
-      .where(eq(schema.subscriptionPlans.id, planId))
+      .where(eq(schema.subscriptionPlans.name, DEFAULT_TRIAL_PLAN_NAME))
       .limit(1);
 
     if (!plan) {
-      throw new PlanNotFoundError(planId);
+      throw new TrialPlanNotConfiguredError();
     }
 
     const trialStart = new Date();
@@ -371,7 +377,7 @@ export abstract class SubscriptionService {
     await db.insert(schema.orgSubscriptions).values({
       id: `subscription-${crypto.randomUUID()}`,
       organizationId,
-      planId,
+      planId: plan.id,
       status: "trial",
       trialStart,
       trialEnd,
