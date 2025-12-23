@@ -733,3 +733,91 @@ export async function sendCheckoutLinkEmail(
     html,
   });
 }
+
+// ============================================================
+// ORGANIZATION INVITATION EMAIL
+// ============================================================
+
+const roleLabels: Record<string, string> = {
+  owner: "Proprietário",
+  manager: "Gerente",
+  supervisor: "Supervisor",
+  viewer: "Visualizador",
+};
+
+type OrganizationInvitationEmailParams = {
+  to: string;
+  inviterName: string;
+  inviterEmail: string;
+  organizationName: string;
+  inviteLink: string;
+  role: string;
+};
+
+export async function sendOrganizationInvitationEmail(
+  params: OrganizationInvitationEmailParams
+): Promise<void> {
+  const { to, inviterName, inviterEmail, organizationName, inviteLink, role } =
+    params;
+
+  const roleLabel = roleLabels[role] ?? role;
+
+  const html = `
+    <div style="font-family: Arial, sans-serif; max-width: 600px; margin: 0 auto; padding: 20px;">
+      <h1 style="color: #333;">Você foi convidado para ${organizationName}</h1>
+
+      <p>Olá,</p>
+
+      <p>
+        <strong>${inviterName}</strong> (${inviterEmail}) convidou você para fazer parte
+        da organização <strong>${organizationName}</strong> no Synnerdata.
+      </p>
+
+      <hr style="border: 1px solid #eee; margin: 20px 0;">
+
+      <h2 style="color: #333;">Detalhes do Convite</h2>
+
+      <table style="width: 100%; border-collapse: collapse;">
+        <tr>
+          <td style="padding: 8px 0;"><strong>Organização:</strong></td>
+          <td style="padding: 8px 0;">${organizationName}</td>
+        </tr>
+        <tr>
+          <td style="padding: 8px 0;"><strong>Função:</strong></td>
+          <td style="padding: 8px 0;">${roleLabel}</td>
+        </tr>
+        <tr>
+          <td style="padding: 8px 0;"><strong>Convidado por:</strong></td>
+          <td style="padding: 8px 0;">${inviterName}</td>
+        </tr>
+      </table>
+
+      <hr style="border: 1px solid #eee; margin: 20px 0;">
+
+      <p>Clique no botão abaixo para aceitar o convite:</p>
+
+      <p>
+        <a href="${inviteLink}"
+           style="display: inline-block; background: #007bff; color: white; padding: 12px 24px; text-decoration: none; border-radius: 4px;">
+          Aceitar Convite
+        </a>
+      </p>
+
+      <hr style="border: 1px solid #eee; margin: 20px 0;">
+
+      <p style="color: #666; font-size: 14px;">
+        Se você não esperava este convite, pode ignorar este email.
+      </p>
+
+      <p style="color: #999; font-size: 12px;">
+        Equipe Synnerdata
+      </p>
+    </div>
+  `;
+
+  await sendEmail({
+    to,
+    subject: `Convite para ${organizationName} - Synnerdata`,
+    html,
+  });
+}
