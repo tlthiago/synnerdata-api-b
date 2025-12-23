@@ -203,8 +203,8 @@ export type PagarmeInvoice = {
 
 export type ListInvoicesResponse = {
   data: PagarmeInvoice[];
-  paging: {
-    total: number;
+  paging?: {
+    total?: number;
     previous?: string;
     next?: string;
   };
