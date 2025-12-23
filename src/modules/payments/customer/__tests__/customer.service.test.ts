@@ -127,12 +127,12 @@ describe("CustomerService", () => {
   describe.skipIf(skipIntegration)(
     "getOrCreateForCheckout (Pagarme API)",
     () => {
-      test("should throw CustomerNotFoundError for non-existent organization", async () => {
-        const { CustomerNotFoundError } = await import("../../errors");
+      test("should throw ProfileNotFoundError for non-existent profile", async () => {
+        const { ProfileNotFoundError } = await import("@/modules/organization");
 
         await expect(
           CustomerService.getOrCreateForCheckout("non-existent-org")
-        ).rejects.toBeInstanceOf(CustomerNotFoundError);
+        ).rejects.toBeInstanceOf(ProfileNotFoundError);
       });
 
       test("should return existing pagarmeCustomerId if already set", async () => {
@@ -167,58 +167,6 @@ describe("CustomerService", () => {
           .limit(1);
 
         expect(profile.pagarmeCustomerId).toBe(result.pagarmeCustomerId);
-      });
-
-      test("should use billingData to override profile data", async () => {
-        const org = await createTestOrganization({
-          taxId: generateUniqueTaxId(),
-          phone: "11999999999",
-        });
-
-        const newTaxId = generateUniqueTaxId();
-        const result = await CustomerService.getOrCreateForCheckout(org.id, {
-          document: newTaxId,
-          phone: "21888888888",
-          billingEmail: "billing@example.com",
-        });
-
-        expect(result.pagarmeCustomerId).toBeDefined();
-        expect(result.pagarmeCustomerId).toStartWith("cus_");
-
-        const [profile] = await db
-          .select()
-          .from(schema.organizationProfiles)
-          .where(eq(schema.organizationProfiles.organizationId, org.id))
-          .limit(1);
-
-        expect(profile.taxId).toBe(newTaxId);
-        expect(profile.phone).toBe("21888888888");
-        expect(profile.email).toBe("billing@example.com");
-      });
-
-      test("should update profile with billingData even when customer exists", async () => {
-        const existingCustomerId = `cus_update_${crypto.randomUUID().slice(0, 8)}`;
-        const originalTaxId = generateUniqueTaxId();
-        const newTaxId = generateUniqueTaxId();
-
-        const org = await createTestOrganization({
-          pagarmeCustomerId: existingCustomerId,
-          taxId: originalTaxId,
-        });
-
-        const result = await CustomerService.getOrCreateForCheckout(org.id, {
-          document: newTaxId,
-        });
-
-        expect(result.pagarmeCustomerId).toBe(existingCustomerId);
-
-        const [profile] = await db
-          .select({ taxId: schema.organizationProfiles.taxId })
-          .from(schema.organizationProfiles)
-          .where(eq(schema.organizationProfiles.organizationId, org.id))
-          .limit(1);
-
-        expect(profile.taxId).toBe(newTaxId);
       });
     }
   );

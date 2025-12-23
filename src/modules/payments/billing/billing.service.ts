@@ -89,7 +89,7 @@ export abstract class BillingService {
 
     return {
       invoices,
-      total: response.paging.total,
+      total: response.paging?.total ?? response.data.length,
       page,
       limit,
     };

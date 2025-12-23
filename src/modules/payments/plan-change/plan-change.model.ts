@@ -1,6 +1,8 @@
 import { z } from "zod";
 import { successResponseSchema } from "@/lib/responses/response.types";
 
+const isProduction = process.env.NODE_ENV === "production";
+
 const planInfoSchema = z.object({
   id: z.string().describe("Plan ID"),
   name: z.string().describe("Plan internal name"),
@@ -11,7 +13,9 @@ const changeTypeEnum = z.enum(["upgrade", "downgrade"]);
 
 export const changePlanSchema = z.object({
   newPlanId: z.string().min(1).describe("ID of the target plan"),
-  successUrl: z.httpUrl().describe("URL to redirect after successful payment"),
+  successUrl: (isProduction ? z.httpUrl() : z.url()).describe(
+    "URL to redirect after successful payment"
+  ),
 });
 
 const changePlanDataSchema = z.object({
@@ -39,7 +43,9 @@ export const changeBillingCycleSchema = z.object({
   newBillingCycle: z
     .enum(["monthly", "yearly"])
     .describe("New billing cycle to switch to"),
-  successUrl: z.httpUrl().describe("URL to redirect after successful payment"),
+  successUrl: (isProduction ? z.httpUrl() : z.url()).describe(
+    "URL to redirect after successful payment"
+  ),
 });
 
 const changeBillingCycleDataSchema = z.object({

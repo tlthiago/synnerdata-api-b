@@ -14,6 +14,7 @@ import { logger, loggerPlugin } from "./lib/logger";
 import { setupGracefulShutdown } from "./lib/shutdown/shutdown";
 import { apiKeysController } from "./modules/api-keys";
 import { auditController } from "./modules/audit";
+import { organizationController } from "./modules/organization";
 import { paymentsController } from "./modules/payments";
 
 const corsOrigins = parseOrigins(env.CORS_ORIGIN);
@@ -85,6 +86,7 @@ const app = new Elysia({
     })
   )
   .use(cronPlugin)
+  .use(organizationController)
   .use(paymentsController)
   .use(auditController)
   .use(apiKeysController)

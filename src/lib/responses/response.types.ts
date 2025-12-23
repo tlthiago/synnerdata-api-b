@@ -112,3 +112,13 @@ export const internalErrorSchema = z.object({
     message: z.string(),
   }),
 });
+
+/** Schema para erro de conflito (409) */
+export const conflictErrorSchema = z.object({
+  success: z.literal(false),
+  error: z.object({
+    code: z.literal("CONFLICT"),
+    message: z.string(),
+    details: z.unknown().optional(),
+  }),
+});

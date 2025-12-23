@@ -2,6 +2,10 @@ import { eq } from "drizzle-orm";
 import { db } from "@/db";
 import { schema } from "@/db/schema";
 import { Retry } from "@/lib/utils/retry";
+import {
+  BillingProfileIncompleteError,
+  OrganizationService,
+} from "@/modules/organization";
 import { CustomerService } from "@/modules/payments/customer/customer.service";
 import { EmailNotVerifiedError } from "@/modules/payments/errors";
 import { PagarmeClient } from "@/modules/payments/pagarme/client";
@@ -22,6 +26,7 @@ export abstract class CheckoutService {
       successUrl,
       userId,
       billingCycle = "monthly",
+      billingData,
     } = input;
 
     const [user] = await db
@@ -35,6 +40,25 @@ export abstract class CheckoutService {
     }
 
     await SubscriptionService.ensureNoPaidSubscription(organizationId);
+
+    if (billingData?.document && billingData?.phone) {
+      const organization =
+        await OrganizationService.getOrganization(organizationId);
+      if (organization) {
+        await OrganizationService.createProfile(organizationId, {
+          tradeName: organization.name,
+          taxId: billingData.document,
+          phone: billingData.phone,
+          email: billingData.billingEmail,
+        });
+      }
+    }
+
+    const billingStatus =
+      await OrganizationService.checkBillingRequirements(organizationId);
+    if (!billingStatus.complete) {
+      throw new BillingProfileIncompleteError(billingStatus.missingFields);
+    }
 
     // Validate employee count and get pricing tier
     PricingTierService.validateEmployeeCount(employeeCount);

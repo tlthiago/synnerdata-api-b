@@ -7,6 +7,7 @@ import { healthPlugin } from "@/lib/health";
 import { loggerPlugin } from "@/lib/logger";
 import { apiKeysController } from "@/modules/api-keys";
 import { auditController } from "@/modules/audit";
+import { organizationController } from "@/modules/organization";
 import { paymentsController } from "@/modules/payments";
 
 export function createTestApp() {
@@ -23,6 +24,7 @@ export function createTestApp() {
       })
     )
     .use(betterAuthPlugin)
+    .use(organizationController)
     .use(paymentsController)
     .use(auditController)
     .use(apiKeysController)

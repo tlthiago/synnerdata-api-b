@@ -1,82 +1,37 @@
-import { eq } from "drizzle-orm";
-import { db } from "@/db";
-import { schema } from "@/db/schema";
 import { Retry } from "@/lib/utils/retry";
 import {
-  CustomerCreationError,
-  CustomerNotFoundError,
-  MissingBillingDataError,
-} from "@/modules/payments/errors";
+  OrganizationService,
+  ProfileNotFoundError,
+} from "@/modules/organization";
+import { CustomerCreationError } from "@/modules/payments/errors";
 import { PagarmeClient } from "@/modules/payments/pagarme/client";
 import type {
-  BillingData,
   CreateCustomerInput,
   ListCustomersData,
   ListCustomersInput,
 } from "./customer.model";
 
 export abstract class CustomerService {
-  private static async findProfileByOrganizationId(organizationId: string) {
-    const [profile] = await db
-      .select()
-      .from(schema.organizationProfiles)
-      .where(eq(schema.organizationProfiles.organizationId, organizationId))
-      .limit(1);
-
-    return profile ?? null;
-  }
-
   static async getOrCreateForCheckout(
-    organizationId: string,
-    billingData?: BillingData
+    organizationId: string
   ): Promise<{ pagarmeCustomerId: string }> {
-    const profile =
-      await CustomerService.findProfileByOrganizationId(organizationId);
+    const profile = await OrganizationService.getProfile(organizationId);
 
     if (!profile) {
-      throw new CustomerNotFoundError(organizationId);
-    }
-
-    const document = billingData?.document ?? profile.taxId;
-    const phone = billingData?.phone ?? profile.phone ?? profile.mobile;
-    const email = billingData?.billingEmail ?? profile.email;
-
-    const missingFields: string[] = [];
-    if (!document) {
-      missingFields.push("document (CNPJ)");
-    }
-    if (!phone) {
-      missingFields.push("phone");
-    }
-
-    if (missingFields.length > 0) {
-      throw new MissingBillingDataError(missingFields);
-    }
-
-    if (
-      billingData?.document ||
-      billingData?.phone ||
-      billingData?.billingEmail
-    ) {
-      await db
-        .update(schema.organizationProfiles)
-        .set({
-          taxId: billingData?.document ?? profile.taxId,
-          phone: billingData?.phone ?? profile.phone,
-          email: billingData?.billingEmail ?? profile.email,
-        })
-        .where(eq(schema.organizationProfiles.organizationId, organizationId));
+      throw new ProfileNotFoundError(organizationId);
     }
 
     if (profile.pagarmeCustomerId) {
       return { pagarmeCustomerId: profile.pagarmeCustomerId };
     }
 
+    const phone = profile.phone ?? profile.mobile;
+
     const customer = await CustomerService.create({
       organizationId,
       name: profile.tradeName,
-      email: email ?? "",
-      document: document as string,
+      email: profile.email ?? "",
+      document: profile.taxId as string,
       phone: phone as string,
     });
 
@@ -123,10 +78,10 @@ export abstract class CustomerService {
         { maxAttempts: 3, delayMs: 1000 }
       );
 
-      await db
-        .update(schema.organizationProfiles)
-        .set({ pagarmeCustomerId: pagarmeCustomer.id })
-        .where(eq(schema.organizationProfiles.organizationId, organizationId));
+      await OrganizationService.setCustomerId(
+        organizationId,
+        pagarmeCustomer.id
+      );
 
       return { pagarmeCustomerId: pagarmeCustomer.id };
     } catch (error) {
@@ -136,9 +91,7 @@ export abstract class CustomerService {
   }
 
   static async getCustomerId(organizationId: string): Promise<string | null> {
-    const profile =
-      await CustomerService.findProfileByOrganizationId(organizationId);
-
+    const profile = await OrganizationService.getProfile(organizationId);
     return profile?.pagarmeCustomerId ?? null;
   }
 
