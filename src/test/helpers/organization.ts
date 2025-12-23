@@ -1,8 +1,11 @@
 import { eq } from "drizzle-orm";
 import { db } from "@/db";
 import { type Role, schema } from "@/db/schema";
+import { env } from "@/env";
 import { createTestApp } from "./app";
 import type { TestUserResult } from "./user";
+
+const BASE_URL = env.API_URL;
 
 export type TestOrganization = {
   id: string;
@@ -130,4 +133,81 @@ export async function setOrganizationCustomerId(
     .update(schema.organizationProfiles)
     .set({ pagarmeCustomerId })
     .where(eq(schema.organizationProfiles.organizationId, organizationId));
+}
+
+type CreateOrganizationViaApiOptions = {
+  name?: string;
+  slug?: string;
+  tradeName?: string;
+  legalName?: string;
+  taxId?: string;
+  phone?: string;
+  email?: string;
+};
+
+type CreateOrganizationViaApiResult = {
+  organizationId: string;
+  name: string;
+  slug: string;
+};
+
+/**
+ * Creates an organization via Better Auth API.
+ * This triggers the afterCreateOrganization hook which creates the trial subscription.
+ * Use this when you need to test flows that depend on the trial subscription.
+ */
+export async function createOrganizationViaApi(
+  userResult: TestUserResult,
+  options: CreateOrganizationViaApiOptions = {}
+): Promise<CreateOrganizationViaApiResult> {
+  const app = createTestApp();
+  const testId = crypto.randomUUID();
+
+  const name = options.name ?? `Test Org ${testId.slice(0, 8)}`;
+  const slug = options.slug ?? `test-org-${testId.slice(0, 8)}`;
+
+  const response = await app.handle(
+    new Request(`${BASE_URL}/api/auth/organization/create`, {
+      method: "POST",
+      headers: {
+        "Content-Type": "application/json",
+        Cookie: `better-auth.session_token=${userResult.session.token}`,
+      },
+      body: JSON.stringify({ name, slug }),
+    })
+  );
+
+  if (!response.ok) {
+    const errorBody = await response.text();
+    throw new Error(
+      `Failed to create organization (${response.status}): ${errorBody || "No response body"}`
+    );
+  }
+
+  const body = await response.json();
+  const organizationId = body.id;
+
+  // Create organization profile (Better Auth doesn't create it automatically)
+  const profileId = `profile-${crypto.randomUUID()}`;
+  // Generate unique taxId using timestamp and random to avoid conflicts
+  const uniqueTaxId =
+    options.taxId ??
+    `${Date.now()}${Math.floor(Math.random() * 1_000_000)}`.slice(0, 14);
+
+  await db.insert(schema.organizationProfiles).values({
+    id: profileId,
+    organizationId,
+    tradeName: options.tradeName ?? `Test Company ${testId.slice(0, 8)}`,
+    legalName: options.legalName ?? `Test Legal Name ${testId.slice(0, 8)}`,
+    taxId: uniqueTaxId,
+    phone: options.phone ?? "11999999999",
+    mobile: options.phone ?? "11999999999",
+    email: options.email ?? `org-${testId}@example.com`,
+  });
+
+  return {
+    organizationId,
+    name,
+    slug,
+  };
 }
