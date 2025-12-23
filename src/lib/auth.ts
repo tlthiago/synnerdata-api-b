@@ -1,6 +1,7 @@
 import { betterAuth } from "better-auth";
 import { drizzleAdapter } from "better-auth/adapters/drizzle";
-import type { Organization } from "better-auth/plugins";
+import { APIError } from "better-auth/api";
+import type { Invitation, Member, Organization } from "better-auth/plugins";
 import {
   admin,
   apiKey,
@@ -11,13 +12,17 @@ import {
 import type { Session, User } from "better-auth/types";
 import { eq } from "drizzle-orm";
 import { db } from "@/db";
-import { fullSchema, schema } from "@/db/schema";
+import { fullSchema, roleValues, schema } from "@/db/schema";
 import { env } from "@/env";
 import { parseOrigins } from "@/lib/cors";
 import { logger } from "@/lib/logger";
 import { AuditService } from "@/modules/audit/audit.service";
 import { SubscriptionService } from "@/modules/payments/subscription/subscription.service";
-import { sendOTPEmail, sendWelcomeEmail } from "./email";
+import {
+  sendOrganizationInvitationEmail,
+  sendOTPEmail,
+  sendWelcomeEmail,
+} from "./email";
 import { orgAc, orgRoles, systemAc, systemRoles } from "./permissions";
 
 const isTest = process.env.NODE_ENV === "test";
@@ -94,6 +99,98 @@ async function auditOrganizationCreate(
     userId,
     organizationId: org.id,
     changes: { after: { id: org.id, name: org.name } },
+  });
+}
+
+async function auditOrganizationUpdate(
+  org: { id: string; name: string },
+  userId: string
+): Promise<void> {
+  await AuditService.log({
+    action: "update",
+    resource: "organization",
+    resourceId: org.id,
+    userId,
+    organizationId: org.id,
+    changes: { after: { id: org.id, name: org.name } },
+  });
+}
+
+async function auditOrganizationDelete(
+  org: { id: string; name: string },
+  userId: string
+): Promise<void> {
+  await AuditService.log({
+    action: "delete",
+    resource: "organization",
+    resourceId: org.id,
+    userId,
+    organizationId: org.id,
+    changes: { before: { id: org.id, name: org.name } },
+  });
+}
+
+async function auditMemberAdd(
+  member: { id: string; userId: string; role: string },
+  organizationId: string,
+  addedByUserId: string
+): Promise<void> {
+  await AuditService.log({
+    action: "create",
+    resource: "member",
+    resourceId: member.id,
+    userId: addedByUserId,
+    organizationId,
+    changes: {
+      after: {
+        id: member.id,
+        userId: member.userId,
+        role: member.role,
+      },
+    },
+  });
+}
+
+async function auditMemberRemove(
+  member: { id: string; userId: string; role: string },
+  organizationId: string,
+  removedByUserId: string
+): Promise<void> {
+  await AuditService.log({
+    action: "delete",
+    resource: "member",
+    resourceId: member.id,
+    userId: removedByUserId,
+    organizationId,
+    changes: {
+      before: {
+        id: member.id,
+        userId: member.userId,
+        role: member.role,
+      },
+    },
+  });
+}
+
+async function auditInvitationAccept(
+  invitation: { id: string; email: string; role: string },
+  member: { id: string; userId: string },
+  organizationId: string
+): Promise<void> {
+  await AuditService.log({
+    action: "accept",
+    resource: "invitation",
+    resourceId: invitation.id,
+    userId: member.userId,
+    organizationId,
+    changes: {
+      after: {
+        invitationId: invitation.id,
+        email: invitation.email,
+        role: invitation.role,
+        memberId: member.id,
+      },
+    },
   });
 }
 
@@ -199,7 +296,38 @@ export const auth = betterAuth({
     organization({
       ac: orgAc,
       roles: orgRoles,
+      async sendInvitationEmail(data: {
+        id: string;
+        email: string;
+        role: string | string[];
+        inviter: { user: { name: string; email: string } };
+        organization: { name: string };
+      }) {
+        const inviteLink = `${env.APP_URL}/accept-invitation/${data.id}`;
+        await sendOrganizationInvitationEmail({
+          to: data.email,
+          inviterName: data.inviter.user.name,
+          inviterEmail: data.inviter.user.email,
+          organizationName: data.organization.name,
+          inviteLink,
+          role: Array.isArray(data.role) ? data.role.join(", ") : data.role,
+        });
+      },
       organizationHooks: {
+        beforeCreateInvitation: ({
+          invitation,
+        }: {
+          invitation: { role: string };
+        }) => {
+          const validRoles = roleValues as readonly string[];
+          if (!validRoles.includes(invitation.role)) {
+            throw new APIError("BAD_REQUEST", {
+              code: "INVALID_ORGANIZATION_ROLE",
+              message: `Role inválida: "${invitation.role}". Roles válidas: ${roleValues.join(", ")}`,
+            });
+          }
+          return Promise.resolve();
+        },
         afterCreateOrganization: async ({
           organization: org,
           member,
@@ -211,6 +339,77 @@ export const auth = betterAuth({
             SubscriptionService.createTrial(org.id),
             auditOrganizationCreate(org, member.userId),
           ]);
+        },
+        afterUpdateOrganization: async ({
+          organization: org,
+          user,
+        }: {
+          organization: Organization | null;
+          user: User;
+        }) => {
+          if (org) {
+            await auditOrganizationUpdate(org, user.id);
+          }
+        },
+        afterDeleteOrganization: async ({
+          organization: org,
+          user,
+        }: {
+          organization: Organization | null;
+          user: User;
+        }) => {
+          if (org) {
+            await auditOrganizationDelete(org, user.id);
+          }
+        },
+        afterAcceptInvitation: async ({
+          invitation,
+          member,
+          organization: org,
+        }: {
+          invitation: Invitation;
+          member: Member;
+          organization: Organization;
+        }) => {
+          await auditInvitationAccept(
+            {
+              id: invitation.id,
+              email: invitation.email,
+              role: invitation.role,
+            },
+            { id: member.id, userId: member.userId },
+            org.id
+          );
+        },
+        afterAddMember: async ({
+          member,
+          user,
+          organization: org,
+        }: {
+          member: Member;
+          user: User;
+          organization: Organization;
+        }) => {
+          await auditMemberAdd(
+            { id: member.id, userId: member.userId, role: member.role },
+            org.id,
+            user.id
+          );
+        },
+        afterRemoveMember: async ({
+          member,
+          user,
+          organization: org,
+        }: {
+          member: Member;
+          user: User;
+          organization: Organization;
+        }) => {
+          await auditMemberRemove(
+            { id: member.id, userId: member.userId, role: member.role },
+            org.id,
+            user.id
+          );
         },
       },
     }),
