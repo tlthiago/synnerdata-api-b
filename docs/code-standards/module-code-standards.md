@@ -72,6 +72,62 @@ export const resourceController = new Elysia({
 
 ---
 
+## Controle de Acesso
+
+O sistema possui **dois mecanismos de controle de acesso** que servem propósitos diferentes:
+
+### `permissions` - RBAC para rotas CRUD
+
+Controla acesso baseado no **papel do usuário** na organização (owner, manager, supervisor, viewer).
+
+```typescript
+// ✅ Usar em rotas CRUD de módulos
+auth: {
+  permissions: { employees: ["create"] },  // create | read | update | delete
+  requireOrganization: true,
+}
+```
+
+**Quando usar:** Todas as rotas de CRUD (Create, Read, Update, Delete) de recursos.
+
+### `requireFeature` - Controle por plano para relatórios
+
+Controla acesso baseado nas **features do plano** da organização.
+
+```typescript
+// ✅ Usar em rotas de relatórios
+auth: {
+  requireFeature: "absences",  // Feature disponível no plano
+  requireOrganization: true,
+}
+```
+
+**Quando usar:** Rotas de relatórios que dependem de features específicas do plano.
+
+### Combinando os dois
+
+Rotas de relatórios podem combinar ambos os controles:
+
+```typescript
+// Relatório de ausências: requer feature "absences" E permissão de leitura
+auth: {
+  requireFeature: "absences",
+  permissions: { reports: ["read"] },
+  requireOrganization: true,
+}
+```
+
+### Resumo
+
+| Mecanismo | Baseado em | Usar em |
+|-----------|------------|---------|
+| `permissions` | Papel (role) do usuário | Rotas CRUD de módulos |
+| `requireFeature` | Features do plano | Rotas de relatórios |
+
+> **IMPORTANTE**: Rotas CRUD de módulos **NÃO devem usar** `requireFeature`. A verificação de features do plano é exclusiva para relatórios.
+
+---
+
 ## Model (`{module}.model.ts`)
 
 ```typescript
@@ -406,6 +462,8 @@ import type { CreateResourceInput } from "./{module}.model";
 
 **Novo módulo:**
 - [ ] `index.ts` com `betterAuthPlugin` e `auth: { permissions, requireOrganization }`
+- [ ] Rotas CRUD usam apenas `permissions` (RBAC por papel)
+- [ ] Rotas de relatórios usam `requireFeature` (controle por plano)
 - [ ] `index.ts` usa `wrapSuccess()` para encapsular respostas
 - [ ] `.model.ts` com schemas Zod e tipos inferidos (`z.infer`)
 - [ ] `.model.ts` tem tipos `*Data` para retorno do service
