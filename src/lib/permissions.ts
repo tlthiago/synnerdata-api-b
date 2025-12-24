@@ -25,6 +25,7 @@ export const systemRoles = {
 
 export const orgStatements = {
   organization: ["read", "update", "delete"],
+  branch: ["create", "read", "update", "delete"],
   employee: ["create", "read", "update", "delete"],
   occurrence: ["create", "read", "update", "delete"],
   member: ["create", "read", "update", "delete"],
@@ -44,6 +45,7 @@ export const orgAc = createAccessControl(orgStatements);
 export const orgRoles: Record<Role, ReturnType<typeof orgAc.newRole>> = {
   owner: orgAc.newRole({
     organization: ["read", "update", "delete"],
+    branch: ["create", "read", "update", "delete"],
     employee: ["create", "read", "update", "delete"],
     occurrence: ["create", "read", "update", "delete"],
     member: ["create", "read", "update", "delete"],
@@ -55,6 +57,7 @@ export const orgRoles: Record<Role, ReturnType<typeof orgAc.newRole>> = {
   }),
   manager: orgAc.newRole({
     organization: ["read"],
+    branch: ["create", "read", "update", "delete"],
     employee: ["create", "read", "update", "delete"],
     occurrence: ["create", "read", "update", "delete"],
     member: ["create", "read"],
@@ -66,6 +69,7 @@ export const orgRoles: Record<Role, ReturnType<typeof orgAc.newRole>> = {
   }),
   supervisor: orgAc.newRole({
     organization: ["read"],
+    branch: ["read"],
     employee: ["read"],
     occurrence: ["create", "read", "update", "delete"],
     member: ["read"],
@@ -77,6 +81,7 @@ export const orgRoles: Record<Role, ReturnType<typeof orgAc.newRole>> = {
   }),
   viewer: orgAc.newRole({
     organization: ["read"],
+    branch: ["read"],
     employee: ["read"],
     occurrence: ["read"],
     member: ["read"],

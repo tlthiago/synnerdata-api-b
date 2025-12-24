@@ -8,6 +8,7 @@ import {
   unauthorizedErrorSchema,
   validationErrorSchema,
 } from "@/lib/responses/response.types";
+import { branchController } from "./branches";
 import {
   billingStatusResponseSchema,
   getProfileResponseSchema,
@@ -119,4 +120,5 @@ export const organizationController = new Elysia({
           "Returns whether the organization profile is complete for billing",
       },
     }
-  );
+  )
+  .use(branchController);
