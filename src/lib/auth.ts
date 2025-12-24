@@ -303,7 +303,7 @@ export const auth = betterAuth({
         inviter: { user: { name: string; email: string } };
         organization: { name: string };
       }) {
-        const inviteLink = `${env.APP_URL}/accept-invitation/${data.id}`;
+        const inviteLink = `${env.APP_URL}/convite/${data.id}`;
         await sendOrganizationInvitationEmail({
           to: data.email,
           inviterName: data.inviter.user.name,

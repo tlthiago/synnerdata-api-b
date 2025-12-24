@@ -18,6 +18,7 @@ import {
   users,
   verifications,
 } from "./auth";
+import { branches, branchRelations } from "./branches";
 import {
   organizationProfileRelations,
   organizationProfiles,
@@ -46,6 +47,7 @@ export const schema = {
   subscriptions,
   apikeys,
   organizationProfiles,
+  branches,
   orgSubscriptions,
   subscriptionEvents,
   subscriptionPlans,
@@ -65,6 +67,7 @@ export const fullSchema = {
   subscriptionRelations,
   apikeysRelations,
   organizationProfileRelations,
+  branchRelations,
   orgSubscriptionRelations,
   subscriptionEventRelations,
   subscriptionPlanRelations,
@@ -76,6 +79,7 @@ export const fullSchema = {
 export type { AuditLog, NewAuditLog } from "./audit";
 export type { Role, SystemRole } from "./auth";
 export { roleValues, systemRoleValues } from "./auth";
+export type { Branch, NewBranch } from "./branches";
 export type {
   NewOrgSubscription,
   NewPendingCheckout,
