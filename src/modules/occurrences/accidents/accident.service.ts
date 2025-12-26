@@ -1,0 +1,304 @@
+import { and, eq, isNull } from "drizzle-orm";
+import { db } from "@/db";
+import { schema } from "@/db/schema";
+import type {
+  AccidentData,
+  CreateAccidentInput,
+  DeletedAccidentData,
+  UpdateAccidentInput,
+} from "./accident.model";
+import {
+  AccidentAlreadyDeletedError,
+  AccidentInvalidEmployeeError,
+  AccidentNotFoundError,
+} from "./errors";
+
+export abstract class AccidentService {
+  private static async findById(
+    id: string,
+    organizationId: string
+  ): Promise<AccidentData | null> {
+    const [result] = await db
+      .select({
+        id: schema.accidents.id,
+        organizationId: schema.accidents.organizationId,
+        employee: {
+          id: schema.employees.id,
+          name: schema.employees.name,
+        },
+        date: schema.accidents.date,
+        description: schema.accidents.description,
+        nature: schema.accidents.nature,
+        cat: schema.accidents.cat,
+        measuresTaken: schema.accidents.measuresTaken,
+        notes: schema.accidents.notes,
+        createdAt: schema.accidents.createdAt,
+        updatedAt: schema.accidents.updatedAt,
+      })
+      .from(schema.accidents)
+      .innerJoin(
+        schema.employees,
+        eq(schema.accidents.employeeId, schema.employees.id)
+      )
+      .where(
+        and(
+          eq(schema.accidents.id, id),
+          eq(schema.accidents.organizationId, organizationId),
+          isNull(schema.accidents.deletedAt)
+        )
+      )
+      .limit(1);
+
+    return (result as AccidentData) ?? null;
+  }
+
+  private static async findByIdIncludingDeleted(
+    id: string,
+    organizationId: string
+  ): Promise<
+    (AccidentData & { deletedAt: Date | null; deletedBy: string | null }) | null
+  > {
+    const [result] = await db
+      .select({
+        id: schema.accidents.id,
+        organizationId: schema.accidents.organizationId,
+        employee: {
+          id: schema.employees.id,
+          name: schema.employees.name,
+        },
+        date: schema.accidents.date,
+        description: schema.accidents.description,
+        nature: schema.accidents.nature,
+        cat: schema.accidents.cat,
+        measuresTaken: schema.accidents.measuresTaken,
+        notes: schema.accidents.notes,
+        createdAt: schema.accidents.createdAt,
+        updatedAt: schema.accidents.updatedAt,
+        deletedAt: schema.accidents.deletedAt,
+        deletedBy: schema.accidents.deletedBy,
+      })
+      .from(schema.accidents)
+      .innerJoin(
+        schema.employees,
+        eq(schema.accidents.employeeId, schema.employees.id)
+      )
+      .where(
+        and(
+          eq(schema.accidents.id, id),
+          eq(schema.accidents.organizationId, organizationId)
+        )
+      )
+      .limit(1);
+
+    return result ?? null;
+  }
+
+  private static async getEmployeeReference(
+    employeeId: string,
+    organizationId: string
+  ): Promise<{ id: string; name: string }> {
+    const [employee] = await db
+      .select({
+        id: schema.employees.id,
+        name: schema.employees.name,
+      })
+      .from(schema.employees)
+      .where(
+        and(
+          eq(schema.employees.id, employeeId),
+          eq(schema.employees.organizationId, organizationId),
+          isNull(schema.employees.deletedAt)
+        )
+      )
+      .limit(1);
+
+    if (!employee) {
+      throw new AccidentInvalidEmployeeError(employeeId);
+    }
+
+    return employee;
+  }
+
+  static async create(input: CreateAccidentInput): Promise<AccidentData> {
+    const { organizationId, userId, ...data } = input;
+
+    const employee = await AccidentService.getEmployeeReference(
+      data.employeeId,
+      organizationId
+    );
+
+    const accidentId = `accident-${crypto.randomUUID()}`;
+
+    const [accident] = await db
+      .insert(schema.accidents)
+      .values({
+        id: accidentId,
+        organizationId,
+        employeeId: data.employeeId,
+        date: data.date,
+        description: data.description,
+        nature: data.nature,
+        cat: data.cat,
+        measuresTaken: data.measuresTaken,
+        notes: data.notes,
+        createdBy: userId,
+      })
+      .returning();
+
+    return {
+      id: accident.id,
+      organizationId: accident.organizationId,
+      employee,
+      date: accident.date,
+      description: accident.description,
+      nature: accident.nature,
+      cat: accident.cat,
+      measuresTaken: accident.measuresTaken,
+      notes: accident.notes,
+      createdAt: accident.createdAt,
+      updatedAt: accident.updatedAt,
+    } as AccidentData;
+  }
+
+  static async findAll(organizationId: string): Promise<AccidentData[]> {
+    const results = await db
+      .select({
+        id: schema.accidents.id,
+        organizationId: schema.accidents.organizationId,
+        employee: {
+          id: schema.employees.id,
+          name: schema.employees.name,
+        },
+        date: schema.accidents.date,
+        description: schema.accidents.description,
+        nature: schema.accidents.nature,
+        cat: schema.accidents.cat,
+        measuresTaken: schema.accidents.measuresTaken,
+        notes: schema.accidents.notes,
+        createdAt: schema.accidents.createdAt,
+        updatedAt: schema.accidents.updatedAt,
+      })
+      .from(schema.accidents)
+      .innerJoin(
+        schema.employees,
+        eq(schema.accidents.employeeId, schema.employees.id)
+      )
+      .where(
+        and(
+          eq(schema.accidents.organizationId, organizationId),
+          isNull(schema.accidents.deletedAt)
+        )
+      )
+      .orderBy(schema.accidents.date);
+
+    return results as AccidentData[];
+  }
+
+  static async findByIdOrThrow(
+    id: string,
+    organizationId: string
+  ): Promise<AccidentData> {
+    const accident = await AccidentService.findById(id, organizationId);
+    if (!accident) {
+      throw new AccidentNotFoundError(id);
+    }
+    return accident;
+  }
+
+  static async update(
+    id: string,
+    organizationId: string,
+    input: UpdateAccidentInput
+  ): Promise<AccidentData> {
+    const { userId, ...data } = input;
+
+    const existing = await AccidentService.findById(id, organizationId);
+    if (!existing) {
+      throw new AccidentNotFoundError(id);
+    }
+
+    if (data.employeeId && data.employeeId !== existing.employee.id) {
+      await AccidentService.getEmployeeReference(
+        data.employeeId,
+        organizationId
+      );
+    }
+
+    const updateData: Record<string, unknown> = {
+      updatedBy: userId,
+    };
+
+    if (data.employeeId !== undefined) {
+      updateData.employeeId = data.employeeId;
+    }
+    if (data.date !== undefined) {
+      updateData.date = data.date;
+    }
+    if (data.description !== undefined) {
+      updateData.description = data.description;
+    }
+    if (data.nature !== undefined) {
+      updateData.nature = data.nature;
+    }
+    if (data.cat !== undefined) {
+      updateData.cat = data.cat;
+    }
+    if (data.measuresTaken !== undefined) {
+      updateData.measuresTaken = data.measuresTaken;
+    }
+    if (data.notes !== undefined) {
+      updateData.notes = data.notes;
+    }
+
+    await db
+      .update(schema.accidents)
+      .set(updateData)
+      .where(
+        and(
+          eq(schema.accidents.id, id),
+          eq(schema.accidents.organizationId, organizationId)
+        )
+      );
+
+    return AccidentService.findByIdOrThrow(id, organizationId);
+  }
+
+  static async delete(
+    id: string,
+    organizationId: string,
+    userId: string
+  ): Promise<DeletedAccidentData> {
+    const existing = await AccidentService.findByIdIncludingDeleted(
+      id,
+      organizationId
+    );
+
+    if (!existing) {
+      throw new AccidentNotFoundError(id);
+    }
+
+    if (existing.deletedAt) {
+      throw new AccidentAlreadyDeletedError(id);
+    }
+
+    const [deleted] = await db
+      .update(schema.accidents)
+      .set({
+        deletedAt: new Date(),
+        deletedBy: userId,
+      })
+      .where(
+        and(
+          eq(schema.accidents.id, id),
+          eq(schema.accidents.organizationId, organizationId)
+        )
+      )
+      .returning();
+
+    return {
+      ...existing,
+      deletedAt: deleted.deletedAt as Date,
+      deletedBy: deleted.deletedBy,
+    } as DeletedAccidentData;
+  }
+}

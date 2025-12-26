@@ -21,7 +21,7 @@ import { BranchService } from "./branch.service";
 
 export const branchController = new Elysia({
   name: "branches",
-  prefix: "/branches",
+  prefix: "/v1/branches",
   detail: { tags: ["Organization - Branches"] },
 })
   .use(betterAuthPlugin)
@@ -91,7 +91,7 @@ export const branchController = new Elysia({
         requireOrganization: true,
       },
       params: t.Object({
-        id: t.String(),
+        id: t.String({ description: "ID da filial" }),
       }),
       response: {
         200: getBranchResponseSchema,
@@ -124,7 +124,7 @@ export const branchController = new Elysia({
         requireOrganization: true,
       },
       params: t.Object({
-        id: t.String(),
+        id: t.String({ description: "ID da filial" }),
       }),
       body: updateBranchSchema,
       response: {
@@ -157,7 +157,7 @@ export const branchController = new Elysia({
         requireOrganization: true,
       },
       params: t.Object({
-        id: t.String(),
+        id: t.String({ description: "ID da filial" }),
       }),
       response: {
         200: deleteBranchResponseSchema,

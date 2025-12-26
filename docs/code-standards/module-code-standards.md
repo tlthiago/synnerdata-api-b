@@ -6,13 +6,21 @@
 
 ```text
 src/modules/{domain}/{module-name}/
-├── index.ts                  # Controller
+├── index.ts                  # Controller (exporta apenas o controller)
 ├── {module-name}.model.ts    # Schemas + tipos
 ├── {module-name}.service.ts  # Lógica de negócio
+├── errors.ts                 # Erros específicos do módulo (opcional)
 └── __tests__/
 ```
 
-Domínios têm `errors.ts` na raiz: `src/modules/{domain}/errors.ts`
+**Erros:**
+- Erros **comuns** do domínio ficam na raiz: `src/modules/{domain}/errors.ts`
+- Erros **específicos** de um módulo podem ficar no módulo: `src/modules/{domain}/{module}/errors.ts`
+
+**Re-exports:**
+- **NÃO usar re-exports** (barrel files) no `index.ts`
+- O `index.ts` deve exportar **apenas o controller**
+- Imports de types, services ou errors devem ser feitos diretamente do arquivo específico
 
 ---
 
@@ -33,8 +41,8 @@ import { ResourceService } from "./{module}.service";
 
 export const resourceController = new Elysia({
   name: "{module-name}",           // kebab-case
-  prefix: "/{module-name}",
-  detail: { tags: ["{Domain} - {Module}"] },
+  prefix: "/v1/{module-name}",     // Flat route with /v1/ prefix
+  detail: { tags: ["{Domain} - {Module}"] },  // Grouped in OpenAPI docs
 })
   .use(betterAuthPlugin)           // OBRIGATÓRIO em cada controller
   .post(
@@ -69,6 +77,62 @@ export const resourceController = new Elysia({
 - Usar `wrapSuccess()` para encapsular a resposta: `wrapSuccess(await Service.method())`
 - Handler deve ser `async` quando usa `await`
 - O envelope `{ success: true, data: {...} }` é responsabilidade do controller, não do service
+
+---
+
+## Estrutura de Rotas (RESTful)
+
+O projeto segue o padrão **RESTful flat** com prefixo `/v1/`:
+
+### Padrão de Rotas
+
+```text
+/v1/{resource}          # Recursos independentes
+/v1/{resource}/:id      # Recurso específico
+```
+
+**Exemplos:**
+```text
+/v1/employees           # CRUD de funcionários
+/v1/branches            # CRUD de filiais
+/v1/absences            # CRUD de ausências
+/v1/organization/profile # Perfil da organização (caso especial)
+```
+
+### Tags OpenAPI para Agrupamento
+
+As rotas são agrupadas na documentação via `detail.tags`:
+
+| Domínio | Recursos | Tag OpenAPI |
+|---------|----------|-------------|
+| Organization | branches, sectors, cost-centers, job-positions, job-classifications | `["Organization - {Resource}"]` |
+| Employees | employees | `["Employees"]` |
+| Occurrences | absences, vacations, warnings, medical-certificates, cpf-analyses, terminations, promotions | `["Occurrences - {Resource}"]` |
+
+**Exemplo:**
+```typescript
+// Controller de branches
+export const branchController = new Elysia({
+  name: "branches",
+  prefix: "/v1/branches",                    // Rota flat
+  detail: { tags: ["Organization - Branches"] },  // Agrupado em Organization
+})
+```
+
+### Registro de Controllers
+
+Controllers são registrados **diretamente** em `src/index.ts`, não aninhados:
+
+```typescript
+// src/index.ts
+const app = new Elysia()
+  .use(organizationController)   // /v1/organization/profile, /v1/organization/billing-status
+  .use(branchController)         // /v1/branches
+  .use(sectorController)         // /v1/sectors
+  .use(employeeController)       // /v1/employees
+  .use(occurrencesController)    // /v1/absences, /v1/vacations, etc.
+  // ...
+```
 
 ---
 
@@ -160,6 +224,13 @@ export type CreateResourceResponse = z.infer<typeof createResourceResponseSchema
 
 // Tipo de dados para o service (sem envelope)
 export type CreateResourceData = ResourceData;
+
+// Para soft delete: tipo que inclui deletedAt e deletedBy
+const deletedResourceDataSchema = resourceDataSchema.extend({
+  deletedAt: z.coerce.date().describe("Data de exclusão"),
+  deletedBy: z.string().nullable().describe("ID do usuário que excluiu"),
+});
+export type DeletedResourceData = z.infer<typeof deletedResourceDataSchema>;
 ```
 
 **Nomenclatura:**
@@ -344,6 +415,32 @@ await db.update(schema.resources).set({ status: "active" }).where(eq(schema.reso
 // DELETE
 await db.delete(schema.resources).where(eq(schema.resources.id, id));
 ```
+
+### Soft Delete com Campos Unique
+
+Quando um campo tem constraint `unique` e o módulo usa soft delete (`deletedAt`), use **índice único parcial** para permitir reutilização do valor após exclusão:
+
+```typescript
+// src/db/schema/{module}.ts
+import { sql } from "drizzle-orm";
+import { uniqueIndex } from "drizzle-orm/pg-core";
+
+export const resources = pgTable(
+  "resources",
+  {
+    taxId: text("tax_id").notNull(),  // SEM .unique() aqui
+    deletedAt: timestamp("deleted_at", { withTimezone: true }),
+  },
+  (table) => [
+    // Índice único parcial: só considera registros não deletados
+    uniqueIndex("resources_tax_id_unique_idx")
+      .on(table.taxId)
+      .where(sql`deleted_at IS NULL`),
+  ]
+);
+```
+
+**Regra:** Se o módulo tem soft delete E campo unique, usar índice parcial em vez de `.unique()`.
 
 ---
 

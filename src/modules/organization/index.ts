@@ -8,7 +8,6 @@ import {
   unauthorizedErrorSchema,
   validationErrorSchema,
 } from "@/lib/responses/response.types";
-import { branchController } from "./branches";
 import {
   billingStatusResponseSchema,
   getProfileResponseSchema,
@@ -17,22 +16,8 @@ import {
 } from "./organization.model";
 import { OrganizationService } from "./organization.service";
 
-// biome-ignore lint/performance/noBarrelFile: module entry point
-export {
-  BillingProfileIncompleteError,
-  OrganizationError,
-  ProfileAlreadyExistsError,
-  ProfileNotFoundError,
-  TaxIdAlreadyExistsError,
-} from "./errors";
-export type {
-  BillingStatusData,
-  CreateProfileData,
-  OrganizationData,
-  OrganizationProfileData,
-  UpdateProfileInput,
-} from "./organization.model";
-export { OrganizationService } from "./organization.service";
+// biome-ignore lint/performance/noBarrelFile: intentional public API re-export
+export { ProfileNotFoundError } from "./errors";
 
 export const organizationController = new Elysia({
   name: "organization",
@@ -120,5 +105,4 @@ export const organizationController = new Elysia({
           "Returns whether the organization profile is complete for billing",
       },
     }
-  )
-  .use(branchController);
+  );
