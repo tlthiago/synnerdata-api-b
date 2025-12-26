@@ -34,6 +34,76 @@ expect(response.id).toStartWith("pl_");
 
 ---
 
+## Test Helpers para Reduzir Boilerplate
+
+Embora os testes sejam E2E, usamos **helpers para setup de dados** quando o recurso não é o foco do teste. Isso reduz boilerplate sem comprometer a filosofia E2E.
+
+**Princípio fundamental:**
+
+| Situação | Abordagem |
+|----------|-----------|
+| Testar criação de recurso (POST) | Usar **API diretamente** |
+| Recurso é setup para outro teste | Usar **helper** |
+
+**Exemplo - teste de DELETE:**
+
+```typescript
+// ✅ CORRETO: Usar helper para criar o recurso (setup)
+const { employee } = await createTestEmployee({ organizationId, userId });
+
+// Testar o DELETE via API (foco do teste)
+const response = await app.handle(
+  new Request(`${BASE_URL}/v1/employees/${employee.id}`, {
+    method: "DELETE",
+    headers,
+  })
+);
+
+expect(response.status).toBe(200);
+```
+
+**Exemplo - teste de CREATE:**
+
+```typescript
+// ✅ CORRETO: Usar API para criar (é o foco do teste)
+// Usar helpers apenas para dependências (sector, jobPosition, etc.)
+const deps = await createTestDependencies(organizationId, userId);
+
+const response = await app.handle(
+  new Request(`${BASE_URL}/v1/employees`, {
+    method: "POST",
+    headers: { ...headers, "Content-Type": "application/json" },
+    body: JSON.stringify({
+      name: "João da Silva",
+      cpf: "12345678901",
+      ...deps,  // sectorId, jobPositionId, etc.
+    }),
+  })
+);
+
+expect(response.status).toBe(200);
+```
+
+**Helpers disponíveis em `src/test/helpers/`:**
+
+- `createTestBranch` - Filiais
+- `createTestSector` - Setores
+- `createTestCostCenter` - Centros de custo
+- `createTestJobPosition` - Funções/cargos
+- `createTestJobClassification` - CBOs
+- `createTestEmployee` - Funcionários (cria dependências automaticamente)
+
+**Vantagens dos helpers:**
+
+1. **Reduz boilerplate**: ~35 linhas de setup → 3 linhas
+2. **Dados realistas**: Usa Faker com locale pt-BR
+3. **Mantém filosofia E2E**: Helpers usam Services que gravam no banco real
+4. **Testes mais focados**: Setup não polui o código do teste
+
+Consulte `docs/code-standards/module-implementation-guide.md` seção 3.4 para criar novos helpers.
+
+---
+
 ## Estrutura de Testes
 
 ```text
@@ -68,7 +138,7 @@ describe("POST /v1/{domain}/{resource}", () => {
 
   beforeAll(async () => {
     app = createTestApp();
-    await seedPlans();
+    await seedPlans();  // Se não houver await, remover async do beforeAll
   });
 
   afterAll(async () => {
@@ -240,7 +310,7 @@ await db
 
 ### Autenticação e Autorização
 - [ ] Requisição sem autenticação → 401
-- [ ] Usuário sem organização ativa → 400 `NO_ACTIVE_ORGANIZATION`
+- [ ] Usuário sem organização ativa → 403 `NO_ACTIVE_ORGANIZATION`
 - [ ] Usuário sem permissão → 403 `FORBIDDEN`
 - [ ] Roles não autorizados (viewer, manager, supervisor) → 403
 
