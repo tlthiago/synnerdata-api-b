@@ -204,7 +204,7 @@ export async function createTestAdminUser(
  */
 export async function createTestUserWithOrganization(
   options: CreateTestUserWithOrgOptions = {}
-): Promise<TestUserResult & { organizationId: string }> {
+): Promise<TestUserResult & { organizationId: string; userId: string }> {
   const {
     addMemberToOrganization,
     createTestOrganization,
@@ -223,5 +223,6 @@ export async function createTestUserWithOrganization(
   return {
     ...userResult,
     organizationId: organization.id,
+    userId: userResult.user.id,
   };
 }
