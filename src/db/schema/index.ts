@@ -1,3 +1,5 @@
+import { absenceRelations, absences } from "./absences";
+import { accidentRelations, accidents } from "./accidents";
 import { auditLogRelations, auditLogs } from "./audit";
 import {
   accountRelations,
@@ -19,6 +21,19 @@ import {
   verifications,
 } from "./auth";
 import { branches, branchRelations } from "./branches";
+import { costCenterRelations, costCenters } from "./cost-centers";
+import { cpfAnalyses, cpfAnalysisRelations } from "./cpf-analyses";
+import { employeeRelations, employees } from "./employees";
+import {
+  jobClassificationRelations,
+  jobClassifications,
+} from "./job-classifications";
+import { jobPositionRelations, jobPositions } from "./job-positions";
+import { laborLawsuitRelations, laborLawsuits } from "./labor-lawsuits";
+import {
+  medicalCertificateRelations,
+  medicalCertificates,
+} from "./medical-certificates";
 import {
   organizationProfileRelations,
   organizationProfiles,
@@ -35,6 +50,24 @@ import {
   subscriptionPlanRelations,
   subscriptionPlans,
 } from "./payments";
+import { ppeDeliveries, ppeDeliveryRelations } from "./ppe-deliveries";
+import {
+  ppeDeliveryItemRelations,
+  ppeDeliveryItems,
+} from "./ppe-delivery-items";
+import { ppeDeliveryLogRelations, ppeDeliveryLogs } from "./ppe-delivery-logs";
+import { ppeItemRelations, ppeItems } from "./ppe-items";
+import { ppeJobPositionRelations, ppeJobPositions } from "./ppe-job-positions";
+import {
+  projectEmployeeRelations,
+  projectEmployees,
+} from "./project-employees";
+import { projectRelations, projects } from "./projects";
+import { promotionRelations, promotions } from "./promotions";
+import { sectorRelations, sectors } from "./sectors";
+import { terminationRelations, terminations } from "./terminations";
+import { vacationRelations, vacations } from "./vacations";
+import { warningRelations, warnings } from "./warnings";
 
 export const schema = {
   users,
@@ -48,6 +81,27 @@ export const schema = {
   apikeys,
   organizationProfiles,
   branches,
+  sectors,
+  costCenters,
+  jobClassifications,
+  jobPositions,
+  laborLawsuits,
+  projects,
+  projectEmployees,
+  ppeItems,
+  ppeJobPositions,
+  ppeDeliveries,
+  ppeDeliveryItems,
+  ppeDeliveryLogs,
+  employees,
+  absences,
+  accidents,
+  cpfAnalyses,
+  medicalCertificates,
+  vacations,
+  warnings,
+  promotions,
+  terminations,
   orgSubscriptions,
   subscriptionEvents,
   subscriptionPlans,
@@ -68,6 +122,27 @@ export const fullSchema = {
   apikeysRelations,
   organizationProfileRelations,
   branchRelations,
+  sectorRelations,
+  costCenterRelations,
+  jobClassificationRelations,
+  jobPositionRelations,
+  laborLawsuitRelations,
+  projectRelations,
+  projectEmployeeRelations,
+  ppeItemRelations,
+  ppeJobPositionRelations,
+  ppeDeliveryRelations,
+  ppeDeliveryItemRelations,
+  ppeDeliveryLogRelations,
+  employeeRelations,
+  absenceRelations,
+  accidentRelations,
+  cpfAnalysisRelations,
+  medicalCertificateRelations,
+  vacationRelations,
+  warningRelations,
+  promotionRelations,
+  terminationRelations,
   orgSubscriptionRelations,
   subscriptionEventRelations,
   subscriptionPlanRelations,
@@ -76,10 +151,33 @@ export const fullSchema = {
   auditLogRelations,
 };
 
+export type { Absence, NewAbsence } from "./absences";
+export type { Accident, NewAccident } from "./accidents";
 export type { AuditLog, NewAuditLog } from "./audit";
 export type { Role, SystemRole } from "./auth";
 export { roleValues, systemRoleValues } from "./auth";
 export type { Branch, NewBranch } from "./branches";
+export type { CostCenter, NewCostCenter } from "./cost-centers";
+export type { CpfAnalysis, NewCpfAnalysis } from "./cpf-analyses";
+export type { Employee, NewEmployee } from "./employees";
+export {
+  contractTypeEnum,
+  educationLevelEnum,
+  employeeStatusEnum,
+  genderEnum,
+  maritalStatusEnum,
+  workShiftEnum,
+} from "./employees";
+export type {
+  JobClassification,
+  NewJobClassification,
+} from "./job-classifications";
+export type { JobPosition, NewJobPosition } from "./job-positions";
+export type { LaborLawsuit, NewLaborLawsuit } from "./labor-lawsuits";
+export type {
+  MedicalCertificate,
+  NewMedicalCertificate,
+} from "./medical-certificates";
 export type {
   NewOrgSubscription,
   NewPendingCheckout,
@@ -100,3 +198,19 @@ export {
   PLAN_FEATURES,
   YEARLY_DISCOUNT,
 } from "./payments";
+export type { NewPpeDelivery, PpeDelivery } from "./ppe-deliveries";
+export type { NewPpeDeliveryItem, PpeDeliveryItem } from "./ppe-delivery-items";
+export type { NewPpeDeliveryLog, PpeDeliveryLog } from "./ppe-delivery-logs";
+export { ppeDeliveryActionEnum } from "./ppe-delivery-logs";
+export type { NewPpeItem, PpeItem } from "./ppe-items";
+export type { NewPpeJobPosition, PpeJobPosition } from "./ppe-job-positions";
+export type { NewProjectEmployee, ProjectEmployee } from "./project-employees";
+export type { NewProject, Project } from "./projects";
+export type { NewPromotion, Promotion } from "./promotions";
+export type { NewSector, Sector } from "./sectors";
+export type { NewTermination, Termination } from "./terminations";
+export { terminationTypeEnum } from "./terminations";
+export type { NewVacation, Vacation } from "./vacations";
+export { vacationStatusEnum } from "./vacations";
+export type { NewWarning, Warning } from "./warnings";
+export { warningTypeEnum } from "./warnings";
