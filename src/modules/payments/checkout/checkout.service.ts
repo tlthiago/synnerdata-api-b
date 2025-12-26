@@ -2,10 +2,8 @@ import { eq } from "drizzle-orm";
 import { db } from "@/db";
 import { schema } from "@/db/schema";
 import { Retry } from "@/lib/utils/retry";
-import {
-  BillingProfileIncompleteError,
-  OrganizationService,
-} from "@/modules/organization";
+import { BillingProfileIncompleteError } from "@/modules/organization/errors";
+import { OrganizationService } from "@/modules/organization/organization.service";
 import { CustomerService } from "@/modules/payments/customer/customer.service";
 import { EmailNotVerifiedError } from "@/modules/payments/errors";
 import { PagarmeClient } from "@/modules/payments/pagarme/client";

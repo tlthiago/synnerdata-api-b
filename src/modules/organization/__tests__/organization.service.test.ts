@@ -3,10 +3,10 @@ import { eq } from "drizzle-orm";
 import { db } from "@/db";
 import { schema } from "@/db/schema";
 import {
-  OrganizationService,
   ProfileAlreadyExistsError,
   ProfileNotFoundError,
-} from "@/modules/organization";
+} from "@/modules/organization/errors";
+import { OrganizationService } from "@/modules/organization/organization.service";
 import { createTestOrganization } from "@/test/helpers/organization";
 
 function generateUniqueTaxId(): string {

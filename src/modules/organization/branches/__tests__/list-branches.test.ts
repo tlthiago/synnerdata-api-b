@@ -1,6 +1,7 @@
 import { beforeAll, describe, expect, test } from "bun:test";
 import { env } from "@/env";
 import { createTestApp, type TestApp } from "@/test/helpers/app";
+import { createTestBranch } from "@/test/helpers/branch";
 import {
   createTestUser,
   createTestUserWithOrganization,
@@ -9,7 +10,7 @@ import { BranchService } from "../branch.service";
 
 const BASE_URL = env.API_URL;
 
-describe("GET /v1/organization/branches", () => {
+describe("GET /v1/branches", () => {
   let app: TestApp;
 
   beforeAll(() => {
@@ -18,7 +19,7 @@ describe("GET /v1/organization/branches", () => {
 
   test("should reject unauthenticated requests", async () => {
     const response = await app.handle(
-      new Request(`${BASE_URL}/v1/organization/branches`, {
+      new Request(`${BASE_URL}/v1/branches`, {
         method: "GET",
       })
     );
@@ -30,7 +31,7 @@ describe("GET /v1/organization/branches", () => {
     const { headers } = await createTestUser({ emailVerified: true });
 
     const response = await app.handle(
-      new Request(`${BASE_URL}/v1/organization/branches`, {
+      new Request(`${BASE_URL}/v1/branches`, {
         method: "GET",
         headers,
       })
@@ -47,7 +48,7 @@ describe("GET /v1/organization/branches", () => {
     });
 
     const response = await app.handle(
-      new Request(`${BASE_URL}/v1/organization/branches`, {
+      new Request(`${BASE_URL}/v1/branches`, {
         method: "GET",
         headers,
       })
@@ -67,37 +68,20 @@ describe("GET /v1/organization/branches", () => {
         emailVerified: true,
       });
 
-    // Create branches directly using service
-    await BranchService.create({
+    await createTestBranch({
       organizationId,
       userId: user.id,
       name: "Filial 1",
-      taxId: `${Date.now()}`.slice(-14).padStart(14, "0"),
-      street: "Rua A",
-      number: "100",
-      neighborhood: "Centro",
-      city: "São Paulo",
-      state: "SP",
-      zipCode: "01234567",
-      mobile: "11999998888",
     });
 
-    await BranchService.create({
+    await createTestBranch({
       organizationId,
       userId: user.id,
       name: "Filial 2",
-      taxId: `${Date.now() + 1}`.slice(-14).padStart(14, "0"),
-      street: "Rua B",
-      number: "200",
-      neighborhood: "Jardins",
-      city: "São Paulo",
-      state: "SP",
-      zipCode: "01234568",
-      mobile: "11999997777",
     });
 
     const response = await app.handle(
-      new Request(`${BASE_URL}/v1/organization/branches`, {
+      new Request(`${BASE_URL}/v1/branches`, {
         method: "GET",
         headers,
       })
@@ -127,39 +111,21 @@ describe("GET /v1/organization/branches", () => {
         emailVerified: true,
       });
 
-    // Create branch for org1
-    await BranchService.create({
+    await createTestBranch({
       organizationId: org1,
       userId: user1.id,
       name: "Filial Org 1",
-      taxId: `${Date.now() + 10}`.slice(-14).padStart(14, "0"),
-      street: "Rua X",
-      number: "111",
-      neighborhood: "Centro",
-      city: "Rio",
-      state: "RJ",
-      zipCode: "20000000",
-      mobile: "21999998888",
     });
 
-    // Create branch for org2
-    await BranchService.create({
+    await createTestBranch({
       organizationId: org2,
       userId: user2.id,
       name: "Filial Org 2",
-      taxId: `${Date.now() + 11}`.slice(-14).padStart(14, "0"),
-      street: "Rua Y",
-      number: "222",
-      neighborhood: "Copacabana",
-      city: "Rio",
-      state: "RJ",
-      zipCode: "20000001",
-      mobile: "21999997777",
     });
 
     // Request as org1
     const response = await app.handle(
-      new Request(`${BASE_URL}/v1/organization/branches`, {
+      new Request(`${BASE_URL}/v1/branches`, {
         method: "GET",
         headers: headers1,
       })
@@ -179,25 +145,16 @@ describe("GET /v1/organization/branches", () => {
         emailVerified: true,
       });
 
-    // Create and delete a branch
-    const branch = await BranchService.create({
+    const branch = await createTestBranch({
       organizationId,
       userId: user.id,
       name: "Filial Deleted",
-      taxId: `${Date.now() + 20}`.slice(-14).padStart(14, "0"),
-      street: "Rua Z",
-      number: "333",
-      neighborhood: "Centro",
-      city: "Belo Horizonte",
-      state: "MG",
-      zipCode: "30000000",
-      mobile: "31999998888",
     });
 
     await BranchService.delete(branch.id, organizationId, user.id);
 
     const response = await app.handle(
-      new Request(`${BASE_URL}/v1/organization/branches`, {
+      new Request(`${BASE_URL}/v1/branches`, {
         method: "GET",
         headers,
       })
@@ -218,18 +175,10 @@ describe("GET /v1/organization/branches", () => {
       emailVerified: true,
     });
 
-    await BranchService.create({
+    await createTestBranch({
       organizationId,
       userId: user.id,
       name: "Filial Viewer Test",
-      taxId: `${Date.now() + 30}`.slice(-14).padStart(14, "0"),
-      street: "Rua V",
-      number: "444",
-      neighborhood: "Centro",
-      city: "Curitiba",
-      state: "PR",
-      zipCode: "80000000",
-      mobile: "41999998888",
     });
 
     const memberResult = await createTestUser({ emailVerified: true });
@@ -239,7 +188,7 @@ describe("GET /v1/organization/branches", () => {
     });
 
     const response = await app.handle(
-      new Request(`${BASE_URL}/v1/organization/branches`, {
+      new Request(`${BASE_URL}/v1/branches`, {
         method: "GET",
         headers: memberResult.headers,
       })

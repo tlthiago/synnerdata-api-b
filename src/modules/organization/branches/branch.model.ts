@@ -60,9 +60,8 @@ export const createBranchSchema = z.object({
     .string()
     .regex(/^\d{10,11}$/, "Celular deve ter 10 ou 11 dígitos")
     .describe("Celular"),
-  foundedAt: z
-    .string()
-    .date("Data de fundação deve ser uma data válida")
+  foundedAt: z.iso
+    .date({ error: "Data de fundação deve ser uma data válida" })
     .refine((val) => !isFutureDate(val), {
       message: "Data de fundação não pode ser no futuro",
     })

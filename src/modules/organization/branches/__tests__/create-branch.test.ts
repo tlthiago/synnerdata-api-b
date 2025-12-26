@@ -23,7 +23,7 @@ const validBranchData = {
   foundedAt: "2020-01-15",
 };
 
-describe("POST /v1/organization/branches", () => {
+describe("POST /v1/branches", () => {
   let app: TestApp;
 
   beforeAll(() => {
@@ -32,7 +32,7 @@ describe("POST /v1/organization/branches", () => {
 
   test("should reject unauthenticated requests", async () => {
     const response = await app.handle(
-      new Request(`${BASE_URL}/v1/organization/branches`, {
+      new Request(`${BASE_URL}/v1/branches`, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify(validBranchData),
@@ -46,7 +46,7 @@ describe("POST /v1/organization/branches", () => {
     const { headers } = await createTestUser({ emailVerified: true });
 
     const response = await app.handle(
-      new Request(`${BASE_URL}/v1/organization/branches`, {
+      new Request(`${BASE_URL}/v1/branches`, {
         method: "POST",
         headers: {
           ...headers,
@@ -71,7 +71,7 @@ describe("POST /v1/organization/branches", () => {
 
     // Create first branch
     const firstResponse = await app.handle(
-      new Request(`${BASE_URL}/v1/organization/branches`, {
+      new Request(`${BASE_URL}/v1/branches`, {
         method: "POST",
         headers: {
           ...headers,
@@ -91,7 +91,7 @@ describe("POST /v1/organization/branches", () => {
     });
 
     const secondResponse = await app.handle(
-      new Request(`${BASE_URL}/v1/organization/branches`, {
+      new Request(`${BASE_URL}/v1/branches`, {
         method: "POST",
         headers: {
           ...headers2,
@@ -125,7 +125,7 @@ describe("POST /v1/organization/branches", () => {
     });
 
     const response = await app.handle(
-      new Request(`${BASE_URL}/v1/organization/branches`, {
+      new Request(`${BASE_URL}/v1/branches`, {
         method: "POST",
         headers: {
           ...userResult.headers,
@@ -149,7 +149,7 @@ describe("POST /v1/organization/branches", () => {
     });
 
     const response = await app.handle(
-      new Request(`${BASE_URL}/v1/organization/branches`, {
+      new Request(`${BASE_URL}/v1/branches`, {
         method: "POST",
         headers: {
           ...headers,
@@ -168,7 +168,7 @@ describe("POST /v1/organization/branches", () => {
     });
 
     const response = await app.handle(
-      new Request(`${BASE_URL}/v1/organization/branches`, {
+      new Request(`${BASE_URL}/v1/branches`, {
         method: "POST",
         headers: {
           ...headers,
@@ -193,7 +193,7 @@ describe("POST /v1/organization/branches", () => {
     futureDate.setFullYear(futureDate.getFullYear() + 1);
 
     const response = await app.handle(
-      new Request(`${BASE_URL}/v1/organization/branches`, {
+      new Request(`${BASE_URL}/v1/branches`, {
         method: "POST",
         headers: {
           ...headers,
@@ -218,7 +218,7 @@ describe("POST /v1/organization/branches", () => {
     const uniqueTaxId = `${Date.now()}`.slice(-14).padStart(14, "0");
 
     const response = await app.handle(
-      new Request(`${BASE_URL}/v1/organization/branches`, {
+      new Request(`${BASE_URL}/v1/branches`, {
         method: "POST",
         headers: {
           ...headers,
@@ -259,7 +259,7 @@ describe("POST /v1/organization/branches", () => {
     } = validBranchData;
 
     const response = await app.handle(
-      new Request(`${BASE_URL}/v1/organization/branches`, {
+      new Request(`${BASE_URL}/v1/branches`, {
         method: "POST",
         headers: {
           ...headers,
@@ -300,7 +300,7 @@ describe("POST /v1/organization/branches", () => {
     });
 
     const response = await app.handle(
-      new Request(`${BASE_URL}/v1/organization/branches`, {
+      new Request(`${BASE_URL}/v1/branches`, {
         method: "POST",
         headers: {
           ...memberResult.headers,
@@ -336,7 +336,7 @@ describe("POST /v1/organization/branches", () => {
     const uniqueTaxId = `${Date.now() + 3}`.slice(-14).padStart(14, "0");
 
     const response = await app.handle(
-      new Request(`${BASE_URL}/v1/organization/branches`, {
+      new Request(`${BASE_URL}/v1/branches`, {
         method: "POST",
         headers: {
           ...memberResult.headers,

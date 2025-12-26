@@ -1,6 +1,7 @@
 import { beforeAll, describe, expect, test } from "bun:test";
 import { env } from "@/env";
 import { createTestApp, type TestApp } from "@/test/helpers/app";
+import { createTestBranch } from "@/test/helpers/branch";
 import {
   createTestUser,
   createTestUserWithOrganization,
@@ -9,7 +10,7 @@ import { BranchService } from "../branch.service";
 
 const BASE_URL = env.API_URL;
 
-describe("DELETE /v1/organization/branches/:id", () => {
+describe("DELETE /v1/branches/:id", () => {
   let app: TestApp;
 
   beforeAll(() => {
@@ -18,7 +19,7 @@ describe("DELETE /v1/organization/branches/:id", () => {
 
   test("should reject unauthenticated requests", async () => {
     const response = await app.handle(
-      new Request(`${BASE_URL}/v1/organization/branches/branch-123`, {
+      new Request(`${BASE_URL}/v1/branches/branch-123`, {
         method: "DELETE",
       })
     );
@@ -30,7 +31,7 @@ describe("DELETE /v1/organization/branches/:id", () => {
     const { headers } = await createTestUser({ emailVerified: true });
 
     const response = await app.handle(
-      new Request(`${BASE_URL}/v1/organization/branches/branch-123`, {
+      new Request(`${BASE_URL}/v1/branches/branch-123`, {
         method: "DELETE",
         headers,
       })
@@ -47,7 +48,7 @@ describe("DELETE /v1/organization/branches/:id", () => {
     });
 
     const response = await app.handle(
-      new Request(`${BASE_URL}/v1/organization/branches/branch-nonexistent`, {
+      new Request(`${BASE_URL}/v1/branches/branch-nonexistent`, {
         method: "DELETE",
         headers,
       })
@@ -68,22 +69,13 @@ describe("DELETE /v1/organization/branches/:id", () => {
       emailVerified: true,
     });
 
-    const branch = await BranchService.create({
+    const branch = await createTestBranch({
       organizationId: org1,
       userId: user1.id,
-      name: "Filial Org 1",
-      taxId: `${Date.now()}`.slice(-14).padStart(14, "0"),
-      street: "Rua X",
-      number: "111",
-      neighborhood: "Centro",
-      city: "Rio",
-      state: "RJ",
-      zipCode: "20000000",
-      mobile: "21999998888",
     });
 
     const response = await app.handle(
-      new Request(`${BASE_URL}/v1/organization/branches/${branch.id}`, {
+      new Request(`${BASE_URL}/v1/branches/${branch.id}`, {
         method: "DELETE",
         headers: headers2,
       })
@@ -100,22 +92,13 @@ describe("DELETE /v1/organization/branches/:id", () => {
         emailVerified: true,
       });
 
-    const branch = await BranchService.create({
+    const branch = await createTestBranch({
       organizationId,
       userId: user.id,
-      name: "Filial to Delete",
-      taxId: `${Date.now() + 1}`.slice(-14).padStart(14, "0"),
-      street: "Rua Test",
-      number: "100",
-      neighborhood: "Centro",
-      city: "São Paulo",
-      state: "SP",
-      zipCode: "01234567",
-      mobile: "11999998888",
     });
 
     const response = await app.handle(
-      new Request(`${BASE_URL}/v1/organization/branches/${branch.id}`, {
+      new Request(`${BASE_URL}/v1/branches/${branch.id}`, {
         method: "DELETE",
         headers,
       })
@@ -130,7 +113,7 @@ describe("DELETE /v1/organization/branches/:id", () => {
 
     // Verify branch is no longer accessible via GET
     const getResponse = await app.handle(
-      new Request(`${BASE_URL}/v1/organization/branches/${branch.id}`, {
+      new Request(`${BASE_URL}/v1/branches/${branch.id}`, {
         method: "GET",
         headers,
       })
@@ -145,18 +128,9 @@ describe("DELETE /v1/organization/branches/:id", () => {
         emailVerified: true,
       });
 
-    const branch = await BranchService.create({
+    const branch = await createTestBranch({
       organizationId,
       userId: user.id,
-      name: "Filial Double Delete",
-      taxId: `${Date.now() + 2}`.slice(-14).padStart(14, "0"),
-      street: "Rua Z",
-      number: "333",
-      neighborhood: "Centro",
-      city: "Belo Horizonte",
-      state: "MG",
-      zipCode: "30000000",
-      mobile: "31999998888",
     });
 
     // First delete
@@ -164,7 +138,7 @@ describe("DELETE /v1/organization/branches/:id", () => {
 
     // Try to delete again via API
     const response = await app.handle(
-      new Request(`${BASE_URL}/v1/organization/branches/${branch.id}`, {
+      new Request(`${BASE_URL}/v1/branches/${branch.id}`, {
         method: "DELETE",
         headers,
       })
@@ -181,37 +155,21 @@ describe("DELETE /v1/organization/branches/:id", () => {
         emailVerified: true,
       });
 
-    const branch1 = await BranchService.create({
+    const branch1 = await createTestBranch({
       organizationId,
       userId: user.id,
       name: "Filial Active",
-      taxId: `${Date.now() + 3}`.slice(-14).padStart(14, "0"),
-      street: "Rua A",
-      number: "100",
-      neighborhood: "Centro",
-      city: "São Paulo",
-      state: "SP",
-      zipCode: "01234567",
-      mobile: "11999998888",
     });
 
-    const branch2 = await BranchService.create({
+    const branch2 = await createTestBranch({
       organizationId,
       userId: user.id,
       name: "Filial to Delete",
-      taxId: `${Date.now() + 4}`.slice(-14).padStart(14, "0"),
-      street: "Rua B",
-      number: "200",
-      neighborhood: "Jardins",
-      city: "São Paulo",
-      state: "SP",
-      zipCode: "01234568",
-      mobile: "11999997777",
     });
 
     // Delete branch2
     await app.handle(
-      new Request(`${BASE_URL}/v1/organization/branches/${branch2.id}`, {
+      new Request(`${BASE_URL}/v1/branches/${branch2.id}`, {
         method: "DELETE",
         headers,
       })
@@ -219,7 +177,7 @@ describe("DELETE /v1/organization/branches/:id", () => {
 
     // List branches
     const listResponse = await app.handle(
-      new Request(`${BASE_URL}/v1/organization/branches`, {
+      new Request(`${BASE_URL}/v1/branches`, {
         method: "GET",
         headers,
       })
@@ -244,18 +202,9 @@ describe("DELETE /v1/organization/branches/:id", () => {
       emailVerified: true,
     });
 
-    const branch = await BranchService.create({
+    const branch = await createTestBranch({
       organizationId,
       userId: user.id,
-      name: "Filial Protected",
-      taxId: `${Date.now() + 5}`.slice(-14).padStart(14, "0"),
-      street: "Rua Test",
-      number: "100",
-      neighborhood: "Centro",
-      city: "São Paulo",
-      state: "SP",
-      zipCode: "01234567",
-      mobile: "11999998888",
     });
 
     const memberResult = await createTestUser({ emailVerified: true });
@@ -265,7 +214,7 @@ describe("DELETE /v1/organization/branches/:id", () => {
     });
 
     const response = await app.handle(
-      new Request(`${BASE_URL}/v1/organization/branches/${branch.id}`, {
+      new Request(`${BASE_URL}/v1/branches/${branch.id}`, {
         method: "DELETE",
         headers: memberResult.headers,
       })
@@ -285,18 +234,9 @@ describe("DELETE /v1/organization/branches/:id", () => {
       emailVerified: true,
     });
 
-    const branch = await BranchService.create({
+    const branch = await createTestBranch({
       organizationId,
       userId: user.id,
-      name: "Filial Manager Delete",
-      taxId: `${Date.now() + 6}`.slice(-14).padStart(14, "0"),
-      street: "Rua Test",
-      number: "100",
-      neighborhood: "Centro",
-      city: "São Paulo",
-      state: "SP",
-      zipCode: "01234567",
-      mobile: "11999998888",
     });
 
     const memberResult = await createTestUser({ emailVerified: true });
@@ -306,7 +246,7 @@ describe("DELETE /v1/organization/branches/:id", () => {
     });
 
     const response = await app.handle(
-      new Request(`${BASE_URL}/v1/organization/branches/${branch.id}`, {
+      new Request(`${BASE_URL}/v1/branches/${branch.id}`, {
         method: "DELETE",
         headers: memberResult.headers,
       })
@@ -323,25 +263,17 @@ describe("DELETE /v1/organization/branches/:id", () => {
         emailVerified: true,
       });
 
-    const taxId = `${Date.now() + 7}`.slice(-14).padStart(14, "0");
+    const taxId = `${Date.now()}`.slice(-14).padStart(14, "0");
 
-    const branch = await BranchService.create({
+    const branch = await createTestBranch({
       organizationId,
       userId: user.id,
-      name: "Filial Original",
       taxId,
-      street: "Rua Test",
-      number: "100",
-      neighborhood: "Centro",
-      city: "São Paulo",
-      state: "SP",
-      zipCode: "01234567",
-      mobile: "11999998888",
     });
 
     // Delete the branch
     await app.handle(
-      new Request(`${BASE_URL}/v1/organization/branches/${branch.id}`, {
+      new Request(`${BASE_URL}/v1/branches/${branch.id}`, {
         method: "DELETE",
         headers,
       })
@@ -349,7 +281,7 @@ describe("DELETE /v1/organization/branches/:id", () => {
 
     // Create new branch with same taxId
     const response = await app.handle(
-      new Request(`${BASE_URL}/v1/organization/branches`, {
+      new Request(`${BASE_URL}/v1/branches`, {
         method: "POST",
         headers: {
           ...headers,
