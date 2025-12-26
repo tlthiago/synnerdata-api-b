@@ -15,6 +15,62 @@
       "when": 1766582646993,
       "tag": "0001_last_kabuki",
       "breakpoints": true
+    },
+    {
+      "idx": 2,
+      "version": "7",
+      "when": 1766583928981,
+      "tag": "0002_flippant_ikaris",
+      "breakpoints": true
+    },
+    {
+      "idx": 3,
+      "version": "7",
+      "when": 1766588314297,
+      "tag": "0003_material_scarlet_witch",
+      "breakpoints": true
+    },
+    {
+      "idx": 4,
+      "version": "7",
+      "when": 1766589098503,
+      "tag": "0004_thick_luminals",
+      "breakpoints": true
+    },
+    {
+      "idx": 5,
+      "version": "7",
+      "when": 1766590074900,
+      "tag": "0005_overrated_pestilence",
+      "breakpoints": true
+    },
+    {
+      "idx": 6,
+      "version": "7",
+      "when": 1766591136647,
+      "tag": "0006_unknown_major_mapleleaf",
+      "breakpoints": true
+    },
+    {
+      "idx": 7,
+      "version": "7",
+      "when": 1766596233498,
+      "tag": "0007_aberrant_wind_dancer",
+      "breakpoints": true
+    },
+    {
+      "idx": 8,
+      "version": "7",
+      "when": 1766598781241,
+      "tag": "0008_flawless_mentor",
+      "breakpoints": true
+    },
+    {
+      "idx": 9,
+      "version": "7",
+      "when": 1766718969686,
+      "tag": "0009_legal_shiver_man",
+      "breakpoints": true
     }
   ]
 }
