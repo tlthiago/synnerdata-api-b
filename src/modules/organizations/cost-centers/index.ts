@@ -21,7 +21,7 @@ import { CostCenterService } from "./cost-center.service";
 export const costCenterController = new Elysia({
   name: "cost-centers",
   prefix: "/v1/cost-centers",
-  detail: { tags: ["Organization - Cost Centers"] },
+  detail: { tags: ["Organizations - Cost Centers"] },
 })
   .use(betterAuthPlugin)
   .post(

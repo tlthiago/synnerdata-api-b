@@ -21,7 +21,7 @@ import { JobPositionService } from "./job-position.service";
 export const jobPositionController = new Elysia({
   name: "job-positions",
   prefix: "/v1/job-positions",
-  detail: { tags: ["Organization - Job Positions"] },
+  detail: { tags: ["Organizations - Job Positions"] },
 })
   .use(betterAuthPlugin)
   .post(

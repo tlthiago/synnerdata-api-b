@@ -21,7 +21,7 @@ import { SectorService } from "./sector.service";
 export const sectorController = new Elysia({
   name: "sectors",
   prefix: "/v1/sectors",
-  detail: { tags: ["Organization - Sectors"] },
+  detail: { tags: ["Organizations - Sectors"] },
 })
   .use(betterAuthPlugin)
   .post(

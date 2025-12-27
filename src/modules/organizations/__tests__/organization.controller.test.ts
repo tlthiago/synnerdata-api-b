@@ -19,7 +19,7 @@ function generateUniqueTaxId(): string {
   return `${Date.now()}${Math.floor(Math.random() * 1_000_000)}`.slice(0, 14);
 }
 
-describe("GET /v1/organization/profile", () => {
+describe("GET /v1/organizations/profile", () => {
   let app: TestApp;
 
   beforeAll(() => {
@@ -28,7 +28,7 @@ describe("GET /v1/organization/profile", () => {
 
   test("should reject unauthenticated requests", async () => {
     const response = await app.handle(
-      new Request(`${BASE_URL}/v1/organization/profile`, {
+      new Request(`${BASE_URL}/v1/organizations/profile`, {
         method: "GET",
       })
     );
@@ -40,7 +40,7 @@ describe("GET /v1/organization/profile", () => {
     const { headers } = await createTestUser({ emailVerified: true });
 
     const response = await app.handle(
-      new Request(`${BASE_URL}/v1/organization/profile`, {
+      new Request(`${BASE_URL}/v1/organizations/profile`, {
         method: "GET",
         headers,
       })
@@ -57,7 +57,7 @@ describe("GET /v1/organization/profile", () => {
     });
 
     const response = await app.handle(
-      new Request(`${BASE_URL}/v1/organization/profile`, {
+      new Request(`${BASE_URL}/v1/organizations/profile`, {
         method: "GET",
         headers,
       })
@@ -82,7 +82,7 @@ describe("GET /v1/organization/profile", () => {
     });
 
     const response = await app.handle(
-      new Request(`${BASE_URL}/v1/organization/profile`, {
+      new Request(`${BASE_URL}/v1/organizations/profile`, {
         method: "GET",
         headers: memberResult.headers,
       })
@@ -95,7 +95,7 @@ describe("GET /v1/organization/profile", () => {
   });
 });
 
-describe("PUT /v1/organization/profile", () => {
+describe("PUT /v1/organizations/profile", () => {
   let app: TestApp;
 
   beforeAll(() => {
@@ -104,7 +104,7 @@ describe("PUT /v1/organization/profile", () => {
 
   test("should reject unauthenticated requests", async () => {
     const response = await app.handle(
-      new Request(`${BASE_URL}/v1/organization/profile`, {
+      new Request(`${BASE_URL}/v1/organizations/profile`, {
         method: "PUT",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ tradeName: "New Name" }),
@@ -118,7 +118,7 @@ describe("PUT /v1/organization/profile", () => {
     const { headers } = await createTestUser({ emailVerified: true });
 
     const response = await app.handle(
-      new Request(`${BASE_URL}/v1/organization/profile`, {
+      new Request(`${BASE_URL}/v1/organizations/profile`, {
         method: "PUT",
         headers: { ...headers, "Content-Type": "application/json" },
         body: JSON.stringify({ tradeName: "New Name" }),
@@ -134,7 +134,7 @@ describe("PUT /v1/organization/profile", () => {
     });
 
     const response = await app.handle(
-      new Request(`${BASE_URL}/v1/organization/profile`, {
+      new Request(`${BASE_URL}/v1/organizations/profile`, {
         method: "PUT",
         headers: { ...headers, "Content-Type": "application/json" },
         body: JSON.stringify({
@@ -172,7 +172,7 @@ describe("PUT /v1/organization/profile", () => {
     });
 
     const response = await app.handle(
-      new Request(`${BASE_URL}/v1/organization/profile`, {
+      new Request(`${BASE_URL}/v1/organizations/profile`, {
         method: "PUT",
         headers: {
           ...memberResult.headers,
@@ -196,7 +196,7 @@ describe("PUT /v1/organization/profile", () => {
     });
 
     const response = await app.handle(
-      new Request(`${BASE_URL}/v1/organization/profile`, {
+      new Request(`${BASE_URL}/v1/organizations/profile`, {
         method: "PUT",
         headers: { ...headers, "Content-Type": "application/json" },
         body: JSON.stringify({ taxId: existingTaxId }),
@@ -214,7 +214,7 @@ describe("PUT /v1/organization/profile", () => {
     });
 
     const response = await app.handle(
-      new Request(`${BASE_URL}/v1/organization/profile`, {
+      new Request(`${BASE_URL}/v1/organizations/profile`, {
         method: "PUT",
         headers: { ...headers, "Content-Type": "application/json" },
         body: JSON.stringify({ phone: "123" }),
@@ -232,7 +232,7 @@ describe("PUT /v1/organization/profile", () => {
     });
 
     const response = await app.handle(
-      new Request(`${BASE_URL}/v1/organization/profile`, {
+      new Request(`${BASE_URL}/v1/organizations/profile`, {
         method: "PUT",
         headers: { ...headers, "Content-Type": "application/json" },
         body: JSON.stringify({ taxId: "12345" }),
@@ -250,7 +250,7 @@ describe("PUT /v1/organization/profile", () => {
     });
 
     const response = await app.handle(
-      new Request(`${BASE_URL}/v1/organization/profile`, {
+      new Request(`${BASE_URL}/v1/organizations/profile`, {
         method: "PUT",
         headers: { ...headers, "Content-Type": "application/json" },
         body: JSON.stringify({ state: "São Paulo" }),
@@ -268,7 +268,7 @@ describe("PUT /v1/organization/profile", () => {
     });
 
     const response = await app.handle(
-      new Request(`${BASE_URL}/v1/organization/profile`, {
+      new Request(`${BASE_URL}/v1/organizations/profile`, {
         method: "PUT",
         headers: { ...headers, "Content-Type": "application/json" },
         body: JSON.stringify({ phone: "11988887777" }),
@@ -291,7 +291,7 @@ describe("PUT /v1/organization/profile", () => {
   });
 });
 
-describe("GET /v1/organization/billing-status", () => {
+describe("GET /v1/organizations/billing-status", () => {
   let app: TestApp;
 
   beforeAll(() => {
@@ -300,7 +300,7 @@ describe("GET /v1/organization/billing-status", () => {
 
   test("should reject unauthenticated requests", async () => {
     const response = await app.handle(
-      new Request(`${BASE_URL}/v1/organization/billing-status`, {
+      new Request(`${BASE_URL}/v1/organizations/billing-status`, {
         method: "GET",
       })
     );
@@ -312,7 +312,7 @@ describe("GET /v1/organization/billing-status", () => {
     const { headers } = await createTestUser({ emailVerified: true });
 
     const response = await app.handle(
-      new Request(`${BASE_URL}/v1/organization/billing-status`, {
+      new Request(`${BASE_URL}/v1/organizations/billing-status`, {
         method: "GET",
         headers,
       })
@@ -327,7 +327,7 @@ describe("GET /v1/organization/billing-status", () => {
     });
 
     const response = await app.handle(
-      new Request(`${BASE_URL}/v1/organization/billing-status`, {
+      new Request(`${BASE_URL}/v1/organizations/billing-status`, {
         method: "GET",
         headers,
       })
@@ -358,7 +358,7 @@ describe("GET /v1/organization/billing-status", () => {
     });
 
     const response = await app.handle(
-      new Request(`${BASE_URL}/v1/organization/billing-status`, {
+      new Request(`${BASE_URL}/v1/organizations/billing-status`, {
         method: "GET",
         headers: userResult.headers,
       })
@@ -383,7 +383,7 @@ describe("GET /v1/organization/billing-status", () => {
     });
 
     const response = await app.handle(
-      new Request(`${BASE_URL}/v1/organization/billing-status`, {
+      new Request(`${BASE_URL}/v1/organizations/billing-status`, {
         method: "GET",
         headers: memberResult.headers,
       })
