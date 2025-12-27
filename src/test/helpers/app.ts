@@ -15,7 +15,6 @@ import { costCenterController } from "@/modules/organization/cost-centers";
 import { jobClassificationController } from "@/modules/organization/job-classifications";
 import { jobPositionController } from "@/modules/organization/job-positions";
 import { laborLawsuitController } from "@/modules/organization/labor-lawsuits";
-import { ppeDeliveryController } from "@/modules/organization/ppe-deliveries";
 import { ppeItemController } from "@/modules/organization/ppe-items";
 import { projectController } from "@/modules/organization/projects";
 import { sectorController } from "@/modules/organization/sectors";
@@ -42,7 +41,6 @@ export function createTestApp() {
     .use(jobPositionController)
     .use(jobClassificationController)
     .use(ppeItemController)
-    .use(ppeDeliveryController)
     .use(laborLawsuitController)
     .use(projectController)
     .use(employeeController)
