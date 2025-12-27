@@ -13,8 +13,8 @@ import {
   getProfileResponseSchema,
   updateProfileResponseSchema,
   updateProfileSchema,
-} from "../organization.model";
-import { OrganizationService } from "../organization.service";
+} from "./organization.model";
+import { OrganizationService } from "./organization.service";
 
 export const profileController = new Elysia({
   name: "organization-profile",
