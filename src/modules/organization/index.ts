@@ -16,9 +16,6 @@ import {
 } from "./organization.model";
 import { OrganizationService } from "./organization.service";
 
-// biome-ignore lint/performance/noBarrelFile: intentional public API re-export
-export { ProfileNotFoundError } from "./errors";
-
 export const organizationController = new Elysia({
   name: "organization",
   prefix: "/v1/organization",
