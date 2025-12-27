@@ -26,7 +26,7 @@ import { PpeDeliveryService } from "./ppe-delivery.service";
 export const ppeDeliveryController = new Elysia({
   name: "ppe-deliveries",
   prefix: "/v1/ppe-deliveries",
-  detail: { tags: ["Organization - PPE Deliveries"] },
+  detail: { tags: ["Occurrences - PPE Deliveries"] },
 })
   .use(betterAuthPlugin)
   .post(

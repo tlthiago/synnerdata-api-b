@@ -22,7 +22,7 @@ import { LaborLawsuitService } from "./labor-lawsuit.service";
 export const laborLawsuitController = new Elysia({
   name: "labor-lawsuits",
   prefix: "/v1/labor-lawsuits",
-  detail: { tags: ["Organization - Labor Lawsuits"] },
+  detail: { tags: ["Occurrences - Labor Lawsuits"] },
 })
   .use(betterAuthPlugin)
   .post(
