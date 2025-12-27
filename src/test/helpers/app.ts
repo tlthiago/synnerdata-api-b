@@ -9,14 +9,14 @@ import { apiKeysController } from "@/modules/api-keys";
 import { auditController } from "@/modules/audit";
 import { employeeController } from "@/modules/employees";
 import { occurrencesController } from "@/modules/occurrences";
-import { organizationController } from "@/modules/organization";
-import { branchController } from "@/modules/organization/branches";
-import { costCenterController } from "@/modules/organization/cost-centers";
-import { jobClassificationController } from "@/modules/organization/job-classifications";
-import { jobPositionController } from "@/modules/organization/job-positions";
-import { ppeItemController } from "@/modules/organization/ppe-items";
-import { projectController } from "@/modules/organization/projects";
-import { sectorController } from "@/modules/organization/sectors";
+import { organizationController } from "@/modules/organizations";
+import { branchController } from "@/modules/organizations/branches";
+import { costCenterController } from "@/modules/organizations/cost-centers";
+import { jobClassificationController } from "@/modules/organizations/job-classifications";
+import { jobPositionController } from "@/modules/organizations/job-positions";
+import { ppeItemController } from "@/modules/organizations/ppe-items";
+import { projectController } from "@/modules/organizations/projects";
+import { sectorController } from "@/modules/organizations/sectors";
 import { paymentsController } from "@/modules/payments";
 
 export function createTestApp() {

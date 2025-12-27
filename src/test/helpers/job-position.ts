@@ -1,5 +1,5 @@
-import type { JobPositionData } from "@/modules/organization/job-positions/job-position.model";
-import { JobPositionService } from "@/modules/organization/job-positions/job-position.service";
+import type { JobPositionData } from "@/modules/organizations/job-positions/job-position.model";
+import { JobPositionService } from "@/modules/organizations/job-positions/job-position.service";
 import { faker } from "./faker";
 
 type CreateTestJobPositionOptions = {

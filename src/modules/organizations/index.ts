@@ -17,9 +17,9 @@ import {
 import { OrganizationService } from "./organization.service";
 
 export const organizationController = new Elysia({
-  name: "organization",
-  prefix: "/v1/organization",
-  detail: { tags: ["Organization"] },
+  name: "organizations",
+  prefix: "/v1/organizations",
+  detail: { tags: ["Organizations"] },
 })
   .use(betterAuthPlugin)
   .get(

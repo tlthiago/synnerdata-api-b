@@ -1,5 +1,5 @@
-import type { PpeItemData } from "@/modules/organization/ppe-items/ppe-item.model";
-import { PpeItemService } from "@/modules/organization/ppe-items/ppe-item.service";
+import type { PpeItemData } from "@/modules/organizations/ppe-items/ppe-item.model";
+import { PpeItemService } from "@/modules/organizations/ppe-items/ppe-item.service";
 import { faker } from "./faker";
 
 type CreateTestPpeItemOptions = {

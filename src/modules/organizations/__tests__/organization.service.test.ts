@@ -5,8 +5,8 @@ import { schema } from "@/db/schema";
 import {
   ProfileAlreadyExistsError,
   ProfileNotFoundError,
-} from "@/modules/organization/errors";
-import { OrganizationService } from "@/modules/organization/organization.service";
+} from "@/modules/organizations/errors";
+import { OrganizationService } from "@/modules/organizations/organization.service";
 import { createTestOrganization } from "@/test/helpers/organization";
 
 function generateUniqueTaxId(): string {

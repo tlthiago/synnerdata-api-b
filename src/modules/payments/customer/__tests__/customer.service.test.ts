@@ -129,7 +129,7 @@ describe("CustomerService", () => {
     () => {
       test("should throw ProfileNotFoundError for non-existent profile", async () => {
         const { ProfileNotFoundError } = await import(
-          "@/modules/organization/errors"
+          "@/modules/organizations/errors"
         );
 
         await expect(

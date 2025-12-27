@@ -1,5 +1,5 @@
-import type { SectorData } from "@/modules/organization/sectors/sector.model";
-import { SectorService } from "@/modules/organization/sectors/sector.service";
+import type { SectorData } from "@/modules/organizations/sectors/sector.model";
+import { SectorService } from "@/modules/organizations/sectors/sector.service";
 import { faker } from "./faker";
 
 type CreateTestSectorOptions = {

@@ -1,5 +1,5 @@
-import type { ProjectData } from "@/modules/organization/projects/project.model";
-import { ProjectService } from "@/modules/organization/projects/project.service";
+import type { ProjectData } from "@/modules/organizations/projects/project.model";
+import { ProjectService } from "@/modules/organizations/projects/project.service";
 import { faker } from "./faker";
 
 type CreateTestProjectOptions = {

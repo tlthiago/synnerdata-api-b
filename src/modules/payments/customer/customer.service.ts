@@ -1,6 +1,6 @@
 import { Retry } from "@/lib/utils/retry";
-import { ProfileNotFoundError } from "@/modules/organization/errors";
-import { OrganizationService } from "@/modules/organization/organization.service";
+import { ProfileNotFoundError } from "@/modules/organizations/errors";
+import { OrganizationService } from "@/modules/organizations/organization.service";
 import { CustomerCreationError } from "@/modules/payments/errors";
 import { PagarmeClient } from "@/modules/payments/pagarme/client";
 import type {
