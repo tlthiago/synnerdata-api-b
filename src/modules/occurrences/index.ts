@@ -2,6 +2,7 @@ import { Elysia } from "elysia";
 import { absenceController } from "./absences";
 import { accidentController } from "./accidents";
 import { cpfAnalysisController } from "./cpf-analyses";
+import { laborLawsuitController } from "./labor-lawsuits";
 import { medicalCertificatesController } from "./medical-certificates";
 import { ppeDeliveryController } from "./ppe-deliveries";
 import { promotionController } from "./promotions";
@@ -15,6 +16,7 @@ export const occurrencesController = new Elysia({
   .use(absenceController)
   .use(accidentController)
   .use(cpfAnalysisController)
+  .use(laborLawsuitController)
   .use(medicalCertificatesController)
   .use(ppeDeliveryController)
   .use(promotionController)

@@ -21,7 +21,6 @@ import { branchController } from "./modules/organization/branches";
 import { costCenterController } from "./modules/organization/cost-centers";
 import { jobClassificationController } from "./modules/organization/job-classifications";
 import { jobPositionController } from "./modules/organization/job-positions";
-import { laborLawsuitController } from "./modules/organization/labor-lawsuits";
 import { ppeItemController } from "./modules/organization/ppe-items";
 import { projectController } from "./modules/organization/projects";
 import { sectorController } from "./modules/organization/sectors";
@@ -112,7 +111,6 @@ const app = new Elysia({
   .use(jobPositionController)
   .use(jobClassificationController)
   .use(ppeItemController)
-  .use(laborLawsuitController)
   .use(projectController)
   .use(employeeController)
   .use(occurrencesController)
