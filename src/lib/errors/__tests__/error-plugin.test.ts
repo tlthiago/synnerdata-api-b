@@ -1,7 +1,13 @@
 import { beforeAll, describe, expect, test } from "bun:test";
-import { Elysia, t } from "elysia";
+import { Elysia } from "elysia";
+import { z } from "zod";
 import { AppError } from "@/lib/errors/base-error";
 import { errorPlugin } from "@/lib/errors/error-plugin";
+
+const testBodySchema = z.object({
+  email: z.string().email(),
+  name: z.string().min(1),
+});
 
 class TestDomainError extends AppError {
   status = 400;
@@ -24,10 +30,7 @@ function createTestApp() {
   return new Elysia()
     .use(errorPlugin)
     .post("/validate", ({ body }) => ({ success: true, data: body }), {
-      body: t.Object({
-        email: t.String({ format: "email" }),
-        name: t.String({ minLength: 1 }),
-      }),
+      body: testBodySchema,
     })
     .get("/domain-error", () => {
       throw new TestDomainError("Test error message", { extra: "info" });
