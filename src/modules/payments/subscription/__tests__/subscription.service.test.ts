@@ -262,7 +262,7 @@ describe("SubscriptionService", () => {
   });
 
   describe("createTrial", () => {
-    test("should create trial subscription with platinum plan", async () => {
+    test("should create trial subscription with trial plan", async () => {
       const org = await createTestOrganization();
 
       await SubscriptionService.createTrial(org.id);
@@ -275,10 +275,11 @@ describe("SubscriptionService", () => {
 
       expect(subscription).toBeDefined();
       expect(subscription.status).toBe("trial");
-      expect(subscription.planId).toBe("test-plan-platinum");
+      expect(subscription.planId).toBe("test-plan-trial");
       expect(subscription.trialStart).toBeInstanceOf(Date);
       expect(subscription.trialEnd).toBeInstanceOf(Date);
       expect(subscription.trialUsed).toBe(true);
+      expect(subscription.employeeCount).toBe(10);
       expect(subscription.seats).toBe(1);
     });
   });

@@ -415,6 +415,11 @@ export abstract class EmployeeService {
   static async create(input: CreateEmployeeInput): Promise<EmployeeData> {
     const { organizationId, userId, ...data } = input;
 
+    const { LimitsService } = await import(
+      "@/modules/payments/limits/limits.service"
+    );
+    await LimitsService.requireEmployeeLimit(organizationId);
+
     await EmployeeService.ensureCpfNotExists(data.cpf, organizationId);
 
     await EmployeeService.validateRelationships(

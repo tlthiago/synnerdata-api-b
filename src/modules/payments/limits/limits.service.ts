@@ -4,6 +4,7 @@ import { type PLAN_FEATURES, schema } from "@/db/schema";
 import { FeatureNotAvailableError } from "@/modules/payments/errors";
 import type {
   CapabilitiesData,
+  CheckEmployeeLimitData,
   CheckFeatureData,
   CheckFeaturesData,
   FeatureAccess,
@@ -37,12 +38,14 @@ const FEATURE_TO_PLAN: Record<string, keyof typeof PLAN_FEATURES> = {
 };
 
 const PLAN_ORDER: Record<keyof typeof PLAN_FEATURES, number> = {
+  trial: -1,
   gold: 0,
   diamond: 1,
   platinum: 2,
 };
 
 const PLAN_DISPLAY_NAMES: Record<keyof typeof PLAN_FEATURES, string> = {
+  trial: "Trial",
   gold: "Ouro",
   diamond: "Diamante",
   platinum: "Platina",
@@ -190,6 +193,66 @@ export abstract class LimitsService {
       features,
       availableFeatures,
     };
+  }
+
+  /**
+   * Checks employee limit status for an organization.
+   * Returns current count, limit, and whether more employees can be added.
+   */
+  static async checkEmployeeLimit(
+    organizationId: string
+  ): Promise<CheckEmployeeLimitData> {
+    const { and, count, isNull } = await import("drizzle-orm");
+
+    const [countResult] = await db
+      .select({ value: count() })
+      .from(schema.employees)
+      .where(
+        and(
+          eq(schema.employees.organizationId, organizationId),
+          isNull(schema.employees.deletedAt)
+        )
+      );
+
+    const current = countResult?.value ?? 0;
+
+    const [subscription] = await db
+      .select({ employeeCount: schema.orgSubscriptions.employeeCount })
+      .from(schema.orgSubscriptions)
+      .where(eq(schema.orgSubscriptions.organizationId, organizationId))
+      .limit(1);
+
+    const limit = subscription?.employeeCount ?? 0;
+
+    return { current, limit, canAdd: current < limit };
+  }
+
+  /**
+   * Throws EmployeeLimitReachedError if the employee limit is reached.
+   */
+  static async requireEmployeeLimit(organizationId: string): Promise<void> {
+    const { EmployeeLimitReachedError } = await import(
+      "@/modules/payments/errors"
+    );
+    const { current, limit, canAdd } =
+      await LimitsService.checkEmployeeLimit(organizationId);
+    if (!canAdd) {
+      throw new EmployeeLimitReachedError(current, limit);
+    }
+  }
+
+  /**
+   * Returns the percentage of employee limit used (0-100).
+   */
+  static async getEmployeeUsagePercentage(
+    organizationId: string
+  ): Promise<number> {
+    const { current, limit } =
+      await LimitsService.checkEmployeeLimit(organizationId);
+    if (limit === 0) {
+      return 100;
+    }
+    return Math.round((current / limit) * 100);
   }
 
   private static async getPlanFeatures(

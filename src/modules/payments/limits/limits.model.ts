@@ -85,3 +85,10 @@ export const capabilitiesResponseSchema = successResponseSchema(
 
 export type CapabilitiesResponse = z.infer<typeof capabilitiesResponseSchema>;
 export type CapabilitiesData = CapabilitiesResponse["data"];
+
+// Employee limit types
+export type CheckEmployeeLimitData = {
+  current: number;
+  limit: number;
+  canAdd: boolean;
+};

@@ -46,7 +46,24 @@ const createValidEmployeeData = (overrides?: Record<string, unknown>) => ({
   ...overrides,
 });
 
+async function setupSubscription(organizationId: string) {
+  const { goldPlan } = await import("@/test/fixtures/plans");
+  const { createTestSubscription } = await import(
+    "@/test/helpers/subscription"
+  );
+
+  if (!goldPlan) {
+    throw new Error("Gold plan not found");
+  }
+  await createTestSubscription(organizationId, goldPlan.id, {
+    status: "active",
+    employeeCount: 100,
+  });
+}
+
 async function createTestDependencies(organizationId: string, userId: string) {
+  await setupSubscription(organizationId);
+
   const sector = await createTestSector({ organizationId, userId });
   const jobPosition = await createTestJobPosition({ organizationId, userId });
   const jobClassification = await createTestJobClassification({
@@ -228,6 +245,8 @@ describe("POST /v1/employees", () => {
       await createTestUserWithOrganization({
         emailVerified: true,
       });
+
+    await setupSubscription(organizationId);
 
     const jobPosition = await createTestJobPosition({
       organizationId,

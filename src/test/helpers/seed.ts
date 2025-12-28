@@ -59,7 +59,7 @@ export async function seedPlans(): Promise<void> {
 /**
  * Gets a test plan by name.
  */
-export function getTestPlan(name: "gold" | "diamond" | "platinum") {
+export function getTestPlan(name: "trial" | "gold" | "diamond" | "platinum") {
   return testPlans.find((p) => p.name === name);
 }
 
