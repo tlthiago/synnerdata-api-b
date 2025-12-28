@@ -16,6 +16,10 @@ export const createJobPositionSchema = z.object({
 
 export const updateJobPositionSchema = createJobPositionSchema.partial();
 
+export const idParamSchema = z.object({
+  id: z.string().min(1).describe("ID do cargo"),
+});
+
 const jobPositionDataSchema = z.object({
   id: z.string().describe("ID da função"),
   organizationId: z.string().describe("ID da organização"),

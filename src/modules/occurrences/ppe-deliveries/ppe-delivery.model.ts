@@ -48,6 +48,16 @@ export const listPpeDeliveriesQuerySchema = z.object({
   employeeId: z.string().optional().describe("Filtrar por funcionário"),
 });
 
+// Param schemas
+export const idParamSchema = z.object({
+  id: z.string().min(1).describe("ID da entrega de EPI"),
+});
+
+export const ppeItemIdParamsSchema = z.object({
+  id: z.string().min(1).describe("ID da entrega de EPI"),
+  ppeItemId: z.string().min(1).describe("ID do EPI"),
+});
+
 // Response data schemas
 const employeeDataSchema = z.object({
   id: z.string().describe("ID do funcionário"),

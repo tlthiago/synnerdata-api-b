@@ -65,6 +65,10 @@ export const updateTerminationSchema = createTerminationSchema
   .omit({ employeeId: true })
   .partial();
 
+export const idParamSchema = z.object({
+  id: z.string().min(1).describe("ID da demissão"),
+});
+
 const terminationDataSchema = z.object({
   id: z.string().describe("ID da demissão"),
   organizationId: z.string().describe("ID da organização"),

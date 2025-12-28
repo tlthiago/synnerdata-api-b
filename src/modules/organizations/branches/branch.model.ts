@@ -71,6 +71,10 @@ export const createBranchSchema = z.object({
 
 export const updateBranchSchema = createBranchSchema.partial();
 
+export const idParamSchema = z.object({
+  id: z.string().min(1).describe("ID da filial"),
+});
+
 const branchDataSchema = z.object({
   id: z.string().describe("ID da filial"),
   organizationId: z.string().describe("ID da organização"),

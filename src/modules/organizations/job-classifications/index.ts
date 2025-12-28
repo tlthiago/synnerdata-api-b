@@ -1,4 +1,4 @@
-import { Elysia, t } from "elysia";
+import { Elysia } from "elysia";
 import { betterAuthPlugin } from "@/lib/auth-plugin";
 import { wrapSuccess } from "@/lib/responses/envelope";
 import {
@@ -12,6 +12,7 @@ import {
   createJobClassificationSchema,
   deleteJobClassificationResponseSchema,
   getJobClassificationResponseSchema,
+  idParamSchema,
   listJobClassificationsResponseSchema,
   updateJobClassificationResponseSchema,
   updateJobClassificationSchema,
@@ -92,9 +93,7 @@ export const jobClassificationController = new Elysia({
         permissions: { jobClassification: ["read"] },
         requireOrganization: true,
       },
-      params: t.Object({
-        id: t.String({ description: "ID do CBO" }),
-      }),
+      params: idParamSchema,
       response: {
         200: getJobClassificationResponseSchema,
         401: unauthorizedErrorSchema,
@@ -125,9 +124,7 @@ export const jobClassificationController = new Elysia({
         permissions: { jobClassification: ["update"] },
         requireOrganization: true,
       },
-      params: t.Object({
-        id: t.String({ description: "ID do CBO" }),
-      }),
+      params: idParamSchema,
       body: updateJobClassificationSchema,
       response: {
         200: updateJobClassificationResponseSchema,
@@ -157,9 +154,7 @@ export const jobClassificationController = new Elysia({
         permissions: { jobClassification: ["delete"] },
         requireOrganization: true,
       },
-      params: t.Object({
-        id: t.String({ description: "ID do CBO" }),
-      }),
+      params: idParamSchema,
       response: {
         200: deleteJobClassificationResponseSchema,
         401: unauthorizedErrorSchema,

@@ -1,4 +1,4 @@
-import { Elysia, t } from "elysia";
+import { Elysia } from "elysia";
 import { betterAuthPlugin } from "@/lib/auth-plugin";
 import { wrapSuccess } from "@/lib/responses/envelope";
 import {
@@ -12,6 +12,7 @@ import {
   createJobPositionSchema,
   deleteJobPositionResponseSchema,
   getJobPositionResponseSchema,
+  idParamSchema,
   listJobPositionsResponseSchema,
   updateJobPositionResponseSchema,
   updateJobPositionSchema,
@@ -88,9 +89,7 @@ export const jobPositionController = new Elysia({
         permissions: { jobPosition: ["read"] },
         requireOrganization: true,
       },
-      params: t.Object({
-        id: t.String({ description: "ID do cargo" }),
-      }),
+      params: idParamSchema,
       response: {
         200: getJobPositionResponseSchema,
         401: unauthorizedErrorSchema,
@@ -121,9 +120,7 @@ export const jobPositionController = new Elysia({
         permissions: { jobPosition: ["update"] },
         requireOrganization: true,
       },
-      params: t.Object({
-        id: t.String({ description: "ID do cargo" }),
-      }),
+      params: idParamSchema,
       body: updateJobPositionSchema,
       response: {
         200: updateJobPositionResponseSchema,
@@ -153,9 +150,7 @@ export const jobPositionController = new Elysia({
         permissions: { jobPosition: ["delete"] },
         requireOrganization: true,
       },
-      params: t.Object({
-        id: t.String({ description: "ID do cargo" }),
-      }),
+      params: idParamSchema,
       response: {
         200: deleteJobPositionResponseSchema,
         401: unauthorizedErrorSchema,

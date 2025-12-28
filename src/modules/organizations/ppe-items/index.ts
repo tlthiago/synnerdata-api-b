@@ -1,4 +1,4 @@
-import { Elysia, t } from "elysia";
+import { Elysia } from "elysia";
 import { betterAuthPlugin } from "@/lib/auth-plugin";
 import { wrapSuccess } from "@/lib/responses/envelope";
 import {
@@ -14,6 +14,8 @@ import {
   createPpeItemSchema,
   deletePpeItemResponseSchema,
   getPpeItemResponseSchema,
+  idParamSchema,
+  jobPositionIdParamsSchema,
   listJobPositionsResponseSchema,
   listPpeItemsResponseSchema,
   removeJobPositionResponseSchema,
@@ -92,9 +94,7 @@ export const ppeItemController = new Elysia({
         permissions: { ppeItem: ["read"] },
         requireOrganization: true,
       },
-      params: t.Object({
-        id: t.String({ description: "ID do EPI" }),
-      }),
+      params: idParamSchema,
       response: {
         200: getPpeItemResponseSchema,
         401: unauthorizedErrorSchema,
@@ -125,9 +125,7 @@ export const ppeItemController = new Elysia({
         permissions: { ppeItem: ["update"] },
         requireOrganization: true,
       },
-      params: t.Object({
-        id: t.String({ description: "ID do EPI" }),
-      }),
+      params: idParamSchema,
       body: updatePpeItemSchema,
       response: {
         200: updatePpeItemResponseSchema,
@@ -157,9 +155,7 @@ export const ppeItemController = new Elysia({
         permissions: { ppeItem: ["delete"] },
         requireOrganization: true,
       },
-      params: t.Object({
-        id: t.String({ description: "ID do EPI" }),
-      }),
+      params: idParamSchema,
       response: {
         200: deletePpeItemResponseSchema,
         401: unauthorizedErrorSchema,
@@ -189,9 +185,7 @@ export const ppeItemController = new Elysia({
         permissions: { ppeItem: ["update"] },
         requireOrganization: true,
       },
-      params: t.Object({
-        id: t.String({ description: "ID do EPI" }),
-      }),
+      params: idParamSchema,
       body: addJobPositionSchema,
       response: {
         200: addJobPositionResponseSchema,
@@ -221,9 +215,7 @@ export const ppeItemController = new Elysia({
         permissions: { ppeItem: ["read"] },
         requireOrganization: true,
       },
-      params: t.Object({
-        id: t.String({ description: "ID do EPI" }),
-      }),
+      params: idParamSchema,
       response: {
         200: listJobPositionsResponseSchema,
         401: unauthorizedErrorSchema,
@@ -252,10 +244,7 @@ export const ppeItemController = new Elysia({
         permissions: { ppeItem: ["update"] },
         requireOrganization: true,
       },
-      params: t.Object({
-        id: t.String({ description: "ID do EPI" }),
-        jobPositionId: t.String({ description: "ID da função" }),
-      }),
+      params: jobPositionIdParamsSchema,
       response: {
         200: removeJobPositionResponseSchema,
         401: unauthorizedErrorSchema,

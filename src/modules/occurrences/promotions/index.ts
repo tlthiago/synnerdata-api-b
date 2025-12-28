@@ -1,4 +1,4 @@
-import { Elysia, t } from "elysia";
+import { Elysia } from "elysia";
 import { betterAuthPlugin } from "@/lib/auth-plugin";
 import { wrapSuccess } from "@/lib/responses/envelope";
 import {
@@ -12,6 +12,7 @@ import {
   createPromotionSchema,
   deletePromotionResponseSchema,
   getPromotionResponseSchema,
+  idParamSchema,
   listPromotionsResponseSchema,
   updatePromotionResponseSchema,
   updatePromotionSchema,
@@ -88,9 +89,7 @@ export const promotionController = new Elysia({
         permissions: { occurrence: ["read"] },
         requireOrganization: true,
       },
-      params: t.Object({
-        id: t.String({ description: "ID da promoção" }),
-      }),
+      params: idParamSchema,
       response: {
         200: getPromotionResponseSchema,
         401: unauthorizedErrorSchema,
@@ -121,9 +120,7 @@ export const promotionController = new Elysia({
         permissions: { occurrence: ["update"] },
         requireOrganization: true,
       },
-      params: t.Object({
-        id: t.String({ description: "ID da promoção" }),
-      }),
+      params: idParamSchema,
       body: updatePromotionSchema,
       response: {
         200: updatePromotionResponseSchema,
@@ -153,9 +150,7 @@ export const promotionController = new Elysia({
         permissions: { occurrence: ["delete"] },
         requireOrganization: true,
       },
-      params: t.Object({
-        id: t.String({ description: "ID da promoção" }),
-      }),
+      params: idParamSchema,
       response: {
         200: deletePromotionResponseSchema,
         401: unauthorizedErrorSchema,

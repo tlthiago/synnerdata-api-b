@@ -1,4 +1,4 @@
-import { Elysia, t } from "elysia";
+import { Elysia } from "elysia";
 import { betterAuthPlugin } from "@/lib/auth-plugin";
 import { wrapSuccess } from "@/lib/responses/envelope";
 import {
@@ -12,6 +12,8 @@ import {
   createApiKeySchema,
   deleteApiKeyResponseSchema,
   getApiKeyResponseSchema,
+  idParamSchema,
+  listApiKeysQuerySchema,
   listApiKeysResponseSchema,
   revokeApiKeyResponseSchema,
 } from "./api-key.model";
@@ -51,9 +53,7 @@ export const apiKeysController = new Elysia({
       ),
     {
       auth: { requireAdmin: true },
-      query: t.Object({
-        organizationId: t.Optional(t.String()),
-      }),
+      query: listApiKeysQuerySchema,
       response: {
         200: listApiKeysResponseSchema,
         401: unauthorizedErrorSchema,
@@ -72,9 +72,7 @@ export const apiKeysController = new Elysia({
       wrapSuccess(await ApiKeyService.getById(request.headers, params.id)),
     {
       auth: { requireAdmin: true },
-      params: t.Object({
-        id: t.String(),
-      }),
+      params: idParamSchema,
       response: {
         200: getApiKeyResponseSchema,
         401: unauthorizedErrorSchema,
@@ -94,9 +92,7 @@ export const apiKeysController = new Elysia({
       wrapSuccess(await ApiKeyService.revoke(request.headers, params.id)),
     {
       auth: { requireAdmin: true },
-      params: t.Object({
-        id: t.String(),
-      }),
+      params: idParamSchema,
       response: {
         200: revokeApiKeyResponseSchema,
         401: unauthorizedErrorSchema,
@@ -116,9 +112,7 @@ export const apiKeysController = new Elysia({
       wrapSuccess(await ApiKeyService.delete(request.headers, params.id)),
     {
       auth: { requireAdmin: true },
-      params: t.Object({
-        id: t.String(),
-      }),
+      params: idParamSchema,
       response: {
         200: deleteApiKeyResponseSchema,
         401: unauthorizedErrorSchema,

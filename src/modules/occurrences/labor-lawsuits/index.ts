@@ -1,4 +1,4 @@
-import { Elysia, t } from "elysia";
+import { Elysia } from "elysia";
 import { betterAuthPlugin } from "@/lib/auth-plugin";
 import { wrapSuccess } from "@/lib/responses/envelope";
 import {
@@ -12,6 +12,7 @@ import {
   createLaborLawsuitSchema,
   deleteLaborLawsuitResponseSchema,
   getLaborLawsuitResponseSchema,
+  idParamSchema,
   listLaborLawsuitsQuerySchema,
   listLaborLawsuitsResponseSchema,
   updateLaborLawsuitResponseSchema,
@@ -96,9 +97,7 @@ export const laborLawsuitController = new Elysia({
         permissions: { laborLawsuit: ["read"] },
         requireOrganization: true,
       },
-      params: t.Object({
-        id: t.String({ description: "ID da ação trabalhista" }),
-      }),
+      params: idParamSchema,
       response: {
         200: getLaborLawsuitResponseSchema,
         401: unauthorizedErrorSchema,
@@ -129,9 +128,7 @@ export const laborLawsuitController = new Elysia({
         permissions: { laborLawsuit: ["update"] },
         requireOrganization: true,
       },
-      params: t.Object({
-        id: t.String({ description: "ID da ação trabalhista" }),
-      }),
+      params: idParamSchema,
       body: updateLaborLawsuitSchema,
       response: {
         200: updateLaborLawsuitResponseSchema,
@@ -161,9 +158,7 @@ export const laborLawsuitController = new Elysia({
         permissions: { laborLawsuit: ["delete"] },
         requireOrganization: true,
       },
-      params: t.Object({
-        id: t.String({ description: "ID da ação trabalhista" }),
-      }),
+      params: idParamSchema,
       response: {
         200: deleteLaborLawsuitResponseSchema,
         401: unauthorizedErrorSchema,

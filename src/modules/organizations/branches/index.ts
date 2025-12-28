@@ -1,4 +1,4 @@
-import { Elysia, t } from "elysia";
+import { Elysia } from "elysia";
 import { betterAuthPlugin } from "@/lib/auth-plugin";
 import { wrapSuccess } from "@/lib/responses/envelope";
 import {
@@ -13,6 +13,7 @@ import {
   createBranchSchema,
   deleteBranchResponseSchema,
   getBranchResponseSchema,
+  idParamSchema,
   listBranchesResponseSchema,
   updateBranchResponseSchema,
   updateBranchSchema,
@@ -90,9 +91,7 @@ export const branchController = new Elysia({
         permissions: { branch: ["read"] },
         requireOrganization: true,
       },
-      params: t.Object({
-        id: t.String({ description: "ID da filial" }),
-      }),
+      params: idParamSchema,
       response: {
         200: getBranchResponseSchema,
         401: unauthorizedErrorSchema,
@@ -123,9 +122,7 @@ export const branchController = new Elysia({
         permissions: { branch: ["update"] },
         requireOrganization: true,
       },
-      params: t.Object({
-        id: t.String({ description: "ID da filial" }),
-      }),
+      params: idParamSchema,
       body: updateBranchSchema,
       response: {
         200: updateBranchResponseSchema,
@@ -156,9 +153,7 @@ export const branchController = new Elysia({
         permissions: { branch: ["delete"] },
         requireOrganization: true,
       },
-      params: t.Object({
-        id: t.String({ description: "ID da filial" }),
-      }),
+      params: idParamSchema,
       response: {
         200: deleteBranchResponseSchema,
         401: unauthorizedErrorSchema,

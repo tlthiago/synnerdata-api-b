@@ -45,6 +45,16 @@ export const addEmployeeSchema = z.object({
   employeeId: z.string().min(1, "ID do funcionário é obrigatório"),
 });
 
+// Param schemas
+export const idParamSchema = z.object({
+  id: z.string().min(1).describe("ID do projeto"),
+});
+
+export const employeeIdParamsSchema = z.object({
+  id: z.string().min(1).describe("ID do projeto"),
+  employeeId: z.string().min(1).describe("ID do funcionário"),
+});
+
 // Project data schema (response)
 export const projectDataSchema = z.object({
   id: z.string().describe("ID do projeto"),

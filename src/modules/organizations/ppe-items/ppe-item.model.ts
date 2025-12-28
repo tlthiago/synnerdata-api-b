@@ -21,6 +21,15 @@ export const createPpeItemSchema = z.object({
 
 export const updatePpeItemSchema = createPpeItemSchema.partial();
 
+export const idParamSchema = z.object({
+  id: z.string().min(1).describe("ID do EPI"),
+});
+
+export const jobPositionIdParamsSchema = z.object({
+  id: z.string().min(1).describe("ID do EPI"),
+  jobPositionId: z.string().min(1).describe("ID da função"),
+});
+
 const ppeItemDataSchema = z.object({
   id: z.string().describe("ID do EPI"),
   organizationId: z.string().describe("ID da organização"),

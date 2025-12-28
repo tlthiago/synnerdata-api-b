@@ -74,6 +74,10 @@ export const listLaborLawsuitsQuerySchema = z.object({
   employeeId: z.string().optional().describe("Filtrar por funcionário"),
 });
 
+export const idParamSchema = z.object({
+  id: z.string().min(1).describe("ID da ação trabalhista"),
+});
+
 const laborLawsuitDataSchema = z.object({
   id: z.string().describe("ID da ação trabalhista"),
   organizationId: z.string().describe("ID da organização"),

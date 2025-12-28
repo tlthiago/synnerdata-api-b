@@ -11,6 +11,10 @@ export const createCostCenterSchema = z.object({
 
 export const updateCostCenterSchema = createCostCenterSchema.partial();
 
+export const idParamSchema = z.object({
+  id: z.string().min(1).describe("ID do centro de custo"),
+});
+
 const costCenterDataSchema = z.object({
   id: z.string().describe("ID do centro de custo"),
   organizationId: z.string().describe("ID da organização"),

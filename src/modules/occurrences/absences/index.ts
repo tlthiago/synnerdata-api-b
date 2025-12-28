@@ -1,4 +1,4 @@
-import { Elysia, t } from "elysia";
+import { Elysia } from "elysia";
 import { betterAuthPlugin } from "@/lib/auth-plugin";
 import { wrapSuccess } from "@/lib/responses/envelope";
 import {
@@ -12,6 +12,7 @@ import {
   createAbsenceSchema,
   deleteAbsenceResponseSchema,
   getAbsenceResponseSchema,
+  idParamSchema,
   listAbsencesResponseSchema,
   updateAbsenceResponseSchema,
   updateAbsenceSchema,
@@ -88,9 +89,7 @@ export const absenceController = new Elysia({
         permissions: { absence: ["read"] },
         requireOrganization: true,
       },
-      params: t.Object({
-        id: t.String({ description: "ID da ausência" }),
-      }),
+      params: idParamSchema,
       response: {
         200: getAbsenceResponseSchema,
         401: unauthorizedErrorSchema,
@@ -121,9 +120,7 @@ export const absenceController = new Elysia({
         permissions: { absence: ["update"] },
         requireOrganization: true,
       },
-      params: t.Object({
-        id: t.String({ description: "ID da ausência" }),
-      }),
+      params: idParamSchema,
       body: updateAbsenceSchema,
       response: {
         200: updateAbsenceResponseSchema,
@@ -153,9 +150,7 @@ export const absenceController = new Elysia({
         permissions: { absence: ["delete"] },
         requireOrganization: true,
       },
-      params: t.Object({
-        id: t.String({ description: "ID da ausência" }),
-      }),
+      params: idParamSchema,
       response: {
         200: deleteAbsenceResponseSchema,
         401: unauthorizedErrorSchema,

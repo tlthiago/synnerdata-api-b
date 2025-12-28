@@ -1,4 +1,4 @@
-import { Elysia, t } from "elysia";
+import { Elysia } from "elysia";
 import { betterAuthPlugin } from "@/lib/auth-plugin";
 import { wrapSuccess } from "@/lib/responses/envelope";
 import {
@@ -12,6 +12,7 @@ import {
   createSectorSchema,
   deleteSectorResponseSchema,
   getSectorResponseSchema,
+  idParamSchema,
   listSectorsResponseSchema,
   updateSectorResponseSchema,
   updateSectorSchema,
@@ -88,9 +89,7 @@ export const sectorController = new Elysia({
         permissions: { sector: ["read"] },
         requireOrganization: true,
       },
-      params: t.Object({
-        id: t.String({ description: "ID do setor" }),
-      }),
+      params: idParamSchema,
       response: {
         200: getSectorResponseSchema,
         401: unauthorizedErrorSchema,
@@ -121,9 +120,7 @@ export const sectorController = new Elysia({
         permissions: { sector: ["update"] },
         requireOrganization: true,
       },
-      params: t.Object({
-        id: t.String({ description: "ID do setor" }),
-      }),
+      params: idParamSchema,
       body: updateSectorSchema,
       response: {
         200: updateSectorResponseSchema,
@@ -153,9 +150,7 @@ export const sectorController = new Elysia({
         permissions: { sector: ["delete"] },
         requireOrganization: true,
       },
-      params: t.Object({
-        id: t.String({ description: "ID do setor" }),
-      }),
+      params: idParamSchema,
       response: {
         200: deleteSectorResponseSchema,
         401: unauthorizedErrorSchema,

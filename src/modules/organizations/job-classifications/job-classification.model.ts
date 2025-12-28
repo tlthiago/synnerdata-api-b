@@ -12,6 +12,10 @@ export const createJobClassificationSchema = z.object({
 export const updateJobClassificationSchema =
   createJobClassificationSchema.partial();
 
+export const idParamSchema = z.object({
+  id: z.string().min(1).describe("ID do CBO"),
+});
+
 const jobClassificationDataSchema = z.object({
   id: z.string().describe("ID da classificação de cargo"),
   organizationId: z.string().describe("ID da organização"),

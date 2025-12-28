@@ -11,6 +11,10 @@ export const createSectorSchema = z.object({
 
 export const updateSectorSchema = createSectorSchema.partial();
 
+export const idParamSchema = z.object({
+  id: z.string().min(1).describe("ID do setor"),
+});
+
 const sectorDataSchema = z.object({
   id: z.string().describe("ID do setor"),
   organizationId: z.string().describe("ID da organização"),

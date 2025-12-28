@@ -1,4 +1,4 @@
-import { Elysia, t } from "elysia";
+import { Elysia } from "elysia";
 import { betterAuthPlugin } from "@/lib/auth-plugin";
 import { wrapSuccess } from "@/lib/responses/envelope";
 import {
@@ -13,7 +13,9 @@ import {
   createProjectResponseSchema,
   createProjectSchema,
   deleteProjectResponseSchema,
+  employeeIdParamsSchema,
   getProjectResponseSchema,
+  idParamSchema,
   listProjectEmployeesResponseSchema,
   listProjectsResponseSchema,
   removeEmployeeResponseSchema,
@@ -94,9 +96,7 @@ export const projectController = new Elysia({
         permissions: { project: ["read"] },
         requireOrganization: true,
       },
-      params: t.Object({
-        id: t.String({ description: "ID do projeto" }),
-      }),
+      params: idParamSchema,
       response: {
         200: getProjectResponseSchema,
         401: unauthorizedErrorSchema,
@@ -127,9 +127,7 @@ export const projectController = new Elysia({
         permissions: { project: ["update"] },
         requireOrganization: true,
       },
-      params: t.Object({
-        id: t.String({ description: "ID do projeto" }),
-      }),
+      params: idParamSchema,
       body: updateProjectSchema,
       response: {
         200: updateProjectResponseSchema,
@@ -159,9 +157,7 @@ export const projectController = new Elysia({
         permissions: { project: ["delete"] },
         requireOrganization: true,
       },
-      params: t.Object({
-        id: t.String({ description: "ID do projeto" }),
-      }),
+      params: idParamSchema,
       response: {
         200: deleteProjectResponseSchema,
         401: unauthorizedErrorSchema,
@@ -189,9 +185,7 @@ export const projectController = new Elysia({
         permissions: { project: ["read"] },
         requireOrganization: true,
       },
-      params: t.Object({
-        id: t.String({ description: "ID do projeto" }),
-      }),
+      params: idParamSchema,
       response: {
         200: listProjectEmployeesResponseSchema,
         401: unauthorizedErrorSchema,
@@ -220,9 +214,7 @@ export const projectController = new Elysia({
         permissions: { project: ["update"] },
         requireOrganization: true,
       },
-      params: t.Object({
-        id: t.String({ description: "ID do projeto" }),
-      }),
+      params: idParamSchema,
       body: addEmployeeSchema,
       response: {
         200: addEmployeeResponseSchema,
@@ -254,10 +246,7 @@ export const projectController = new Elysia({
         permissions: { project: ["update"] },
         requireOrganization: true,
       },
-      params: t.Object({
-        id: t.String({ description: "ID do projeto" }),
-        employeeId: t.String({ description: "ID do funcionário" }),
-      }),
+      params: employeeIdParamsSchema,
       response: {
         200: removeEmployeeResponseSchema,
         401: unauthorizedErrorSchema,

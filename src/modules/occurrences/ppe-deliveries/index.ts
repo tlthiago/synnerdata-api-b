@@ -1,4 +1,4 @@
-import { Elysia, t } from "elysia";
+import { Elysia } from "elysia";
 import { betterAuthPlugin } from "@/lib/auth-plugin";
 import { wrapSuccess } from "@/lib/responses/envelope";
 import {
@@ -14,9 +14,11 @@ import {
   createPpeDeliverySchema,
   deletePpeDeliveryResponseSchema,
   getPpeDeliveryResponseSchema,
+  idParamSchema,
   listPpeDeliveriesQuerySchema,
   listPpeDeliveriesResponseSchema,
   listPpeItemsResponseSchema,
+  ppeItemIdParamsSchema,
   removePpeItemResponseSchema,
   updatePpeDeliveryResponseSchema,
   updatePpeDeliverySchema,
@@ -100,9 +102,7 @@ export const ppeDeliveryController = new Elysia({
         permissions: { ppeDelivery: ["read"] },
         requireOrganization: true,
       },
-      params: t.Object({
-        id: t.String({ description: "ID da entrega" }),
-      }),
+      params: idParamSchema,
       response: {
         200: getPpeDeliveryResponseSchema,
         401: unauthorizedErrorSchema,
@@ -133,9 +133,7 @@ export const ppeDeliveryController = new Elysia({
         permissions: { ppeDelivery: ["update"] },
         requireOrganization: true,
       },
-      params: t.Object({
-        id: t.String({ description: "ID da entrega" }),
-      }),
+      params: idParamSchema,
       body: updatePpeDeliverySchema,
       response: {
         200: updatePpeDeliveryResponseSchema,
@@ -165,9 +163,7 @@ export const ppeDeliveryController = new Elysia({
         permissions: { ppeDelivery: ["delete"] },
         requireOrganization: true,
       },
-      params: t.Object({
-        id: t.String({ description: "ID da entrega" }),
-      }),
+      params: idParamSchema,
       response: {
         200: deletePpeDeliveryResponseSchema,
         401: unauthorizedErrorSchema,
@@ -197,9 +193,7 @@ export const ppeDeliveryController = new Elysia({
         permissions: { ppeDelivery: ["update"] },
         requireOrganization: true,
       },
-      params: t.Object({
-        id: t.String({ description: "ID da entrega" }),
-      }),
+      params: idParamSchema,
       body: addPpeItemSchema,
       response: {
         200: addPpeItemResponseSchema,
@@ -229,9 +223,7 @@ export const ppeDeliveryController = new Elysia({
         permissions: { ppeDelivery: ["read"] },
         requireOrganization: true,
       },
-      params: t.Object({
-        id: t.String({ description: "ID da entrega" }),
-      }),
+      params: idParamSchema,
       response: {
         200: listPpeItemsResponseSchema,
         401: unauthorizedErrorSchema,
@@ -260,10 +252,7 @@ export const ppeDeliveryController = new Elysia({
         permissions: { ppeDelivery: ["update"] },
         requireOrganization: true,
       },
-      params: t.Object({
-        id: t.String({ description: "ID da entrega" }),
-        ppeItemId: t.String({ description: "ID do EPI" }),
-      }),
+      params: ppeItemIdParamsSchema,
       response: {
         200: removePpeItemResponseSchema,
         401: unauthorizedErrorSchema,

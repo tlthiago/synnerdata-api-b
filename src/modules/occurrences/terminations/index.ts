@@ -1,4 +1,4 @@
-import { Elysia, t } from "elysia";
+import { Elysia } from "elysia";
 import { betterAuthPlugin } from "@/lib/auth-plugin";
 import { wrapSuccess } from "@/lib/responses/envelope";
 import {
@@ -12,6 +12,7 @@ import {
   createTerminationSchema,
   deleteTerminationResponseSchema,
   getTerminationResponseSchema,
+  idParamSchema,
   listTerminationsResponseSchema,
   updateTerminationResponseSchema,
   updateTerminationSchema,
@@ -90,9 +91,7 @@ export const terminationController = new Elysia({
         permissions: { occurrence: ["read"] },
         requireOrganization: true,
       },
-      params: t.Object({
-        id: t.String({ description: "ID da demissão" }),
-      }),
+      params: idParamSchema,
       response: {
         200: getTerminationResponseSchema,
         401: unauthorizedErrorSchema,
@@ -123,9 +122,7 @@ export const terminationController = new Elysia({
         permissions: { occurrence: ["update"] },
         requireOrganization: true,
       },
-      params: t.Object({
-        id: t.String({ description: "ID da demissão" }),
-      }),
+      params: idParamSchema,
       body: updateTerminationSchema,
       response: {
         200: updateTerminationResponseSchema,
@@ -155,9 +152,7 @@ export const terminationController = new Elysia({
         permissions: { occurrence: ["delete"] },
         requireOrganization: true,
       },
-      params: t.Object({
-        id: t.String({ description: "ID da demissão" }),
-      }),
+      params: idParamSchema,
       response: {
         200: deleteTerminationResponseSchema,
         401: unauthorizedErrorSchema,

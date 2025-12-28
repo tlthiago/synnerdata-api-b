@@ -1,4 +1,4 @@
-import { Elysia, t } from "elysia";
+import { Elysia } from "elysia";
 import { betterAuthPlugin } from "@/lib/auth-plugin";
 import { wrapSuccess } from "@/lib/responses/envelope";
 import {
@@ -12,6 +12,7 @@ import {
   createCostCenterSchema,
   deleteCostCenterResponseSchema,
   getCostCenterResponseSchema,
+  idParamSchema,
   listCostCentersResponseSchema,
   updateCostCenterResponseSchema,
   updateCostCenterSchema,
@@ -88,9 +89,7 @@ export const costCenterController = new Elysia({
         permissions: { costCenter: ["read"] },
         requireOrganization: true,
       },
-      params: t.Object({
-        id: t.String({ description: "ID do centro de custo" }),
-      }),
+      params: idParamSchema,
       response: {
         200: getCostCenterResponseSchema,
         401: unauthorizedErrorSchema,
@@ -121,9 +120,7 @@ export const costCenterController = new Elysia({
         permissions: { costCenter: ["update"] },
         requireOrganization: true,
       },
-      params: t.Object({
-        id: t.String({ description: "ID do centro de custo" }),
-      }),
+      params: idParamSchema,
       body: updateCostCenterSchema,
       response: {
         200: updateCostCenterResponseSchema,
@@ -153,9 +150,7 @@ export const costCenterController = new Elysia({
         permissions: { costCenter: ["delete"] },
         requireOrganization: true,
       },
-      params: t.Object({
-        id: t.String({ description: "ID do centro de custo" }),
-      }),
+      params: idParamSchema,
       response: {
         200: deleteCostCenterResponseSchema,
         401: unauthorizedErrorSchema,
