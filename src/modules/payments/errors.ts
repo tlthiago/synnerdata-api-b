@@ -364,3 +364,29 @@ export class EmployeeLimitReachedError extends PaymentError {
     );
   }
 }
+
+// 2.3 - No change requested (same configuration)
+export class NoChangeRequestedError extends PaymentError {
+  status = 400;
+
+  constructor() {
+    super(
+      "A configuração selecionada é igual à sua assinatura atual.",
+      "NO_CHANGE_REQUESTED"
+    );
+  }
+}
+
+// 2.4 - Employee count exceeds new plan limit on downgrade
+export class EmployeeCountExceedsNewPlanLimitError extends PaymentError {
+  status = 400;
+
+  constructor(currentCount: number, newLimit: number) {
+    const toRemove = currentCount - newLimit;
+    super(
+      `Você tem ${currentCount} funcionários cadastrados. O plano selecionado permite máximo ${newLimit}. Remova ${toRemove} funcionário(s) para continuar.`,
+      "EMPLOYEE_COUNT_EXCEEDS_NEW_PLAN_LIMIT",
+      { currentCount, newLimit, toRemove }
+    );
+  }
+}

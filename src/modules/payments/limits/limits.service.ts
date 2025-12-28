@@ -38,12 +38,14 @@ const FEATURE_TO_PLAN: Record<string, keyof typeof PLAN_FEATURES> = {
 };
 
 const PLAN_ORDER: Record<keyof typeof PLAN_FEATURES, number> = {
+  trial: -1,
   gold: 0,
   diamond: 1,
   platinum: 2,
 };
 
 const PLAN_DISPLAY_NAMES: Record<keyof typeof PLAN_FEATURES, string> = {
+  trial: "Trial",
   gold: "Ouro",
   diamond: "Diamante",
   platinum: "Platina",

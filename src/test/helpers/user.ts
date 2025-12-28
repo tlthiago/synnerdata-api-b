@@ -172,6 +172,7 @@ export function createAuthHeaders(
 
 type CreateTestUserWithOrgOptions = CreateTestUserOptions & {
   orgName?: string;
+  skipTrialCreation?: boolean;
 };
 
 type CreateTestAdminUserOptions = CreateTestUserOptions & {
@@ -210,7 +211,7 @@ export async function createTestUserWithOrganization(
     createTestOrganization,
   } = require("./organization");
 
-  const { orgName, ...userOptions } = options;
+  const { orgName, skipTrialCreation: _, ...userOptions } = options;
 
   const userResult = await createTestUser(userOptions);
 

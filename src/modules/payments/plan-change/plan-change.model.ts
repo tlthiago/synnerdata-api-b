@@ -158,3 +158,65 @@ export type CancelScheduledChangeData = z.infer<
 export type GetScheduledChangeData = z.infer<
   typeof getScheduledChangeDataSchema
 >;
+
+// Unified change subscription schema (2.3)
+export const changeSubscriptionSchema = z.object({
+  newPlanId: z.string().optional().describe("ID of the new plan (optional)"),
+  newBillingCycle: z
+    .enum(["monthly", "yearly"])
+    .optional()
+    .describe("New billing cycle (optional)"),
+  newEmployeeCount: z
+    .number()
+    .int()
+    .min(1)
+    .max(180)
+    .optional()
+    .describe("New employee count for tier selection (optional)"),
+  successUrl: (isProduction ? z.httpUrl() : z.url()).describe(
+    "URL to redirect after successful payment"
+  ),
+});
+
+const changeSubscriptionDataSchema = z.object({
+  changeType: changeTypeEnum.describe("Type of change: upgrade or downgrade"),
+  immediate: z.boolean().describe("Whether the change is immediate"),
+  checkoutUrl: z
+    .url()
+    .optional()
+    .describe("Checkout URL for upgrades requiring payment"),
+  prorationAmount: z
+    .number()
+    .optional()
+    .describe("Proration amount in centavos (upgrades only)"),
+  scheduledAt: z
+    .string()
+    .optional()
+    .describe("ISO date when scheduled change will be applied (downgrades)"),
+  newPlan: planInfoSchema.optional().describe("Target plan information"),
+  newBillingCycle: z
+    .enum(["monthly", "yearly"])
+    .optional()
+    .describe("New billing cycle after change"),
+  newEmployeeCount: z
+    .number()
+    .optional()
+    .describe("New employee count after change"),
+});
+
+export const changeSubscriptionResponseSchema = successResponseSchema(
+  changeSubscriptionDataSchema
+);
+
+// Unified change subscription types (2.3)
+export type ChangeSubscription = z.infer<typeof changeSubscriptionSchema>;
+export type ChangeSubscriptionInput = ChangeSubscription & {
+  userId: string;
+  organizationId: string;
+};
+export type ChangeSubscriptionData = z.infer<
+  typeof changeSubscriptionDataSchema
+>;
+export type ChangeSubscriptionResponse = z.infer<
+  typeof changeSubscriptionResponseSchema
+>;
