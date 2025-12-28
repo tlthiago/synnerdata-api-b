@@ -1,4 +1,4 @@
-import { Elysia, t } from "elysia";
+import { Elysia } from "elysia";
 import { betterAuthPlugin } from "@/lib/auth-plugin";
 import { wrapSuccess } from "@/lib/responses/envelope";
 import {
@@ -12,6 +12,7 @@ import {
   createCpfAnalysisSchema,
   deleteCpfAnalysisResponseSchema,
   getCpfAnalysisResponseSchema,
+  idParamSchema,
   listCpfAnalysesResponseSchema,
   updateCpfAnalysisResponseSchema,
   updateCpfAnalysisSchema,
@@ -89,9 +90,7 @@ export const cpfAnalysisController = new Elysia({
         permissions: { cpfAnalysis: ["read"] },
         requireOrganization: true,
       },
-      params: t.Object({
-        id: t.String({ description: "ID da análise de CPF" }),
-      }),
+      params: idParamSchema,
       response: {
         200: getCpfAnalysisResponseSchema,
         401: unauthorizedErrorSchema,
@@ -122,9 +121,7 @@ export const cpfAnalysisController = new Elysia({
         permissions: { cpfAnalysis: ["update"] },
         requireOrganization: true,
       },
-      params: t.Object({
-        id: t.String({ description: "ID da análise de CPF" }),
-      }),
+      params: idParamSchema,
       body: updateCpfAnalysisSchema,
       response: {
         200: updateCpfAnalysisResponseSchema,
@@ -154,9 +151,7 @@ export const cpfAnalysisController = new Elysia({
         permissions: { cpfAnalysis: ["delete"] },
         requireOrganization: true,
       },
-      params: t.Object({
-        id: t.String({ description: "ID da análise de CPF" }),
-      }),
+      params: idParamSchema,
       response: {
         200: deleteCpfAnalysisResponseSchema,
         401: unauthorizedErrorSchema,

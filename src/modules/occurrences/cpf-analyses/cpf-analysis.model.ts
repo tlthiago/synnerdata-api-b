@@ -51,6 +51,10 @@ export const createCpfAnalysisSchema = z.object({
 
 export const updateCpfAnalysisSchema = createCpfAnalysisSchema.partial();
 
+export const idParamSchema = z.object({
+  id: z.string().min(1).describe("ID da análise de CPF"),
+});
+
 const cpfAnalysisDataSchema = z.object({
   id: z.string().describe("ID da análise de CPF"),
   organizationId: z.string().describe("ID da organização"),

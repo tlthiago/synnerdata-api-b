@@ -28,6 +28,10 @@ export const updateAbsenceSchema = createAbsenceSchema
   .partial()
   .omit({ employeeId: true });
 
+export const idParamSchema = z.object({
+  id: z.string().min(1).describe("ID da ausência"),
+});
+
 const absenceDataSchema = z.object({
   id: z.string().describe("ID da ausência"),
   organizationId: z.string().describe("ID da organização"),

@@ -1,9 +1,10 @@
-import { Elysia, t } from "elysia";
+import { Elysia } from "elysia";
 import { env } from "@/env";
 import { wrapSuccess } from "@/lib/responses/envelope";
 import { unauthorizedErrorSchema } from "@/lib/responses/response.types";
 import {
   expireTrialsResponseSchema,
+  internalApiKeyHeaderSchema,
   notifyExpiringTrialsResponseSchema,
   processScheduledCancellationsResponseSchema,
   processScheduledPlanChangesResponseSchema,
@@ -17,9 +18,7 @@ export const jobsController = new Elysia({
   detail: { tags: ["Payments - Jobs"] },
 }).guard(
   {
-    headers: t.Object({
-      "x-api-key": t.String(),
-    }),
+    headers: internalApiKeyHeaderSchema,
     beforeHandle: ({ headers, set }) => {
       if (headers["x-api-key"] !== env.INTERNAL_API_KEY) {
         set.status = 401;

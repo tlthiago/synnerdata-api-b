@@ -45,6 +45,10 @@ export const createAccidentSchema = z.object({
 
 export const updateAccidentSchema = createAccidentSchema.partial();
 
+export const idParamSchema = z.object({
+  id: z.string().min(1).describe("ID do acidente"),
+});
+
 const accidentDataSchema = z.object({
   id: z.string().describe("ID do acidente"),
   organizationId: z.string().describe("ID da organização"),

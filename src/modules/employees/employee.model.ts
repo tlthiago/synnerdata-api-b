@@ -289,6 +289,10 @@ export const updateEmployeeStatusSchema = z.object({
   status: z.enum(employeeStatusValues).describe("Status do funcionário"),
 });
 
+export const idParamSchema = z.object({
+  id: z.string().min(1).describe("ID do funcionário"),
+});
+
 // Data schemas for response
 const employeeDataSchema = z.object({
   id: z.string().describe("ID do funcionário"),

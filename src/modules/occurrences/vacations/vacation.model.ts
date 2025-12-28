@@ -56,6 +56,10 @@ export const updateVacationSchema = createVacationSchema
   .omit({ employeeId: true })
   .partial();
 
+export const idParamSchema = z.object({
+  id: z.string().min(1).describe("ID das férias"),
+});
+
 const vacationDataSchema = z.object({
   id: z.string().describe("Vacation ID"),
   organizationId: z.string().describe("Organization ID"),

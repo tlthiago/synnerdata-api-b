@@ -1,5 +1,5 @@
-import type { LaborLawsuitData } from "@/modules/organization/labor-lawsuits/labor-lawsuit.model";
-import { LaborLawsuitService } from "@/modules/organization/labor-lawsuits/labor-lawsuit.service";
+import type { LaborLawsuitData } from "@/modules/occurrences/labor-lawsuits/labor-lawsuit.model";
+import { LaborLawsuitService } from "@/modules/occurrences/labor-lawsuits/labor-lawsuit.service";
 import { createTestEmployee } from "./employee";
 import { faker } from "./faker";
 

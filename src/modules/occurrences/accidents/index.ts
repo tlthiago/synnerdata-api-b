@@ -1,4 +1,4 @@
-import { Elysia, t } from "elysia";
+import { Elysia } from "elysia";
 import { betterAuthPlugin } from "@/lib/auth-plugin";
 import { wrapSuccess } from "@/lib/responses/envelope";
 import {
@@ -12,6 +12,7 @@ import {
   createAccidentSchema,
   deleteAccidentResponseSchema,
   getAccidentResponseSchema,
+  idParamSchema,
   listAccidentsResponseSchema,
   updateAccidentResponseSchema,
   updateAccidentSchema,
@@ -89,9 +90,7 @@ export const accidentController = new Elysia({
         permissions: { accident: ["read"] },
         requireOrganization: true,
       },
-      params: t.Object({
-        id: t.String({ description: "ID do acidente" }),
-      }),
+      params: idParamSchema,
       response: {
         200: getAccidentResponseSchema,
         401: unauthorizedErrorSchema,
@@ -122,9 +121,7 @@ export const accidentController = new Elysia({
         permissions: { accident: ["update"] },
         requireOrganization: true,
       },
-      params: t.Object({
-        id: t.String({ description: "ID do acidente" }),
-      }),
+      params: idParamSchema,
       body: updateAccidentSchema,
       response: {
         200: updateAccidentResponseSchema,
@@ -154,9 +151,7 @@ export const accidentController = new Elysia({
         permissions: { accident: ["delete"] },
         requireOrganization: true,
       },
-      params: t.Object({
-        id: t.String({ description: "ID do acidente" }),
-      }),
+      params: idParamSchema,
       response: {
         200: deleteAccidentResponseSchema,
         401: unauthorizedErrorSchema,

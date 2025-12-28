@@ -1,4 +1,4 @@
-import { Elysia, t } from "elysia";
+import { Elysia } from "elysia";
 import { betterAuthPlugin } from "@/lib/auth-plugin";
 import { wrapSuccess } from "@/lib/responses/envelope";
 import {
@@ -12,6 +12,7 @@ import {
   createWarningSchema,
   deleteWarningResponseSchema,
   getWarningResponseSchema,
+  idParamSchema,
   listWarningsResponseSchema,
   updateWarningResponseSchema,
   updateWarningSchema,
@@ -88,9 +89,7 @@ export const warningController = new Elysia({
         permissions: { warning: ["read"] },
         requireOrganization: true,
       },
-      params: t.Object({
-        id: t.String({ description: "ID da advertência" }),
-      }),
+      params: idParamSchema,
       response: {
         200: getWarningResponseSchema,
         401: unauthorizedErrorSchema,
@@ -121,9 +120,7 @@ export const warningController = new Elysia({
         permissions: { warning: ["update"] },
         requireOrganization: true,
       },
-      params: t.Object({
-        id: t.String({ description: "ID da advertência" }),
-      }),
+      params: idParamSchema,
       body: updateWarningSchema,
       response: {
         200: updateWarningResponseSchema,
@@ -153,9 +150,7 @@ export const warningController = new Elysia({
         permissions: { warning: ["delete"] },
         requireOrganization: true,
       },
-      params: t.Object({
-        id: t.String({ description: "ID da advertência" }),
-      }),
+      params: idParamSchema,
       response: {
         200: deleteWarningResponseSchema,
         401: unauthorizedErrorSchema,

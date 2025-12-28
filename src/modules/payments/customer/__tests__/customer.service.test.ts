@@ -128,7 +128,9 @@ describe("CustomerService", () => {
     "getOrCreateForCheckout (Pagarme API)",
     () => {
       test("should throw ProfileNotFoundError for non-existent profile", async () => {
-        const { ProfileNotFoundError } = await import("@/modules/organization");
+        const { ProfileNotFoundError } = await import(
+          "@/modules/organizations/profile/errors"
+        );
 
         await expect(
           CustomerService.getOrCreateForCheckout("non-existent-org")

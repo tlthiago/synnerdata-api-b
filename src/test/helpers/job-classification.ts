@@ -1,5 +1,5 @@
-import type { JobClassificationData } from "@/modules/organization/job-classifications/job-classification.model";
-import { JobClassificationService } from "@/modules/organization/job-classifications/job-classification.service";
+import type { JobClassificationData } from "@/modules/organizations/job-classifications/job-classification.model";
+import { JobClassificationService } from "@/modules/organizations/job-classifications/job-classification.service";
 import { faker } from "./faker";
 
 type CreateTestJobClassificationOptions = {

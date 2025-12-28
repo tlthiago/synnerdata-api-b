@@ -58,6 +58,10 @@ export const updateMedicalCertificateSchema = createMedicalCertificateSchema
     }
   );
 
+export const idParamSchema = z.object({
+  id: z.string().min(1).describe("ID do atestado médico"),
+});
+
 const medicalCertificateDataSchema = z.object({
   id: z.string().describe("ID do atestado"),
   organizationId: z.string().describe("ID da organização"),

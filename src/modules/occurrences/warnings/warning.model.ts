@@ -24,6 +24,10 @@ export const createWarningSchema = z.object({
 
 export const updateWarningSchema = createWarningSchema.partial();
 
+export const idParamSchema = z.object({
+  id: z.string().min(1).describe("ID da advertência"),
+});
+
 const warningDataSchema = z.object({
   id: z.string().describe("ID da advertência"),
   organizationId: z.string().describe("ID da organização"),

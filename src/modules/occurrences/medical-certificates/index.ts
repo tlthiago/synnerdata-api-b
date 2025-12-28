@@ -1,4 +1,4 @@
-import { Elysia, t } from "elysia";
+import { Elysia } from "elysia";
 import { betterAuthPlugin } from "@/lib/auth-plugin";
 import { wrapSuccess } from "@/lib/responses/envelope";
 import {
@@ -12,6 +12,7 @@ import {
   createMedicalCertificateSchema,
   deleteMedicalCertificateResponseSchema,
   getMedicalCertificateResponseSchema,
+  idParamSchema,
   listMedicalCertificatesResponseSchema,
   updateMedicalCertificateResponseSchema,
   updateMedicalCertificateSchema,
@@ -93,9 +94,7 @@ export const medicalCertificatesController = new Elysia({
         permissions: { medicalCertificate: ["read"] },
         requireOrganization: true,
       },
-      params: t.Object({
-        id: t.String({ description: "ID do atestado médico" }),
-      }),
+      params: idParamSchema,
       response: {
         200: getMedicalCertificateResponseSchema,
         401: unauthorizedErrorSchema,
@@ -126,9 +125,7 @@ export const medicalCertificatesController = new Elysia({
         permissions: { medicalCertificate: ["update"] },
         requireOrganization: true,
       },
-      params: t.Object({
-        id: t.String({ description: "ID do atestado médico" }),
-      }),
+      params: idParamSchema,
       body: updateMedicalCertificateSchema,
       response: {
         200: updateMedicalCertificateResponseSchema,
@@ -158,9 +155,7 @@ export const medicalCertificatesController = new Elysia({
         permissions: { medicalCertificate: ["delete"] },
         requireOrganization: true,
       },
-      params: t.Object({
-        id: t.String({ description: "ID do atestado médico" }),
-      }),
+      params: idParamSchema,
       response: {
         200: deleteMedicalCertificateResponseSchema,
         401: unauthorizedErrorSchema,

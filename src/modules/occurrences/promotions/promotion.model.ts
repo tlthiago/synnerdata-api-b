@@ -55,6 +55,10 @@ export const createPromotionSchema = z.object({
 
 export const updatePromotionSchema = createPromotionSchema.partial();
 
+export const idParamSchema = z.object({
+  id: z.string().min(1).describe("ID da promoção"),
+});
+
 const promotionDataSchema = z.object({
   id: z.string().describe("ID da promoção"),
   organizationId: z.string().describe("ID da organização"),

@@ -1,4 +1,4 @@
-import { Elysia, t } from "elysia";
+import { Elysia } from "elysia";
 import { betterAuthPlugin } from "@/lib/auth-plugin";
 import { wrapSuccess } from "@/lib/responses/envelope";
 import {
@@ -12,6 +12,7 @@ import {
   createVacationSchema,
   deleteVacationResponseSchema,
   getVacationResponseSchema,
+  idParamSchema,
   listVacationsResponseSchema,
   updateVacationResponseSchema,
   updateVacationSchema,
@@ -88,9 +89,7 @@ export const vacationController = new Elysia({
         permissions: { vacation: ["read"] },
         requireOrganization: true,
       },
-      params: t.Object({
-        id: t.String({ description: "ID das férias" }),
-      }),
+      params: idParamSchema,
       response: {
         200: getVacationResponseSchema,
         401: unauthorizedErrorSchema,
@@ -121,9 +120,7 @@ export const vacationController = new Elysia({
         permissions: { vacation: ["update"] },
         requireOrganization: true,
       },
-      params: t.Object({
-        id: t.String({ description: "ID das férias" }),
-      }),
+      params: idParamSchema,
       body: updateVacationSchema,
       response: {
         200: updateVacationResponseSchema,
@@ -153,9 +150,7 @@ export const vacationController = new Elysia({
         permissions: { vacation: ["delete"] },
         requireOrganization: true,
       },
-      params: t.Object({
-        id: t.String({ description: "ID das férias" }),
-      }),
+      params: idParamSchema,
       response: {
         200: deleteVacationResponseSchema,
         401: unauthorizedErrorSchema,

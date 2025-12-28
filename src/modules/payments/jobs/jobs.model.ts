@@ -72,3 +72,8 @@ export const suspendExpiredGracePeriodsResponseSchema = successResponseSchema(
 export type SuspendExpiredGracePeriodsData = z.infer<
   typeof suspendExpiredGracePeriodsDataSchema
 >;
+
+// Header schema for internal API key authentication
+export const internalApiKeyHeaderSchema = z.object({
+  "x-api-key": z.string().min(1).describe("Internal API key"),
+});

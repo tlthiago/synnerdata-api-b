@@ -3,7 +3,7 @@ import { db } from "@/db";
 import { schema } from "@/db/schema";
 import type { EntityReference } from "@/lib/schemas/relationships";
 import { EmployeeService } from "@/modules/employees/employee.service";
-import { JobPositionService } from "@/modules/organization/job-positions/job-position.service";
+import { JobPositionService } from "@/modules/organizations/job-positions/job-position.service";
 import {
   InvalidPromotionDataError,
   PromotionAlreadyDeletedError,

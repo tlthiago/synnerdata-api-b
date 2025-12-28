@@ -1,5 +1,5 @@
-import type { BranchData } from "@/modules/organization/branches/branch.model";
-import { BranchService } from "@/modules/organization/branches/branch.service";
+import type { BranchData } from "@/modules/organizations/branches/branch.model";
+import { BranchService } from "@/modules/organizations/branches/branch.service";
 import {
   faker,
   generateCep,

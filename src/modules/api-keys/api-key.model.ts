@@ -25,6 +25,10 @@ export const listApiKeysQuerySchema = z.object({
 
 export type ListApiKeysQuery = z.infer<typeof listApiKeysQuerySchema>;
 
+export const idParamSchema = z.object({
+  id: z.string().min(1).describe("ID da API Key"),
+});
+
 export const apiKeyDataSchema = z.object({
   id: z.string(),
   name: z.string(),

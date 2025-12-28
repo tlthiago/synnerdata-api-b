@@ -25,10 +25,14 @@ src/modules/
 │   ├── employee.service.ts
 │   ├── errors.ts
 │   └── __tests__/
-├── occurrences/                # Módulo principal (entidade core)
+├── occurrences/                # Domínio com submódulos
+│   ├── absences/
+│   ├── accidents/
+│   ├── promotions/
+│   ├── ppe-deliveries/
 │   └── ...
-├── organization/               # Domínio com submódulos
-│   ├── branches/               # Submódulo do domínio organization
+├── organizations/              # Domínio com submódulos
+│   ├── branches/               # Submódulo do domínio organizations
 │   ├── sectors/
 │   ├── cost-centers/
 │   ├── job-positions/
@@ -262,6 +266,11 @@ export const createResourceSchema = z.object({
 
 export const updateResourceSchema = createResourceSchema.partial();
 
+// Schema de parâmetros de rota
+export const idParamSchema = z.object({
+  id: z.string().min(1).describe("ID do recurso"),
+});
+
 // Schema de dados (resposta)
 const resourceDataSchema = z.object({
   id: z.string().describe("ID do recurso"),
@@ -476,7 +485,7 @@ export abstract class ResourceService {
 **Arquivo:** `src/modules/{domain}/{module-name}/index.ts`
 
 ```typescript
-import { Elysia, t } from "elysia";
+import { Elysia } from "elysia";
 import { betterAuthPlugin } from "@/lib/auth-plugin";
 import { wrapSuccess } from "@/lib/responses/envelope";
 import {
@@ -490,6 +499,7 @@ import {
   createResourceSchema,
   deleteResourceResponseSchema,
   getResourceResponseSchema,
+  idParamSchema,
   listResourcesResponseSchema,
   updateResourceResponseSchema,
   updateResourceSchema,
@@ -566,9 +576,7 @@ export const resourceController = new Elysia({
         permissions: { resource: ["read"] },
         requireOrganization: true,
       },
-      params: t.Object({
-        id: t.String(),
-      }),
+      params: idParamSchema,
       response: {
         200: getResourceResponseSchema,
         401: unauthorizedErrorSchema,
@@ -599,9 +607,7 @@ export const resourceController = new Elysia({
         permissions: { resource: ["update"] },
         requireOrganization: true,
       },
-      params: t.Object({
-        id: t.String(),
-      }),
+      params: idParamSchema,
       body: updateResourceSchema,
       response: {
         200: updateResourceResponseSchema,
@@ -631,9 +637,7 @@ export const resourceController = new Elysia({
         permissions: { resource: ["delete"] },
         requireOrganization: true,
       },
-      params: t.Object({
-        id: t.String(),
-      }),
+      params: idParamSchema,
       response: {
         200: deleteResourceResponseSchema,
         401: unauthorizedErrorSchema,
@@ -1181,7 +1185,7 @@ expect(body.data.branch?.id).toBe(dependencies.branchId);
 | Módulo | Relacionamentos | Arquivo |
 |--------|----------------|---------|
 | `employees` | sector, jobPosition, jobClassification, branch?, costCenter? | `src/modules/employees/` |
-| `ppe-deliveries` | employee | `src/modules/organization/ppe-deliveries/` |
+| `ppe-deliveries` | employee | `src/modules/occurrences/ppe-deliveries/` |
 | `promotions` | employee, previousJobPosition, newJobPosition | `src/modules/occurrences/promotions/` |
 | `absences` | employee | `src/modules/occurrences/absences/` |
 

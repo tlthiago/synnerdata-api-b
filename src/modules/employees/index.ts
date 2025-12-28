@@ -1,4 +1,4 @@
-import { Elysia, t } from "elysia";
+import { Elysia } from "elysia";
 import { betterAuthPlugin } from "@/lib/auth-plugin";
 import { wrapSuccess } from "@/lib/responses/envelope";
 import {
@@ -13,6 +13,7 @@ import {
   createEmployeeSchema,
   deleteEmployeeResponseSchema,
   getEmployeeResponseSchema,
+  idParamSchema,
   listEmployeesResponseSchema,
   updateEmployeeResponseSchema,
   updateEmployeeSchema,
@@ -91,9 +92,7 @@ export const employeeController = new Elysia({
         permissions: { employee: ["read"] },
         requireOrganization: true,
       },
-      params: t.Object({
-        id: t.String({ description: "ID do funcionário" }),
-      }),
+      params: idParamSchema,
       response: {
         200: getEmployeeResponseSchema,
         401: unauthorizedErrorSchema,
@@ -124,9 +123,7 @@ export const employeeController = new Elysia({
         permissions: { employee: ["update"] },
         requireOrganization: true,
       },
-      params: t.Object({
-        id: t.String({ description: "ID do funcionário" }),
-      }),
+      params: idParamSchema,
       body: updateEmployeeSchema,
       response: {
         200: updateEmployeeResponseSchema,
@@ -160,9 +157,7 @@ export const employeeController = new Elysia({
         permissions: { employee: ["update"] },
         requireOrganization: true,
       },
-      params: t.Object({
-        id: t.String({ description: "ID do funcionário" }),
-      }),
+      params: idParamSchema,
       body: updateEmployeeStatusSchema,
       response: {
         200: updateEmployeeResponseSchema,
@@ -192,9 +187,7 @@ export const employeeController = new Elysia({
         permissions: { employee: ["delete"] },
         requireOrganization: true,
       },
-      params: t.Object({
-        id: t.String({ description: "ID do funcionário" }),
-      }),
+      params: idParamSchema,
       response: {
         200: deleteEmployeeResponseSchema,
         401: unauthorizedErrorSchema,

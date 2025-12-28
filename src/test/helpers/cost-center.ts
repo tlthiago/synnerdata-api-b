@@ -1,5 +1,5 @@
-import type { CostCenterData } from "@/modules/organization/cost-centers/cost-center.model";
-import { CostCenterService } from "@/modules/organization/cost-centers/cost-center.service";
+import type { CostCenterData } from "@/modules/organizations/cost-centers/cost-center.model";
+import { CostCenterService } from "@/modules/organizations/cost-centers/cost-center.service";
 import { faker } from "./faker";
 
 type CreateTestCostCenterOptions = {

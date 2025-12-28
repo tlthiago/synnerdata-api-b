@@ -1,5 +1,5 @@
-import type { PpeDeliveryData } from "@/modules/organization/ppe-deliveries/ppe-delivery.model";
-import { PpeDeliveryService } from "@/modules/organization/ppe-deliveries/ppe-delivery.service";
+import type { PpeDeliveryData } from "@/modules/occurrences/ppe-deliveries/ppe-delivery.model";
+import { PpeDeliveryService } from "@/modules/occurrences/ppe-deliveries/ppe-delivery.service";
 import { createTestEmployee } from "./employee";
 import { faker } from "./faker";
 import { createTestPpeItem } from "./ppe-item";
