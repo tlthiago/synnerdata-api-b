@@ -12,6 +12,7 @@ type TestPlan = {
   limits: PlanLimits;
   isActive: boolean;
   isPublic: boolean;
+  isTrial: boolean;
   sortOrder: number;
 };
 
@@ -63,6 +64,22 @@ const TIER_PRICES = {
 // Test plans - matching production structure
 export const testPlans: TestPlan[] = [
   {
+    id: "test-plan-trial",
+    name: "trial",
+    displayName: "Trial",
+    description: "Período de avaliação gratuito com acesso completo",
+    priceMonthly: 0,
+    priceYearly: 0,
+    trialDays: 14,
+    limits: {
+      features: PLAN_FEATURES.trial as unknown as string[],
+    },
+    isActive: true,
+    isPublic: false,
+    isTrial: true,
+    sortOrder: -1,
+  },
+  {
     id: "test-plan-gold",
     name: "gold",
     displayName: "Ouro Insights",
@@ -75,6 +92,7 @@ export const testPlans: TestPlan[] = [
     },
     isActive: true,
     isPublic: true,
+    isTrial: false,
     sortOrder: 0,
   },
   {
@@ -90,6 +108,7 @@ export const testPlans: TestPlan[] = [
     },
     isActive: true,
     isPublic: true,
+    isTrial: false,
     sortOrder: 1,
   },
   {
@@ -105,6 +124,7 @@ export const testPlans: TestPlan[] = [
     },
     isActive: true,
     isPublic: true,
+    isTrial: false,
     sortOrder: 2,
   },
   {
@@ -119,6 +139,7 @@ export const testPlans: TestPlan[] = [
     },
     isActive: false,
     isPublic: false,
+    isTrial: false,
     sortOrder: 99,
   },
 ];
@@ -164,6 +185,7 @@ function generatePricingTiers(): TestPricingTier[] {
 export const testPricingTiers: TestPricingTier[] = generatePricingTiers();
 
 export const activePlans = testPlans.filter((p) => p.isActive && p.isPublic);
+export const trialPlan = testPlans.find((p) => p.name === "trial");
 export const goldPlan = testPlans.find((p) => p.name === "gold");
 export const diamondPlan = testPlans.find((p) => p.name === "diamond");
 export const platinumPlan = testPlans.find((p) => p.name === "platinum");

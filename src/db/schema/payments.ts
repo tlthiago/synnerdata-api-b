@@ -27,6 +27,18 @@ export interface PlanLimits {
 }
 
 export const PLAN_FEATURES = {
+  trial: [
+    "terminated_employees",
+    "absences",
+    "medical_certificates",
+    "accidents",
+    "warnings",
+    "employee_status",
+    "birthdays",
+    "ppe",
+    "employee_record",
+    "payroll",
+  ],
   gold: [
     "terminated_employees",
     "absences",
@@ -75,7 +87,7 @@ export const FEATURE_DISPLAY_NAMES: Record<string, string> = {
 
 export const MAX_EMPLOYEES = 180;
 export const YEARLY_DISCOUNT = 0.2; // 20% discount
-export const DEFAULT_TRIAL_PLAN_NAME = "platinum"; // Trial always uses the most complete plan
+export const DEFAULT_TRIAL_EMPLOYEE_LIMIT = 10; // Trial limit matches minimum tier
 
 export const subscriptionPlans = pgTable("subscription_plans", {
   id: text("id").primaryKey(),
@@ -90,6 +102,7 @@ export const subscriptionPlans = pgTable("subscription_plans", {
   limits: jsonb("limits").$type<PlanLimits>(),
   isActive: boolean("is_active").default(true).notNull(),
   isPublic: boolean("is_public").default(true).notNull(),
+  isTrial: boolean("is_trial").default(false).notNull(),
   sortOrder: integer("sort_order").default(0).notNull(),
   createdAt: timestamp("created_at", { withTimezone: true })
     .defaultNow()

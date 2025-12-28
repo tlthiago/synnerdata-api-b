@@ -348,11 +348,11 @@ export abstract class SubscriptionService {
 
   /**
    * Creates a trial subscription for an organization.
-   * Trial always uses the most complete plan (Platinum) so users can
-   * experience all features before choosing which plan to subscribe to.
+   * Trial uses a dedicated trial plan with isTrial=true that gives access
+   * to all features. Employee limit is set to DEFAULT_TRIAL_EMPLOYEE_LIMIT.
    */
   static async createTrial(organizationId: string): Promise<void> {
-    const { DEFAULT_TRIAL_PLAN_NAME } = await import("@/db/schema");
+    const { DEFAULT_TRIAL_EMPLOYEE_LIMIT } = await import("@/db/schema");
     const { TrialPlanNotConfiguredError } = await import(
       "@/modules/payments/errors"
     );
@@ -363,7 +363,7 @@ export abstract class SubscriptionService {
         trialDays: schema.subscriptionPlans.trialDays,
       })
       .from(schema.subscriptionPlans)
-      .where(eq(schema.subscriptionPlans.name, DEFAULT_TRIAL_PLAN_NAME))
+      .where(eq(schema.subscriptionPlans.isTrial, true))
       .limit(1);
 
     if (!plan) {
@@ -382,6 +382,7 @@ export abstract class SubscriptionService {
       trialStart,
       trialEnd,
       trialUsed: true,
+      employeeCount: DEFAULT_TRIAL_EMPLOYEE_LIMIT,
       seats: 1,
     });
 

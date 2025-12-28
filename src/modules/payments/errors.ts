@@ -352,3 +352,15 @@ export class FeatureNotAvailableError extends PaymentError {
     );
   }
 }
+
+export class EmployeeLimitReachedError extends PaymentError {
+  status = 400;
+
+  constructor(current: number, limit: number) {
+    super(
+      `Limite de funcionários atingido (${current}/${limit}). Faça upgrade para cadastrar mais.`,
+      "EMPLOYEE_LIMIT_REACHED",
+      { current, limit }
+    );
+  }
+}

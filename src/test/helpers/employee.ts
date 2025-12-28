@@ -183,6 +183,29 @@ function generateEmploymentData(
   };
 }
 
+async function ensureSubscriptionExists(organizationId: string) {
+  const { eq } = await import("drizzle-orm");
+  const { db } = await import("@/db");
+  const { schema } = await import("@/db/schema");
+  const { goldPlan } = await import("@/test/fixtures/plans");
+  const { createTestSubscription } = await import(
+    "@/test/helpers/subscription"
+  );
+
+  const [existing] = await db
+    .select({ id: schema.orgSubscriptions.id })
+    .from(schema.orgSubscriptions)
+    .where(eq(schema.orgSubscriptions.organizationId, organizationId))
+    .limit(1);
+
+  if (!existing && goldPlan) {
+    await createTestSubscription(organizationId, goldPlan.id, {
+      status: "active",
+      employeeCount: 100,
+    });
+  }
+}
+
 async function resolveDependencies(
   organizationId: string,
   userId: string,
@@ -217,6 +240,8 @@ export async function createTestEmployee(
   options: CreateTestEmployeeOptions
 ): Promise<CreateTestEmployeeResult> {
   const { organizationId, userId, dependencies = {}, ...overrides } = options;
+
+  await ensureSubscriptionExists(organizationId);
 
   const resolvedDeps = await resolveDependencies(
     organizationId,
