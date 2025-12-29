@@ -279,7 +279,7 @@ describe("SubscriptionService", () => {
       expect(subscription.trialStart).toBeInstanceOf(Date);
       expect(subscription.trialEnd).toBeInstanceOf(Date);
       expect(subscription.trialUsed).toBe(true);
-      expect(subscription.employeeCount).toBe(10);
+      expect(subscription.pricingTierId).toBeDefined();
       expect(subscription.seats).toBe(1);
     });
   });

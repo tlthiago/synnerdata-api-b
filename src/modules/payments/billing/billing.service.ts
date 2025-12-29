@@ -1,7 +1,6 @@
 import { eq, sql } from "drizzle-orm";
 import { db } from "@/db";
-import { schema } from "@/db/schema";
-import type { OrgSubscription, PlanLimits } from "@/db/schema/payments";
+import { type OrgSubscription, type PlanLimits, schema } from "@/db/schema";
 import { Retry } from "@/lib/utils/retry";
 import {
   CustomerNotFoundError,
@@ -9,6 +8,7 @@ import {
   SubscriptionNotFoundError,
 } from "@/modules/payments/errors";
 import { PagarmeClient } from "@/modules/payments/pagarme/client";
+import { DEFAULT_TRIAL_EMPLOYEE_LIMIT } from "@/modules/payments/plans/plans.constants";
 import type {
   DownloadInvoiceData,
   GetUsageData,
@@ -153,11 +153,16 @@ export abstract class BillingService {
       .select({
         subscription: schema.orgSubscriptions,
         plan: schema.subscriptionPlans,
+        tier: schema.planPricingTiers,
       })
       .from(schema.orgSubscriptions)
       .innerJoin(
         schema.subscriptionPlans,
         eq(schema.orgSubscriptions.planId, schema.subscriptionPlans.id)
+      )
+      .leftJoin(
+        schema.planPricingTiers,
+        eq(schema.orgSubscriptions.pricingTierId, schema.planPricingTiers.id)
       )
       .where(eq(schema.orgSubscriptions.organizationId, organizationId))
       .limit(1);
@@ -174,7 +179,9 @@ export abstract class BillingService {
       .where(eq(schema.members.organizationId, organizationId));
 
     const membersCurrent = Number(membersCount.count);
-    const membersLimit = limits?.maxMembers ?? null;
+    // Use tier's maxEmployees as member limit, fallback to default trial limit
+    const membersLimit =
+      result.tier?.maxEmployees ?? DEFAULT_TRIAL_EMPLOYEE_LIMIT;
 
     return {
       plan: {

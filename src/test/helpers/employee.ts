@@ -187,7 +187,7 @@ async function ensureSubscriptionExists(organizationId: string) {
   const { eq } = await import("drizzle-orm");
   const { db } = await import("@/db");
   const { schema } = await import("@/db/schema");
-  const { goldPlan } = await import("@/test/fixtures/plans");
+  const { createPaidPlan } = await import("@/test/factories/plan");
   const { createTestSubscription } = await import(
     "@/test/helpers/subscription"
   );
@@ -198,10 +198,10 @@ async function ensureSubscriptionExists(organizationId: string) {
     .where(eq(schema.orgSubscriptions.organizationId, organizationId))
     .limit(1);
 
-  if (!existing && goldPlan) {
-    await createTestSubscription(organizationId, goldPlan.id, {
+  if (!existing) {
+    const { plan } = await createPaidPlan("gold");
+    await createTestSubscription(organizationId, plan.id, {
       status: "active",
-      employeeCount: 100,
     });
   }
 }

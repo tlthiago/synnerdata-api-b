@@ -1,19 +1,21 @@
 import { beforeAll, describe, expect, test } from "bun:test";
 import { env } from "@/env";
+import { createInactivePlan, createPaidPlan } from "@/test/factories/plan";
 import { createTestApp, type TestApp } from "@/test/helpers/app";
-import { seedPlans } from "@/test/helpers/seed";
 
 const BASE_URL = env.API_URL;
 
 describe("GET /payments/plans", () => {
   let app: TestApp;
 
-  beforeAll(async () => {
+  beforeAll(() => {
     app = createTestApp();
-    await seedPlans();
   });
 
   test("should list plans without authentication (public route)", async () => {
+    // Garantir que existe pelo menos um plano ativo e público
+    await createPaidPlan("gold");
+
     const response = await app.handle(
       new Request(`${BASE_URL}/v1/payments/plans`)
     );
@@ -26,30 +28,61 @@ describe("GET /payments/plans", () => {
   });
 
   test("should return only active and public plans", async () => {
+    const { plan: activePlan } = await createPaidPlan("diamond");
+
     const response = await app.handle(
       new Request(`${BASE_URL}/v1/payments/plans`)
     );
     const body = await response.json();
 
+    // Verificar que todos os planos retornados são ativos e públicos
     for (const plan of body.data.plans) {
       expect(plan.isActive).toBe(true);
       expect(plan.isPublic).toBe(true);
     }
+
+    // Verificar que o plano criado está na lista
+    const foundPlan = body.data.plans.find(
+      (p: { id: string }) => p.id === activePlan.id
+    );
+    expect(foundPlan).toBeDefined();
   });
 
-  test("should not return inactive or private plans", async () => {
+  test("should not return inactive plans", async () => {
+    const { plan: inactivePlan } = await createInactivePlan({ type: "gold" });
+
     const response = await app.handle(
       new Request(`${BASE_URL}/v1/payments/plans`)
     );
     const body = await response.json();
 
-    const legacyPlan = body.data.plans.find(
-      (p: { name: string }) => p.name === "legacy"
+    const foundPlan = body.data.plans.find(
+      (p: { id: string }) => p.id === inactivePlan.id
     );
-    expect(legacyPlan).toBeUndefined();
+    expect(foundPlan).toBeUndefined();
+  });
+
+  test("should not return private plans", async () => {
+    const { plan: privatePlan } = await createPaidPlan("platinum", {
+      isPublic: false,
+    });
+
+    const response = await app.handle(
+      new Request(`${BASE_URL}/v1/payments/plans`)
+    );
+    const body = await response.json();
+
+    const foundPlan = body.data.plans.find(
+      (p: { id: string }) => p.id === privatePlan.id
+    );
+    expect(foundPlan).toBeUndefined();
   });
 
   test("should return plans ordered by sortOrder", async () => {
+    // Criar planos com sortOrder específico
+    await createPaidPlan("gold", { sortOrder: 10 });
+    await createPaidPlan("diamond", { sortOrder: 20 });
+
     const response = await app.handle(
       new Request(`${BASE_URL}/v1/payments/plans`)
     );
@@ -62,6 +95,8 @@ describe("GET /payments/plans", () => {
   });
 
   test("should return correct plan properties", async () => {
+    await createPaidPlan("gold");
+
     const response = await app.handle(
       new Request(`${BASE_URL}/v1/payments/plans`)
     );
@@ -72,7 +107,8 @@ describe("GET /payments/plans", () => {
     expect(plan).toHaveProperty("name");
     expect(plan).toHaveProperty("displayName");
     expect(plan).toHaveProperty("description");
-    expect(plan).toHaveProperty("startingPrice");
+    expect(plan).toHaveProperty("startingPriceMonthly");
+    expect(plan).toHaveProperty("startingPriceYearly");
     expect(plan).toHaveProperty("trialDays");
     expect(plan).toHaveProperty("limits");
     expect(plan).toHaveProperty("isActive");
@@ -82,37 +118,45 @@ describe("GET /payments/plans", () => {
     expect(plan.pricingTiers).toBeArray();
   });
 
-  test("should return plan limits with correct structure", async () => {
+  test("should return plan limits with features array", async () => {
+    const { plan: createdPlan } = await createPaidPlan("diamond");
+
     const response = await app.handle(
       new Request(`${BASE_URL}/v1/payments/plans`)
     );
     const body = await response.json();
+
     const plan = body.data.plans.find(
-      (p: { limits: unknown }) => p.limits !== null
+      (p: { id: string }) => p.id === createdPlan.id
     );
 
-    if (plan?.limits) {
-      expect(plan.limits).toHaveProperty("features");
-      expect(plan.limits.features).toBeArray();
-    }
+    expect(plan).toBeDefined();
+    expect(plan.limits).toHaveProperty("features");
+    expect(plan.limits.features).toBeArray();
+    expect(plan.limits.features.length).toBeGreaterThan(0);
   });
 
   test("should return pricing tiers with correct structure", async () => {
+    const { plan: createdPlan } = await createPaidPlan("gold");
+
     const response = await app.handle(
       new Request(`${BASE_URL}/v1/payments/plans`)
     );
     const body = await response.json();
+
     const plan = body.data.plans.find(
-      (p: { pricingTiers: unknown[] }) => p.pricingTiers?.length > 0
+      (p: { id: string }) => p.id === createdPlan.id
     );
 
-    if (plan?.pricingTiers?.[0]) {
-      const tier = plan.pricingTiers[0];
-      expect(tier).toHaveProperty("id");
-      expect(tier).toHaveProperty("minEmployees");
-      expect(tier).toHaveProperty("maxEmployees");
-      expect(tier).toHaveProperty("priceMonthly");
-      expect(tier).toHaveProperty("priceYearly");
-    }
+    expect(plan).toBeDefined();
+    expect(plan.pricingTiers).toBeArray();
+    expect(plan.pricingTiers.length).toBe(10);
+
+    const tier = plan.pricingTiers[0];
+    expect(tier).toHaveProperty("id");
+    expect(tier).toHaveProperty("minEmployees");
+    expect(tier).toHaveProperty("maxEmployees");
+    expect(tier).toHaveProperty("priceMonthly");
+    expect(tier).toHaveProperty("priceYearly");
   });
 });

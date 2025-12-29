@@ -166,13 +166,10 @@ export const changeSubscriptionSchema = z.object({
     .enum(["monthly", "yearly"])
     .optional()
     .describe("New billing cycle (optional)"),
-  newEmployeeCount: z
-    .number()
-    .int()
-    .min(1)
-    .max(180)
+  newTierId: z
+    .string()
     .optional()
-    .describe("New employee count for tier selection (optional)"),
+    .describe("ID of the new pricing tier (optional)"),
   successUrl: (isProduction ? z.httpUrl() : z.url()).describe(
     "URL to redirect after successful payment"
   ),
@@ -198,10 +195,7 @@ const changeSubscriptionDataSchema = z.object({
     .enum(["monthly", "yearly"])
     .optional()
     .describe("New billing cycle after change"),
-  newEmployeeCount: z
-    .number()
-    .optional()
-    .describe("New employee count after change"),
+  newTierId: z.string().optional().describe("New tier ID after change"),
 });
 
 export const changeSubscriptionResponseSchema = successResponseSchema(

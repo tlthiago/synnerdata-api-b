@@ -34,8 +34,7 @@ describe("Trial Plan", () => {
       expect(trialPlan).toBeDefined();
       expect(trialPlan?.isTrial).toBe(true);
       expect(trialPlan?.isPublic).toBe(false);
-      expect(trialPlan?.priceMonthly).toBe(0);
-      expect(trialPlan?.priceYearly).toBe(0);
+      expect(trialPlan?.trialDays).toBe(14);
     });
 
     test("should be accessible via getTestPlan helper", () => {
@@ -55,7 +54,7 @@ describe("Trial Plan", () => {
       expect(plan).toBeDefined();
       expect(plan.name).toBe("trial");
       expect(plan.isPublic).toBe(false);
-      expect(plan.priceMonthly).toBe(0);
+      expect(plan.trialDays).toBe(14);
     });
   });
 
@@ -75,7 +74,7 @@ describe("Trial Plan", () => {
         .select({
           status: schema.orgSubscriptions.status,
           planId: schema.orgSubscriptions.planId,
-          employeeCount: schema.orgSubscriptions.employeeCount,
+          pricingTierId: schema.orgSubscriptions.pricingTierId,
         })
         .from(schema.orgSubscriptions)
         .where(eq(schema.orgSubscriptions.organizationId, organizationId))
@@ -83,7 +82,7 @@ describe("Trial Plan", () => {
 
       expect(subscription.status).toBe("trial");
       expect(subscription.planId).toBe("test-plan-trial");
-      expect(subscription.employeeCount).toBe(10);
+      expect(subscription.pricingTierId).toBeDefined();
     });
   });
 

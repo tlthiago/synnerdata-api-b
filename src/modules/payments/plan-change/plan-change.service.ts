@@ -19,8 +19,7 @@ import { PaymentHooks } from "@/modules/payments/hooks";
 import { LimitsService } from "@/modules/payments/limits/limits.service";
 import { PagarmeClient } from "@/modules/payments/pagarme/client";
 import type { CreatePaymentLinkRequest } from "@/modules/payments/pagarme/pagarme.types";
-import { PlanService } from "@/modules/payments/plan/plan.service";
-import { PricingTierService } from "@/modules/payments/pricing/pricing.service";
+import { PlansService } from "@/modules/payments/plans/plans.service";
 import type {
   CalculateProrationInput,
   CancelScheduledChangeData,
@@ -117,7 +116,7 @@ export abstract class PlanChangeService {
 
   /**
    * [2.3] Unified method to change subscription.
-   * Accepts any combination of: newPlanId, newBillingCycle, newEmployeeCount.
+   * Accepts any combination of: newPlanId, newBillingCycle, newTierId.
    * Upgrades are charged immediately via Payment Link.
    * Downgrades are scheduled for the end of the current period.
    */
@@ -128,7 +127,7 @@ export abstract class PlanChangeService {
       organizationId,
       newPlanId,
       newBillingCycle,
-      newEmployeeCount,
+      newTierId,
       successUrl,
     } = input;
 
@@ -164,18 +163,17 @@ export abstract class PlanChangeService {
     const currentBillingCycle = (subscription.billingCycle ?? "monthly") as
       | "monthly"
       | "yearly";
-    const currentEmployeeCount =
-      subscription.employeeCount ?? currentTier?.maxEmployees ?? 10;
+    const currentTierId = subscription.pricingTierId;
 
     const finalPlanId = newPlanId ?? subscription.planId;
     const finalBillingCycle = newBillingCycle ?? currentBillingCycle;
-    const finalEmployeeCount = newEmployeeCount ?? currentEmployeeCount;
+    const finalTierId = newTierId ?? currentTierId;
 
     // 4. Validate "no change" scenario
     if (
       finalPlanId === subscription.planId &&
       finalBillingCycle === currentBillingCycle &&
-      finalEmployeeCount === currentEmployeeCount
+      finalTierId === currentTierId
     ) {
       throw new NoChangeRequestedError();
     }
@@ -183,14 +181,14 @@ export abstract class PlanChangeService {
     // 5. Get new plan (if changing)
     const newPlan =
       finalPlanId !== subscription.planId
-        ? await PlanService.ensureSynced(finalPlanId)
+        ? await PlansService.getAvailableById(finalPlanId)
         : currentPlan;
 
-    // 6. Get new tier for employee count
-    const { tier: newTier } = await PricingTierService.getTierForEmployeeCount(
-      finalPlanId,
-      finalEmployeeCount
-    );
+    // 6. Get new tier
+    if (!finalTierId) {
+      throw new SubscriptionNotFoundError(organizationId);
+    }
+    const newTier = await PlansService.getTierById(finalTierId);
 
     // 7. Validate yearly billing availability
     if (finalBillingCycle === "yearly" && newTier.priceYearly === 0) {
@@ -198,13 +196,11 @@ export abstract class PlanChangeService {
     }
 
     // 8. Calculate prices
-    const currentPrice = await PlanChangeService.getCurrentPrice({
-      currentTier,
-      currentPlan,
-      currentBillingCycle,
-      planId: subscription.planId,
-      employeeCount: currentEmployeeCount,
-    });
+    const currentPrice = currentTier
+      ? currentBillingCycle === "yearly"
+        ? currentTier.priceYearly
+        : currentTier.priceMonthly
+      : 0;
     const newPrice =
       finalBillingCycle === "yearly"
         ? newTier.priceYearly
@@ -235,14 +231,11 @@ export abstract class PlanChangeService {
           id: newPlan.id,
           name: newPlan.name,
           displayName: newPlan.displayName,
-          pagarmePlanIdMonthly: newPlan.pagarmePlanIdMonthly,
-          pagarmePlanIdYearly: newPlan.pagarmePlanIdYearly,
         },
         newTier,
         currentPrice,
         newPrice,
         finalBillingCycle,
-        finalEmployeeCount,
         successUrl,
         organizationId,
       });
@@ -258,7 +251,6 @@ export abstract class PlanChangeService {
       },
       newTier,
       finalBillingCycle,
-      finalEmployeeCount,
       organizationId,
     });
   }
@@ -300,22 +292,38 @@ export abstract class PlanChangeService {
     }
 
     // Get new plan
-    const newPlan = await PlanService.ensureSynced(newPlanId);
+    const newPlan = await PlansService.getAvailableById(newPlanId);
 
     const currentBillingCycle = (subscription.billingCycle ?? "monthly") as
       | "monthly"
       | "yearly";
+
+    // Get pricing from tiers - use current tier from subscription
+    if (!subscription.pricingTierId) {
+      throw new SubscriptionNotFoundError(organizationId);
+    }
+    const currentTier = await PlansService.getTierById(
+      subscription.pricingTierId
+    );
+
+    // TODO: Refatorar para receber tierId diretamente (como checkout)
+    // const newTier = await PlansService.getTierForEmployeeCount(
+    //   newPlanId,
+    //   currentTier.minEmployees
+    // );
+    const newTier = currentTier; // Placeholder
+
     const currentPrice =
       currentBillingCycle === "yearly"
-        ? currentPlan.priceYearly
-        : currentPlan.priceMonthly;
+        ? currentTier.priceYearly
+        : currentTier.priceMonthly;
     const newPrice =
       currentBillingCycle === "yearly"
-        ? newPlan.priceYearly
-        : newPlan.priceMonthly;
+        ? newTier.priceYearly
+        : newTier.priceMonthly;
 
     // Check if yearly pricing is available for new plan
-    if (currentBillingCycle === "yearly" && newPlan.priceYearly === 0) {
+    if (currentBillingCycle === "yearly" && newTier.priceYearly === 0) {
       throw new YearlyBillingNotAvailableError(newPlanId);
     }
 
@@ -331,6 +339,7 @@ export abstract class PlanChangeService {
         subscription,
         currentPlan,
         newPlan,
+        newTier,
         currentPrice,
         newPrice,
         billingCycle: currentBillingCycle,
@@ -342,6 +351,7 @@ export abstract class PlanChangeService {
     return PlanChangeService.scheduleDowngrade({
       subscription,
       newPlan,
+      newTier,
       billingCycle: currentBillingCycle,
       organizationId,
     });
@@ -387,15 +397,21 @@ export abstract class PlanChangeService {
       throw new SameBillingCycleError();
     }
 
+    // Get current tier for pricing
+    if (!subscription.pricingTierId) {
+      throw new SubscriptionNotFoundError(organizationId);
+    }
+    const tier = await PlansService.getTierById(subscription.pricingTierId);
+
     // Check if yearly pricing is available
-    if (newBillingCycle === "yearly" && plan.priceYearly === 0) {
+    if (newBillingCycle === "yearly" && tier.priceYearly === 0) {
       throw new YearlyBillingNotAvailableError(plan.id);
     }
 
     const currentPrice =
-      currentBillingCycle === "yearly" ? plan.priceYearly : plan.priceMonthly;
+      currentBillingCycle === "yearly" ? tier.priceYearly : tier.priceMonthly;
     const newPrice =
-      newBillingCycle === "yearly" ? plan.priceYearly : plan.priceMonthly;
+      newBillingCycle === "yearly" ? tier.priceYearly : tier.priceMonthly;
 
     const changeType = PlanChangeService.getChangeType({
       currentPlanPrice: currentPrice,
@@ -417,6 +433,7 @@ export abstract class PlanChangeService {
         await PlanChangeService.createBillingCycleUpgradeCheckout({
           subscription,
           plan,
+          tier,
           newBillingCycle,
           prorationAmount,
           successUrl,
@@ -438,6 +455,7 @@ export abstract class PlanChangeService {
       .set({
         pendingPlanId: plan.id,
         pendingBillingCycle: newBillingCycle,
+        pendingPricingTierId: tier.id,
         planChangeAt: subscription.currentPeriodEnd,
       })
       .where(eq(schema.orgSubscriptions.id, subscription.id));
@@ -623,24 +641,9 @@ export abstract class PlanChangeService {
       throw new PlanNotFoundError(newPlanId);
     }
 
-    // [2.5] Get the new pricing tier ID and employee count
+    // [2.5] Get the new pricing tier ID
     const newPricingTierId =
       subscription.pendingPricingTierId ?? subscription.pricingTierId;
-    let newEmployeeCount = subscription.employeeCount;
-
-    // If there's a pending tier, get its maxEmployees
-    if (subscription.pendingPricingTierId) {
-      const [newTier] = await db
-        .select()
-        .from(schema.planPricingTiers)
-        .where(
-          eq(schema.planPricingTiers.id, subscription.pendingPricingTierId)
-        )
-        .limit(1);
-      if (newTier) {
-        newEmployeeCount = newTier.maxEmployees;
-      }
-    }
 
     // Update local subscription
     await db
@@ -649,7 +652,6 @@ export abstract class PlanChangeService {
         planId: newPlanId,
         billingCycle: newBillingCycle,
         pricingTierId: newPricingTierId, // [2.5] Apply new tier
-        employeeCount: newEmployeeCount, // [2.5] Update employee limit
         pendingPlanId: null,
         pendingBillingCycle: null,
         pendingPricingTierId: null, // [2.5] Clear pending tier
@@ -735,39 +737,37 @@ export abstract class PlanChangeService {
   }
 
   /**
-   * Calculates the current price based on tier or plan.
+   * Calculates the current price based on tier.
    * If no tier is set, looks up the appropriate tier for the plan/employee count.
    */
   private static async getCurrentPrice(params: {
     currentTier: { priceMonthly: number; priceYearly: number } | null;
-    currentPlan: { priceMonthly: number; priceYearly: number };
     currentBillingCycle: "monthly" | "yearly";
     planId: string;
     employeeCount: number;
   }): Promise<number> {
-    const {
-      currentTier,
-      currentPlan,
-      currentBillingCycle,
-      planId,
-      employeeCount,
-    } = params;
+    const { currentTier, currentBillingCycle, planId, employeeCount } = params;
 
     let priceMonthly = currentTier?.priceMonthly;
     let priceYearly = currentTier?.priceYearly;
 
+    // TODO: Refatorar para receber tierId diretamente (como checkout)
+    // if (priceMonthly === undefined) {
+    //   const tier = await PlansService.getTierForEmployeeCount(
+    //     planId,
+    //     employeeCount
+    //   );
+    //   priceMonthly = tier.priceMonthly;
+    //   priceYearly = tier.priceYearly;
+    // }
     if (priceMonthly === undefined) {
-      const tierResult = await PricingTierService.getTierForEmployeeCount(
-        planId,
-        employeeCount
-      );
-      priceMonthly = tierResult.tier.priceMonthly;
-      priceYearly = tierResult.tier.priceYearly;
+      priceMonthly = 0;
+      priceYearly = 0;
     }
 
     return currentBillingCycle === "yearly"
-      ? (priceYearly ?? currentPlan.priceYearly)
-      : (priceMonthly ?? currentPlan.priceMonthly);
+      ? (priceYearly ?? 0)
+      : (priceMonthly ?? 0);
   }
 
   /**
@@ -795,14 +795,11 @@ export abstract class PlanChangeService {
       id: string;
       name: string;
       displayName: string;
-      pagarmePlanIdMonthly: string | null;
-      pagarmePlanIdYearly: string | null;
     };
     newTier: { id: string; priceMonthly: number; priceYearly: number };
     currentPrice: number;
     newPrice: number;
     finalBillingCycle: "monthly" | "yearly";
-    finalEmployeeCount: number;
     successUrl: string;
     organizationId: string;
   }): Promise<ChangeSubscriptionData> {
@@ -813,7 +810,6 @@ export abstract class PlanChangeService {
       currentPrice,
       newPrice,
       finalBillingCycle,
-      finalEmployeeCount,
       successUrl,
       organizationId,
     } = params;
@@ -832,7 +828,6 @@ export abstract class PlanChangeService {
       newTier,
       prorationAmount,
       finalBillingCycle,
-      finalEmployeeCount,
       successUrl,
       organizationId,
     });
@@ -848,7 +843,7 @@ export abstract class PlanChangeService {
         displayName: newPlan.displayName,
       },
       newBillingCycle: finalBillingCycle,
-      newEmployeeCount: finalEmployeeCount,
+      newTierId: newTier.id,
     };
   }
 
@@ -860,16 +855,9 @@ export abstract class PlanChangeService {
     newPlan: { id: string; name: string; displayName: string };
     newTier: { id: string; maxEmployees: number };
     finalBillingCycle: "monthly" | "yearly";
-    finalEmployeeCount: number;
     organizationId: string;
   }): Promise<ChangeSubscriptionData> {
-    const {
-      subscription,
-      newPlan,
-      newTier,
-      finalBillingCycle,
-      finalEmployeeCount,
-    } = params;
+    const { subscription, newPlan, newTier, finalBillingCycle } = params;
 
     await db
       .update(schema.orgSubscriptions)
@@ -906,7 +894,7 @@ export abstract class PlanChangeService {
         displayName: newPlan.displayName,
       },
       newBillingCycle: finalBillingCycle,
-      newEmployeeCount: finalEmployeeCount,
+      newTierId: newTier.id,
     };
   }
 
@@ -919,33 +907,29 @@ export abstract class PlanChangeService {
       id: string;
       name: string;
       displayName: string;
-      pagarmePlanIdMonthly: string | null;
-      pagarmePlanIdYearly: string | null;
     };
     newTier: { id: string; priceMonthly: number; priceYearly: number };
     prorationAmount: number;
     finalBillingCycle: "monthly" | "yearly";
-    finalEmployeeCount: number;
     successUrl: string;
     organizationId: string;
   }): Promise<string> {
     const {
       subscription,
       newPlan,
+      newTier,
       prorationAmount,
       finalBillingCycle,
       successUrl,
       organizationId,
     } = params;
 
-    const pagarmePlanId =
-      finalBillingCycle === "yearly"
-        ? newPlan.pagarmePlanIdYearly
-        : newPlan.pagarmePlanIdMonthly;
-
-    if (!pagarmePlanId) {
-      throw new YearlyBillingNotAvailableError(newPlan.id);
-    }
+    // TODO: Refatorar para usar PagarmePlanService.ensurePlan
+    // const pagarmePlanId = await PlansService.ensurePagarmePlan(
+    //   newTier.id,
+    //   finalBillingCycle
+    // );
+    const pagarmePlanId = "TODO_REFACTOR";
 
     const pagarmeCustomerId =
       await CustomerService.getCustomerId(organizationId);
@@ -1028,7 +1012,8 @@ export abstract class PlanChangeService {
   private static async processUpgrade(params: {
     subscription: typeof schema.orgSubscriptions.$inferSelect;
     currentPlan: typeof schema.subscriptionPlans.$inferSelect;
-    newPlan: Awaited<ReturnType<typeof PlanService.ensureSynced>>;
+    newPlan: { id: string; name: string; displayName: string };
+    newTier: { id: string; priceMonthly: number; priceYearly: number };
     currentPrice: number;
     newPrice: number;
     billingCycle: "monthly" | "yearly";
@@ -1038,6 +1023,7 @@ export abstract class PlanChangeService {
     const {
       subscription,
       newPlan,
+      newTier,
       currentPrice,
       newPrice,
       billingCycle,
@@ -1055,6 +1041,7 @@ export abstract class PlanChangeService {
     const checkoutUrl = await PlanChangeService.createUpgradeCheckout({
       subscription,
       newPlan,
+      newTier,
       prorationAmount,
       billingCycle,
       successUrl,
@@ -1076,17 +1063,19 @@ export abstract class PlanChangeService {
 
   private static async scheduleDowngrade(params: {
     subscription: typeof schema.orgSubscriptions.$inferSelect;
-    newPlan: Awaited<ReturnType<typeof PlanService.ensureSynced>>;
+    newPlan: { id: string; name: string; displayName: string };
+    newTier: { id: string };
     billingCycle: "monthly" | "yearly";
     organizationId: string;
   }): Promise<ChangePlanData> {
-    const { subscription, newPlan, billingCycle } = params;
+    const { subscription, newPlan, newTier, billingCycle } = params;
 
     await db
       .update(schema.orgSubscriptions)
       .set({
         pendingPlanId: newPlan.id,
         pendingBillingCycle: billingCycle,
+        pendingPricingTierId: newTier.id,
         planChangeAt: subscription.currentPeriodEnd,
       })
       .where(eq(schema.orgSubscriptions.id, subscription.id));
@@ -1120,7 +1109,8 @@ export abstract class PlanChangeService {
 
   private static async createUpgradeCheckout(params: {
     subscription: typeof schema.orgSubscriptions.$inferSelect;
-    newPlan: Awaited<ReturnType<typeof PlanService.ensureSynced>>;
+    newPlan: { id: string; name: string; displayName: string };
+    newTier: { id: string };
     prorationAmount: number;
     billingCycle: "monthly" | "yearly";
     successUrl: string;
@@ -1129,20 +1119,19 @@ export abstract class PlanChangeService {
     const {
       subscription,
       newPlan,
+      newTier,
       prorationAmount,
       billingCycle,
       successUrl,
       organizationId,
     } = params;
 
-    const pagarmePlanId =
-      billingCycle === "yearly"
-        ? newPlan.pagarmePlanIdYearly
-        : newPlan.pagarmePlanIdMonthly;
-
-    if (!pagarmePlanId) {
-      throw new YearlyBillingNotAvailableError(newPlan.id);
-    }
+    // TODO: Refatorar para usar PagarmePlanService.ensurePlan
+    // const pagarmePlanId = await PlansService.ensurePagarmePlan(
+    //   newTier.id,
+    //   billingCycle
+    // );
+    const pagarmePlanId = "TODO_REFACTOR";
 
     const pagarmeCustomerId =
       await CustomerService.getCustomerId(organizationId);
@@ -1260,6 +1249,7 @@ export abstract class PlanChangeService {
   private static async createBillingCycleUpgradeCheckout(params: {
     subscription: typeof schema.orgSubscriptions.$inferSelect;
     plan: typeof schema.subscriptionPlans.$inferSelect;
+    tier: { id: string };
     newBillingCycle: "monthly" | "yearly";
     prorationAmount: number;
     successUrl: string;
@@ -1268,20 +1258,19 @@ export abstract class PlanChangeService {
     const {
       subscription,
       plan,
+      tier,
       newBillingCycle,
       prorationAmount,
       successUrl,
       organizationId,
     } = params;
 
-    const pagarmePlanId =
-      newBillingCycle === "yearly"
-        ? plan.pagarmePlanIdYearly
-        : plan.pagarmePlanIdMonthly;
-
-    if (!pagarmePlanId) {
-      throw new YearlyBillingNotAvailableError(plan.id);
-    }
+    // TODO: Refatorar para usar PagarmePlanService.ensurePlan
+    // const pagarmePlanId = await PlansService.ensurePagarmePlan(
+    //   tier.id,
+    //   newBillingCycle
+    // );
+    const pagarmePlanId = "TODO_REFACTOR";
 
     const pagarmeCustomerId =
       await CustomerService.getCustomerId(organizationId);

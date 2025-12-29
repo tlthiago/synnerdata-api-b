@@ -1,7 +1,8 @@
 import { eq } from "drizzle-orm";
 import { db } from "@/db";
-import { type PLAN_FEATURES, schema } from "@/db/schema";
+import { schema } from "@/db/schema";
 import { FeatureNotAvailableError } from "@/modules/payments/errors";
+import type { PLAN_FEATURES } from "@/modules/payments/plans/plans.constants";
 import type {
   CapabilitiesData,
   CheckEmployeeLimitData,
@@ -198,6 +199,7 @@ export abstract class LimitsService {
   /**
    * Checks employee limit status for an organization.
    * Returns current count, limit, and whether more employees can be added.
+   * The limit comes from the pricing tier's maxEmployees.
    */
   static async checkEmployeeLimit(
     organizationId: string
@@ -217,12 +219,16 @@ export abstract class LimitsService {
     const current = countResult?.value ?? 0;
 
     const [subscription] = await db
-      .select({ employeeCount: schema.orgSubscriptions.employeeCount })
+      .select({ maxEmployees: schema.planPricingTiers.maxEmployees })
       .from(schema.orgSubscriptions)
+      .innerJoin(
+        schema.planPricingTiers,
+        eq(schema.orgSubscriptions.pricingTierId, schema.planPricingTiers.id)
+      )
       .where(eq(schema.orgSubscriptions.organizationId, organizationId))
       .limit(1);
 
-    const limit = subscription?.employeeCount ?? 0;
+    const limit = subscription?.maxEmployees ?? 0;
 
     return { current, limit, canAdd: current < limit };
   }

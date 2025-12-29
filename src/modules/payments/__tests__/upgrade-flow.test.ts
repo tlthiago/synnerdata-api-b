@@ -196,7 +196,7 @@ describe("Upgrade Flow: Trial → Paid (Mocked Pagarme)", () => {
       expect(checkout).toBeDefined();
       expect(checkout.organizationId).toBe(organizationId);
       expect(checkout.status).toBe("pending");
-      expect(checkout.employeeCount).toBe(DEFAULT_EMPLOYEE_COUNT);
+      expect(checkout.pricingTierId).toBeDefined();
     });
 
     test("should still have trial subscription (not activated yet)", async () => {
@@ -332,8 +332,7 @@ describe("Upgrade Flow: Trial → Paid (Mocked Pagarme)", () => {
       // Plan
       expect(subscription.planId).toBe(diamondPlan.id);
 
-      // Employee count and pricing tier
-      expect(subscription.employeeCount).toBe(DEFAULT_EMPLOYEE_COUNT);
+      // Pricing tier
       expect(subscription.pricingTierId).toBeDefined();
     });
 

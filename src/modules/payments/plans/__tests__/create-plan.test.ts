@@ -1,0 +1,307 @@
+import { beforeAll, describe, expect, test } from "bun:test";
+import { env } from "@/env";
+import { createTestApp, type TestApp } from "@/test/helpers/app";
+import { createTestAdminUser, createTestUser } from "@/test/helpers/user";
+import { EMPLOYEE_TIERS, PLAN_FEATURES } from "../plans.constants";
+
+const BASE_URL = env.API_URL;
+
+// Valid features for tests
+const GOLD_FEATURES = [...PLAN_FEATURES.gold];
+const DIAMOND_FEATURES = [...PLAN_FEATURES.diamond];
+const TRIAL_FEATURES = [...PLAN_FEATURES.trial];
+
+// Helper to generate valid tier prices
+function generateTierPrices(basePrice: number) {
+  return EMPLOYEE_TIERS.map((tier, index) => ({
+    minEmployees: tier.min,
+    maxEmployees: tier.max,
+    priceMonthly: basePrice + index * 1000,
+  }));
+}
+
+function generateUniqueName(prefix: string): string {
+  return `${prefix}-${crypto.randomUUID().slice(0, 8)}`;
+}
+
+describe("POST /payments/plans", () => {
+  let app: TestApp;
+  let authHeaders: Record<string, string>;
+
+  beforeAll(async () => {
+    app = createTestApp();
+    const { headers } = await createTestAdminUser({ emailVerified: true });
+    authHeaders = headers;
+  });
+
+  test("should reject unauthenticated requests", async () => {
+    const response = await app.handle(
+      new Request(`${BASE_URL}/v1/payments/plans`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          name: "test-plan",
+          displayName: "Test Plan",
+          limits: { features: GOLD_FEATURES },
+          pricingTiers: generateTierPrices(4900),
+        }),
+      })
+    );
+    expect(response.status).toBe(401);
+  });
+
+  test("should reject non-admin users", async () => {
+    const { headers: nonAdminHeaders } = await createTestUser({
+      emailVerified: true,
+    });
+
+    const response = await app.handle(
+      new Request(`${BASE_URL}/v1/payments/plans`, {
+        method: "POST",
+        headers: { ...nonAdminHeaders, "Content-Type": "application/json" },
+        body: JSON.stringify({
+          name: generateUniqueName("test-non-admin"),
+          displayName: "Test Non Admin Plan",
+          limits: { features: GOLD_FEATURES },
+          pricingTiers: generateTierPrices(4900),
+        }),
+      })
+    );
+    expect(response.status).toBe(403);
+  });
+
+  test("should create plan with valid data", async () => {
+    const tierPrices = generateTierPrices(4900);
+    const planData = {
+      name: generateUniqueName("test-create"),
+      displayName: "Test Create Plan",
+      trialDays: 7,
+      limits: { features: DIAMOND_FEATURES },
+      isActive: true,
+      isPublic: true,
+      sortOrder: 10,
+      pricingTiers: tierPrices,
+    };
+
+    const response = await app.handle(
+      new Request(`${BASE_URL}/v1/payments/plans`, {
+        method: "POST",
+        headers: { ...authHeaders, "Content-Type": "application/json" },
+        body: JSON.stringify(planData),
+      })
+    );
+
+    expect(response.status).toBe(200);
+
+    const body = await response.json();
+
+    expect(body.success).toBe(true);
+    expect(body.data.id).toStartWith("plan-");
+    expect(body.data.name).toBe(planData.name);
+    expect(body.data.displayName).toBe(planData.displayName);
+    expect(body.data.trialDays).toBe(planData.trialDays);
+    expect(body.data.limits).toEqual(planData.limits);
+    expect(body.data.isActive).toBe(planData.isActive);
+    expect(body.data.isPublic).toBe(planData.isPublic);
+    expect(body.data.sortOrder).toBe(planData.sortOrder);
+    expect(body.data.pricingTiers).toBeArray();
+    expect(body.data.pricingTiers.length).toBe(10);
+    expect(body.data.startingPriceMonthly).toBe(tierPrices[0].priceMonthly);
+  });
+
+  test("should reject duplicate plan name", async () => {
+    const planData = {
+      name: generateUniqueName("test-duplicate"),
+      displayName: "Test Duplicate Plan",
+      limits: { features: GOLD_FEATURES },
+      pricingTiers: generateTierPrices(1000),
+    };
+
+    // Create first plan
+    const firstResponse = await app.handle(
+      new Request(`${BASE_URL}/v1/payments/plans`, {
+        method: "POST",
+        headers: { ...authHeaders, "Content-Type": "application/json" },
+        body: JSON.stringify(planData),
+      })
+    );
+    expect(firstResponse.status).toBe(200);
+
+    // Try to create second plan with same name
+    const secondResponse = await app.handle(
+      new Request(`${BASE_URL}/v1/payments/plans`, {
+        method: "POST",
+        headers: { ...authHeaders, "Content-Type": "application/json" },
+        body: JSON.stringify(planData),
+      })
+    );
+    expect(secondResponse.status).toBe(400);
+
+    const errorBody = await secondResponse.json();
+    expect(errorBody.error.code).toBe("PLAN_NAME_ALREADY_EXISTS");
+  });
+
+  test("should reject invalid data - missing required fields", async () => {
+    const response = await app.handle(
+      new Request(`${BASE_URL}/v1/payments/plans`, {
+        method: "POST",
+        headers: { ...authHeaders, "Content-Type": "application/json" },
+        body: JSON.stringify({
+          name: "incomplete-plan",
+          // Missing displayName, limits, pricingTiers
+        }),
+      })
+    );
+    expect(response.status).toBe(422);
+  });
+
+  test("should reject invalid data - negative price in tier", async () => {
+    const invalidTiers = generateTierPrices(1000);
+    invalidTiers[0].priceMonthly = -100;
+
+    const response = await app.handle(
+      new Request(`${BASE_URL}/v1/payments/plans`, {
+        method: "POST",
+        headers: { ...authHeaders, "Content-Type": "application/json" },
+        body: JSON.stringify({
+          name: "negative-price-plan",
+          displayName: "Negative Price Plan",
+          limits: { features: GOLD_FEATURES },
+          pricingTiers: invalidTiers,
+        }),
+      })
+    );
+    expect(response.status).toBe(422);
+  });
+
+  test("should reject invalid tier count for non-trial plan", async () => {
+    const response = await app.handle(
+      new Request(`${BASE_URL}/v1/payments/plans`, {
+        method: "POST",
+        headers: { ...authHeaders, "Content-Type": "application/json" },
+        body: JSON.stringify({
+          name: "wrong-tier-count",
+          displayName: "Wrong Tier Count Plan",
+          limits: { features: GOLD_FEATURES },
+          isTrial: false,
+          pricingTiers: [
+            { minEmployees: 0, maxEmployees: 10, priceMonthly: 1000 },
+          ], // Only 1 tier instead of 10 for paid plan
+        }),
+      })
+    );
+    expect(response.status).toBe(422);
+
+    const errorBody = await response.json();
+    expect(errorBody.error.code).toBe("INVALID_TIER_COUNT");
+  });
+
+  test("should apply default values for optional fields", async () => {
+    const planData = {
+      name: generateUniqueName("test-defaults"),
+      displayName: "Test Defaults Plan",
+      limits: { features: GOLD_FEATURES },
+      pricingTiers: generateTierPrices(1000),
+    };
+
+    const response = await app.handle(
+      new Request(`${BASE_URL}/v1/payments/plans`, {
+        method: "POST",
+        headers: { ...authHeaders, "Content-Type": "application/json" },
+        body: JSON.stringify(planData),
+      })
+    );
+    expect(response.status).toBe(200);
+
+    const body = await response.json();
+
+    expect(body.success).toBe(true);
+    expect(body.data.trialDays).toBe(0); // Default for paid plans
+    expect(body.data.isActive).toBe(true);
+    expect(body.data.isPublic).toBe(true);
+    expect(body.data.sortOrder).toBe(0);
+    expect(body.data.isTrial).toBe(false);
+  });
+
+  test("should create trial plan with 1 tier (0-10 employees)", async () => {
+    const planData = {
+      name: generateUniqueName("test-trial"),
+      displayName: "Test Trial Plan",
+      trialDays: 14,
+      isTrial: true,
+      isPublic: false,
+      limits: { features: TRIAL_FEATURES },
+      pricingTiers: [{ minEmployees: 0, maxEmployees: 10, priceMonthly: 0 }],
+    };
+
+    const response = await app.handle(
+      new Request(`${BASE_URL}/v1/payments/plans`, {
+        method: "POST",
+        headers: { ...authHeaders, "Content-Type": "application/json" },
+        body: JSON.stringify(planData),
+      })
+    );
+    expect(response.status).toBe(200);
+
+    const body = await response.json();
+
+    expect(body.success).toBe(true);
+    expect(body.data.trialDays).toBe(14);
+    expect(body.data.isTrial).toBe(true);
+    expect(body.data.isPublic).toBe(false);
+    expect(body.data.pricingTiers).toBeArray();
+    expect(body.data.pricingTiers.length).toBe(1);
+    expect(body.data.pricingTiers[0].minEmployees).toBe(0);
+    expect(body.data.pricingTiers[0].maxEmployees).toBe(10);
+    expect(body.data.pricingTiers[0].priceMonthly).toBe(0);
+  });
+
+  test("should reject trial plan with wrong tier range", async () => {
+    const response = await app.handle(
+      new Request(`${BASE_URL}/v1/payments/plans`, {
+        method: "POST",
+        headers: { ...authHeaders, "Content-Type": "application/json" },
+        body: JSON.stringify({
+          name: generateUniqueName("test-trial-wrong-range"),
+          displayName: "Test Trial Wrong Range",
+          isTrial: true,
+          limits: { features: TRIAL_FEATURES },
+          pricingTiers: [
+            { minEmployees: 0, maxEmployees: 20, priceMonthly: 0 },
+          ], // Wrong range for trial
+        }),
+      })
+    );
+    expect(response.status).toBe(422);
+
+    const errorBody = await response.json();
+    expect(errorBody.error.code).toBe("INVALID_TIER_RANGE");
+  });
+
+  test("should generate correct yearly prices from monthly", async () => {
+    const tierPrices = generateTierPrices(10_000); // R$100.00 base
+    const planData = {
+      name: generateUniqueName("test-yearly"),
+      displayName: "Test Yearly Price Plan",
+      limits: { features: GOLD_FEATURES },
+      pricingTiers: tierPrices,
+    };
+
+    const response = await app.handle(
+      new Request(`${BASE_URL}/v1/payments/plans`, {
+        method: "POST",
+        headers: { ...authHeaders, "Content-Type": "application/json" },
+        body: JSON.stringify(planData),
+      })
+    );
+    expect(response.status).toBe(200);
+
+    const body = await response.json();
+
+    // Yearly = monthly * 12 * 0.8 (20% discount)
+    const expectedYearlyFirst = Math.round(
+      tierPrices[0].priceMonthly * 12 * 0.8
+    );
+    expect(body.data.pricingTiers[0].priceYearly).toBe(expectedYearlyFirst);
+  });
+});

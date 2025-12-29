@@ -1,9 +1,10 @@
 import { beforeAll, describe, expect, test } from "bun:test";
 import { eq } from "drizzle-orm";
 import { db } from "@/db";
-import { PLAN_FEATURES, schema } from "@/db/schema";
+import { schema } from "@/db/schema";
 import { FeatureNotAvailableError } from "@/modules/payments/errors";
 import { LimitsService } from "@/modules/payments/limits/limits.service";
+import { PLAN_FEATURES } from "@/modules/payments/plans/plans.constants";
 import { diamondPlan, goldPlan, platinumPlan } from "@/test/fixtures/plans";
 import { seedPlans } from "@/test/helpers/seed";
 import { createTestSubscription } from "@/test/helpers/subscription";

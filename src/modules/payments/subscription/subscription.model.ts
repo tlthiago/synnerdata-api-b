@@ -1,6 +1,6 @@
 import { z } from "zod";
 import { successResponseSchema } from "@/lib/responses/response.types";
-import { planLimitsSchema } from "@/modules/payments/plan/plan.model";
+import { planLimitsSchema } from "@/modules/payments/plans/plans.model";
 
 export const subscriptionStatusSchema = z.enum([
   "trial",

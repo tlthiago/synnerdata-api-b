@@ -47,7 +47,6 @@ type CheckoutInfo = {
   planId?: string;
   billingCycle: string;
   pricingTierId?: string;
-  employeeCount?: number;
 };
 
 export abstract class WebhookService {
@@ -553,13 +552,8 @@ export abstract class WebhookService {
       return;
     }
 
-    const {
-      organizationId,
-      planId,
-      billingCycle,
-      pricingTierId,
-      employeeCount,
-    } = checkoutInfo;
+    const { organizationId, planId, billingCycle, pricingTierId } =
+      checkoutInfo;
     const { periodStart, periodEnd } =
       WebhookService.calculatePeriodDates(data);
 
@@ -567,7 +561,6 @@ export abstract class WebhookService {
       organizationId,
       planId,
       pricingTierId,
-      employeeCount,
       billingCycle,
       pagarmeSubscriptionId: data.id,
       pagarmeCustomerId: data.customer?.id,
@@ -620,9 +613,6 @@ export abstract class WebhookService {
       planId: data.metadata?.plan_id,
       billingCycle: data.metadata?.billing_cycle ?? "monthly",
       pricingTierId: data.metadata?.pricing_tier_id,
-      employeeCount: data.metadata?.employee_count
-        ? Number.parseInt(data.metadata.employee_count, 10)
-        : undefined,
     };
   }
 
@@ -639,7 +629,6 @@ export abstract class WebhookService {
         planId: schema.pendingCheckouts.planId,
         billingCycle: schema.pendingCheckouts.billingCycle,
         pricingTierId: schema.pendingCheckouts.pricingTierId,
-        employeeCount: schema.pendingCheckouts.employeeCount,
         id: schema.pendingCheckouts.id,
       })
       .from(schema.pendingCheckouts)
@@ -668,7 +657,6 @@ export abstract class WebhookService {
       planId: checkout.planId,
       billingCycle: checkout.billingCycle ?? "monthly",
       pricingTierId: checkout.pricingTierId ?? undefined,
-      employeeCount: checkout.employeeCount ?? undefined,
     };
   }
 
@@ -702,7 +690,6 @@ export abstract class WebhookService {
     organizationId: string;
     planId?: string;
     pricingTierId?: string;
-    employeeCount?: number;
     billingCycle: string;
     pagarmeSubscriptionId: string;
     pagarmeCustomerId?: string;
@@ -715,7 +702,6 @@ export abstract class WebhookService {
         status: "active",
         planId: params.planId ?? undefined,
         pricingTierId: params.pricingTierId ?? undefined,
-        employeeCount: params.employeeCount ?? undefined,
         pagarmeSubscriptionId: params.pagarmeSubscriptionId,
         pagarmeCustomerId: params.pagarmeCustomerId,
         currentPeriodStart: params.periodStart,
@@ -761,24 +747,33 @@ export abstract class WebhookService {
         return;
       }
 
-      const [plan] = await db
+      // Get subscription with plan and tier for pricing info
+      const [subData] = await db
         .select({
           displayName: schema.subscriptionPlans.displayName,
-          priceMonthly: schema.subscriptionPlans.priceMonthly,
+          priceMonthly: schema.planPricingTiers.priceMonthly,
         })
-        .from(schema.subscriptionPlans)
-        .where(eq(schema.subscriptionPlans.id, planId))
+        .from(schema.orgSubscriptions)
+        .innerJoin(
+          schema.subscriptionPlans,
+          eq(schema.orgSubscriptions.planId, schema.subscriptionPlans.id)
+        )
+        .leftJoin(
+          schema.planPricingTiers,
+          eq(schema.orgSubscriptions.pricingTierId, schema.planPricingTiers.id)
+        )
+        .where(eq(schema.orgSubscriptions.organizationId, organizationId))
         .limit(1);
 
-      if (!plan) {
+      if (!subData) {
         return;
       }
 
       await sendUpgradeConfirmationEmail({
         to: owner.email,
         organizationName: org?.name ?? "Sua organização",
-        planName: plan.displayName,
-        planPrice: plan.priceMonthly,
+        planName: subData.displayName,
+        planPrice: subData.priceMonthly ?? 0,
         nextBillingDate: periodEnd,
         cardLast4,
       });

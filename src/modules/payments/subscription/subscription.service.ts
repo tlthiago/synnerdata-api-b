@@ -349,40 +349,44 @@ export abstract class SubscriptionService {
   /**
    * Creates a trial subscription for an organization.
    * Trial uses a dedicated trial plan with isTrial=true that gives access
-   * to all features. Employee limit is set to DEFAULT_TRIAL_EMPLOYEE_LIMIT.
+   * to all features. Employee limit comes from the trial plan's tier.
    */
   static async createTrial(organizationId: string): Promise<void> {
-    const { DEFAULT_TRIAL_EMPLOYEE_LIMIT } = await import("@/db/schema");
     const { TrialPlanNotConfiguredError } = await import(
       "@/modules/payments/errors"
     );
 
-    const [plan] = await db
+    const [planWithTier] = await db
       .select({
-        id: schema.subscriptionPlans.id,
+        planId: schema.subscriptionPlans.id,
         trialDays: schema.subscriptionPlans.trialDays,
+        tierId: schema.planPricingTiers.id,
       })
       .from(schema.subscriptionPlans)
+      .innerJoin(
+        schema.planPricingTiers,
+        eq(schema.planPricingTiers.planId, schema.subscriptionPlans.id)
+      )
       .where(eq(schema.subscriptionPlans.isTrial, true))
       .limit(1);
 
-    if (!plan) {
+    if (!planWithTier) {
       throw new TrialPlanNotConfiguredError();
     }
 
     const trialStart = new Date();
     const trialEnd = new Date();
-    trialEnd.setDate(trialEnd.getDate() + plan.trialDays);
+    trialEnd.setDate(trialEnd.getDate() + planWithTier.trialDays);
 
     await db.insert(schema.orgSubscriptions).values({
       id: `subscription-${crypto.randomUUID()}`,
       organizationId,
-      planId: plan.id,
+      planId: planWithTier.planId,
+      pricingTierId: planWithTier.tierId,
       status: "trial",
       trialStart,
       trialEnd,
       trialUsed: true,
-      employeeCount: DEFAULT_TRIAL_EMPLOYEE_LIMIT,
       seats: 1,
     });
 

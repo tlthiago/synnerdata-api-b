@@ -332,11 +332,23 @@ export class EmployeeCountRequiredError extends PaymentError {
 export class PricingTierNotFoundError extends PaymentError {
   status = 404;
 
-  constructor(planId: string, employeeCount: number) {
+  constructor(planId: string, employeeRange: string) {
     super(
-      `No pricing tier found for ${employeeCount} employees in plan ${planId}`,
+      `No pricing tier found for range "${employeeRange}" in plan ${planId}`,
       "PRICING_TIER_NOT_FOUND",
-      { planId, employeeCount }
+      { planId, employeeRange }
+    );
+  }
+}
+
+export class InvalidEmployeeRangeError extends PaymentError {
+  status = 400;
+
+  constructor(employeeRange: string) {
+    super(
+      `Invalid employee range format: "${employeeRange}". Expected format: "min-max" (e.g., "0-10")`,
+      "INVALID_EMPLOYEE_RANGE",
+      { employeeRange }
     );
   }
 }
@@ -388,5 +400,57 @@ export class EmployeeCountExceedsNewPlanLimitError extends PaymentError {
       "EMPLOYEE_COUNT_EXCEEDS_NEW_PLAN_LIMIT",
       { currentCount, newLimit, toRemove }
     );
+  }
+}
+
+// Plans Module - Tier Errors
+
+export class TrialPlanNotFoundError extends PaymentError {
+  status = 500;
+
+  constructor() {
+    super(
+      "Trial plan not found. Please run database seed.",
+      "TRIAL_PLAN_NOT_FOUND"
+    );
+  }
+}
+
+export class InvalidTierCountError extends PaymentError {
+  status = 422;
+
+  constructor(provided: number, expected: number) {
+    super(
+      `Expected ${expected} pricing tiers, but received ${provided}.`,
+      "INVALID_TIER_COUNT",
+      { provided, expected }
+    );
+  }
+}
+
+export class InvalidTierRangeError extends PaymentError {
+  status = 422;
+
+  constructor(
+    index: number,
+    provided: { min: number; max: number },
+    expected: { min: number; max: number }
+  ) {
+    super(
+      `Tier at index ${index} has invalid range. Expected ${expected.min}-${expected.max}, got ${provided.min}-${provided.max}.`,
+      "INVALID_TIER_RANGE",
+      { index, provided, expected }
+    );
+  }
+}
+
+export class TierNotFoundError extends PaymentError {
+  status = 404;
+
+  constructor(tierId: string, planId: string) {
+    super(`Tier "${tierId}" not found in plan "${planId}".`, "TIER_NOT_FOUND", {
+      tierId,
+      planId,
+    });
   }
 }

@@ -57,7 +57,6 @@ async function setupSubscription(organizationId: string) {
   }
   await createTestSubscription(organizationId, goldPlan.id, {
     status: "active",
-    employeeCount: 100,
   });
 }
 

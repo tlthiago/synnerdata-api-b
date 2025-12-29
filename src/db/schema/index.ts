@@ -191,13 +191,6 @@ export type {
   SubscriptionEvent,
   SubscriptionPlan,
 } from "./payments";
-export {
-  DEFAULT_TRIAL_EMPLOYEE_LIMIT,
-  FEATURE_DISPLAY_NAMES,
-  MAX_EMPLOYEES,
-  PLAN_FEATURES,
-  YEARLY_DISCOUNT,
-} from "./payments";
 export type { NewPpeDelivery, PpeDelivery } from "./ppe-deliveries";
 export type { NewPpeDeliveryItem, PpeDeliveryItem } from "./ppe-delivery-items";
 export type { NewPpeDeliveryLog, PpeDeliveryLog } from "./ppe-delivery-logs";

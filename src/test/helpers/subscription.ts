@@ -13,7 +13,7 @@ type CreateTestSubscriptionOptions = {
   trialDays?: number;
   periodDays?: number;
   pagarmeSubscriptionId?: string;
-  employeeCount?: number;
+  pricingTierId?: string;
 };
 
 /**
@@ -35,7 +35,7 @@ export async function createTestSubscription(
     trialDays = 14,
     periodDays = 30,
     pagarmeSubscriptionId,
-    employeeCount = 100,
+    pricingTierId,
   } = options;
 
   const id = `test-sub-${crypto.randomUUID()}`;
@@ -50,13 +50,13 @@ export async function createTestSubscription(
     planId,
     status,
     pagarmeSubscriptionId,
+    pricingTierId,
     trialStart: status === "trial" ? now : null,
     trialEnd: status === "trial" ? trialEnd : null,
     trialUsed: status !== "trial",
     currentPeriodStart: status === "active" ? now : null,
     currentPeriodEnd: status === "active" ? periodEnd : null,
     cancelAtPeriodEnd: false,
-    employeeCount,
     seats: 1,
   });
 

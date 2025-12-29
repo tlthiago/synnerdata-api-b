@@ -14,52 +14,67 @@ import {
   getPlanResponseSchema,
   listPlansResponseSchema,
   planIdParamsSchema,
-  syncPlanResponseSchema,
   updatePlanResponseSchema,
   updatePlanSchema,
-} from "./plan.model";
-import { PlanService } from "./plan.service";
+} from "./plans.model";
+import { PlansService } from "./plans.service";
 
-export const planPublicController = new Elysia({
-  name: "plan-public",
+export const plansPublicController = new Elysia({
+  name: "plans-public",
   prefix: "/plans",
   detail: { tags: ["Payments - Plans"] },
-})
-  .get("/", async () => wrapSuccess(await PlanService.list()), {
-    response: {
-      200: listPlansResponseSchema,
-      422: validationErrorSchema,
-    },
-    detail: {
-      summary: "List available plans",
-      description:
-        "Returns all active and public plans available for subscription.",
-    },
-  })
-  .get(
-    "/:id",
-    async ({ params }) => wrapSuccess(await PlanService.getById(params.id)),
-    {
-      params: planIdParamsSchema,
-      response: {
-        200: getPlanResponseSchema,
-        422: validationErrorSchema,
-        404: notFoundErrorSchema,
-      },
-      detail: {
-        summary: "Get plan details",
-        description: "Returns details of a specific plan by ID.",
-      },
-    }
-  );
+}).get("/", async () => wrapSuccess(await PlansService.list()), {
+  response: {
+    200: listPlansResponseSchema,
+    422: validationErrorSchema,
+  },
+  detail: {
+    summary: "List available plans",
+    description:
+      "Returns all active and public plans with their pricing tiers.",
+  },
+});
 
-export const planProtectedController = new Elysia({
-  name: "plan-protected",
+export const plansProtectedController = new Elysia({
+  name: "plans-protected",
   prefix: "/plans",
   detail: { tags: ["Payments - Plans (Admin)"] },
 })
   .use(betterAuthPlugin)
-  .post("/", async ({ body }) => wrapSuccess(await PlanService.create(body)), {
+  .get("/all", async () => wrapSuccess(await PlansService.listAll()), {
+    auth: { requireAdmin: true },
+    response: {
+      200: listPlansResponseSchema,
+      401: unauthorizedErrorSchema,
+      403: forbiddenErrorSchema,
+    },
+    detail: {
+      summary: "List all plans (Admin)",
+      description:
+        "Returns all plans including inactive and private ones. Requires admin privileges.",
+    },
+  })
+  .get(
+    "/:id",
+    async ({ params }) => wrapSuccess(await PlansService.getById(params.id)),
+    {
+      auth: { requireAdmin: true },
+      params: planIdParamsSchema,
+      response: {
+        200: getPlanResponseSchema,
+        422: validationErrorSchema,
+        401: unauthorizedErrorSchema,
+        403: forbiddenErrorSchema,
+        404: notFoundErrorSchema,
+      },
+      detail: {
+        summary: "Get plan details (Admin)",
+        description:
+          "Returns details of a specific plan with its pricing tiers. Requires admin privileges.",
+      },
+    }
+  )
+  .post("/", async ({ body }) => wrapSuccess(await PlansService.create(body)), {
     auth: { requireAdmin: true },
     body: createPlanSchema,
     response: {
@@ -71,13 +86,13 @@ export const planProtectedController = new Elysia({
     detail: {
       summary: "Create a new plan",
       description:
-        "Creates a new subscription plan. Requires admin privileges.",
+        "Creates a new subscription plan with pricing tiers. Requires admin privileges. Non-trial plans must include exactly 10 pricing tiers matching the fixed employee ranges.",
     },
   })
   .put(
     "/:id",
     async ({ params, body }) =>
-      wrapSuccess(await PlanService.update(params.id, body)),
+      wrapSuccess(await PlansService.update(params.id, body)),
     {
       auth: { requireAdmin: true },
       params: planIdParamsSchema,
@@ -92,13 +107,13 @@ export const planProtectedController = new Elysia({
       detail: {
         summary: "Update a plan",
         description:
-          "Updates an existing subscription plan. Requires admin privileges.",
+          "Updates an existing subscription plan. Optionally replaces all pricing tiers. Requires admin privileges.",
       },
     }
   )
   .delete(
     "/:id",
-    async ({ params }) => wrapSuccess(await PlanService.delete(params.id)),
+    async ({ params }) => wrapSuccess(await PlansService.delete(params.id)),
     {
       auth: { requireAdmin: true },
       params: planIdParamsSchema,
@@ -111,28 +126,8 @@ export const planProtectedController = new Elysia({
       },
       detail: {
         summary: "Delete a plan",
-        description: "Deletes a subscription plan. Requires admin privileges.",
-      },
-    }
-  )
-  .post(
-    "/:id/sync",
-    async ({ params }) =>
-      wrapSuccess(await PlanService.syncToPagarme(params.id)),
-    {
-      auth: { requireAdmin: true },
-      params: planIdParamsSchema,
-      response: {
-        200: syncPlanResponseSchema,
-        422: validationErrorSchema,
-        401: unauthorizedErrorSchema,
-        403: forbiddenErrorSchema,
-        404: notFoundErrorSchema,
-      },
-      detail: {
-        summary: "Sync plan to Pagarme",
         description:
-          "Syncs the plan to Pagarme payment gateway. Requires admin privileges.",
+          "Deletes a subscription plan and its pricing tiers. Cannot delete plans with active subscriptions. Requires admin privileges.",
       },
     }
   );

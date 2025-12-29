@@ -1,10 +1,10 @@
-import { afterAll, beforeAll, describe, expect, spyOn, test } from "bun:test";
+import { beforeAll, describe, expect, spyOn, test } from "bun:test";
 import { eq } from "drizzle-orm";
 import { db } from "@/db";
 import { schema } from "@/db/schema";
 import { env } from "@/env";
 import { CustomerService } from "@/modules/payments/customer/customer.service";
-import { diamondPlan, goldPlan, testPlans } from "@/test/fixtures/plans";
+import { diamondPlan, goldPlan } from "@/test/fixtures/plans";
 import { createTestApp, type TestApp } from "@/test/helpers/app";
 import { seedPlans } from "@/test/helpers/seed";
 import { skipIntegration } from "@/test/helpers/skip-integration";
@@ -15,7 +15,6 @@ import {
 } from "@/test/helpers/user";
 
 const BASE_URL = env.API_URL;
-const DEFAULT_EMPLOYEE_COUNT = 15;
 
 describe("POST /v1/payments/checkout", () => {
   let app: TestApp;
@@ -23,22 +22,6 @@ describe("POST /v1/payments/checkout", () => {
   beforeAll(async () => {
     app = createTestApp();
     await seedPlans();
-
-    for (const plan of testPlans) {
-      await db
-        .update(schema.subscriptionPlans)
-        .set({ pagarmePlanIdMonthly: null, pagarmePlanIdYearly: null })
-        .where(eq(schema.subscriptionPlans.id, plan.id));
-    }
-  });
-
-  afterAll(async () => {
-    for (const plan of testPlans) {
-      await db
-        .update(schema.subscriptionPlans)
-        .set({ pagarmePlanIdMonthly: null, pagarmePlanIdYearly: null })
-        .where(eq(schema.subscriptionPlans.id, plan.id));
-    }
   });
 
   test("should reject unauthenticated requests", async () => {
@@ -614,7 +597,7 @@ describe("POST /v1/payments/checkout", () => {
       expect(checkout).toBeDefined();
       expect(checkout.organizationId).toBe(orgId);
       expect(checkout.planId).toBe(diamondPlan.id);
-      expect(checkout.employeeCount).toBe(DEFAULT_EMPLOYEE_COUNT);
+      expect(checkout.pricingTierId).toBeDefined();
       expect(checkout.status).toBe("pending");
       expect(checkout.expiresAt).toBeInstanceOf(Date);
       expect(checkout.expiresAt.getTime()).toBeGreaterThan(Date.now());

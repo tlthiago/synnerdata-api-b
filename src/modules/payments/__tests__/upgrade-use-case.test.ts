@@ -28,14 +28,6 @@ describe.skipIf(skipIntegration)(
     beforeAll(async () => {
       app = createTestApp();
       await seedPlans();
-
-      // Reset pagarmePlanIds for diamond plan to test sync
-      if (diamondPlan) {
-        await db
-          .update(schema.subscriptionPlans)
-          .set({ pagarmePlanIdMonthly: null, pagarmePlanIdYearly: null })
-          .where(eq(schema.subscriptionPlans.id, diamondPlan.id));
-      }
     });
 
     describe("Fase 1: Setup - Usuário com Trial", () => {
@@ -169,7 +161,7 @@ describe.skipIf(skipIntegration)(
         expect(checkout.organizationId).toBe(organizationId);
         expect(checkout.planId).toBe(diamondPlan.id);
         expect(checkout.status).toBe("pending");
-        expect(checkout.employeeCount).toBe(DEFAULT_EMPLOYEE_COUNT);
+        expect(checkout.pricingTierId).toBeDefined();
         expect(checkout.expiresAt).toBeInstanceOf(Date);
         expect(checkout.expiresAt.getTime()).toBeGreaterThan(Date.now());
       });

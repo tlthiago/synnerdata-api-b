@@ -20,85 +20,15 @@ export const subscriptionStatusEnum = pgEnum("subscription_status", [
 ]);
 
 export interface PlanLimits {
-  maxMembers?: number;
-  maxProjects?: number;
-  maxStorage?: number;
   features: string[];
 }
-
-export const PLAN_FEATURES = {
-  trial: [
-    "terminated_employees",
-    "absences",
-    "medical_certificates",
-    "accidents",
-    "warnings",
-    "employee_status",
-    "birthdays",
-    "ppe",
-    "employee_record",
-    "payroll",
-  ],
-  gold: [
-    "terminated_employees",
-    "absences",
-    "medical_certificates",
-    "accidents",
-    "warnings",
-    "employee_status",
-  ],
-  diamond: [
-    "terminated_employees",
-    "absences",
-    "medical_certificates",
-    "accidents",
-    "warnings",
-    "employee_status",
-    "birthdays",
-    "ppe",
-    "employee_record",
-  ],
-  platinum: [
-    "terminated_employees",
-    "absences",
-    "medical_certificates",
-    "accidents",
-    "warnings",
-    "employee_status",
-    "birthdays",
-    "ppe",
-    "employee_record",
-    "payroll",
-  ],
-} as const;
-
-export const FEATURE_DISPLAY_NAMES: Record<string, string> = {
-  terminated_employees: "Demitidos",
-  absences: "Faltas",
-  medical_certificates: "Atestados",
-  accidents: "Acidentes",
-  warnings: "Advertências",
-  employee_status: "Status do Trabalhador",
-  birthdays: "Aniversariantes",
-  ppe: "EPI",
-  employee_record: "Ficha Cadastral",
-  payroll: "Folha",
-};
-
-export const MAX_EMPLOYEES = 180;
-export const YEARLY_DISCOUNT = 0.2; // 20% discount
-export const DEFAULT_TRIAL_EMPLOYEE_LIMIT = 10; // Trial limit matches minimum tier
 
 export const subscriptionPlans = pgTable("subscription_plans", {
   id: text("id").primaryKey(),
   name: text("name").notNull().unique(),
   displayName: text("display_name").notNull(),
   description: text("description"),
-  pagarmePlanIdMonthly: text("pagarme_plan_id_monthly"),
-  pagarmePlanIdYearly: text("pagarme_plan_id_yearly"),
-  priceMonthly: integer("price_monthly").notNull(),
-  priceYearly: integer("price_yearly").notNull(),
-  trialDays: integer("trial_days").default(14).notNull(),
+  trialDays: integer("trial_days").default(0).notNull(),
   limits: jsonb("limits").$type<PlanLimits>(),
   isActive: boolean("is_active").default(true).notNull(),
   isPublic: boolean("is_public").default(true).notNull(),
@@ -113,7 +43,6 @@ export const subscriptionPlans = pgTable("subscription_plans", {
     .notNull(),
 });
 
-// Pricing tiers - prices vary by employee count range
 export const planPricingTiers = pgTable(
   "plan_pricing_tiers",
   {
@@ -123,8 +52,8 @@ export const planPricingTiers = pgTable(
       .references(() => subscriptionPlans.id, { onDelete: "cascade" }),
     minEmployees: integer("min_employees").notNull(),
     maxEmployees: integer("max_employees").notNull(),
-    priceMonthly: integer("price_monthly").notNull(), // centavos
-    priceYearly: integer("price_yearly").notNull(), // centavos
+    priceMonthly: integer("price_monthly").notNull(),
+    priceYearly: integer("price_yearly").notNull(),
     pagarmePlanIdMonthly: text("pagarme_plan_id_monthly"),
     pagarmePlanIdYearly: text("pagarme_plan_id_yearly"),
     createdAt: timestamp("created_at", { withTimezone: true })
@@ -157,7 +86,6 @@ export const orgSubscriptions = pgTable(
     pricingTierId: text("pricing_tier_id").references(
       () => planPricingTiers.id
     ),
-    employeeCount: integer("employee_count"),
     status: subscriptionStatusEnum("status").default("trial").notNull(),
     pagarmeSubscriptionId: text("pagarme_subscription_id"),
     pagarmeCustomerId: text("pagarme_customer_id"),
@@ -290,7 +218,6 @@ export const pendingCheckouts = pgTable(
     pricingTierId: text("pricing_tier_id").references(
       () => planPricingTiers.id
     ),
-    employeeCount: integer("employee_count"),
     billingCycle: text("billing_cycle").default("monthly"),
     paymentLinkId: text("payment_link_id").notNull(),
     status: pendingCheckoutStatusEnum("status").default("pending").notNull(),
