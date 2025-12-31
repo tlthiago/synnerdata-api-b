@@ -2,11 +2,17 @@ import { beforeAll, describe, expect, spyOn, test } from "bun:test";
 import { eq } from "drizzle-orm";
 import { db } from "@/db";
 import { schema } from "@/db/schema";
+import { billingProfiles } from "@/db/schema/billing-profiles";
 import { env } from "@/env";
-import { CustomerService } from "@/modules/payments/customer/customer.service";
-import { diamondPlan, goldPlan } from "@/test/fixtures/plans";
+import { createTestBillingProfile } from "@/test/factories/billing-profile";
+import {
+  type CreatePlanResult,
+  createInactivePlan,
+  createPaidPlan,
+  createTrialPlan,
+  getFirstTier,
+} from "@/test/factories/plan";
 import { createTestApp, type TestApp } from "@/test/helpers/app";
-import { seedPlans } from "@/test/helpers/seed";
 import { skipIntegration } from "@/test/helpers/skip-integration";
 import { createTestSubscription } from "@/test/helpers/subscription";
 import {
@@ -18,20 +24,33 @@ const BASE_URL = env.API_URL;
 
 describe("POST /v1/payments/checkout", () => {
   let app: TestApp;
+  let trialPlanResult: CreatePlanResult;
+  let goldPlanResult: CreatePlanResult;
+  let diamondPlanResult: CreatePlanResult;
+  let inactivePlanResult: CreatePlanResult;
 
   beforeAll(async () => {
     app = createTestApp();
-    await seedPlans();
+
+    [trialPlanResult, goldPlanResult, diamondPlanResult, inactivePlanResult] =
+      await Promise.all([
+        createTrialPlan(),
+        createPaidPlan("gold"),
+        createPaidPlan("diamond"),
+        createInactivePlan({ type: "platinum" }),
+      ]);
   });
 
   test("should reject unauthenticated requests", async () => {
+    const tier = getFirstTier(diamondPlanResult);
+
     const response = await app.handle(
       new Request(`${BASE_URL}/v1/payments/checkout`, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
-          planId: "test-plan-diamond",
-          employeeCount: DEFAULT_EMPLOYEE_COUNT,
+          planId: diamondPlanResult.plan.id,
+          tierId: tier.id,
           successUrl: "https://example.com/success",
         }),
       })
@@ -44,6 +63,7 @@ describe("POST /v1/payments/checkout", () => {
     const { headers } = await createTestUserWithOrganization({
       emailVerified: false,
     });
+    const tier = getFirstTier(diamondPlanResult);
 
     const response = await app.handle(
       new Request(`${BASE_URL}/v1/payments/checkout`, {
@@ -53,8 +73,8 @@ describe("POST /v1/payments/checkout", () => {
           "Content-Type": "application/json",
         },
         body: JSON.stringify({
-          planId: "test-plan-diamond",
-          employeeCount: DEFAULT_EMPLOYEE_COUNT,
+          planId: diamondPlanResult.plan.id,
+          tierId: tier.id,
           successUrl: "https://example.com/success",
         }),
       })
@@ -69,13 +89,15 @@ describe("POST /v1/payments/checkout", () => {
     const { headers, organizationId } = await createTestUserWithOrganization({
       emailVerified: true,
     });
-    const orgId = organizationId;
 
-    if (!orgId) {
-      throw new Error("Organization not created");
-    }
+    await createTestBillingProfile({ organizationId });
+    await createTestSubscription(
+      organizationId,
+      diamondPlanResult.plan.id,
+      "active"
+    );
 
-    await createTestSubscription(orgId, "test-plan-diamond", "active");
+    const tier = getFirstTier(goldPlanResult);
 
     const response = await app.handle(
       new Request(`${BASE_URL}/v1/payments/checkout`, {
@@ -85,8 +107,8 @@ describe("POST /v1/payments/checkout", () => {
           "Content-Type": "application/json",
         },
         body: JSON.stringify({
-          planId: "test-plan-platinum",
-          employeeCount: DEFAULT_EMPLOYEE_COUNT,
+          planId: goldPlanResult.plan.id,
+          tierId: tier.id,
           successUrl: "https://example.com/success",
         }),
       })
@@ -98,9 +120,12 @@ describe("POST /v1/payments/checkout", () => {
   });
 
   test("should reject for non-existent plan", async () => {
-    const { headers } = await createTestUserWithOrganization({
+    const { headers, organizationId } = await createTestUserWithOrganization({
       emailVerified: true,
     });
+
+    await createTestBillingProfile({ organizationId });
+    const tier = getFirstTier(diamondPlanResult);
 
     const response = await app.handle(
       new Request(`${BASE_URL}/v1/payments/checkout`, {
@@ -111,7 +136,7 @@ describe("POST /v1/payments/checkout", () => {
         },
         body: JSON.stringify({
           planId: "non-existent-plan",
-          employeeCount: DEFAULT_EMPLOYEE_COUNT,
+          tierId: tier.id,
           successUrl: "https://example.com/success",
         }),
       })
@@ -123,9 +148,12 @@ describe("POST /v1/payments/checkout", () => {
   });
 
   test("should reject for inactive plan", async () => {
-    const { headers } = await createTestUserWithOrganization({
+    const { headers, organizationId } = await createTestUserWithOrganization({
       emailVerified: true,
     });
+
+    await createTestBillingProfile({ organizationId });
+    const tier = getFirstTier(inactivePlanResult);
 
     const response = await app.handle(
       new Request(`${BASE_URL}/v1/payments/checkout`, {
@@ -135,8 +163,8 @@ describe("POST /v1/payments/checkout", () => {
           "Content-Type": "application/json",
         },
         body: JSON.stringify({
-          planId: "test-plan-inactive",
-          employeeCount: DEFAULT_EMPLOYEE_COUNT,
+          planId: inactivePlanResult.plan.id,
+          tierId: tier.id,
           successUrl: "https://example.com/success",
         }),
       })
@@ -148,9 +176,12 @@ describe("POST /v1/payments/checkout", () => {
   });
 
   test("should reject invalid successUrl", async () => {
-    const { headers } = await createTestUserWithOrganization({
+    const { headers, organizationId } = await createTestUserWithOrganization({
       emailVerified: true,
     });
+
+    await createTestBillingProfile({ organizationId });
+    const tier = getFirstTier(diamondPlanResult);
 
     const response = await app.handle(
       new Request(`${BASE_URL}/v1/payments/checkout`, {
@@ -160,8 +191,8 @@ describe("POST /v1/payments/checkout", () => {
           "Content-Type": "application/json",
         },
         body: JSON.stringify({
-          planId: "test-plan-diamond",
-          employeeCount: DEFAULT_EMPLOYEE_COUNT,
+          planId: diamondPlanResult.plan.id,
+          tierId: tier.id,
           successUrl: "not-a-valid-url",
         }),
       })
@@ -171,9 +202,11 @@ describe("POST /v1/payments/checkout", () => {
   });
 
   test("should reject missing required fields", async () => {
-    const { headers } = await createTestUserWithOrganization({
+    const { headers, organizationId } = await createTestUserWithOrganization({
       emailVerified: true,
     });
+
+    await createTestBillingProfile({ organizationId });
 
     const response = await app.handle(
       new Request(`${BASE_URL}/v1/payments/checkout`, {
@@ -189,10 +222,12 @@ describe("POST /v1/payments/checkout", () => {
     expect(response.status).toBe(422);
   });
 
-  test("should reject missing employeeCount", async () => {
-    const { headers } = await createTestUserWithOrganization({
+  test("should reject missing tierId", async () => {
+    const { headers, organizationId } = await createTestUserWithOrganization({
       emailVerified: true,
     });
+
+    await createTestBillingProfile({ organizationId });
 
     const response = await app.handle(
       new Request(`${BASE_URL}/v1/payments/checkout`, {
@@ -202,30 +237,7 @@ describe("POST /v1/payments/checkout", () => {
           "Content-Type": "application/json",
         },
         body: JSON.stringify({
-          planId: "test-plan-diamond",
-          successUrl: "https://example.com/success",
-        }),
-      })
-    );
-
-    expect(response.status).toBe(422);
-  });
-
-  test("should reject employeeCount exceeding limit", async () => {
-    const { headers } = await createTestUserWithOrganization({
-      emailVerified: true,
-    });
-
-    const response = await app.handle(
-      new Request(`${BASE_URL}/v1/payments/checkout`, {
-        method: "POST",
-        headers: {
-          ...headers,
-          "Content-Type": "application/json",
-        },
-        body: JSON.stringify({
-          planId: "test-plan-diamond",
-          employeeCount: 500, // Exceeds MAX_EMPLOYEES
+          planId: diamondPlanResult.plan.id,
           successUrl: "https://example.com/success",
         }),
       })
@@ -237,13 +249,12 @@ describe("POST /v1/payments/checkout", () => {
   test.skipIf(skipIntegration)(
     "should create payment link and return checkoutUrl and paymentLinkId",
     async () => {
-      const { headers } = await createTestUserWithOrganization({
+      const { headers, organizationId } = await createTestUserWithOrganization({
         emailVerified: true,
       });
 
-      if (!diamondPlan) {
-        throw new Error("Diamond plan not found in fixtures");
-      }
+      await createTestBillingProfile({ organizationId });
+      const tier = getFirstTier(diamondPlanResult);
 
       const response = await app.handle(
         new Request(`${BASE_URL}/v1/payments/checkout`, {
@@ -253,8 +264,8 @@ describe("POST /v1/payments/checkout", () => {
             "Content-Type": "application/json",
           },
           body: JSON.stringify({
-            planId: diamondPlan.id,
-            employeeCount: DEFAULT_EMPLOYEE_COUNT,
+            planId: diamondPlanResult.plan.id,
+            tierId: tier.id,
             successUrl: "https://example.com/success",
           }),
         })
@@ -274,19 +285,18 @@ describe("POST /v1/payments/checkout", () => {
   test.skipIf(skipIntegration)(
     "should sync pricing tier plan to Pagarme if not yet synced",
     async () => {
-      const { headers } = await createTestUserWithOrganization({
+      const { headers, organizationId } = await createTestUserWithOrganization({
         emailVerified: true,
       });
 
-      if (!diamondPlan) {
-        throw new Error("Diamond plan not found in fixtures");
-      }
+      await createTestBillingProfile({ organizationId });
+      const tier = getFirstTier(diamondPlanResult);
 
       // Reset Pagarme IDs for all pricing tiers of this plan
       await db
         .update(schema.planPricingTiers)
         .set({ pagarmePlanIdMonthly: null, pagarmePlanIdYearly: null })
-        .where(eq(schema.planPricingTiers.planId, diamondPlan.id));
+        .where(eq(schema.planPricingTiers.planId, diamondPlanResult.plan.id));
 
       const response = await app.handle(
         new Request(`${BASE_URL}/v1/payments/checkout`, {
@@ -296,8 +306,8 @@ describe("POST /v1/payments/checkout", () => {
             "Content-Type": "application/json",
           },
           body: JSON.stringify({
-            planId: diamondPlan.id,
-            employeeCount: DEFAULT_EMPLOYEE_COUNT,
+            planId: diamondPlanResult.plan.id,
+            tierId: tier.id,
             successUrl: "https://example.com/success",
           }),
         })
@@ -309,7 +319,7 @@ describe("POST /v1/payments/checkout", () => {
       const tiers = await db
         .select()
         .from(schema.planPricingTiers)
-        .where(eq(schema.planPricingTiers.planId, diamondPlan.id));
+        .where(eq(schema.planPricingTiers.planId, diamondPlanResult.plan.id));
 
       // At least one tier should have a pagarmePlanIdMonthly
       const syncedTier = tiers.find((t) => t.pagarmePlanIdMonthly !== null);
@@ -321,13 +331,12 @@ describe("POST /v1/payments/checkout", () => {
   test.skipIf(skipIntegration)(
     "should reuse existing pagarmePlanId if already synced",
     async () => {
-      const { headers } = await createTestUserWithOrganization({
+      const { headers, organizationId } = await createTestUserWithOrganization({
         emailVerified: true,
       });
 
-      if (!diamondPlan) {
-        throw new Error("Diamond plan not found in fixtures");
-      }
+      await createTestBillingProfile({ organizationId });
+      const tier = getFirstTier(diamondPlanResult);
 
       const firstResponse = await app.handle(
         new Request(`${BASE_URL}/v1/payments/checkout`, {
@@ -337,8 +346,8 @@ describe("POST /v1/payments/checkout", () => {
             "Content-Type": "application/json",
           },
           body: JSON.stringify({
-            planId: diamondPlan.id,
-            employeeCount: DEFAULT_EMPLOYEE_COUNT,
+            planId: diamondPlanResult.plan.id,
+            tierId: tier.id,
             successUrl: "https://example.com/success",
           }),
         })
@@ -348,15 +357,18 @@ describe("POST /v1/payments/checkout", () => {
       const tiersAfterFirst = await db
         .select()
         .from(schema.planPricingTiers)
-        .where(eq(schema.planPricingTiers.planId, diamondPlan.id));
+        .where(eq(schema.planPricingTiers.planId, diamondPlanResult.plan.id));
 
       const firstPagarmePlanId = tiersAfterFirst.find(
         (t) => t.pagarmePlanIdMonthly !== null
       )?.pagarmePlanIdMonthly;
 
-      const { headers: headers2 } = await createTestUserWithOrganization({
-        emailVerified: true,
-      });
+      const { headers: headers2, organizationId: orgId2 } =
+        await createTestUserWithOrganization({
+          emailVerified: true,
+        });
+
+      await createTestBillingProfile({ organizationId: orgId2 });
 
       const secondResponse = await app.handle(
         new Request(`${BASE_URL}/v1/payments/checkout`, {
@@ -366,8 +378,8 @@ describe("POST /v1/payments/checkout", () => {
             "Content-Type": "application/json",
           },
           body: JSON.stringify({
-            planId: diamondPlan.id,
-            employeeCount: DEFAULT_EMPLOYEE_COUNT,
+            planId: diamondPlanResult.plan.id,
+            tierId: tier.id,
             successUrl: "https://example.com/success",
           }),
         })
@@ -377,7 +389,7 @@ describe("POST /v1/payments/checkout", () => {
       const tiersAfterSecond = await db
         .select()
         .from(schema.planPricingTiers)
-        .where(eq(schema.planPricingTiers.planId, diamondPlan.id));
+        .where(eq(schema.planPricingTiers.planId, diamondPlanResult.plan.id));
 
       const secondPagarmePlanId = tiersAfterSecond.find(
         (t) => t.pagarmePlanIdMonthly !== null
@@ -393,17 +405,14 @@ describe("POST /v1/payments/checkout", () => {
       const { headers, organizationId } = await createTestUserWithOrganization({
         emailVerified: true,
       });
-      const orgId = organizationId;
 
-      if (!orgId) {
-        throw new Error("Organization not created");
-      }
+      await createTestBillingProfile({ organizationId });
+      // Use trial plan for trial status, paid plan for canceled status
+      const subscriptionPlanId =
+        status === "trial" ? trialPlanResult.plan.id : goldPlanResult.plan.id;
+      await createTestSubscription(organizationId, subscriptionPlanId, status);
 
-      if (!(diamondPlan && goldPlan)) {
-        throw new Error("Plans not found in fixtures");
-      }
-
-      await createTestSubscription(orgId, goldPlan.id, status);
+      const tier = getFirstTier(diamondPlanResult);
 
       const response = await app.handle(
         new Request(`${BASE_URL}/v1/payments/checkout`, {
@@ -413,8 +422,8 @@ describe("POST /v1/payments/checkout", () => {
             "Content-Type": "application/json",
           },
           body: JSON.stringify({
-            planId: diamondPlan.id,
-            employeeCount: DEFAULT_EMPLOYEE_COUNT,
+            planId: diamondPlanResult.plan.id,
+            tierId: tier.id,
             successUrl: "https://example.com/success",
           }),
         })
@@ -437,25 +446,21 @@ describe("POST /v1/payments/checkout", () => {
       const { headers, organizationId } = await createTestUserWithOrganization({
         emailVerified: true,
       });
-      const orgId = organizationId;
 
-      if (!orgId) {
-        throw new Error("Organization not created");
-      }
-
-      if (!diamondPlan) {
-        throw new Error("Diamond plan not found in fixtures");
-      }
+      // Create billing profile WITHOUT pagarmeCustomerId
+      await createTestBillingProfile({ organizationId });
 
       const [profile] = await db
         .select({
-          pagarmeCustomerId: schema.organizationProfiles.pagarmeCustomerId,
+          pagarmeCustomerId: billingProfiles.pagarmeCustomerId,
         })
-        .from(schema.organizationProfiles)
-        .where(eq(schema.organizationProfiles.organizationId, orgId))
+        .from(billingProfiles)
+        .where(eq(billingProfiles.organizationId, organizationId))
         .limit(1);
 
       expect(profile.pagarmeCustomerId).toBeNull();
+
+      const tier = getFirstTier(diamondPlanResult);
 
       const response = await app.handle(
         new Request(`${BASE_URL}/v1/payments/checkout`, {
@@ -465,8 +470,8 @@ describe("POST /v1/payments/checkout", () => {
             "Content-Type": "application/json",
           },
           body: JSON.stringify({
-            planId: diamondPlan.id,
-            employeeCount: DEFAULT_EMPLOYEE_COUNT,
+            planId: diamondPlanResult.plan.id,
+            tierId: tier.id,
             successUrl: "https://example.com/success",
           }),
         })
@@ -481,44 +486,20 @@ describe("POST /v1/payments/checkout", () => {
   );
 
   test.skipIf(skipIntegration)(
-    "should pre-fill checkout with existing customer_id from profile",
+    "should reuse existing customer_id from billing profile",
     async () => {
-      const { user, headers, organizationId } =
-        await createTestUserWithOrganization({
-          emailVerified: true,
-        });
-      const orgId = organizationId;
-
-      if (!orgId) {
-        throw new Error("Organization not created");
-      }
-
-      if (!diamondPlan) {
-        throw new Error("Diamond plan not found in fixtures");
-      }
-
-      const [profile] = await db
-        .select()
-        .from(schema.organizationProfiles)
-        .where(eq(schema.organizationProfiles.organizationId, orgId))
-        .limit(1);
-
-      if (!profile) {
-        throw new Error("Organization profile not found");
-      }
-
-      const { pagarmeCustomerId } = await CustomerService.create({
-        organizationId: orgId,
-        name: profile.tradeName,
-        email: profile.email ?? user.email,
-        document: profile.taxId ?? "12345678000190",
-        phone: profile.phone ?? "11999999999",
+      const { headers, organizationId } = await createTestUserWithOrganization({
+        emailVerified: true,
       });
 
-      expect(pagarmeCustomerId).toBeDefined();
-      expect(pagarmeCustomerId).toStartWith("cus_");
+      // Create billing profile without customer
+      const billingProfile = await createTestBillingProfile({ organizationId });
+      expect(billingProfile.pagarmeCustomerId).toBeNull();
 
-      const response = await app.handle(
+      const tier = getFirstTier(diamondPlanResult);
+
+      // First checkout - creates customer in Pagarme
+      const firstResponse = await app.handle(
         new Request(`${BASE_URL}/v1/payments/checkout`, {
           method: "POST",
           headers: {
@@ -526,28 +507,57 @@ describe("POST /v1/payments/checkout", () => {
             "Content-Type": "application/json",
           },
           body: JSON.stringify({
-            planId: diamondPlan.id,
-            employeeCount: DEFAULT_EMPLOYEE_COUNT,
+            planId: diamondPlanResult.plan.id,
+            tierId: tier.id,
             successUrl: "https://example.com/success",
           }),
         })
       );
 
-      expect(response.status).toBe(200);
+      expect(firstResponse.status).toBe(200);
 
-      const body = await response.json();
-      expect(body.data.checkoutUrl).toBeDefined();
-      expect(body.data.paymentLinkId).toBeDefined();
-
-      const [updatedProfile] = await db
+      // Get the customer ID that was created
+      const [profileAfterFirst] = await db
         .select({
-          pagarmeCustomerId: schema.organizationProfiles.pagarmeCustomerId,
+          pagarmeCustomerId: billingProfiles.pagarmeCustomerId,
         })
-        .from(schema.organizationProfiles)
-        .where(eq(schema.organizationProfiles.organizationId, orgId))
+        .from(billingProfiles)
+        .where(eq(billingProfiles.organizationId, organizationId))
         .limit(1);
 
-      expect(updatedProfile.pagarmeCustomerId).toBe(pagarmeCustomerId);
+      expect(profileAfterFirst.pagarmeCustomerId).toBeDefined();
+      expect(profileAfterFirst.pagarmeCustomerId).toStartWith("cus_");
+
+      // Second checkout - should reuse existing customer
+      const secondResponse = await app.handle(
+        new Request(`${BASE_URL}/v1/payments/checkout`, {
+          method: "POST",
+          headers: {
+            ...headers,
+            "Content-Type": "application/json",
+          },
+          body: JSON.stringify({
+            planId: diamondPlanResult.plan.id,
+            tierId: tier.id,
+            successUrl: "https://example.com/success",
+          }),
+        })
+      );
+
+      expect(secondResponse.status).toBe(200);
+
+      // Customer ID should remain the same (not create a new one)
+      const [profileAfterSecond] = await db
+        .select({
+          pagarmeCustomerId: billingProfiles.pagarmeCustomerId,
+        })
+        .from(billingProfiles)
+        .where(eq(billingProfiles.organizationId, organizationId))
+        .limit(1);
+
+      expect(profileAfterSecond.pagarmeCustomerId).toBe(
+        profileAfterFirst.pagarmeCustomerId
+      );
     }
   );
 
@@ -557,15 +567,9 @@ describe("POST /v1/payments/checkout", () => {
       const { headers, organizationId } = await createTestUserWithOrganization({
         emailVerified: true,
       });
-      const orgId = organizationId;
 
-      if (!orgId) {
-        throw new Error("Organization not created");
-      }
-
-      if (!diamondPlan) {
-        throw new Error("Diamond plan not found in fixtures");
-      }
+      await createTestBillingProfile({ organizationId });
+      const tier = getFirstTier(diamondPlanResult);
 
       const response = await app.handle(
         new Request(`${BASE_URL}/v1/payments/checkout`, {
@@ -575,8 +579,8 @@ describe("POST /v1/payments/checkout", () => {
             "Content-Type": "application/json",
           },
           body: JSON.stringify({
-            planId: diamondPlan.id,
-            employeeCount: DEFAULT_EMPLOYEE_COUNT,
+            planId: diamondPlanResult.plan.id,
+            tierId: tier.id,
             successUrl: "https://example.com/success",
           }),
         })
@@ -595,9 +599,9 @@ describe("POST /v1/payments/checkout", () => {
         .limit(1);
 
       expect(checkout).toBeDefined();
-      expect(checkout.organizationId).toBe(orgId);
-      expect(checkout.planId).toBe(diamondPlan.id);
-      expect(checkout.pricingTierId).toBeDefined();
+      expect(checkout.organizationId).toBe(organizationId);
+      expect(checkout.planId).toBe(diamondPlanResult.plan.id);
+      expect(checkout.pricingTierId).toBe(tier.id);
       expect(checkout.status).toBe("pending");
       expect(checkout.expiresAt).toBeInstanceOf(Date);
       expect(checkout.expiresAt.getTime()).toBeGreaterThan(Date.now());
@@ -616,19 +620,17 @@ describe("POST /v1/payments/checkout", () => {
     const { organizationId } = await createTestUserWithOrganization({
       emailVerified: true,
     });
-    const orgId = organizationId;
 
-    if (!orgId) {
-      throw new Error("Organization not created");
-    }
+    await createTestBillingProfile({ organizationId });
 
     const memberResult = await createTestUser({ emailVerified: true });
 
     await addMemberToOrganization(memberResult, {
-      organizationId: orgId,
+      organizationId,
       role,
     });
     const memberHeaders = memberResult.headers;
+    const tier = getFirstTier(diamondPlanResult);
 
     const response = await app.handle(
       new Request(`${BASE_URL}/v1/payments/checkout`, {
@@ -638,8 +640,8 @@ describe("POST /v1/payments/checkout", () => {
           "Content-Type": "application/json",
         },
         body: JSON.stringify({
-          planId: "test-plan-diamond",
-          employeeCount: DEFAULT_EMPLOYEE_COUNT,
+          planId: diamondPlanResult.plan.id,
+          tierId: tier.id,
           successUrl: "https://example.com/success",
         }),
       })
@@ -651,9 +653,12 @@ describe("POST /v1/payments/checkout", () => {
   });
 
   test("should reject empty planId", async () => {
-    const { headers } = await createTestUserWithOrganization({
+    const { headers, organizationId } = await createTestUserWithOrganization({
       emailVerified: true,
     });
+
+    await createTestBillingProfile({ organizationId });
+    const tier = getFirstTier(diamondPlanResult);
 
     const response = await app.handle(
       new Request(`${BASE_URL}/v1/payments/checkout`, {
@@ -664,7 +669,7 @@ describe("POST /v1/payments/checkout", () => {
         },
         body: JSON.stringify({
           planId: "",
-          employeeCount: DEFAULT_EMPLOYEE_COUNT,
+          tierId: tier.id,
           successUrl: "https://example.com/success",
         }),
       })
@@ -676,13 +681,12 @@ describe("POST /v1/payments/checkout", () => {
   test("should handle Pagarme API connection failure", async () => {
     const { PagarmeClient } = await import("../../pagarme/client");
 
-    const { headers } = await createTestUserWithOrganization({
+    const { headers, organizationId } = await createTestUserWithOrganization({
       emailVerified: true,
     });
 
-    if (!diamondPlan) {
-      throw new Error("Diamond plan not found in fixtures");
-    }
+    await createTestBillingProfile({ organizationId });
+    const tier = getFirstTier(diamondPlanResult);
 
     const createPaymentLinkSpy = spyOn(
       PagarmeClient,
@@ -697,8 +701,8 @@ describe("POST /v1/payments/checkout", () => {
           "Content-Type": "application/json",
         },
         body: JSON.stringify({
-          planId: diamondPlan.id,
-          employeeCount: DEFAULT_EMPLOYEE_COUNT,
+          planId: diamondPlanResult.plan.id,
+          tierId: tier.id,
           successUrl: "https://example.com/success",
         }),
       })
@@ -707,5 +711,33 @@ describe("POST /v1/payments/checkout", () => {
     expect(response.status).toBe(500);
 
     createPaymentLinkSpy.mockRestore();
+  });
+
+  test("should reject checkout without billing profile", async () => {
+    const { headers } = await createTestUserWithOrganization({
+      emailVerified: true,
+    });
+
+    // Do NOT create billing profile
+    const tier = getFirstTier(diamondPlanResult);
+
+    const response = await app.handle(
+      new Request(`${BASE_URL}/v1/payments/checkout`, {
+        method: "POST",
+        headers: {
+          ...headers,
+          "Content-Type": "application/json",
+        },
+        body: JSON.stringify({
+          planId: diamondPlanResult.plan.id,
+          tierId: tier.id,
+          successUrl: "https://example.com/success",
+        }),
+      })
+    );
+
+    expect(response.status).toBe(404);
+    const body = await response.json();
+    expect(body.error.code).toBe("BILLING_PROFILE_NOT_FOUND");
   });
 });

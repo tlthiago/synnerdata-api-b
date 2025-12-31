@@ -1,4 +1,7 @@
-import { beforeAll, describe, expect, test } from "bun:test";
+import { afterAll, beforeAll, describe, expect, test } from "bun:test";
+import { inArray } from "drizzle-orm";
+import { db } from "@/db";
+import { schema } from "@/db/schema";
 import { env } from "@/env";
 import { createPaidPlan } from "@/test/factories/plan";
 import { createTestApp, type TestApp } from "@/test/helpers/app";
@@ -17,6 +20,9 @@ function generateTierPrices(basePrice: number) {
   }));
 }
 
+// Track created plans for cleanup
+const createdPlanIds: string[] = [];
+
 describe("PUT /payments/plans/:id", () => {
   let app: TestApp;
   let authHeaders: Record<string, string>;
@@ -27,8 +33,21 @@ describe("PUT /payments/plans/:id", () => {
     authHeaders = headers;
   });
 
+  afterAll(async () => {
+    // Cleanup: delete pricing tiers and plans created during tests
+    if (createdPlanIds.length > 0) {
+      await db
+        .delete(schema.planPricingTiers)
+        .where(inArray(schema.planPricingTiers.planId, createdPlanIds));
+      await db
+        .delete(schema.subscriptionPlans)
+        .where(inArray(schema.subscriptionPlans.id, createdPlanIds));
+    }
+  });
+
   test("should reject unauthenticated requests", async () => {
     const { plan } = await createPaidPlan("gold");
+    createdPlanIds.push(plan.id);
 
     const response = await app.handle(
       new Request(`${BASE_URL}/v1/payments/plans/${plan.id}`, {
@@ -42,6 +61,7 @@ describe("PUT /payments/plans/:id", () => {
 
   test("should reject non-admin users", async () => {
     const { plan } = await createPaidPlan("gold");
+    createdPlanIds.push(plan.id);
     const { headers: nonAdminHeaders } = await createTestUser({
       emailVerified: true,
     });
@@ -58,6 +78,7 @@ describe("PUT /payments/plans/:id", () => {
 
   test("should update plan displayName", async () => {
     const { plan } = await createPaidPlan("gold");
+    createdPlanIds.push(plan.id);
 
     const response = await app.handle(
       new Request(`${BASE_URL}/v1/payments/plans/${plan.id}`, {
@@ -76,6 +97,7 @@ describe("PUT /payments/plans/:id", () => {
 
   test("should update plan limits with valid features", async () => {
     const { plan } = await createPaidPlan("gold");
+    createdPlanIds.push(plan.id);
     const newLimits = { features: DIAMOND_FEATURES };
 
     const response = await app.handle(
@@ -94,6 +116,7 @@ describe("PUT /payments/plans/:id", () => {
 
   test("should update plan status flags", async () => {
     const { plan } = await createPaidPlan("diamond");
+    createdPlanIds.push(plan.id);
 
     const response = await app.handle(
       new Request(`${BASE_URL}/v1/payments/plans/${plan.id}`, {
@@ -129,6 +152,7 @@ describe("PUT /payments/plans/:id", () => {
 
   test("should preserve plan name when updating other fields", async () => {
     const { plan } = await createPaidPlan("platinum");
+    createdPlanIds.push(plan.id);
 
     const response = await app.handle(
       new Request(`${BASE_URL}/v1/payments/plans/${plan.id}`, {
@@ -147,6 +171,7 @@ describe("PUT /payments/plans/:id", () => {
 
   test("should update multiple fields at once", async () => {
     const { plan } = await createPaidPlan("gold");
+    createdPlanIds.push(plan.id);
 
     const updateData = {
       displayName: "Multi Update Plan",
@@ -172,6 +197,7 @@ describe("PUT /payments/plans/:id", () => {
 
   test("should update all pricing tiers at once", async () => {
     const { plan } = await createPaidPlan("diamond");
+    createdPlanIds.push(plan.id);
     const newTiers = generateTierPrices(5000);
 
     const response = await app.handle(

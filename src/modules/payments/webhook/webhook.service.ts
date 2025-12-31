@@ -3,8 +3,10 @@ import { and, eq } from "drizzle-orm";
 import { db } from "@/db";
 import { schema } from "@/db/schema";
 import { env } from "@/env";
+import { logger } from "@/lib/logger";
 import { WebhookValidationError } from "@/modules/payments/errors";
 import { PaymentHooks } from "@/modules/payments/hooks";
+import { SubscriptionService } from "@/modules/payments/subscription/subscription.service";
 import type { ProcessWebhook } from "./webhook.model";
 
 type SubscriptionCreatedData = {
@@ -171,39 +173,26 @@ export abstract class WebhookService {
       metadata?: Record<string, string>;
     };
 
-    const subscriptionId = data.subscription?.id;
     const organizationId = data.metadata?.organization_id;
 
     if (!organizationId) {
       return;
     }
 
-    await db
-      .update(schema.orgSubscriptions)
-      .set({
-        status: "active",
-        pagarmeSubscriptionId: subscriptionId,
-        currentPeriodStart: data.current_period?.start_at
-          ? new Date(data.current_period.start_at)
-          : new Date(),
-        currentPeriodEnd: data.current_period?.end_at
-          ? new Date(data.current_period.end_at)
-          : null,
-        // Clear grace period fields when payment succeeds
-        pastDueSince: null,
-        gracePeriodEnds: null,
-      })
-      .where(eq(schema.orgSubscriptions.organizationId, organizationId));
+    const result = await SubscriptionService.markActive({
+      organizationId,
+      pagarmeSubscriptionId: data.subscription?.id,
+      periodStart: data.current_period?.start_at
+        ? new Date(data.current_period.start_at)
+        : new Date(),
+      periodEnd: data.current_period?.end_at
+        ? new Date(data.current_period.end_at)
+        : null,
+    });
 
-    const [subscription] = await db
-      .select()
-      .from(schema.orgSubscriptions)
-      .where(eq(schema.orgSubscriptions.organizationId, organizationId))
-      .limit(1);
-
-    if (subscription) {
+    if (result?.subscription) {
       PaymentHooks.emit("charge.paid", {
-        subscriptionId: subscription.id,
+        subscriptionId: result.subscription.id,
         invoiceId: data.invoice?.id ?? "",
       });
     }
@@ -225,9 +214,6 @@ export abstract class WebhookService {
       return;
     }
 
-    const { SubscriptionService } = await import(
-      "../subscription/subscription.service"
-    );
     await SubscriptionService.markPastDue(organizationId);
 
     const [subscription] = await db
@@ -245,56 +231,7 @@ export abstract class WebhookService {
         invoiceId: data.invoice?.id ?? "",
         error: errorMessage,
       });
-
-      // Send payment failed email to organization owner
-      await WebhookService.sendPaymentFailedEmail(
-        subscription,
-        organizationId,
-        errorMessage
-      );
-    }
-  }
-
-  private static async sendPaymentFailedEmail(
-    subscription: typeof schema.orgSubscriptions.$inferSelect,
-    organizationId: string,
-    errorMessage: string
-  ): Promise<void> {
-    const [emailData] = await db
-      .select({
-        userEmail: schema.users.email,
-        organizationName: schema.organizations.name,
-        planName: schema.subscriptionPlans.displayName,
-      })
-      .from(schema.members)
-      .innerJoin(schema.users, eq(schema.users.id, schema.members.userId))
-      .innerJoin(
-        schema.organizations,
-        eq(schema.organizations.id, schema.members.organizationId)
-      )
-      .innerJoin(
-        schema.subscriptionPlans,
-        eq(schema.subscriptionPlans.id, subscription.planId)
-      )
-      .where(
-        and(
-          eq(schema.members.organizationId, organizationId),
-          eq(schema.members.role, "owner")
-        )
-      )
-      .limit(1);
-
-    if (emailData && subscription.gracePeriodEnds) {
-      const { sendPaymentFailedEmail } = await import("@/lib/email");
-      await sendPaymentFailedEmail({
-        to: emailData.userEmail,
-        organizationName: emailData.organizationName,
-        planName: emailData.planName,
-        gracePeriodEnds: subscription.gracePeriodEnds,
-        errorMessage,
-      }).catch(() => {
-        // Email failure should not fail webhook processing
-      });
+      // Email is sent via PaymentHooks listener (charge.failed)
     }
   }
 
@@ -309,60 +246,26 @@ export abstract class WebhookService {
       };
     };
 
-    const organizationId = data.metadata?.organization_id;
-    const pagarmeSubscriptionId = data.subscription?.id;
-
-    // Try to find organization by metadata or by pagarmeSubscriptionId
-    type Subscription = typeof schema.orgSubscriptions.$inferSelect;
-    let subscription: Subscription | undefined;
-
-    if (organizationId) {
-      [subscription] = await db
-        .select()
-        .from(schema.orgSubscriptions)
-        .where(eq(schema.orgSubscriptions.organizationId, organizationId))
-        .limit(1);
-    } else if (pagarmeSubscriptionId) {
-      [subscription] = await db
-        .select()
-        .from(schema.orgSubscriptions)
-        .where(
-          eq(
-            schema.orgSubscriptions.pagarmeSubscriptionId,
-            pagarmeSubscriptionId
-          )
-        )
-        .limit(1);
-    }
-
-    if (!subscription) {
-      return;
-    }
-
-    // Mark subscription as canceled due to refund
-    await db
-      .update(schema.orgSubscriptions)
-      .set({
-        status: "canceled",
-        canceledAt: new Date(),
-      })
-      .where(eq(schema.orgSubscriptions.id, subscription.id));
-
-    PaymentHooks.emit("charge.refunded", {
-      subscriptionId: subscription.id,
+    // Delegate to SubscriptionService - it handles finding by org or pagarme ID,
+    // updating status, and emitting both charge.refunded and subscription.canceled events
+    await SubscriptionService.cancelByRefund({
+      organizationId: data.metadata?.organization_id,
+      pagarmeSubscriptionId: data.subscription?.id,
       chargeId: data.id,
       amount: data.amount ?? 0,
       reason: data.last_transaction?.gateway_response?.message,
     });
-
-    // Also emit subscription.canceled since access is being revoked
-    PaymentHooks.emit("subscription.canceled", { subscription });
   }
 
+  /**
+   * Handles subscription.updated webhook from Pagarme.
+   * Uses timestamp validation to prevent out-of-order updates (idempotency).
+   */
   private static async handleSubscriptionUpdated(payload: ProcessWebhook) {
     const data = payload.data as {
       id: string;
       status?: string;
+      updated_at?: string;
       card?: {
         id: string;
         last_four_digits: string;
@@ -377,103 +280,119 @@ export abstract class WebhookService {
 
     const organizationId = data.metadata?.organization_id;
     const pagarmeSubscriptionId = data.id;
+    const eventUpdatedAt = data.updated_at ? new Date(data.updated_at) : null;
 
-    // Find subscription by metadata or by pagarmeSubscriptionId
-    type Subscription = typeof schema.orgSubscriptions.$inferSelect;
-    let subscription: Subscription | undefined;
+    // Use transaction for atomicity and timestamp validation
+    const result = await db.transaction(async (tx) => {
+      // Find subscription by metadata or by pagarmeSubscriptionId
+      type Subscription = typeof schema.orgSubscriptions.$inferSelect;
+      let subscription: Subscription | undefined;
 
-    if (organizationId) {
-      [subscription] = await db
-        .select()
-        .from(schema.orgSubscriptions)
-        .where(eq(schema.orgSubscriptions.organizationId, organizationId))
-        .limit(1);
-    } else {
-      [subscription] = await db
-        .select()
-        .from(schema.orgSubscriptions)
-        .where(
-          eq(
-            schema.orgSubscriptions.pagarmeSubscriptionId,
-            pagarmeSubscriptionId
-          )
-        )
-        .limit(1);
-    }
-
-    if (!subscription) {
-      return;
-    }
-
-    const changes: {
-      cardUpdated?: boolean;
-      statusChanged?: boolean;
-      previousStatus?: string;
-    } = {};
-
-    // Track status change
-    const previousStatus = subscription.status;
-    let newStatus = subscription.status;
-
-    if (data.status) {
-      const statusMap: Record<string, string> = {
-        active: "active",
-        canceled: "canceled",
-        pending: "past_due",
-        failed: "past_due",
-        unpaid: "past_due",
-      };
-
-      const mappedStatus = statusMap[data.status];
-      if (mappedStatus && mappedStatus !== subscription.status) {
-        newStatus = mappedStatus as typeof subscription.status;
-        changes.statusChanged = true;
-        changes.previousStatus = previousStatus;
+      if (organizationId) {
+        [subscription] = await tx
+          .select()
+          .from(schema.orgSubscriptions)
+          .where(eq(schema.orgSubscriptions.organizationId, organizationId));
+      } else {
+        [subscription] = await tx
+          .select()
+          .from(schema.orgSubscriptions)
+          .where(
+            eq(
+              schema.orgSubscriptions.pagarmeSubscriptionId,
+              pagarmeSubscriptionId
+            )
+          );
       }
-    }
 
-    // Track card update
-    if (data.card?.id) {
-      changes.cardUpdated = true;
-    }
-
-    // Build update object
-    const updateData: Record<string, unknown> = {};
-
-    if (changes.statusChanged) {
-      updateData.status = newStatus;
-      if (newStatus === "canceled") {
-        updateData.canceledAt = new Date();
+      if (!subscription) {
+        return null;
       }
-    }
 
-    if (data.current_period?.start_at) {
-      updateData.currentPeriodStart = new Date(data.current_period.start_at);
-    }
+      // Idempotency check: skip if event is older than last processed
+      if (
+        eventUpdatedAt &&
+        subscription.pagarmeUpdatedAt &&
+        eventUpdatedAt <= subscription.pagarmeUpdatedAt
+      ) {
+        // Event is older or same as last processed, skip
+        return null;
+      }
 
-    if (data.current_period?.end_at) {
-      updateData.currentPeriodEnd = new Date(data.current_period.end_at);
-    }
+      const changes: {
+        cardUpdated?: boolean;
+        statusChanged?: boolean;
+        previousStatus?: string;
+      } = {};
 
-    // Only update if there are changes
-    if (Object.keys(updateData).length > 0) {
-      await db
-        .update(schema.orgSubscriptions)
-        .set(updateData)
-        .where(eq(schema.orgSubscriptions.id, subscription.id));
-    }
+      // Track status change
+      const previousStatus = subscription.status;
+      let newStatus = subscription.status;
 
-    // Fetch updated subscription for event
-    const [updatedSubscription] = await db
-      .select()
-      .from(schema.orgSubscriptions)
-      .where(eq(schema.orgSubscriptions.id, subscription.id))
-      .limit(1);
+      if (data.status) {
+        const statusMap: Record<string, string> = {
+          active: "active",
+          canceled: "canceled",
+          pending: "past_due",
+          failed: "past_due",
+          unpaid: "past_due",
+        };
 
-    if (updatedSubscription) {
+        const mappedStatus = statusMap[data.status];
+        if (mappedStatus && mappedStatus !== subscription.status) {
+          newStatus = mappedStatus as typeof subscription.status;
+          changes.statusChanged = true;
+          changes.previousStatus = previousStatus;
+        }
+      }
+
+      // Track card update
+      if (data.card?.id) {
+        changes.cardUpdated = true;
+      }
+
+      // Build update object
+      const updateData: Record<string, unknown> = {};
+
+      if (changes.statusChanged) {
+        updateData.status = newStatus;
+        if (newStatus === "canceled") {
+          updateData.canceledAt = new Date();
+        }
+      }
+
+      if (data.current_period?.start_at) {
+        updateData.currentPeriodStart = new Date(data.current_period.start_at);
+      }
+
+      if (data.current_period?.end_at) {
+        updateData.currentPeriodEnd = new Date(data.current_period.end_at);
+      }
+
+      // Always update pagarmeUpdatedAt if available
+      if (eventUpdatedAt) {
+        updateData.pagarmeUpdatedAt = eventUpdatedAt;
+      }
+
+      // Only update if there are changes
+      if (Object.keys(updateData).length > 0) {
+        const [updated] = await tx
+          .update(schema.orgSubscriptions)
+          .set(updateData)
+          .where(eq(schema.orgSubscriptions.id, subscription.id))
+          .returning();
+
+        return { subscription: updated, changes };
+      }
+
+      return { subscription, changes };
+    });
+
+    // Emit event outside transaction
+    if (result?.subscription) {
       PaymentHooks.emit("subscription.updated", {
-        subscription: updatedSubscription,
-        changes,
+        subscription: result.subscription,
+        changes: result.changes,
       });
     }
   }
@@ -487,61 +406,13 @@ export abstract class WebhookService {
     const organizationId = data.metadata?.organization_id;
 
     if (!organizationId) {
-      const [existingSubscription] = await db
-        .select()
-        .from(schema.orgSubscriptions)
-        .where(eq(schema.orgSubscriptions.pagarmeSubscriptionId, data.id))
-        .limit(1);
-
-      if (existingSubscription) {
-        const canceledAt = new Date();
-        await db
-          .update(schema.orgSubscriptions)
-          .set({
-            status: "canceled",
-            canceledAt,
-          })
-          .where(eq(schema.orgSubscriptions.id, existingSubscription.id));
-
-        PaymentHooks.emit("subscription.canceled", {
-          subscription: existingSubscription,
-        });
-
-        await WebhookService.sendCancellationEmail(
-          existingSubscription.organizationId,
-          existingSubscription.planId,
-          canceledAt,
-          existingSubscription.currentPeriodEnd
-        );
-      }
+      // Try to find subscription by Pagarme ID when metadata is missing
+      await SubscriptionService.cancelByPagarmeId(data.id);
       return;
     }
 
-    const canceledAt = new Date();
-    await db
-      .update(schema.orgSubscriptions)
-      .set({
-        status: "canceled",
-        canceledAt,
-      })
-      .where(eq(schema.orgSubscriptions.organizationId, organizationId));
-
-    const [subscription] = await db
-      .select()
-      .from(schema.orgSubscriptions)
-      .where(eq(schema.orgSubscriptions.organizationId, organizationId))
-      .limit(1);
-
-    if (subscription) {
-      PaymentHooks.emit("subscription.canceled", { subscription });
-
-      await WebhookService.sendCancellationEmail(
-        organizationId,
-        subscription.planId,
-        canceledAt,
-        subscription.currentPeriodEnd
-      );
-    }
+    await SubscriptionService.cancelByWebhook(organizationId);
+    // Email is sent via PaymentHooks listener (subscription.canceled)
   }
 
   private static async handleSubscriptionCreated(payload: ProcessWebhook) {
@@ -557,37 +428,17 @@ export abstract class WebhookService {
     const { periodStart, periodEnd } =
       WebhookService.calculatePeriodDates(data);
 
-    await WebhookService.activateSubscription({
+    // Activate subscription (emits subscription.activated event and sends email via listener)
+    // Note: pagarmeCustomerId is stored in billing_profiles during checkout, not here
+    await SubscriptionService.activate({
       organizationId,
       planId,
       pricingTierId,
       billingCycle,
       pagarmeSubscriptionId: data.id,
-      pagarmeCustomerId: data.customer?.id,
       periodStart,
       periodEnd,
     });
-
-    if (data.customer) {
-      await WebhookService.syncCustomerData(organizationId, data.customer);
-    }
-
-    const [subscription] = await db
-      .select()
-      .from(schema.orgSubscriptions)
-      .where(eq(schema.orgSubscriptions.organizationId, organizationId))
-      .limit(1);
-
-    if (subscription) {
-      PaymentHooks.emit("subscription.activated", { subscription });
-    }
-
-    await WebhookService.sendUpgradeEmail(
-      organizationId,
-      subscription?.planId ?? planId,
-      periodEnd,
-      data.card?.last_four_digits
-    );
   }
 
   private static async resolveCheckoutInfo(
@@ -600,8 +451,21 @@ export abstract class WebhookService {
     }
 
     const checkoutInfo = await WebhookService.findCheckoutByPaymentLink(
-      data.code
+      data.code,
+      data.id
     );
+
+    if (!checkoutInfo) {
+      logger.warn({
+        type: "webhook:subscription-created:checkout-not-found",
+        subscriptionId: data.id,
+        subscriptionCode: data.code,
+        hasMetadata: !!data.metadata,
+        metadataKeys: data.metadata ? Object.keys(data.metadata) : [],
+        customerEmail: data.customer?.email,
+      });
+    }
+
     return checkoutInfo;
   }
 
@@ -617,12 +481,18 @@ export abstract class WebhookService {
   }
 
   private static async findCheckoutByPaymentLink(
-    paymentLinkCode?: string
+    paymentLinkCode: string | undefined,
+    subscriptionId: string
   ): Promise<CheckoutInfo | null> {
     if (!paymentLinkCode) {
+      logger.info({
+        type: "webhook:checkout-lookup:no-code",
+        subscriptionId,
+      });
       return null;
     }
 
+    // Primary search: exact match by payment link code
     const [checkout] = await db
       .select({
         organizationId: schema.pendingCheckouts.organizationId,
@@ -630,6 +500,7 @@ export abstract class WebhookService {
         billingCycle: schema.pendingCheckouts.billingCycle,
         pricingTierId: schema.pendingCheckouts.pricingTierId,
         id: schema.pendingCheckouts.id,
+        paymentLinkId: schema.pendingCheckouts.paymentLinkId,
       })
       .from(schema.pendingCheckouts)
       .where(
@@ -641,8 +512,38 @@ export abstract class WebhookService {
       .limit(1);
 
     if (!checkout) {
+      // Log details to help debug mismatches
+      const pendingCheckouts = await db
+        .select({
+          id: schema.pendingCheckouts.id,
+          paymentLinkId: schema.pendingCheckouts.paymentLinkId,
+          status: schema.pendingCheckouts.status,
+          createdAt: schema.pendingCheckouts.createdAt,
+        })
+        .from(schema.pendingCheckouts)
+        .where(eq(schema.pendingCheckouts.status, "pending"))
+        .limit(5);
+
+      logger.warn({
+        type: "webhook:checkout-lookup:not-found",
+        subscriptionId,
+        searchedCode: paymentLinkCode,
+        pendingCheckoutsCount: pendingCheckouts.length,
+        pendingCheckoutIds: pendingCheckouts.map((c) => ({
+          id: c.id,
+          paymentLinkId: c.paymentLinkId,
+        })),
+      });
+
       return null;
     }
+
+    logger.info({
+      type: "webhook:checkout-lookup:found",
+      subscriptionId,
+      checkoutId: checkout.id,
+      paymentLinkId: checkout.paymentLinkId,
+    });
 
     await db
       .update(schema.pendingCheckouts)
@@ -684,210 +585,5 @@ export abstract class WebhookService {
     }
 
     return { periodStart, periodEnd };
-  }
-
-  private static async activateSubscription(params: {
-    organizationId: string;
-    planId?: string;
-    pricingTierId?: string;
-    billingCycle: string;
-    pagarmeSubscriptionId: string;
-    pagarmeCustomerId?: string;
-    periodStart: Date;
-    periodEnd: Date;
-  }) {
-    await db
-      .update(schema.orgSubscriptions)
-      .set({
-        status: "active",
-        planId: params.planId ?? undefined,
-        pricingTierId: params.pricingTierId ?? undefined,
-        pagarmeSubscriptionId: params.pagarmeSubscriptionId,
-        pagarmeCustomerId: params.pagarmeCustomerId,
-        currentPeriodStart: params.periodStart,
-        currentPeriodEnd: params.periodEnd,
-        billingCycle: params.billingCycle,
-        trialUsed: true,
-      })
-      .where(eq(schema.orgSubscriptions.organizationId, params.organizationId));
-  }
-
-  private static async sendUpgradeEmail(
-    organizationId: string,
-    planId: string | undefined,
-    periodEnd: Date,
-    cardLast4?: string
-  ) {
-    try {
-      const { sendUpgradeConfirmationEmail } = await import("@/lib/email");
-
-      const [owner] = await db
-        .select({ email: schema.users.email })
-        .from(schema.members)
-        .innerJoin(schema.users, eq(schema.members.userId, schema.users.id))
-        .where(
-          and(
-            eq(schema.members.organizationId, organizationId),
-            eq(schema.members.role, "owner")
-          )
-        )
-        .limit(1);
-
-      if (!owner?.email) {
-        return;
-      }
-
-      const [org] = await db
-        .select({ name: schema.organizations.name })
-        .from(schema.organizations)
-        .where(eq(schema.organizations.id, organizationId))
-        .limit(1);
-
-      if (!planId) {
-        return;
-      }
-
-      // Get subscription with plan and tier for pricing info
-      const [subData] = await db
-        .select({
-          displayName: schema.subscriptionPlans.displayName,
-          priceMonthly: schema.planPricingTiers.priceMonthly,
-        })
-        .from(schema.orgSubscriptions)
-        .innerJoin(
-          schema.subscriptionPlans,
-          eq(schema.orgSubscriptions.planId, schema.subscriptionPlans.id)
-        )
-        .leftJoin(
-          schema.planPricingTiers,
-          eq(schema.orgSubscriptions.pricingTierId, schema.planPricingTiers.id)
-        )
-        .where(eq(schema.orgSubscriptions.organizationId, organizationId))
-        .limit(1);
-
-      if (!subData) {
-        return;
-      }
-
-      await sendUpgradeConfirmationEmail({
-        to: owner.email,
-        organizationName: org?.name ?? "Sua organização",
-        planName: subData.displayName,
-        planPrice: subData.priceMonthly ?? 0,
-        nextBillingDate: periodEnd,
-        cardLast4,
-      });
-    } catch (_) {
-      // Email failure should not fail the webhook
-    }
-  }
-
-  private static async sendCancellationEmail(
-    organizationId: string,
-    planId: string,
-    canceledAt: Date,
-    accessUntil: Date | null
-  ) {
-    try {
-      const { sendSubscriptionCanceledEmail } = await import("@/lib/email");
-
-      const [owner] = await db
-        .select({ email: schema.users.email })
-        .from(schema.members)
-        .innerJoin(schema.users, eq(schema.members.userId, schema.users.id))
-        .where(
-          and(
-            eq(schema.members.organizationId, organizationId),
-            eq(schema.members.role, "owner")
-          )
-        )
-        .limit(1);
-
-      if (!owner?.email) {
-        return;
-      }
-
-      const [org] = await db
-        .select({ name: schema.organizations.name })
-        .from(schema.organizations)
-        .where(eq(schema.organizations.id, organizationId))
-        .limit(1);
-
-      const [plan] = await db
-        .select({ displayName: schema.subscriptionPlans.displayName })
-        .from(schema.subscriptionPlans)
-        .where(eq(schema.subscriptionPlans.id, planId))
-        .limit(1);
-
-      if (!plan) {
-        return;
-      }
-
-      await sendSubscriptionCanceledEmail({
-        to: owner.email,
-        organizationName: org?.name ?? "Sua organização",
-        planName: plan.displayName,
-        canceledAt,
-        accessUntil,
-      });
-    } catch (_) {
-      // Email failure should not fail the webhook
-    }
-  }
-
-  private static async syncCustomerData(
-    organizationId: string,
-    customer: {
-      id: string;
-      name: string;
-      document: string;
-      phones?: {
-        mobile_phone?: {
-          country_code: string;
-          area_code: string;
-          number: string;
-        };
-      };
-    }
-  ) {
-    const [profile] = await db
-      .select({
-        legalName: schema.organizationProfiles.legalName,
-        taxId: schema.organizationProfiles.taxId,
-        mobile: schema.organizationProfiles.mobile,
-      })
-      .from(schema.organizationProfiles)
-      .where(eq(schema.organizationProfiles.organizationId, organizationId))
-      .limit(1);
-
-    if (!profile) {
-      return;
-    }
-
-    const mobilePhone = customer.phones?.mobile_phone;
-    const phoneNumber = mobilePhone
-      ? `+${mobilePhone.country_code}${mobilePhone.area_code}${mobilePhone.number}`
-      : null;
-
-    const updates: Record<string, string | null> = {
-      pagarmeCustomerId: customer.id,
-    };
-
-    if (!profile.legalName && customer.name) {
-      updates.legalName = customer.name;
-    }
-
-    if (!profile.taxId && customer.document) {
-      updates.taxId = customer.document;
-    }
-
-    if (!profile.mobile && phoneNumber) {
-      updates.mobile = phoneNumber;
-    }
-
-    await db
-      .update(schema.organizationProfiles)
-      .set(updates)
-      .where(eq(schema.organizationProfiles.organizationId, organizationId));
   }
 }

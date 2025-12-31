@@ -1,6 +1,12 @@
+import { eq } from "drizzle-orm";
 import { db } from "@/db";
 import { schema } from "@/db/schema";
 
+/**
+ * Subscription status for database storage.
+ * Note: "trial" is kept for backward compatibility in tests but maps to "active" status.
+ * Trial is now determined by plan.isTrial, not by subscription status.
+ */
 export type SubscriptionStatus =
   | "trial"
   | "active"
@@ -19,6 +25,10 @@ type CreateTestSubscriptionOptions = {
 /**
  * Creates a test subscription for an organization.
  * Accepts either a status string or options object for backward compatibility.
+ *
+ * IMPORTANT: "trial" status is now mapped to "active" status.
+ * Trial subscriptions are identified by the plan's isTrial flag, not by status.
+ * To create a proper trial subscription, use a trial plan (with isTrial=true).
  */
 export async function createTestSubscription(
   organizationId: string,
@@ -31,12 +41,27 @@ export async function createTestSubscription(
       : (statusOrOptions ?? {});
 
   const {
-    status = "trial",
+    status: inputStatus = "trial",
     trialDays = 14,
     periodDays = 30,
     pagarmeSubscriptionId,
     pricingTierId,
   } = options;
+
+  // Check if the plan is a trial plan
+  const [plan] = await db
+    .select({ isTrial: schema.subscriptionPlans.isTrial })
+    .from(schema.subscriptionPlans)
+    .where(eq(schema.subscriptionPlans.id, planId))
+    .limit(1);
+
+  const isTrialPlan = plan?.isTrial ?? false;
+
+  // Map "trial" status to "active" - trial is now determined by plan.isTrial
+  const status = inputStatus === "trial" ? "active" : inputStatus;
+
+  // For trial plans or when inputStatus was "trial", set trial dates
+  const shouldSetTrialDates = isTrialPlan || inputStatus === "trial";
 
   const id = `test-sub-${crypto.randomUUID()}`;
   const now = new Date();
@@ -51,11 +76,13 @@ export async function createTestSubscription(
     status,
     pagarmeSubscriptionId,
     pricingTierId,
-    trialStart: status === "trial" ? now : null,
-    trialEnd: status === "trial" ? trialEnd : null,
-    trialUsed: status !== "trial",
-    currentPeriodStart: status === "active" ? now : null,
-    currentPeriodEnd: status === "active" ? periodEnd : null,
+    trialStart: shouldSetTrialDates ? now : null,
+    trialEnd: shouldSetTrialDates ? trialEnd : null,
+    trialUsed: !shouldSetTrialDates,
+    currentPeriodStart:
+      status === "active" && !shouldSetTrialDates ? now : null,
+    currentPeriodEnd:
+      status === "active" && !shouldSetTrialDates ? periodEnd : null,
     cancelAtPeriodEnd: false,
     seats: 1,
   });
@@ -64,7 +91,9 @@ export async function createTestSubscription(
 }
 
 /**
- * Creates a trial subscription.
+ * Creates a trial subscription using a trial plan.
+ * Note: The planId should point to a plan with isTrial=true for proper trial behavior.
+ * Status will be "active" but with trial dates set.
  */
 export function createTrialSubscription(
   organizationId: string,
@@ -72,7 +101,7 @@ export function createTrialSubscription(
   trialDays = 14
 ): Promise<string> {
   return createTestSubscription(organizationId, planId, {
-    status: "trial",
+    status: "trial", // Will be mapped to "active"
     trialDays,
   });
 }
@@ -131,7 +160,6 @@ export async function waitForSubscriptionStatus(
   expectedStatus: SubscriptionStatus,
   options: WaitOptions = {}
 ): Promise<typeof schema.orgSubscriptions.$inferSelect> {
-  const { eq } = await import("drizzle-orm");
   const { timeout = DEFAULT_TIMEOUT, interval = DEFAULT_INTERVAL } = options;
   const startTime = Date.now();
 

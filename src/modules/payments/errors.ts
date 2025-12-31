@@ -104,17 +104,6 @@ export class TrialExpiredError extends PaymentError {
   }
 }
 
-export class TrialPlanNotConfiguredError extends PaymentError {
-  status = 500;
-
-  constructor() {
-    super(
-      "Trial plan is not configured. Please contact support.",
-      "TRIAL_PLAN_NOT_CONFIGURED"
-    );
-  }
-}
-
 export class PlanNotFoundError extends PaymentError {
   status = 404;
 
@@ -452,5 +441,31 @@ export class TierNotFoundError extends PaymentError {
       tierId,
       planId,
     });
+  }
+}
+
+// Billing Profile Errors
+
+export class BillingProfileNotFoundError extends PaymentError {
+  status = 404;
+
+  constructor(organizationId: string) {
+    super(
+      `Perfil de cobrança não encontrado para a organização: ${organizationId}`,
+      "BILLING_PROFILE_NOT_FOUND",
+      { organizationId }
+    );
+  }
+}
+
+export class BillingProfileAlreadyExistsError extends PaymentError {
+  status = 409;
+
+  constructor(organizationId: string) {
+    super(
+      `Perfil de cobrança já existe para a organização: ${organizationId}`,
+      "BILLING_PROFILE_ALREADY_EXISTS",
+      { organizationId }
+    );
   }
 }

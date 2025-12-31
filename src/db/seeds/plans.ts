@@ -59,7 +59,7 @@ function createTierId(planName: string, min: number, max: number): string {
   return `tier-${planName}-${min}-${max}`;
 }
 
-interface PlanConfig {
+type PlanConfig = {
   id: string;
   name: string;
   displayName: string;
@@ -70,7 +70,7 @@ interface PlanConfig {
   isPublic: boolean;
   isTrial: boolean;
   sortOrder: number;
-}
+};
 
 function createPlanConfig(
   name: PlanName,

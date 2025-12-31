@@ -258,7 +258,7 @@ describe("Admin Signup Use Case: Criação de Usuários com Roles de Sistema", (
       createdUserIds.push(user.id);
     });
 
-    test("regular user should NOT have emailVerified auto-set", async () => {
+    test("regular user should have emailVerified set via OTP flow", async () => {
       const [user] = await db
         .select()
         .from(schema.users)

@@ -30,6 +30,7 @@ describe("Upgrade Flow: Trial → Paid (Mocked Pagarme)", () => {
   let organizationId: string;
   let userId: string;
   let paymentLinkId: string;
+  let tierId: string;
 
   beforeAll(async () => {
     app = createTestApp();
@@ -72,11 +73,10 @@ describe("Upgrade Flow: Trial → Paid (Mocked Pagarme)", () => {
         .limit(1);
 
       expect(subscription).toBeDefined();
-      expect(subscription.status).toBe("trial");
+      expect(subscription.status).toBe("active"); // Trial is a plan, not a status
       expect(subscription.trialStart).toBeInstanceOf(Date);
       expect(subscription.trialEnd).toBeInstanceOf(Date);
       expect(subscription.pagarmeSubscriptionId).toBeNull();
-      expect(subscription.pagarmeCustomerId).toBeNull();
     });
 
     test("should have organization profile without pagarmeCustomerId", async () => {
@@ -88,6 +88,19 @@ describe("Upgrade Flow: Trial → Paid (Mocked Pagarme)", () => {
 
       expect(profile).toBeDefined();
       expect(profile.pagarmeCustomerId).toBeNull();
+    });
+
+    test("should create billing profile for checkout", async () => {
+      const { createTestBillingProfile } = await import(
+        "@/test/factories/billing-profile"
+      );
+
+      const billingProfile = await createTestBillingProfile({
+        organizationId,
+      });
+
+      expect(billingProfile).toBeDefined();
+      expect(billingProfile.organizationId).toBe(organizationId);
     });
   });
 
@@ -127,6 +140,7 @@ describe("Upgrade Flow: Trial → Paid (Mocked Pagarme)", () => {
         .limit(1);
 
       expect(tier.pagarmePlanIdMonthly).toBe(mockPagarmePlanId);
+      tierId = tier.id;
     });
 
     test("should create checkout with mocked Pagarme API", async () => {
@@ -163,7 +177,7 @@ describe("Upgrade Flow: Trial → Paid (Mocked Pagarme)", () => {
           },
           body: JSON.stringify({
             planId: diamondPlan.id,
-            employeeCount: DEFAULT_EMPLOYEE_COUNT,
+            tierId,
             successUrl: "https://example.com/success",
           }),
         })
@@ -206,7 +220,7 @@ describe("Upgrade Flow: Trial → Paid (Mocked Pagarme)", () => {
         .where(eq(schema.orgSubscriptions.organizationId, organizationId))
         .limit(1);
 
-      expect(subscription.status).toBe("trial");
+      expect(subscription.status).toBe("active"); // Trial is a plan, not a status
     });
   });
 
@@ -248,17 +262,6 @@ describe("Upgrade Flow: Trial → Paid (Mocked Pagarme)", () => {
       expect(subscription.trialUsed).toBe(true);
     });
 
-    test("should store pagarmeCustomerId in subscription", async () => {
-      const [subscription] = await db
-        .select()
-        .from(schema.orgSubscriptions)
-        .where(eq(schema.orgSubscriptions.organizationId, organizationId))
-        .limit(1);
-
-      expect(subscription.pagarmeCustomerId).toBeString();
-      expect(subscription.pagarmeCustomerId?.startsWith("cus_")).toBe(true);
-    });
-
     test("should set current period dates", async () => {
       const [subscription] = await db
         .select()
@@ -289,15 +292,15 @@ describe("Upgrade Flow: Trial → Paid (Mocked Pagarme)", () => {
   });
 
   describe("Fase 4: Sync de Dados do Customer", () => {
-    test("should sync pagarmeCustomerId to organization profile", async () => {
-      const [profile] = await db
+    test("should sync pagarmeCustomerId to billing profile", async () => {
+      const [billingProfile] = await db
         .select()
-        .from(schema.organizationProfiles)
-        .where(eq(schema.organizationProfiles.organizationId, organizationId))
+        .from(schema.billingProfiles)
+        .where(eq(schema.billingProfiles.organizationId, organizationId))
         .limit(1);
 
-      expect(profile.pagarmeCustomerId).toBeString();
-      expect(profile.pagarmeCustomerId?.startsWith("cus_")).toBe(true);
+      expect(billingProfile.pagarmeCustomerId).toBeString();
+      expect(billingProfile.pagarmeCustomerId?.startsWith("cus_")).toBe(true);
     });
   });
 
@@ -316,11 +319,9 @@ describe("Upgrade Flow: Trial → Paid (Mocked Pagarme)", () => {
       // Status
       expect(subscription.status).toBe("active");
 
-      // Pagarme IDs
+      // Pagarme Subscription ID
       expect(subscription.pagarmeSubscriptionId).toBeDefined();
       expect(subscription.pagarmeSubscriptionId?.startsWith("sub_")).toBe(true);
-      expect(subscription.pagarmeCustomerId).toBeDefined();
-      expect(subscription.pagarmeCustomerId?.startsWith("cus_")).toBe(true);
 
       // Period
       expect(subscription.currentPeriodStart).toBeInstanceOf(Date);
@@ -350,7 +351,7 @@ describe("Upgrade Flow: Trial → Paid (Mocked Pagarme)", () => {
           },
           body: JSON.stringify({
             planId: diamondPlan.id,
-            employeeCount: DEFAULT_EMPLOYEE_COUNT,
+            tierId,
             successUrl: "https://example.com/success",
           }),
         })

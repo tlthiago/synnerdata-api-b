@@ -45,10 +45,13 @@ describe("Trial Plan", () => {
     });
 
     test("should have trial plan in database with isTrial=true", async () => {
+      // Order by ID DESC to get fixture plan ("test-plan-trial" after "plan-xxx")
+      const { desc } = await import("drizzle-orm");
       const [plan] = await db
         .select()
         .from(schema.subscriptionPlans)
         .where(eq(schema.subscriptionPlans.isTrial, true))
+        .orderBy(desc(schema.subscriptionPlans.id))
         .limit(1);
 
       expect(plan).toBeDefined();
@@ -80,7 +83,7 @@ describe("Trial Plan", () => {
         .where(eq(schema.orgSubscriptions.organizationId, organizationId))
         .limit(1);
 
-      expect(subscription.status).toBe("trial");
+      expect(subscription.status).toBe("active"); // Trial is a plan, not a status
       expect(subscription.planId).toBe("test-plan-trial");
       expect(subscription.pricingTierId).toBeDefined();
     });

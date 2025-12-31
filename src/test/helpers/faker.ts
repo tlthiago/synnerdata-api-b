@@ -4,19 +4,59 @@ import { fakerPT_BR } from "@faker-js/faker";
 export const faker = fakerPT_BR;
 
 /**
- * Generates a valid Brazilian CPF (11 digits, numbers only).
- * Note: This generates a random 11-digit number, not a mathematically valid CPF.
+ * Generates a valid Brazilian CPF with correct check digits.
  */
 export function generateCpf(): string {
-  return faker.string.numeric(11);
+  const digits = Array.from({ length: 9 }, () =>
+    faker.number.int({ min: 0, max: 9 })
+  );
+
+  // First check digit
+  let sum = 0;
+  for (let i = 0; i < 9; i++) {
+    sum += digits[i] * (10 - i);
+  }
+  let remainder = (sum * 10) % 11;
+  digits.push(remainder >= 10 ? 0 : remainder);
+
+  // Second check digit
+  sum = 0;
+  for (let i = 0; i < 10; i++) {
+    sum += digits[i] * (11 - i);
+  }
+  remainder = (sum * 10) % 11;
+  digits.push(remainder >= 10 ? 0 : remainder);
+
+  return digits.join("");
 }
 
 /**
- * Generates a valid Brazilian CNPJ (14 digits, numbers only).
- * Note: This generates a random 14-digit number, not a mathematically valid CNPJ.
+ * Generates a valid Brazilian CNPJ with correct check digits.
  */
 export function generateCnpj(): string {
-  return faker.string.numeric(14);
+  const digits = Array.from({ length: 12 }, () =>
+    faker.number.int({ min: 0, max: 9 })
+  );
+
+  // First check digit
+  const weights1 = [5, 4, 3, 2, 9, 8, 7, 6, 5, 4, 3, 2];
+  let sum = 0;
+  for (let i = 0; i < 12; i++) {
+    sum += digits[i] * weights1[i];
+  }
+  let remainder = sum % 11;
+  digits.push(remainder < 2 ? 0 : 11 - remainder);
+
+  // Second check digit
+  const weights2 = [6, 5, 4, 3, 2, 9, 8, 7, 6, 5, 4, 3, 2];
+  sum = 0;
+  for (let i = 0; i < 13; i++) {
+    sum += digits[i] * weights2[i];
+  }
+  remainder = sum % 11;
+  digits.push(remainder < 2 ? 0 : 11 - remainder);
+
+  return digits.join("");
 }
 
 /**

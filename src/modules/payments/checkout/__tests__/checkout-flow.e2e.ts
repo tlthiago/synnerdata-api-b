@@ -1,9 +1,13 @@
 import "dotenv/config";
 import { expect, test } from "@playwright/test";
 import { env } from "@/env";
-import { proPlan } from "@/test/fixtures/plans";
+import { createTestBillingProfile } from "@/test/factories/billing-profile";
+import {
+  type CreatePlanResult,
+  createPaidPlan,
+  getFirstTier,
+} from "@/test/factories/plan";
 import { createTestApp } from "@/test/helpers/app";
-import { seedPlans } from "@/test/helpers/seed";
 import { createTestUserWithOrganization } from "@/test/helpers/user";
 
 const API_URL = env.API_URL;
@@ -22,10 +26,12 @@ const TEST_CARD = {
   cvv: "123",
 };
 
+let proPlanResult: CreatePlanResult;
+
 test.describe("Checkout Flow E2E", () => {
   test.beforeAll(async () => {
-    // Seed plans in the database
-    await seedPlans();
+    // Create plans dynamically using factories
+    proPlanResult = await createPaidPlan("gold");
   });
 
   test("should complete full checkout flow with Pagarme payment link", async ({
@@ -39,9 +45,11 @@ test.describe("Checkout Flow E2E", () => {
       throw new Error("Organization not created for test user");
     }
 
-    if (!proPlan) {
-      throw new Error("Pro plan not found in fixtures");
-    }
+    // Create billing profile (required for checkout)
+    await createTestBillingProfile({ organizationId });
+
+    // Get first tier for the plan
+    const tier = getFirstTier(proPlanResult);
 
     // 2. Set authentication cookie in browser context
     await page.context().addCookies([
@@ -63,8 +71,8 @@ test.describe("Checkout Flow E2E", () => {
           Cookie: `better-auth.session_token=${session.token}`,
         },
         body: JSON.stringify({
-          planId: proPlan.id,
-          employeeCount: 10,
+          planId: proPlanResult.plan.id,
+          tierId: tier.id,
           successUrl: SUCCESS_URL,
         }),
       })
@@ -250,10 +258,16 @@ test.describe("Checkout Flow E2E", () => {
       emailVerified: true,
     });
 
-    if (!(organizationId && proPlan)) {
-      test.skip(true, "Missing organization or plan");
+    if (!organizationId) {
+      test.skip(true, "Missing organization");
       return;
     }
+
+    // Create billing profile (required for checkout)
+    await createTestBillingProfile({ organizationId });
+
+    // Get first tier for the plan
+    const tier = getFirstTier(proPlanResult);
 
     // Create checkout
     const app = createTestApp();
@@ -265,8 +279,8 @@ test.describe("Checkout Flow E2E", () => {
           Cookie: `better-auth.session_token=${session.token}`,
         },
         body: JSON.stringify({
-          planId: proPlan.id,
-          employeeCount: 10,
+          planId: proPlanResult.plan.id,
+          tierId: tier.id,
           successUrl: SUCCESS_URL,
         }),
       })
@@ -297,11 +311,14 @@ test.describe("Checkout Flow E2E", () => {
   test("should reject checkout for unauthenticated user via browser", async ({
     request,
   }) => {
+    // Get first tier for the plan (needed for valid request body)
+    const tier = getFirstTier(proPlanResult);
+
     // Attempt to call checkout API without auth cookie
     const response = await request.post(`${API_URL}/v1/payments/checkout`, {
       data: {
-        planId: "test-plan-diamond",
-        employeeCount: 10,
+        planId: proPlanResult.plan.id,
+        tierId: tier.id,
         successUrl: SUCCESS_URL,
       },
     });

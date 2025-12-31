@@ -3,9 +3,13 @@ import { expect, test } from "@playwright/test";
 import { eq } from "drizzle-orm";
 import { db } from "@/db";
 import { schema } from "@/db/schema";
-import { proPlan } from "@/test/fixtures/plans";
+import { createTestBillingProfile } from "@/test/factories/billing-profile";
+import {
+  type CreatePlanResult,
+  createPaidPlan,
+  getFirstTier,
+} from "@/test/factories/plan";
 import { createTestApp } from "@/test/helpers/app";
-import { seedPlans } from "@/test/helpers/seed";
 import {
   createTestSubscription,
   waitForSubscriptionActive,
@@ -25,13 +29,16 @@ const TEST_CARD = {
   cvv: "123",
 };
 
+let goldPlanResult: CreatePlanResult;
+
 test.describe("Checkout + Webhook E2E Flow", () => {
   test.beforeAll(async () => {
     if (!TUNNEL_URL) {
       console.log("TUNNEL_URL not set - skipping webhook E2E tests");
       return;
     }
-    await seedPlans();
+    // Create plans dynamically using factories
+    goldPlanResult = await createPaidPlan("gold");
   });
 
   test("should complete checkout and activate subscription via webhook", async ({
@@ -42,10 +49,6 @@ test.describe("Checkout + Webhook E2E Flow", () => {
 
     test.setTimeout(120_000); // 2 minutes for full flow
 
-    if (!proPlan) {
-      throw new Error("Pro plan not found in fixtures");
-    }
-
     // 1. Setup: Create user with trial subscription
     const { user, session, organizationId } =
       await createTestUserWithOrganization({ emailVerified: true });
@@ -54,7 +57,17 @@ test.describe("Checkout + Webhook E2E Flow", () => {
       throw new Error("Organization not created for test user");
     }
 
-    await createTestSubscription(organizationId, proPlan.id, "trial");
+    // Create billing profile (required for checkout)
+    await createTestBillingProfile({ organizationId });
+
+    // Get first tier for the plan
+    const tier = getFirstTier(goldPlanResult);
+
+    await createTestSubscription(
+      organizationId,
+      goldPlanResult.plan.id,
+      "trial"
+    );
 
     // 2. Create checkout with tunnel URL for webhook
     const app = createTestApp();
@@ -66,8 +79,8 @@ test.describe("Checkout + Webhook E2E Flow", () => {
           Cookie: `better-auth.session_token=${session.token}`,
         },
         body: JSON.stringify({
-          planId: proPlan.id,
-          employeeCount: 10,
+          planId: goldPlanResult.plan.id,
+          tierId: tier.id,
           successUrl: `${TUNNEL_URL}/checkout/success`,
         }),
       })

@@ -1,236 +1,236 @@
-# Hierarquia do Módulo de Pagamentos
+# Modulo de Pagamentos
 
-Este documento descreve a estrutura, hierarquia de dependências e relacionamentos do módulo `@src/modules/payments/`.
+> **Proposito**: Contextualizar agentes de IA e desenvolvedores sobre a arquitetura do modulo `@src/modules/payments/`.
+> - **ONDE** encontrar codigo (estrutura de arquivos)
+> - **COMO** seguir os padroes estabelecidos (arquitetura)
+> - **O QUE** cada submodulo faz (responsabilidades)
+> - **POR QUE** decisoes de design foram tomadas (observacoes)
 
 ## Visao Geral
 
-O módulo de pagamentos gerencia todo o ciclo de vida de assinaturas, desde o trial até cancelamento, integrando com a API do Pagarme.
+O modulo gerencia o ciclo de vida de assinaturas (trial → checkout → upgrade/downgrade → cancelamento), integrando com a API do Pagarme.
 
 ## Entidades (Schema)
 
 | Tabela | Descricao |
 |--------|-----------|
-| `subscription_plans` | Planos de assinatura (Trial, Ouro, Diamante, Platina) com features |
-| `plan_pricing_tiers` | Tiers de preco por faixa de funcionarios (10 faixas: 0-10 ate 91-180) |
-| `org_subscriptions` | Assinaturas das organizacoes (status, periodo, ciclo de cobranca) |
-| `subscription_events` | Log de eventos de webhook do Pagarme |
-| `pending_checkouts` | Checkouts pendentes aguardando pagamento |
+| `subscription_plans` | Planos (Trial, Ouro, Diamante, Platina) com features e limites |
+| `plan_pricing_tiers` | 10 faixas de preco por quantidade de funcionarios (0-10 ate 91-180) |
+| `billing_profiles` | Dados de cobranca (legalName, taxId, email, endereco, pagarmeCustomerId) |
+| `org_subscriptions` | Assinaturas das organizacoes (status, periodo, ciclo) |
+| `subscription_events` | Log de webhooks do Pagarme (idempotencia) |
+| `pending_checkouts` | Checkouts aguardando pagamento |
 
 ## Submodulos
 
 | Modulo | Responsabilidade |
 |--------|------------------|
-| **plans/** | CRUD de planos, criacao lazy de planos no Pagarme, validacao de tiers |
-| **pricing/** | Busca de tier por quantidade de funcionarios, validacao de limites |
-| **subscription/** | Gerenciamento de assinaturas (criar trial, ativar, cancelar, restaurar, verificar acesso) |
-| **checkout/** | Criacao de payment links no Pagarme para novas assinaturas |
-| **billing/** | Listagem de invoices, atualizacao de cartao e dados de billing, uso do plano |
-| **plan-change/** | Mudanca de plano/ciclo (upgrade com proration, downgrade agendado) |
-| **limits/** | Verificacao de features e limites de funcionarios por plano |
+| **plans/** | CRUD de planos, criacao lazy no Pagarme, validacao de tiers |
+| **billing/** | CRUD de perfil de cobranca, invoices, cartao, uso |
+| **subscription/** | Gerenciamento de assinaturas (Facade com 3 servicos internos) |
+| **checkout/** | Criacao de payment links no Pagarme |
+| **plan-change/** | Mudanca de plano/ciclo (upgrade imediato, downgrade agendado) |
+| **limits/** | Verificacao de features e limites (com cache interno) |
 | **customer/** | Criacao/consulta de customers no Pagarme |
-| **webhook/** | Processamento de webhooks do Pagarme (charge.paid, subscription.created, etc.) |
-| **jobs/** | Jobs assincronos (expirar trials, notificar, cancelar, suspender grace period) |
+| **webhook/** | Processamento de webhooks (charge.paid, subscription.created, etc.) |
+| **jobs/** | Jobs assincronos (expirar trials, processar cancelamentos) |
 | **pagarme/** | Cliente HTTP para API do Pagarme |
-| **hooks/** | Event emitter interno para eventos de pagamento |
+| **hooks/** | Event emitter para eventos de pagamento |
 
-## Hierarquia de Dependencias
+### Estrutura de Arquivos
 
-```
-                           ┌─────────────────────────────────────┐
-                           │          NIVEL 5 - JOBS             │
-                           │  (Processamento Assincrono)         │
-                           │                                     │
-                           │            jobs/                    │
-                           │   ├─ expireTrials()                 │
-                           │   ├─ notifyExpiringTrials()         │
-                           │   ├─ processScheduledCancellations()│
-                           │   ├─ suspendExpiredGracePeriods()   │
-                           │   └─ processScheduledPlanChanges()  │
-                           └──────────────┬──────────────────────┘
-                                          │
-        ┌─────────────────────────────────┼─────────────────────────────────┐
-        │                                 │                                 │
-        ▼                                 ▼                                 ▼
-┌───────────────────┐         ┌───────────────────┐         ┌───────────────────┐
-│   NIVEL 4         │         │   NIVEL 4         │         │   NIVEL 4         │
-│   webhook/        │         │   plan-change/    │         │   checkout/       │
-│  (Integracoes)    │         │  (Orquestracao)   │         │  (Orquestracao)   │
-│                   │         │                   │         │                   │
-│ • process()       │         │ • changePlan()    │         │ • create()        │
-│ • handleCharge*   │         │ • changeBilling() │         │                   │
-│ • handleSub*      │         │ • changeSubscr()  │         │                   │
-└────────┬──────────┘         └────────┬──────────┘         └────────┬──────────┘
-         │                             │                             │
-         │                     ┌───────┴───────┐                     │
-         │                     │               │                     │
-         ▼                     ▼               ▼                     ▼
-┌───────────────────────────────────────────────────────────────────────────────┐
-│                           NIVEL 3 - SERVICOS DE APLICACAO                     │
-├───────────────────────────────────────────┬───────────────────────────────────┤
-│              limits/                      │              billing/             │
-│   (Verificacao de Acesso)                 │   (Faturamento)                   │
-│                                           │                                   │
-│   • requireFeature()                      │   • listInvoices()                │
-│   • checkFeature()                        │   • getInvoiceDownloadUrl()       │
-│   • checkEmployeeLimit()                  │   • updateCard()                  │
-│   • getCapabilities()                     │   • getUsage()                    │
-│   • requireEmployeeLimit()                │   • updateBillingInfo()           │
-└───────────────────────────────────────────┴───────────────────────────────────┘
-                           │                             │
-                           ▼                             ▼
-┌───────────────────────────────────────────────────────────────────────────────┐
-│                         NIVEL 2 - SERVICOS DE DOMINIO                         │
-├───────────────────────────────────────────┬───────────────────────────────────┤
-│           subscription/                   │             pricing/              │
-│   (Gerenciamento de Assinaturas)          │   (Calculo de Precos)             │
-│                                           │                                   │
-│   • createTrial()                         │   • getTierForEmployeeCount()     │
-│   • activate()                            │   • validateEmployeeCount()       │
-│   • cancel() / restore()                  │   • ensurePagarmePlan()           │
-│   • checkAccess()                         │   • getTierForCheckout()          │
-│   • markPastDue() / expireTrial()         │                                   │
-└───────────────────────────────────────────┴───────────────────────────────────┘
-                           │                             │
-                           ▼                             ▼
-┌───────────────────────────────────────────────────────────────────────────────┐
-│                         NIVEL 1 - CORE (Entidades Base)                       │
-├───────────────────────────────────────────┬───────────────────────────────────┤
-│               plans/                      │            customer/              │
-│   (Gerenciamento de Planos)               │   (Gerenciamento de Clientes)     │
-│                                           │                                   │
-│   • list() / listAll()                    │   • getOrCreateForCheckout()      │
-│   • getById() / getTrialPlan()            │   • create()                      │
-│   • create() / update() / delete()        │   • getCustomerId()               │
-│   • getTierForEmployeeCount()             │   • list()                        │
-│   • ensurePagarmePlan()                   │                                   │
-└───────────────────────────────────────────┴───────────────────────────────────┘
-                           │                             │
-                           ▼                             ▼
-┌───────────────────────────────────────────────────────────────────────────────┐
-│                       NIVEL 0 - INFRAESTRUTURA                                │
-├─────────────────────┬─────────────────────┬───────────────────────────────────┤
-│     pagarme/        │       hooks/        │           errors.ts               │
-│  (Cliente HTTP)     │  (Event Emitter)    │       (Classes de Erro)           │
-│                     │                     │                                   │
-│  • createCustomer() │  • on() / off()     │   • PaymentError                  │
-│  • createPlan()     │  • emit()           │   • CheckoutError                 │
-│  • createPayment*() │                     │   • SubscriptionError             │
-│  • getInvoices()    │                     │   • PlanError, etc.               │
-│  • cancelSub*()     │                     │                                   │
-└─────────────────────┴─────────────────────┴───────────────────────────────────┘
+```text
+plans/
+├─ index.ts              # Controller
+├─ plans.service.ts      # Servico
+├─ plans.model.ts        # Schemas Zod
+└─ plans.constants.ts    # EMPLOYEE_TIERS, PLAN_FEATURES
+
+billing/
+├─ index.ts
+├─ billing.service.ts
+└─ billing.model.ts
+
+subscription/            # Padrao Facade
+├─ index.ts
+├─ subscription.service.ts        # Facade principal
+├─ subscription-query.service.ts  # Leitura
+├─ subscription-access.service.ts # Verificacao de acesso
+├─ subscription-mutation.service.ts # Escrita
+├─ subscription.helpers.ts
+└─ subscription.model.ts
+
+checkout/
+├─ index.ts
+├─ checkout.service.ts
+└─ checkout.model.ts
+
+plan-change/
+├─ index.ts
+├─ plan-change.service.ts    # Orquestracao
+├─ plan-change.helpers.ts    # Queries reutilizaveis
+├─ proration.service.ts      # Calculos de proration
+└─ plan-change.model.ts
+
+limits/
+├─ limits.service.ts    # Com planDisplayNamesCache
+└─ limits.model.ts
+
+customer/
+├─ index.ts
+├─ customer.service.ts
+└─ customer.model.ts
+
+webhook/
+├─ index.ts             # Sem auth (validacao por Basic Auth)
+├─ webhook.service.ts
+└─ webhook.model.ts
+
+jobs/
+├─ index.ts             # Requer X-Api-Key
+├─ jobs.service.ts
+└─ jobs.model.ts
+
+pagarme/
+├─ client.ts            # PagarmeClient (static)
+├─ pagarme-plan.service.ts
+└─ pagarme.types.ts
+
+hooks/
+├─ index.ts             # PaymentHooks singleton
+├─ hooks.types.ts       # Tipos de eventos
+└─ listeners.ts         # Handlers (emails)
 ```
 
-## Matriz de Dependencias
+## Dependencias entre Modulos
 
 | Modulo | Depende de |
 |--------|------------|
 | **pagarme/** | `errors` |
 | **hooks/** | (nenhum interno) |
-| **errors.ts** | (nenhum interno) |
-| **plans/** | `pagarme`, `errors` |
-| **customer/** | `pagarme`, `errors`, `organizations` (externo) |
-| **pricing/** | `pagarme`, `plans.constants`, `errors` |
-| **subscription/** | `hooks`, `errors`, `plans.model` (tipos) |
-| **limits/** | `subscription` (import dinamico), `plans.constants`, `errors` |
-| **billing/** | `pagarme`, `plans.constants`, `errors` |
+| **plans/** | `errors` |
+| **billing/** | `pagarme`, `subscription`, `errors` |
+| **customer/** | `pagarme`, `billing`, `errors` |
+| **subscription/** | `hooks`, `limits`, `errors` |
+| **limits/** | `subscription`, `plans.constants`, `errors` |
 | **checkout/** | `pagarme`, `plans`, `subscription`, `customer`, `errors` |
-| **plan-change/** | `pagarme`, `plans`, `customer`, `limits`, `hooks`, `errors` |
-| **webhook/** | `subscription` (import dinamico), `hooks`, `errors` |
-| **jobs/** | `pagarme`, `plan-change`, `hooks` |
+| **plan-change/** | `pagarme`, `plans`, `customer`, `limits`, `subscription`, `hooks`, `errors` |
+| **webhook/** | `subscription`, `hooks`, `errors` |
+| **jobs/** | `subscription`, `plan-change`, `hooks` |
 
-## Entidades e Relacionamentos
+**Ordem de dependencia principal**: `checkout/` → `customer/` → `billing/`
 
-```
-┌─────────────────────────┐
-│   subscription_plans    │──────────┐
-│   (Planos)              │          │
-├─────────────────────────┤          │
-│ • id                    │          │
-│ • name / displayName    │          │ 1
-│ • limits: { features }  │          │
-│ • isTrial, isActive     │          ▼
-│ • trialDays, sortOrder  │    ┌─────────────────────────┐
-└─────────────────────────┘    │   plan_pricing_tiers    │
-                               │   (Faixas de Preco)     │
-                               ├─────────────────────────┤
-                               │ • planId (FK)           │
-                               │ • minEmployees          │
-                               │ • maxEmployees          │
-           N                   │ • priceMonthly/Yearly   │
-┌──────────────────────────────│ • pagarmePlanId*        │
-│                              └─────────────────────────┘
-│                                         │
-▼                                         │ 1
-┌─────────────────────────┐               │
-│    org_subscriptions    │◄──────────────┘
-│   (Assinaturas)         │
-├─────────────────────────┤
-│ • organizationId (FK)   │───────────▶ organizations (externo)
-│ • planId (FK)           │
-│ • pricingTierId (FK)    │
-│ • status (enum)         │
-│ • billingCycle          │
-│ • trial* / current*     │
-│ • pending* (downgrade)  │          1
-│ • pagarme*Id            │          │
-└─────────────────────────┘          │
-           │                         │
-           │ 1                       ▼
-           │              ┌─────────────────────────┐
-           │              │   pending_checkouts     │
-           │              │   (Checkouts Pendentes) │
-           │              ├─────────────────────────┤
-           │              │ • organizationId (FK)   │
-           │              │ • planId (FK)           │
-           │              │ • pricingTierId (FK)    │
-           │              │ • paymentLinkId         │
-           │              │ • status, expiresAt     │
-           ▼              └─────────────────────────┘
-┌─────────────────────────┐
-│  subscription_events    │
-│  (Log de Webhooks)      │
-├─────────────────────────┤
-│ • subscriptionId (FK)   │
-│ • eventType             │
-│ • pagarmeEventId        │
-│ • payload (jsonb)       │
-│ • processedAt, error    │
-└─────────────────────────┘
-```
+## Eventos (hooks/)
 
-## Fluxos Principais
+| Categoria | Eventos |
+|-----------|---------|
+| **trial** | `started`, `expiring`, `expired` |
+| **subscription** | `activated`, `cancelScheduled`, `restored`, `canceled`, `renewed`, `updated` |
+| **charge** | `paid`, `failed`, `refunded` |
+| **planChange** | `scheduled`, `executed`, `canceled` |
 
-### 1. Trial
-Organizacao criada recebe 14 dias no plano Trial (ate 10 funcionarios)
-
-### 2. Checkout
-Usuario escolhe plano/tier/ciclo → Payment Link → Webhook ativa assinatura
-
-### 3. Upgrade
-Calculo de proration → Novo Payment Link → Ativacao imediata
-
-### 4. Downgrade
-Agendado para fim do periodo atual
-
-### 5. Cancelamento
-Soft cancel (mantem acesso ate fim do periodo) ou hard cancel via webhook
-
-### 6. Grace Period
-15 dias para regularizar pagamento falho antes de suspensao
+Uso: `PaymentHooks.emit("subscription.activated", { subscription })` - listeners enviam emails automaticamente.
 
 ## Constantes Importantes
 
-- **10 Tiers de funcionarios**: 0-10, 11-20, 21-30, ..., 91-180
-- **Trial**: 14 dias, ate 10 funcionarios
-- **Desconto anual**: 20%
-- **Grace period**: 15 dias
+```typescript
+// Timing
+DEFAULT_TRIAL_DAYS = 14
+DEFAULT_TRIAL_EMPLOYEE_LIMIT = 10
+GRACE_PERIOD_DAYS = 15
+CHECKOUT_EXPIRATION_HOURS = 24
 
-## Observacoes para Refatoracao
+// Pricing
+YEARLY_DISCOUNT = 0.2  // 20%
+MAX_EMPLOYEES = 180
+MIN_PRORATION_AMOUNT = 100  // R$ 1.00
 
-1. **Duplicacao em `plans/` e `pricing/`**: Ambos tem `ensurePagarmePlan()` e `getTierForEmployeeCount()`. O `pricing/` parece redundante.
+// Tiers (10 faixas fixas para planos pagos, 1 para trial)
+EMPLOYEE_TIERS = [
+  { min: 0, max: 10 },   // Trial usa apenas este
+  { min: 11, max: 20 },
+  { min: 21, max: 30 },
+  // ... ate
+  { min: 91, max: 180 },
+]
 
-2. **Import dinamico em `limits/` e `webhook/`**: Usam `await import()` para evitar dependencia circular com `subscription/`.
+// Pagarme
+REQUEST_TIMEOUT_MS = 30_000
+PAGARME_RETRY_READ = { maxAttempts: 3, delayMs: 500 }
+PAGARME_RETRY_WRITE = { maxAttempts: 3, delayMs: 1000 }
+```
 
-3. **`plans/` faz muito**: Gerencia planos E tiers E criacao de planos no Pagarme.
+## Classes de Erro (errors.ts)
 
-4. **`plan-change/` e o mais complexo**: Depende de quase todos os outros modulos.
+| Categoria | Classes principais |
+|-----------|-------------------|
+| **Base** | `PaymentError` |
+| **Checkout** | `CheckoutError`, `EmailNotVerifiedError`, `MissingBillingDataError` |
+| **Subscription** | `SubscriptionNotFoundError`, `SubscriptionNotActiveError`, `SubscriptionNotCancelableError` |
+| **Trial** | `TrialAlreadyUsedError`, `TrialExpiredError`, `TrialPlanNotFoundError` |
+| **Plan** | `PlanNotFoundError`, `PlanNotAvailableError`, `PlanHasActiveSubscriptionsError` |
+| **Billing** | `BillingProfileNotFoundError`, `BillingProfileAlreadyExistsError` |
+| **Limits** | `FeatureNotAvailableError`, `EmployeeLimitReachedError` |
+| **Plan Change** | `SamePlanError`, `NoChangeRequestedError`, `EmployeeCountExceedsNewPlanLimitError` |
+| **Pagarme** | `PagarmeApiError`, `PagarmeTimeoutError`, `WebhookValidationError` |
+
+## Padroes Arquiteturais
+
+### 1. Servicos Estaticos
+Todos os services sao `abstract class` com metodos `static` - sem estado, sem instanciacao:
+```typescript
+export abstract class BillingService {
+  static async getProfile(organizationId: string) { ... }
+}
+```
+
+### 2. Padrao Facade (subscription/)
+`SubscriptionService` delega para 3 servicos especializados:
+- `SubscriptionQueryService` - leitura
+- `SubscriptionAccessService` - verificacao de acesso
+- `SubscriptionMutationService` - escrita
+
+### 3. Helpers de Query
+Arquivos `*.helpers.ts` centralizam queries complexas reutilizaveis com tipagem explicita.
+
+### 4. Sistema de Eventos Tipado
+`PaymentHooks` usa EventEmitter com tipos TypeScript para type-safety completo.
+
+### 5. Idempotencia
+- Webhooks: verifica `pagarmeEventId` duplicado
+- Pagarme: usa `idempotencyKey` em operacoes de escrita
+
+### 6. Validacao com Zod
+Schemas definem request/response com type inference automatica.
+
+## Observacoes Importantes
+
+1. **billing_profiles vs organization_profiles**: `billing_profiles` = quem PAGA, `organization_profiles` = quem USA. Podem ser diferentes.
+
+2. **Customer criado no checkout**: O customer no Pagarme e criado apenas quando o usuario inicia o checkout, evitando customers orfaos.
+
+3. **Sync com Pagarme**: `updateProfile()` sincroniza automaticamente quando `pagarmeCustomerId` existe.
+
+4. **Upgrade vs Downgrade**:
+   - Upgrade: proration calculado → payment link → ativacao imediata
+   - Downgrade: agendado para fim do periodo atual
+
+5. **Grace Period**: 15 dias de `past_due` antes de suspensao (`canceled`).
+
+6. **Cache em LimitsService**: `planDisplayNamesCache` evita N+1 queries. Use `clearPlanDisplayNamesCache()` em testes.
+
+7. **ProrationService separado**: Calculos de proration isolados em `plan-change/proration.service.ts`.
+
+## Consumidores Externos
+
+Dominios fora de `payments/` que consomem este modulo:
+
+| Arquivo | Servico | Metodo | Proposito |
+|---------|---------|--------|-----------|
+| `src/lib/auth.ts` | `SubscriptionService` | `createTrial()` | Criar trial no signup |
+| `src/lib/auth-plugin.ts` | `SubscriptionService` | `checkAccess()` | Verificar acesso em rotas protegidas |
+| `src/lib/auth-plugin.ts` | `LimitsService` | `checkFeature()`, `requireFeature()` | Verificar features/limites |
+| `src/lib/cron-plugin.ts` | `JobsService` | `expireTrials()`, etc. | Executar jobs agendados |
+| `src/db/seeds/plans.ts` | `plans.constants` | `EMPLOYEE_TIERS`, `PLAN_FEATURES` | Seed de planos |
+
+**Impacto de mudancas**: Alteracoes em `SubscriptionService`, `LimitsService` ou `JobsService` podem afetar autenticacao e jobs do sistema.

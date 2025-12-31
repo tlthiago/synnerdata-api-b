@@ -6,12 +6,10 @@ import { EMPLOYEE_TIERS, PLAN_FEATURES } from "../plans.constants";
 
 const BASE_URL = env.API_URL;
 
-// Valid features for tests
 const GOLD_FEATURES = [...PLAN_FEATURES.gold];
 const DIAMOND_FEATURES = [...PLAN_FEATURES.diamond];
 const TRIAL_FEATURES = [...PLAN_FEATURES.trial];
 
-// Helper to generate valid tier prices
 function generateTierPrices(basePrice: number) {
   return EMPLOYEE_TIERS.map((tier, index) => ({
     minEmployees: tier.min,
@@ -117,7 +115,6 @@ describe("POST /payments/plans", () => {
       pricingTiers: generateTierPrices(1000),
     };
 
-    // Create first plan
     const firstResponse = await app.handle(
       new Request(`${BASE_URL}/v1/payments/plans`, {
         method: "POST",
@@ -127,7 +124,6 @@ describe("POST /payments/plans", () => {
     );
     expect(firstResponse.status).toBe(200);
 
-    // Try to create second plan with same name
     const secondResponse = await app.handle(
       new Request(`${BASE_URL}/v1/payments/plans`, {
         method: "POST",
@@ -148,7 +144,6 @@ describe("POST /payments/plans", () => {
         headers: { ...authHeaders, "Content-Type": "application/json" },
         body: JSON.stringify({
           name: "incomplete-plan",
-          // Missing displayName, limits, pricingTiers
         }),
       })
     );
@@ -186,7 +181,7 @@ describe("POST /payments/plans", () => {
           isTrial: false,
           pricingTiers: [
             { minEmployees: 0, maxEmployees: 10, priceMonthly: 1000 },
-          ], // Only 1 tier instead of 10 for paid plan
+          ],
         }),
       })
     );
@@ -216,7 +211,7 @@ describe("POST /payments/plans", () => {
     const body = await response.json();
 
     expect(body.success).toBe(true);
-    expect(body.data.trialDays).toBe(0); // Default for paid plans
+    expect(body.data.trialDays).toBe(0);
     expect(body.data.isActive).toBe(true);
     expect(body.data.isPublic).toBe(true);
     expect(body.data.sortOrder).toBe(0);
@@ -268,7 +263,7 @@ describe("POST /payments/plans", () => {
           limits: { features: TRIAL_FEATURES },
           pricingTiers: [
             { minEmployees: 0, maxEmployees: 20, priceMonthly: 0 },
-          ], // Wrong range for trial
+          ],
         }),
       })
     );
@@ -279,7 +274,7 @@ describe("POST /payments/plans", () => {
   });
 
   test("should generate correct yearly prices from monthly", async () => {
-    const tierPrices = generateTierPrices(10_000); // R$100.00 base
+    const tierPrices = generateTierPrices(10_000);
     const planData = {
       name: generateUniqueName("test-yearly"),
       displayName: "Test Yearly Price Plan",
@@ -298,7 +293,6 @@ describe("POST /payments/plans", () => {
 
     const body = await response.json();
 
-    // Yearly = monthly * 12 * 0.8 (20% discount)
     const expectedYearlyFirst = Math.round(
       tierPrices[0].priceMonthly * 12 * 0.8
     );

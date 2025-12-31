@@ -2,21 +2,23 @@ import { Elysia } from "elysia";
 import { betterAuthPlugin } from "@/lib/auth-plugin";
 import { wrapSuccess } from "@/lib/responses/envelope";
 import {
+  conflictErrorSchema,
   forbiddenErrorSchema,
   notFoundErrorSchema,
   unauthorizedErrorSchema,
   validationErrorSchema,
 } from "@/lib/responses/response.types";
 import {
+  createProfileSchema,
   downloadInvoiceResponseSchema,
   getUsageResponseSchema,
   invoiceIdParamsSchema,
   listInvoicesQuerySchema,
   listInvoicesResponseSchema,
-  updateBillingInfoResponseSchema,
-  updateBillingInfoSchema,
+  profileResponseSchema,
   updateCardResponseSchema,
   updateCardSchema,
+  updateProfileSchema,
 } from "./billing.model";
 import { BillingService } from "./billing.service";
 
@@ -26,6 +28,94 @@ export const billingController = new Elysia({
   detail: { tags: ["Payments - Billing"] },
 })
   .use(betterAuthPlugin)
+  // ============================================
+  // Profile Endpoints
+  // ============================================
+  .get(
+    "/profile",
+    async ({ session }) => {
+      const profile = await BillingService.getProfileOrThrow(
+        session.activeOrganizationId as string
+      );
+      return wrapSuccess(profile);
+    },
+    {
+      auth: {
+        permissions: { billing: ["read"] },
+        requireOrganization: true,
+      },
+      response: {
+        200: profileResponseSchema,
+        401: unauthorizedErrorSchema,
+        403: forbiddenErrorSchema,
+        404: notFoundErrorSchema,
+      },
+      detail: {
+        summary: "Get billing profile",
+        description: "Gets the billing profile for the current organization.",
+      },
+    }
+  )
+  .post(
+    "/profile",
+    async ({ session, body }) => {
+      const profile = await BillingService.createProfile(
+        session.activeOrganizationId as string,
+        body
+      );
+      return wrapSuccess(profile);
+    },
+    {
+      auth: {
+        permissions: { billing: ["update"] },
+        requireOrganization: true,
+      },
+      body: createProfileSchema,
+      response: {
+        200: profileResponseSchema,
+        401: unauthorizedErrorSchema,
+        403: forbiddenErrorSchema,
+        409: conflictErrorSchema,
+        422: validationErrorSchema,
+      },
+      detail: {
+        summary: "Create billing profile",
+        description: "Creates a billing profile for the current organization.",
+      },
+    }
+  )
+  .patch(
+    "/profile",
+    async ({ session, body }) => {
+      const profile = await BillingService.updateProfile(
+        session.activeOrganizationId as string,
+        body
+      );
+      return wrapSuccess(profile);
+    },
+    {
+      auth: {
+        permissions: { billing: ["update"] },
+        requireOrganization: true,
+      },
+      body: updateProfileSchema,
+      response: {
+        200: profileResponseSchema,
+        401: unauthorizedErrorSchema,
+        403: forbiddenErrorSchema,
+        404: notFoundErrorSchema,
+        422: validationErrorSchema,
+      },
+      detail: {
+        summary: "Update billing profile",
+        description:
+          "Updates the billing profile for the current organization. Syncs with Pagarme if customer exists.",
+      },
+    }
+  )
+  // ============================================
+  // Invoice Endpoints
+  // ============================================
   .get(
     "/invoices",
     async ({ session, query }) =>
@@ -83,6 +173,9 @@ export const billingController = new Elysia({
       },
     }
   )
+  // ============================================
+  // Card Management
+  // ============================================
   .post(
     "/update-card",
     async ({ session, body }) =>
@@ -112,6 +205,9 @@ export const billingController = new Elysia({
       },
     }
   )
+  // ============================================
+  // Usage
+  // ============================================
   .get(
     "/usage",
     async ({ session }) =>
@@ -135,35 +231,6 @@ export const billingController = new Elysia({
         summary: "Get usage",
         description:
           "Returns current usage vs plan limits for the organization.",
-      },
-    }
-  )
-  .put(
-    "/info",
-    async ({ session, body }) =>
-      wrapSuccess(
-        await BillingService.updateBillingInfo({
-          ...body,
-          organizationId: session.activeOrganizationId as string,
-        })
-      ),
-    {
-      auth: {
-        permissions: { billing: ["update"] },
-        requireOrganization: true,
-      },
-      body: updateBillingInfoSchema,
-      response: {
-        200: updateBillingInfoResponseSchema,
-        422: validationErrorSchema,
-        401: unauthorizedErrorSchema,
-        403: forbiddenErrorSchema,
-        404: notFoundErrorSchema,
-      },
-      detail: {
-        summary: "Update billing info",
-        description:
-          "Updates billing information (tax ID, legal name, address).",
       },
     }
   );

@@ -121,7 +121,7 @@ test.describe("Upgrade Use Case E2E: Trial → Paid Subscription (Real Webhook)"
       .limit(1);
 
     expect(initialSubscription).toBeDefined();
-    expect(initialSubscription.status).toBe("trial");
+    expect(initialSubscription.status).toBe("active"); // Trial is a plan, not a status
     expect(initialSubscription.pagarmeSubscriptionId).toBeNull();
 
     console.log(`  Trial subscription created: ${initialSubscription.id}`);
@@ -238,9 +238,9 @@ test.describe("Upgrade Use Case E2E: Trial → Paid Subscription (Real Webhook)"
       .where(eq(schema.orgSubscriptions.organizationId, organizationId))
       .limit(1);
 
-    expect(subscriptionBeforePayment.status).toBe("trial");
+    expect(subscriptionBeforePayment.status).toBe("active"); // Trial is a plan, not a status
 
-    console.log("  Subscription status: trial (unchanged)");
+    console.log("  Subscription status: active (trial plan)");
 
     // ============================================================
     // FASE 3: Payment - Fill Pagarme Checkout Form
@@ -428,16 +428,6 @@ test.describe("Upgrade Use Case E2E: Trial → Paid Subscription (Real Webhook)"
     console.log(
       `  [OK] Current period: ${activatedSubscription.currentPeriodStart?.toISOString()} → ${activatedSubscription.currentPeriodEnd?.toISOString()}`
     );
-
-    // Verify pagarmeCustomerId was stored
-    if (activatedSubscription.pagarmeCustomerId) {
-      expect(activatedSubscription.pagarmeCustomerId.startsWith("cus_")).toBe(
-        true
-      );
-      console.log(
-        `  [OK] Pagarme Customer ID: ${activatedSubscription.pagarmeCustomerId}`
-      );
-    }
 
     // Verify pending checkout was marked as completed
     const [completedCheckout] = await db

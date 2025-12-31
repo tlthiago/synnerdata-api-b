@@ -5,6 +5,8 @@ import { schema } from "@/db/schema";
 import { env } from "@/env";
 import { createPaidPlan } from "@/test/factories/plan";
 import { createTestApp, type TestApp } from "@/test/helpers/app";
+import { createTestOrganization } from "@/test/helpers/organization";
+import { createActiveSubscription } from "@/test/helpers/subscription";
 import { createTestAdminUser, createTestUser } from "@/test/helpers/user";
 
 const BASE_URL = env.API_URL;
@@ -101,5 +103,39 @@ describe("DELETE /payments/plans/:id", () => {
 
     const body = await response.json();
     expect(body.error.code).toBe("PLAN_NOT_FOUND");
+  });
+
+  test("should reject deletion of plan with active subscriptions", async () => {
+    const { plan, tiers } = await createPaidPlan("gold");
+    const organization = await createTestOrganization();
+
+    await createActiveSubscription(organization.id, plan.id);
+
+    const response = await app.handle(
+      new Request(`${BASE_URL}/v1/payments/plans/${plan.id}`, {
+        method: "DELETE",
+        headers: authHeaders,
+      })
+    );
+    expect(response.status).toBe(400);
+
+    const body = await response.json();
+    expect(body.error.code).toBe("PLAN_HAS_ACTIVE_SUBSCRIPTIONS");
+
+    // Verify plan still exists
+    const [existingPlan] = await db
+      .select()
+      .from(schema.subscriptionPlans)
+      .where(eq(schema.subscriptionPlans.id, plan.id))
+      .limit(1);
+    expect(existingPlan).toBeDefined();
+
+    // Verify tiers still exist
+    const [existingTier] = await db
+      .select()
+      .from(schema.planPricingTiers)
+      .where(eq(schema.planPricingTiers.id, tiers[0].id))
+      .limit(1);
+    expect(existingTier).toBeDefined();
   });
 });

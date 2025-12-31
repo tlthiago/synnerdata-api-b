@@ -3,13 +3,15 @@ import { eq } from "drizzle-orm";
 import { db } from "@/db";
 import { schema } from "@/db/schema";
 import { env } from "@/env";
+import { type CreatePlanResult, createPaidPlan } from "@/test/factories/plan";
 import { createTestApp, type TestApp } from "@/test/helpers/app";
 import { createPendingCheckout } from "@/test/helpers/checkout";
 import { createTestOrganization } from "@/test/helpers/organization";
-import { seedPlans } from "@/test/helpers/seed";
 import { createTestSubscription } from "@/test/helpers/subscription";
 
 const BASE_URL = env.API_URL;
+
+let diamondPlanResult: CreatePlanResult;
 
 function createWebhookAuthHeader(): string {
   const credentials = `${env.PAGARME_WEBHOOK_USERNAME}:${env.PAGARME_WEBHOOK_PASSWORD}`;
@@ -34,7 +36,7 @@ describe("POST /v1/payments/webhooks/pagarme", () => {
 
   beforeAll(async () => {
     app = createTestApp();
-    await seedPlans();
+    diamondPlanResult = await createPaidPlan("diamond");
   });
 
   test("should reject request without Authorization header", async () => {
@@ -91,7 +93,7 @@ describe("POST /v1/payments/webhooks/pagarme", () => {
 
   test("should process valid webhook and return success response", async () => {
     const org = await createTestOrganization();
-    await createTestSubscription(org.id, "test-plan-diamond", "trial");
+    await createTestSubscription(org.id, diamondPlanResult.plan.id, "trial");
 
     const payload = createWebhookPayload("charge.paid", {
       metadata: { organization_id: org.id },
@@ -180,13 +182,16 @@ describe("POST /v1/payments/webhooks/pagarme", () => {
 
   test("should process subscription.created and activate subscription", async () => {
     const org = await createTestOrganization();
-    const checkout = await createPendingCheckout(org.id, "test-plan-diamond");
-    await createTestSubscription(org.id, "test-plan-diamond", "trial");
+    const checkout = await createPendingCheckout(
+      org.id,
+      diamondPlanResult.plan.id
+    );
+    await createTestSubscription(org.id, diamondPlanResult.plan.id, "trial");
 
     const payload = createWebhookPayload("subscription.created", {
       id: `sub_${crypto.randomUUID()}`,
       code: checkout.paymentLinkId,
-      metadata: { organization_id: org.id, plan_id: "test-plan-diamond" },
+      metadata: { organization_id: org.id, plan_id: diamondPlanResult.plan.id },
       customer: { id: "cus_123", name: "Test", document: "12345678909" },
       current_period: {
         start_at: new Date().toISOString(),
@@ -219,8 +224,11 @@ describe("POST /v1/payments/webhooks/pagarme", () => {
 
   test("should mark pending checkout as completed on subscription.created", async () => {
     const org = await createTestOrganization();
-    const checkout = await createPendingCheckout(org.id, "test-plan-diamond");
-    await createTestSubscription(org.id, "test-plan-diamond", "trial");
+    const checkout = await createPendingCheckout(
+      org.id,
+      diamondPlanResult.plan.id
+    );
+    await createTestSubscription(org.id, diamondPlanResult.plan.id, "trial");
 
     const payload = createWebhookPayload("subscription.created", {
       id: `sub_${crypto.randomUUID()}`,
@@ -254,7 +262,7 @@ describe("POST /v1/payments/webhooks/pagarme", () => {
 
   test("should update subscription to past_due on charge.payment_failed", async () => {
     const org = await createTestOrganization();
-    await createTestSubscription(org.id, "test-plan-diamond", "active");
+    await createTestSubscription(org.id, diamondPlanResult.plan.id, "active");
 
     const payload = createWebhookPayload("charge.payment_failed", {
       metadata: { organization_id: org.id },
@@ -285,7 +293,7 @@ describe("POST /v1/payments/webhooks/pagarme", () => {
 
   test("should update subscription to canceled on subscription.canceled", async () => {
     const org = await createTestOrganization();
-    await createTestSubscription(org.id, "test-plan-diamond", "active");
+    await createTestSubscription(org.id, diamondPlanResult.plan.id, "active");
 
     const payload = createWebhookPayload("subscription.canceled", {
       id: "sub_123",

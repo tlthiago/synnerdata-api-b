@@ -2,8 +2,9 @@ import { beforeAll, describe, expect, test } from "bun:test";
 import { and, eq, gte, lte } from "drizzle-orm";
 import { db } from "@/db";
 import { schema } from "@/db/schema";
+import { billingProfiles } from "@/db/schema/billing-profiles";
 import { env } from "@/env";
-import { diamondPlan, goldPlan } from "@/test/fixtures/plans";
+import { diamondPlan, diamondTiers, trialPlan } from "@/test/fixtures/plans";
 import { createTestApp, type TestApp } from "@/test/helpers/app";
 import { seedPlans } from "@/test/helpers/seed";
 import { skipIntegration } from "@/test/helpers/skip-integration";
@@ -15,6 +16,13 @@ const BASE_URL = env.API_URL;
 const WEBHOOK_URL = `${BASE_URL}/v1/payments/webhooks/pagarme`;
 const DEFAULT_EMPLOYEE_COUNT = 15;
 
+// Get tier for employee count (15 falls in 11-20 range, index 1)
+function getTierForEmployeeCount(employeeCount: number) {
+  return diamondTiers.find(
+    (t) => employeeCount >= t.minEmployees && employeeCount <= t.maxEmployees
+  );
+}
+
 describe.skipIf(skipIntegration)(
   "Upgrade Use Case: Trial → Paid Subscription - Pagarme API",
   () => {
@@ -24,10 +32,20 @@ describe.skipIf(skipIntegration)(
     let userEmail: string;
     let paymentLinkId: string;
     let checkoutUrl: string;
+    let tierId: string;
 
     beforeAll(async () => {
       app = createTestApp();
       await seedPlans();
+
+      // Get tier for employee count
+      const tier = getTierForEmployeeCount(DEFAULT_EMPLOYEE_COUNT);
+      if (!tier) {
+        throw new Error(
+          `No tier found for employee count ${DEFAULT_EMPLOYEE_COUNT}`
+        );
+      }
+      tierId = tier.id;
     });
 
     describe("Fase 1: Setup - Usuário com Trial", () => {
@@ -46,8 +64,8 @@ describe.skipIf(skipIntegration)(
       });
 
       test("should create trial subscription for organization", async () => {
-        if (!goldPlan) {
-          throw new Error("Gold plan not found in fixtures");
+        if (!trialPlan) {
+          throw new Error("Trial plan not found in fixtures");
         }
 
         // Delete any existing subscriptions for this org to ensure clean state
@@ -55,7 +73,7 @@ describe.skipIf(skipIntegration)(
           .delete(schema.orgSubscriptions)
           .where(eq(schema.orgSubscriptions.organizationId, organizationId));
 
-        await createTestSubscription(organizationId, goldPlan.id, "trial");
+        await createTestSubscription(organizationId, trialPlan.id, "trial");
 
         const [subscription] = await db
           .select()
@@ -64,16 +82,20 @@ describe.skipIf(skipIntegration)(
           .limit(1);
 
         expect(subscription).toBeDefined();
-        expect(subscription.status).toBe("trial");
+        expect(subscription.status).toBe("active"); // Trial is a plan, not a status
         expect(subscription.pagarmeSubscriptionId).toBeNull();
-        expect(subscription.pagarmeCustomerId).toBeNull();
       });
 
-      test("should have organization profile without pagarmeCustomerId", async () => {
+      test("should create billing profile for organization", async () => {
+        const { createTestBillingProfile } = await import(
+          "@/test/factories/billing-profile"
+        );
+        await createTestBillingProfile({ organizationId });
+
         const [profile] = await db
           .select()
-          .from(schema.organizationProfiles)
-          .where(eq(schema.organizationProfiles.organizationId, organizationId))
+          .from(billingProfiles)
+          .where(eq(billingProfiles.organizationId, organizationId))
           .limit(1);
 
         expect(profile).toBeDefined();
@@ -97,9 +119,8 @@ describe.skipIf(skipIntegration)(
                 "Content-Type": "application/json",
               },
               body: JSON.stringify({
-                organizationId,
                 planId: diamondPlan.id,
-                employeeCount: DEFAULT_EMPLOYEE_COUNT,
+                tierId,
                 successUrl: "https://example.com/success",
               }),
             })
@@ -126,7 +147,6 @@ describe.skipIf(skipIntegration)(
         }
 
         // The pricing tier for the employee count should have a Pagarme plan ID
-        // DEFAULT_EMPLOYEE_COUNT = 15 falls in the 11-50 tier
         const [tier] = await db
           .select()
           .from(schema.planPricingTiers)
@@ -186,7 +206,7 @@ describe.skipIf(skipIntegration)(
           .where(eq(schema.orgSubscriptions.organizationId, organizationId))
           .limit(1);
 
-        expect(subscription.status).toBe("trial");
+        expect(subscription.status).toBe("active"); // Trial is a plan, not a status
       });
     });
 
@@ -230,17 +250,6 @@ describe.skipIf(skipIntegration)(
         expect(subscription.trialUsed).toBe(true);
       });
 
-      test("should store pagarmeCustomerId in subscription", async () => {
-        const [subscription] = await db
-          .select()
-          .from(schema.orgSubscriptions)
-          .where(eq(schema.orgSubscriptions.organizationId, organizationId))
-          .limit(1);
-
-        expect(subscription.pagarmeCustomerId).toBeString();
-        expect(subscription.pagarmeCustomerId?.startsWith("cus_")).toBe(true);
-      });
-
       test("should set current period dates", async () => {
         const [subscription] = await db
           .select()
@@ -271,27 +280,27 @@ describe.skipIf(skipIntegration)(
     });
 
     describe("Fase 4: Sync de Dados do Customer", () => {
-      test("should sync pagarmeCustomerId to organization profile", async () => {
+      test("should sync pagarmeCustomerId to billing profile", async () => {
         const [profile] = await db
           .select()
-          .from(schema.organizationProfiles)
-          .where(eq(schema.organizationProfiles.organizationId, organizationId))
+          .from(billingProfiles)
+          .where(eq(billingProfiles.organizationId, organizationId))
           .limit(1);
 
         expect(profile.pagarmeCustomerId).toBeString();
         expect(profile.pagarmeCustomerId?.startsWith("cus_")).toBe(true);
       });
 
-      test("should not overwrite existing profile data", async () => {
+      test("should not overwrite existing billing profile data", async () => {
         const [profile] = await db
           .select()
-          .from(schema.organizationProfiles)
-          .where(eq(schema.organizationProfiles.organizationId, organizationId))
+          .from(billingProfiles)
+          .where(eq(billingProfiles.organizationId, organizationId))
           .limit(1);
 
-        // Profile was created with data in createTestUser, should not be overwritten
-        expect(profile.tradeName).toBeDefined();
-        expect(profile.tradeName).not.toBe("");
+        // Profile was created with data, should not be overwritten
+        expect(profile.legalName).toBeDefined();
+        expect(profile.legalName).not.toBe("");
       });
     });
 
@@ -310,13 +319,11 @@ describe.skipIf(skipIntegration)(
         // Status
         expect(subscription.status).toBe("active");
 
-        // Pagarme IDs
+        // Pagarme Subscription ID
         expect(subscription.pagarmeSubscriptionId).toBeDefined();
         expect(subscription.pagarmeSubscriptionId?.startsWith("sub_")).toBe(
           true
         );
-        expect(subscription.pagarmeCustomerId).toBeDefined();
-        expect(subscription.pagarmeCustomerId?.startsWith("cus_")).toBe(true);
 
         // Period
         expect(subscription.currentPeriodStart).toBeInstanceOf(Date);
@@ -342,9 +349,8 @@ describe.skipIf(skipIntegration)(
               "Content-Type": "application/json",
             },
             body: JSON.stringify({
-              organizationId,
               planId: diamondPlan.id,
-              employeeCount: DEFAULT_EMPLOYEE_COUNT,
+              tierId,
               successUrl: "https://example.com/success",
             }),
           })
@@ -356,11 +362,11 @@ describe.skipIf(skipIntegration)(
         expect(body.error.code).toBe("SUBSCRIPTION_ALREADY_ACTIVE");
       });
 
-      test("should have synced customer data in profile", async () => {
+      test("should have synced customer data in billing profile", async () => {
         const [profile] = await db
           .select()
-          .from(schema.organizationProfiles)
-          .where(eq(schema.organizationProfiles.organizationId, organizationId))
+          .from(billingProfiles)
+          .where(eq(billingProfiles.organizationId, organizationId))
           .limit(1);
 
         expect(profile.pagarmeCustomerId).toBeDefined();

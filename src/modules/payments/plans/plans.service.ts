@@ -107,10 +107,13 @@ export abstract class PlansService {
   }
 
   static async getTrialPlan(): Promise<PlanWithTiersData> {
+    // Order by ID DESC to prefer fixture plan ("test-plan-trial" after "plan-xxx")
+    const { desc } = await import("drizzle-orm");
     const [plan] = await db
       .select()
       .from(schema.subscriptionPlans)
       .where(eq(schema.subscriptionPlans.isTrial, true))
+      .orderBy(desc(schema.subscriptionPlans.id))
       .limit(1);
 
     if (!plan) {

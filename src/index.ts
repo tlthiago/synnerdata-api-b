@@ -18,6 +18,7 @@ import { employeeController } from "./modules/employees";
 import { occurrencesController } from "./modules/occurrences";
 import { organizationController } from "./modules/organizations";
 import { paymentsController } from "./modules/payments";
+import { registerPaymentListeners } from "./modules/payments/hooks/listeners";
 
 const corsOrigins = parseOrigins(env.CORS_ORIGIN);
 
@@ -104,17 +105,20 @@ const app = new Elysia({
   .use(auditController)
   .use(apiKeysController)
   .get("/", ({ redirect }) => redirect("/health"))
-  .listen(env.PORT);
+  .listen(env.PORT, ({ hostname, port }) => {
+    // Application initialization
+    registerPaymentListeners();
+
+    logger.info({
+      type: "app:start",
+      message: `🦊 Elysia is running at ${hostname}:${port}`,
+      host: hostname,
+      port,
+    });
+  });
 
 setupGracefulShutdown({
   app,
   pool,
   gracePeriodMs: isProduction ? 5000 : 1000,
-});
-
-logger.info({
-  type: "app:start",
-  message: `🦊 Elysia is running at ${app.server?.hostname}:${app.server?.port}`,
-  host: app.server?.hostname,
-  port: app.server?.port,
 });

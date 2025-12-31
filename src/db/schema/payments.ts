@@ -12,7 +12,6 @@ import {
 import { organizations } from "./auth";
 
 export const subscriptionStatusEnum = pgEnum("subscription_status", [
-  "trial",
   "active",
   "past_due",
   "canceled",
@@ -86,9 +85,9 @@ export const orgSubscriptions = pgTable(
     pricingTierId: text("pricing_tier_id").references(
       () => planPricingTiers.id
     ),
-    status: subscriptionStatusEnum("status").default("trial").notNull(),
+    status: subscriptionStatusEnum("status").default("active").notNull(),
     pagarmeSubscriptionId: text("pagarme_subscription_id"),
-    pagarmeCustomerId: text("pagarme_customer_id"),
+    pagarmeUpdatedAt: timestamp("pagarme_updated_at", { withTimezone: true }),
     trialStart: timestamp("trial_start", { withTimezone: true }),
     trialEnd: timestamp("trial_end", { withTimezone: true }),
     trialUsed: boolean("trial_used").default(false).notNull(),

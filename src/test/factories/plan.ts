@@ -26,7 +26,7 @@ type CreatePlanOptions = {
 
 type PricingTier = typeof schema.planPricingTiers.$inferSelect;
 
-type CreatePlanResult = {
+export type CreatePlanResult = {
   plan: typeof schema.subscriptionPlans.$inferSelect;
   tiers: PricingTier[];
 };
@@ -54,6 +54,13 @@ function generateTierId(): string {
   return `tier-${crypto.randomUUID()}`;
 }
 
+const PLAN_SORT_ORDER: Record<PlanType, number> = {
+  trial: -1,
+  gold: 1,
+  diamond: 2,
+  platinum: 3,
+};
+
 function getDefaultsForType(type: PlanType) {
   const isTrial = type === "trial";
 
@@ -68,7 +75,7 @@ function getDefaultsForType(type: PlanType) {
     isTrial,
     trialDays: isTrial ? DEFAULT_TRIAL_DAYS : 0,
     limits: { features: [...PLAN_FEATURES[type]] },
-    sortOrder: isTrial ? -1 : 0,
+    sortOrder: PLAN_SORT_ORDER[type],
   };
 }
 

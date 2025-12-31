@@ -1,3 +1,4 @@
+import { EventEmitter } from "node:events";
 import { logger } from "@/lib/logger";
 import type { PaymentEventName, PaymentEventPayload } from "./hooks.types";
 
@@ -5,50 +6,45 @@ type EventHandler<T extends PaymentEventName> = (
   payload: PaymentEventPayload<T>
 ) => void | Promise<void>;
 
-class PaymentHooksEmitter {
-  private readonly handlers = new Map<
-    PaymentEventName,
-    Set<EventHandler<PaymentEventName>>
-  >();
-
-  on<T extends PaymentEventName>(event: T, handler: EventHandler<T>) {
-    if (!this.handlers.has(event)) {
-      this.handlers.set(event, new Set());
-    }
-    const eventHandlers = this.handlers.get(event);
-    if (eventHandlers) {
-      eventHandlers.add(handler as EventHandler<PaymentEventName>);
-    }
-    return () => this.off(event, handler);
-  }
-
-  off<T extends PaymentEventName>(event: T, handler: EventHandler<T>) {
-    const eventHandlers = this.handlers.get(event);
-    if (eventHandlers) {
-      eventHandlers.delete(handler as EventHandler<PaymentEventName>);
-    }
-  }
-
-  async emit<T extends PaymentEventName>(
+/**
+ * PaymentHooksEmitter extends Node's native EventEmitter with:
+ * - TypeScript type safety for payment events
+ * - Automatic error handling for async handlers
+ * - Parallel execution of all handlers
+ */
+class PaymentHooksEmitter extends EventEmitter {
+  /**
+   * Register a handler for a payment event.
+   * Handlers are wrapped to catch errors and log them without propagating.
+   */
+  override on<T extends PaymentEventName>(
     event: T,
-    payload: PaymentEventPayload<T>
-  ) {
-    const eventHandlers = this.handlers.get(event);
-    if (!eventHandlers) {
-      return;
-    }
-
-    const promises = Array.from(eventHandlers).map((handler) =>
-      Promise.resolve(handler(payload)).catch((error) => {
+    handler: EventHandler<T>
+  ): this {
+    const wrappedHandler = async (payload: PaymentEventPayload<T>) => {
+      try {
+        await handler(payload);
+      } catch (error) {
         logger.error({
           type: "payment:hook:error",
           event,
           error: error instanceof Error ? error.message : String(error),
         });
-      })
-    );
+      }
+    };
 
-    await Promise.all(promises);
+    return super.on(event, wrappedHandler);
+  }
+
+  /**
+   * Emit a payment event. All registered handlers are executed in parallel.
+   * Returns true if the event had listeners, false otherwise.
+   */
+  override emit<T extends PaymentEventName>(
+    event: T,
+    payload: PaymentEventPayload<T>
+  ): boolean {
+    return super.emit(event, payload);
   }
 }
 

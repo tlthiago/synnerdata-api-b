@@ -58,4 +58,24 @@ describe("PlansService", () => {
       expect(trialPlan.pricingTiers[0].priceMonthly).toBe(0);
     });
   });
+
+  describe("getTierById", () => {
+    test("should return tier with correct data", async () => {
+      const planResult = await createPaidPlan("gold");
+      const expectedTier = planResult.tiers[0];
+
+      const result = await PlansService.getTierById(expectedTier.id);
+
+      expect(result).toBeDefined();
+      expect(result.id).toBe(expectedTier.id);
+      expect(result.minEmployees).toBe(expectedTier.minEmployees);
+      expect(result.maxEmployees).toBe(expectedTier.maxEmployees);
+      expect(result.priceMonthly).toBe(expectedTier.priceMonthly);
+      expect(result.priceYearly).toBe(expectedTier.priceYearly);
+    });
+
+    test("should throw PricingTierNotFoundError for non-existent tier", () => {
+      expect(() => PlansService.getTierById("tier-non-existent-id")).toThrow();
+    });
+  });
 });

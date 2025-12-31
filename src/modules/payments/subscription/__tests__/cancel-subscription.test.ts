@@ -3,8 +3,12 @@ import { eq } from "drizzle-orm";
 import { db } from "@/db";
 import { schema } from "@/db/schema";
 import { env } from "@/env";
+import {
+  type CreatePlanResult,
+  createPaidPlan,
+  createTrialPlan,
+} from "@/test/factories/plan";
 import { createTestApp, type TestApp } from "@/test/helpers/app";
-import { seedPlans } from "@/test/helpers/seed";
 import {
   createActiveSubscription,
   createCanceledSubscription,
@@ -18,12 +22,18 @@ import {
 
 const BASE_URL = env.API_URL;
 
+let diamondPlanResult: CreatePlanResult;
+let trialPlanResult: CreatePlanResult;
+
 describe("POST /v1/payments/subscription/cancel", () => {
   let app: TestApp;
 
   beforeAll(async () => {
     app = createTestApp();
-    await seedPlans();
+    [diamondPlanResult, trialPlanResult] = await Promise.all([
+      createPaidPlan("diamond"),
+      createTrialPlan(),
+    ]);
   });
 
   test("should reject unauthenticated requests", async () => {
@@ -58,7 +68,7 @@ describe("POST /v1/payments/subscription/cancel", () => {
       emailVerified: true,
     });
 
-    await createCanceledSubscription(organizationId, "test-plan-diamond");
+    await createCanceledSubscription(organizationId, diamondPlanResult.plan.id);
 
     const response = await app.handle(
       new Request(`${BASE_URL}/v1/payments/subscription/cancel`, {
@@ -77,7 +87,7 @@ describe("POST /v1/payments/subscription/cancel", () => {
       emailVerified: true,
     });
 
-    await createExpiredSubscription(organizationId, "test-plan-diamond");
+    await createExpiredSubscription(organizationId, diamondPlanResult.plan.id);
 
     const response = await app.handle(
       new Request(`${BASE_URL}/v1/payments/subscription/cancel`, {
@@ -96,7 +106,7 @@ describe("POST /v1/payments/subscription/cancel", () => {
       emailVerified: true,
     });
 
-    await createTestSubscription(organizationId, "test-plan-diamond", {
+    await createTestSubscription(organizationId, diamondPlanResult.plan.id, {
       status: "past_due",
     });
 
@@ -117,7 +127,7 @@ describe("POST /v1/payments/subscription/cancel", () => {
       emailVerified: true,
     });
 
-    await createActiveSubscription(organizationId, "test-plan-diamond");
+    await createActiveSubscription(organizationId, diamondPlanResult.plan.id);
 
     const response = await app.handle(
       new Request(`${BASE_URL}/v1/payments/subscription/cancel`, {
@@ -139,7 +149,11 @@ describe("POST /v1/payments/subscription/cancel", () => {
       emailVerified: true,
     });
 
-    await createTestSubscription(organizationId, "test-plan-diamond", "trial");
+    await createTestSubscription(
+      organizationId,
+      diamondPlanResult.plan.id,
+      "trial"
+    );
 
     const response = await app.handle(
       new Request(`${BASE_URL}/v1/payments/subscription/cancel`, {
@@ -160,7 +174,7 @@ describe("POST /v1/payments/subscription/cancel", () => {
       emailVerified: true,
     });
 
-    await createActiveSubscription(organizationId, "test-plan-diamond");
+    await createActiveSubscription(organizationId, diamondPlanResult.plan.id);
 
     const response = await app.handle(
       new Request(`${BASE_URL}/v1/payments/subscription/cancel`, {
@@ -187,7 +201,11 @@ describe("POST /v1/payments/subscription/cancel", () => {
       emailVerified: true,
     });
 
-    await createTestSubscription(organizationId, "test-plan-diamond", "trial");
+    // Trial subscriptions have status "active" in DB (trial is determined by plan.isTrial)
+    await createTestSubscription(organizationId, trialPlanResult.plan.id, {
+      status: "trial",
+      trialDays: 14,
+    });
 
     const response = await app.handle(
       new Request(`${BASE_URL}/v1/payments/subscription/cancel`, {
@@ -204,7 +222,8 @@ describe("POST /v1/payments/subscription/cancel", () => {
       .where(eq(schema.orgSubscriptions.organizationId, organizationId))
       .limit(1);
 
-    expect(subscription.status).toBe("trial");
+    // Status remains "active" in DB (trial is not a status, it's determined by plan.isTrial)
+    expect(subscription.status).toBe("active");
     expect(subscription.cancelAtPeriodEnd).toBe(true);
     expect(subscription.canceledAt).toBeInstanceOf(Date);
   });
@@ -218,7 +237,7 @@ describe("POST /v1/payments/subscription/cancel", () => {
 
     await createActiveSubscription(
       organizationId,
-      "test-plan-diamond",
+      diamondPlanResult.plan.id,
       "sub_test_soft_cancel"
     );
 
@@ -253,7 +272,7 @@ describe("POST /v1/payments/subscription/cancel", () => {
       emailVerified: true,
     });
 
-    await createActiveSubscription(organizationId, "test-plan-diamond");
+    await createActiveSubscription(organizationId, diamondPlanResult.plan.id);
 
     const memberResult = await createTestUser({ emailVerified: true });
 

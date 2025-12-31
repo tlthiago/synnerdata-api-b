@@ -1,6 +1,12 @@
 import { Elysia } from "elysia";
+import { LimitsService } from "@/modules/payments/limits/limits.service";
+import { SubscriptionService } from "@/modules/payments/subscription/subscription.service";
 import { type AuthSession, type AuthUser, auth } from "./auth";
 import { ForbiddenError, UnauthorizedError } from "./errors/http-errors";
+import {
+  FeatureNotAvailableError,
+  SubscriptionRequiredError,
+} from "./errors/subscription-errors";
 import type { OrgPermissions } from "./permissions";
 
 export type AuthOptions =
@@ -101,12 +107,8 @@ function canBypassSubscriptionCheck(
 async function validateActiveSubscription(
   organizationId: string
 ): Promise<void> {
-  const { SubscriptionService } = await import("@/modules/payments");
   const access = await SubscriptionService.checkAccess(organizationId);
   if (!access.hasAccess) {
-    const { SubscriptionRequiredError } = await import(
-      "./errors/subscription-errors"
-    );
     throw new SubscriptionRequiredError(access.status);
   }
 }
@@ -115,12 +117,8 @@ async function validateFeatureAccess(
   organizationId: string,
   featureName: string
 ): Promise<void> {
-  const { LimitsService } = await import("@/modules/payments");
   const result = await LimitsService.checkFeature(organizationId, featureName);
   if (!result.hasAccess) {
-    const { FeatureNotAvailableError } = await import(
-      "./errors/subscription-errors"
-    );
     throw new FeatureNotAvailableError(
       featureName,
       result.requiredPlan ?? undefined

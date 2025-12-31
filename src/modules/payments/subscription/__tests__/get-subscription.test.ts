@@ -1,7 +1,11 @@
 import { beforeAll, describe, expect, test } from "bun:test";
 import { env } from "@/env";
+import {
+  type CreatePlanResult,
+  createPaidPlan,
+  createTrialPlan,
+} from "@/test/factories/plan";
 import { createTestApp, type TestApp } from "@/test/helpers/app";
-import { seedPlans } from "@/test/helpers/seed";
 import {
   createActiveSubscription,
   createCanceledSubscription,
@@ -14,12 +18,18 @@ import {
 
 const BASE_URL = env.API_URL;
 
+let diamondPlanResult: CreatePlanResult;
+let trialPlanResult: CreatePlanResult;
+
 describe("GET /v1/payments/subscription", () => {
   let app: TestApp;
 
   beforeAll(async () => {
     app = createTestApp();
-    await seedPlans();
+    [diamondPlanResult, trialPlanResult] = await Promise.all([
+      createPaidPlan("diamond"),
+      createTrialPlan(),
+    ]);
   });
 
   test("should reject unauthenticated requests", async () => {
@@ -54,7 +64,11 @@ describe("GET /v1/payments/subscription", () => {
       emailVerified: true,
     });
 
-    await createTestSubscription(organizationId, "test-plan-diamond", "trial");
+    // Use trial plan for proper trial behavior
+    await createTestSubscription(organizationId, trialPlanResult.plan.id, {
+      status: "trial",
+      trialDays: 14,
+    });
 
     const response = await app.handle(
       new Request(`${BASE_URL}/v1/payments/subscription`, {
@@ -69,11 +83,13 @@ describe("GET /v1/payments/subscription", () => {
     expect(body.success).toBe(true);
     expect(body.data.id).toBeDefined();
     expect(body.data.organizationId).toBe(organizationId);
-    expect(body.data.status).toBe("trial");
+    // Status in DB is "active" - trial is determined by isTrial
+    expect(body.data.status).toBe("active");
+    expect(body.data.isTrial).toBe(true);
     expect(body.data.plan).toBeDefined();
-    expect(body.data.plan.id).toBe("test-plan-diamond");
-    expect(body.data.plan.name).toBe("diamond");
-    expect(body.data.plan.displayName).toBe("Diamante Analytics");
+    expect(body.data.plan.id).toBe(trialPlanResult.plan.id);
+    expect(body.data.plan.name).toBe(trialPlanResult.plan.name);
+    expect(body.data.plan.displayName).toBe(trialPlanResult.plan.displayName);
     expect(body.data.plan.limits).toBeDefined();
   });
 
@@ -82,7 +98,7 @@ describe("GET /v1/payments/subscription", () => {
       emailVerified: true,
     });
 
-    await createActiveSubscription(organizationId, "test-plan-diamond");
+    await createActiveSubscription(organizationId, diamondPlanResult.plan.id);
 
     const response = await app.handle(
       new Request(`${BASE_URL}/v1/payments/subscription`, {
@@ -104,7 +120,8 @@ describe("GET /v1/payments/subscription", () => {
       emailVerified: true,
     });
 
-    await createTestSubscription(organizationId, "test-plan-diamond", {
+    // Use trial plan for proper trial behavior
+    await createTestSubscription(organizationId, trialPlanResult.plan.id, {
       status: "trial",
       trialDays: 14,
     });
@@ -119,7 +136,9 @@ describe("GET /v1/payments/subscription", () => {
     expect(response.status).toBe(200);
 
     const body = await response.json();
-    expect(body.data.status).toBe("trial");
+    // Status in DB is "active" - trial is determined by isTrial
+    expect(body.data.status).toBe("active");
+    expect(body.data.isTrial).toBe(true);
     expect(body.data.trialStart).toBeDefined();
     expect(body.data.trialEnd).toBeDefined();
     expect(body.data.trialUsed).toBe(false);
@@ -132,7 +151,7 @@ describe("GET /v1/payments/subscription", () => {
 
     await createActiveSubscription(
       organizationId,
-      "test-plan-diamond",
+      diamondPlanResult.plan.id,
       "sub_test123"
     );
 
@@ -156,7 +175,7 @@ describe("GET /v1/payments/subscription", () => {
       emailVerified: true,
     });
 
-    await createCanceledSubscription(organizationId, "test-plan-diamond");
+    await createCanceledSubscription(organizationId, diamondPlanResult.plan.id);
 
     const response = await app.handle(
       new Request(`${BASE_URL}/v1/payments/subscription`, {
@@ -176,7 +195,11 @@ describe("GET /v1/payments/subscription", () => {
       emailVerified: true,
     });
 
-    await createTestSubscription(organizationId, "test-plan-diamond", "trial");
+    await createTestSubscription(
+      organizationId,
+      diamondPlanResult.plan.id,
+      "trial"
+    );
 
     const response = await app.handle(
       new Request(`${BASE_URL}/v1/payments/subscription`, {
@@ -201,7 +224,11 @@ describe("GET /v1/payments/subscription", () => {
       emailVerified: true,
     });
 
-    await createTestSubscription(organizationId, "test-plan-diamond", "trial");
+    // Use trial plan for proper trial behavior
+    await createTestSubscription(organizationId, trialPlanResult.plan.id, {
+      status: "trial",
+      trialDays: 14,
+    });
 
     const memberResult = await createTestUser({ emailVerified: true });
 
@@ -219,6 +246,8 @@ describe("GET /v1/payments/subscription", () => {
 
     expect(response.status).toBe(200);
     const body = await response.json();
-    expect(body.data.status).toBe("trial");
+    // Status in DB is "active" - trial is determined by isTrial
+    expect(body.data.status).toBe("active");
+    expect(body.data.isTrial).toBe(true);
   });
 });

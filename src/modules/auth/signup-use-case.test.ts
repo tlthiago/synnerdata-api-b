@@ -3,7 +3,7 @@ import { eq } from "drizzle-orm";
 import { db } from "@/db";
 import { schema } from "@/db/schema";
 import { env } from "@/env";
-import { starterPlan } from "@/test/fixtures/plans";
+import { createTrialPlan } from "@/test/factories/plan";
 import { createTestApp, type TestApp } from "@/test/helpers/app";
 import { waitForOTP } from "@/test/helpers/mailhog";
 
@@ -24,12 +24,8 @@ describe("Signup Use Case: Novo Usuário até Trial Ativo", () => {
     testEmail = `test-${crypto.randomUUID()}@example.com`;
     emailModule = await import("@/lib/email");
 
-    if (starterPlan) {
-      await db
-        .insert(schema.subscriptionPlans)
-        .values(starterPlan)
-        .onConflictDoNothing();
-    }
+    // Create trial plan for subscription creation
+    await createTrialPlan();
   });
 
   beforeEach(() => {
@@ -281,14 +277,16 @@ describe("Signup Use Case: Novo Usuário até Trial Ativo", () => {
       expect(daysDiff).toBe(14);
     });
 
-    test("should have status trial", async () => {
+    test("should have status active (trial is determined by plan.isTrial, not status)", async () => {
       const [subscription] = await db
         .select()
         .from(schema.orgSubscriptions)
         .where(eq(schema.orgSubscriptions.organizationId, organizationId))
         .limit(1);
 
-      expect(subscription.status).toBe("trial");
+      // Trial subscriptions have status "active" in the DB
+      // The "trial" state is derived from plan.isTrial + trialEnd date
+      expect(subscription.status).toBe("active");
     });
 
     test("should set trialUsed flag to true", async () => {

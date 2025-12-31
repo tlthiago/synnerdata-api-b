@@ -1,16 +1,11 @@
-import { and, between, eq, inArray, lt } from "drizzle-orm";
+import { and, between, eq, lt } from "drizzle-orm";
 import { db } from "@/db";
 import { schema } from "@/db/schema";
-import {
-  sendSubscriptionCanceledEmail,
-  sendTrialExpiredEmail,
-  sendTrialExpiringEmail,
-} from "@/lib/email";
+import { sendTrialExpiringEmail } from "@/lib/email";
 import { logger } from "@/lib/logger";
-import { Retry } from "@/lib/utils/retry";
 import { PaymentHooks } from "@/modules/payments/hooks";
-import { PagarmeClient } from "@/modules/payments/pagarme/client";
 import { PlanChangeService } from "@/modules/payments/plan-change/plan-change.service";
+import { SubscriptionService } from "@/modules/payments/subscription/subscription.service";
 import type {
   ExpireTrialsData,
   NotifyExpiringTrialsData,
@@ -50,54 +45,41 @@ export abstract class JobsService {
   static async expireTrials(): Promise<ExpireTrialsData> {
     const now = new Date();
 
+    // Batch query to find expired trials
     const trialsToExpire = await db
       .select({
         subscription: schema.orgSubscriptions,
-        organization: schema.organizations,
       })
       .from(schema.orgSubscriptions)
       .innerJoin(
-        schema.organizations,
-        eq(schema.orgSubscriptions.organizationId, schema.organizations.id)
+        schema.subscriptionPlans,
+        eq(schema.orgSubscriptions.planId, schema.subscriptionPlans.id)
       )
       .where(
         and(
-          eq(schema.orgSubscriptions.status, "trial"),
+          eq(schema.subscriptionPlans.isTrial, true),
+          eq(schema.orgSubscriptions.status, "active"),
           lt(schema.orgSubscriptions.trialEnd, now)
         )
       );
 
     const expiredIds: string[] = [];
 
-    for (const { subscription, organization } of trialsToExpire) {
-      await db
-        .update(schema.orgSubscriptions)
-        .set({ status: "expired" })
-        .where(eq(schema.orgSubscriptions.id, subscription.id));
-
-      expiredIds.push(subscription.id);
-
-      const owner = await JobsService.findOrganizationOwner(
-        subscription.organizationId
-      );
-
-      if (owner?.email) {
-        try {
-          await sendTrialExpiredEmail({
-            to: owner.email,
-            userName: owner.name ?? "Usuário",
-            organizationName: organization.name,
-          });
-        } catch (error) {
-          logger.error({
-            type: "job:email:trial-expired:failed",
-            subscriptionId: subscription.id,
-            error: error instanceof Error ? error.message : String(error),
-          });
-        }
+    for (const { subscription } of trialsToExpire) {
+      try {
+        // Delegate to SubscriptionService which handles:
+        // - Status update
+        // - Event emission (trial.expired)
+        // - Email is sent by the listener
+        await SubscriptionService.expireTrial(subscription.id);
+        expiredIds.push(subscription.id);
+      } catch (error) {
+        logger.error({
+          type: "job:expire-trial:failed",
+          subscriptionId: subscription.id,
+          error: error instanceof Error ? error.message : String(error),
+        });
       }
-
-      PaymentHooks.emit("trial.expired", { subscription });
     }
 
     logger.info({
@@ -125,15 +107,21 @@ export abstract class JobsService {
       .select({
         subscription: schema.orgSubscriptions,
         organization: schema.organizations,
+        plan: schema.subscriptionPlans,
       })
       .from(schema.orgSubscriptions)
       .innerJoin(
         schema.organizations,
         eq(schema.orgSubscriptions.organizationId, schema.organizations.id)
       )
+      .innerJoin(
+        schema.subscriptionPlans,
+        eq(schema.orgSubscriptions.planId, schema.subscriptionPlans.id)
+      )
       .where(
         and(
-          eq(schema.orgSubscriptions.status, "trial"),
+          eq(schema.subscriptionPlans.isTrial, true),
+          eq(schema.orgSubscriptions.status, "active"),
           between(
             schema.orgSubscriptions.trialEnd,
             notificationStart,
@@ -196,93 +184,41 @@ export abstract class JobsService {
   static async processScheduledCancellations(): Promise<ProcessScheduledCancellationsData> {
     const now = new Date();
 
+    // Batch query to find subscriptions scheduled for cancellation
     const subscriptionsToCancel = await db
       .select({
         subscription: schema.orgSubscriptions,
-        organization: schema.organizations,
-        plan: schema.subscriptionPlans,
       })
       .from(schema.orgSubscriptions)
-      .innerJoin(
-        schema.organizations,
-        eq(schema.orgSubscriptions.organizationId, schema.organizations.id)
-      )
-      .innerJoin(
-        schema.subscriptionPlans,
-        eq(schema.orgSubscriptions.planId, schema.subscriptionPlans.id)
-      )
       .where(
         and(
           eq(schema.orgSubscriptions.cancelAtPeriodEnd, true),
           lt(schema.orgSubscriptions.currentPeriodEnd, now),
-          inArray(schema.orgSubscriptions.status, ["active", "trial"])
+          eq(schema.orgSubscriptions.status, "active")
         )
       );
 
     const canceledIds: string[] = [];
 
-    for (const { subscription, organization, plan } of subscriptionsToCancel) {
-      if (subscription.pagarmeSubscriptionId) {
-        const pagarmeSubId = subscription.pagarmeSubscriptionId;
-        try {
-          await Retry.withRetry(
-            () =>
-              PagarmeClient.cancelSubscription(
-                pagarmeSubId,
-                false,
-                `cancel-sub-job-${subscription.id}-${Date.now()}`
-              ),
-            { maxAttempts: 2, delayMs: 1000 }
-          );
-        } catch (error) {
-          logger.error({
-            type: "job:pagarme:cancel-subscription:failed",
-            pagarmeSubscriptionId: pagarmeSubId,
-            error: error instanceof Error ? error.message : String(error),
-          });
-          continue;
+    for (const { subscription } of subscriptionsToCancel) {
+      try {
+        // Delegate to SubscriptionService which handles:
+        // - Pagarme cancellation (with retry)
+        // - Status update to "canceled"
+        // - Event emission (subscription.canceled)
+        // - Email is sent by the listener
+        const success = await SubscriptionService.cancelScheduled(
+          subscription.id
+        );
+        if (success) {
+          canceledIds.push(subscription.id);
         }
-      }
-
-      await db
-        .update(schema.orgSubscriptions)
-        .set({ status: "canceled" })
-        .where(eq(schema.orgSubscriptions.id, subscription.id));
-
-      canceledIds.push(subscription.id);
-
-      const [updatedSubscription] = await db
-        .select()
-        .from(schema.orgSubscriptions)
-        .where(eq(schema.orgSubscriptions.id, subscription.id))
-        .limit(1);
-
-      if (updatedSubscription) {
-        PaymentHooks.emit("subscription.canceled", {
-          subscription: updatedSubscription,
+      } catch (error) {
+        logger.error({
+          type: "job:cancel-scheduled:failed",
+          subscriptionId: subscription.id,
+          error: error instanceof Error ? error.message : String(error),
         });
-      }
-
-      const owner = await JobsService.findOrganizationOwner(
-        subscription.organizationId
-      );
-
-      if (owner?.email) {
-        try {
-          await sendSubscriptionCanceledEmail({
-            to: owner.email,
-            organizationName: organization.name,
-            planName: plan.displayName,
-            canceledAt: subscription.canceledAt ?? now,
-            accessUntil: subscription.currentPeriodEnd,
-          });
-        } catch (error) {
-          logger.error({
-            type: "job:email:subscription-canceled:failed",
-            subscriptionId: subscription.id,
-            error: error instanceof Error ? error.message : String(error),
-          });
-        }
       }
     }
 
@@ -301,21 +237,12 @@ export abstract class JobsService {
   static async suspendExpiredGracePeriods(): Promise<SuspendExpiredGracePeriodsData> {
     const now = new Date();
 
+    // Batch query to find subscriptions with expired grace period
     const expiredGracePeriods = await db
       .select({
         subscription: schema.orgSubscriptions,
-        organization: schema.organizations,
-        plan: schema.subscriptionPlans,
       })
       .from(schema.orgSubscriptions)
-      .innerJoin(
-        schema.organizations,
-        eq(schema.orgSubscriptions.organizationId, schema.organizations.id)
-      )
-      .innerJoin(
-        schema.subscriptionPlans,
-        eq(schema.orgSubscriptions.planId, schema.subscriptionPlans.id)
-      )
       .where(
         and(
           eq(schema.orgSubscriptions.status, "past_due"),
@@ -325,30 +252,14 @@ export abstract class JobsService {
 
     const suspended: string[] = [];
 
-    for (const { subscription, organization, plan } of expiredGracePeriods) {
+    for (const { subscription } of expiredGracePeriods) {
       try {
-        await db
-          .update(schema.orgSubscriptions)
-          .set({ status: "canceled" })
-          .where(eq(schema.orgSubscriptions.id, subscription.id));
-
+        // Delegate to SubscriptionService which handles:
+        // - Status update to "canceled"
+        // - Event emission (subscription.canceled)
+        // - Email is sent by the listener
+        await SubscriptionService.suspend(subscription.id);
         suspended.push(subscription.id);
-
-        PaymentHooks.emit("subscription.canceled", { subscription });
-
-        const owner = await JobsService.findOrganizationOwner(
-          subscription.organizationId
-        );
-
-        if (owner?.email) {
-          await sendSubscriptionCanceledEmail({
-            to: owner.email,
-            organizationName: organization.name,
-            planName: plan.displayName,
-            canceledAt: now,
-            accessUntil: subscription.gracePeriodEnds,
-          });
-        }
       } catch (error) {
         logger.error({
           type: "job:suspend-grace-period:failed",

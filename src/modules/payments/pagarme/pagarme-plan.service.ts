@@ -6,7 +6,7 @@ import {
   PlanNotFoundError,
   PricingTierNotFoundError,
 } from "@/modules/payments/errors";
-import { PagarmeClient } from "./client";
+import { PAGARME_RETRY_CONFIG, PagarmeClient } from "./client";
 
 type BillingCycle = "monthly" | "yearly";
 
@@ -116,7 +116,7 @@ export abstract class PagarmePlanService {
           },
           `create-tier-plan-${tier.id}-${billingCycle}`
         ),
-      { maxAttempts: 3, delayMs: 1000 }
+      PAGARME_RETRY_CONFIG.WRITE
     );
   }
 

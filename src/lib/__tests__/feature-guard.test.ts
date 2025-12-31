@@ -1,18 +1,24 @@
-import { beforeAll, describe, expect, test } from "bun:test";
+import { afterAll, beforeAll, describe, expect, test } from "bun:test";
+import { eq } from "drizzle-orm";
 import Elysia from "elysia";
+import { db } from "@/db";
+import { schema } from "@/db/schema";
 import { env } from "@/env";
 import { betterAuthPlugin } from "@/lib/auth-plugin";
+import {
+  type CreatePlanResult,
+  createPaidPlan,
+  createTrialPlan,
+} from "@/test/factories/plan";
 import {
   createApiKeyHeaders,
   createGlobalTestApiKey,
 } from "@/test/helpers/api-key";
-import { seedPlans } from "@/test/helpers/seed";
 import {
   createActiveSubscription,
   createCanceledSubscription,
   createExpiredSubscription,
   createTestSubscription,
-  createTrialSubscription,
 } from "@/test/helpers/subscription";
 import {
   createTestAdminUser,
@@ -63,10 +69,36 @@ function createFeatureGuardTestApp() {
 
 describe("Feature Guard", () => {
   let app: ReturnType<typeof createFeatureGuardTestApp>;
+  let trialPlan: CreatePlanResult;
+  let goldPlan: CreatePlanResult;
+  let diamondPlan: CreatePlanResult;
+  let platinumPlan: CreatePlanResult;
 
   beforeAll(async () => {
     app = createFeatureGuardTestApp();
-    await seedPlans();
+    [trialPlan, goldPlan, diamondPlan, platinumPlan] = await Promise.all([
+      createTrialPlan(),
+      createPaidPlan("gold"),
+      createPaidPlan("diamond"),
+      createPaidPlan("platinum"),
+    ]);
+  });
+
+  afterAll(async () => {
+    for (const plan of [trialPlan, goldPlan, diamondPlan, platinumPlan]) {
+      if (plan) {
+        // Delete subscriptions referencing this plan first
+        await db
+          .delete(schema.orgSubscriptions)
+          .where(eq(schema.orgSubscriptions.planId, plan.plan.id));
+        await db
+          .delete(schema.planPricingTiers)
+          .where(eq(schema.planPricingTiers.planId, plan.plan.id));
+        await db
+          .delete(schema.subscriptionPlans)
+          .where(eq(schema.subscriptionPlans.id, plan.plan.id));
+      }
+    }
   });
 
   describe("requireActiveSubscription", () => {
@@ -91,7 +123,7 @@ describe("Feature Guard", () => {
         emailVerified: true,
       });
 
-      await createExpiredSubscription(organizationId, "test-plan-gold");
+      await createExpiredSubscription(organizationId, goldPlan.plan.id);
 
       const response = await app.handle(
         new Request(`${BASE_URL}/test/require-active-subscription`, {
@@ -109,7 +141,7 @@ describe("Feature Guard", () => {
         emailVerified: true,
       });
 
-      await createCanceledSubscription(organizationId, "test-plan-gold");
+      await createCanceledSubscription(organizationId, goldPlan.plan.id);
 
       const response = await app.handle(
         new Request(`${BASE_URL}/test/require-active-subscription`, {
@@ -127,7 +159,7 @@ describe("Feature Guard", () => {
         emailVerified: true,
       });
 
-      await createTestSubscription(organizationId, "test-plan-gold", {
+      await createTestSubscription(organizationId, goldPlan.plan.id, {
         status: "past_due",
       });
 
@@ -148,7 +180,7 @@ describe("Feature Guard", () => {
         emailVerified: true,
       });
 
-      await createActiveSubscription(organizationId, "test-plan-gold");
+      await createActiveSubscription(organizationId, goldPlan.plan.id);
 
       const response = await app.handle(
         new Request(`${BASE_URL}/test/require-active-subscription`, {
@@ -161,12 +193,27 @@ describe("Feature Guard", () => {
       expect(body.success).toBe(true);
     });
 
-    test("should allow user with trial subscription", async () => {
+    test("should allow user with trial plan subscription", async () => {
       const { headers, organizationId } = await createTestUserWithOrganization({
         emailVerified: true,
       });
 
-      await createTrialSubscription(organizationId, "test-plan-gold");
+      // Trial is now a PLAN type (isTrial=true), not a subscription status
+      // Create subscription with status "active" but using the trial plan
+      const now = new Date();
+      const trialEnd = new Date(now.getTime() + 14 * 24 * 60 * 60 * 1000);
+
+      await db.insert(schema.orgSubscriptions).values({
+        id: `test-sub-${crypto.randomUUID()}`,
+        organizationId,
+        planId: trialPlan.plan.id,
+        pricingTierId: trialPlan.tiers[0].id,
+        status: "active",
+        trialStart: now,
+        trialEnd,
+        trialUsed: true,
+        seats: 1,
+      });
 
       const response = await app.handle(
         new Request(`${BASE_URL}/test/require-active-subscription`, {
@@ -177,6 +224,38 @@ describe("Feature Guard", () => {
       expect(response.status).toBe(200);
       const body = await response.json();
       expect(body.success).toBe(true);
+    });
+
+    test("should reject user with expired trial plan", async () => {
+      const { headers, organizationId } = await createTestUserWithOrganization({
+        emailVerified: true,
+      });
+
+      // Create trial subscription with expired trialEnd
+      const now = new Date();
+      const trialEnd = new Date(now.getTime() - 1 * 24 * 60 * 60 * 1000); // 1 day ago
+
+      await db.insert(schema.orgSubscriptions).values({
+        id: `test-sub-${crypto.randomUUID()}`,
+        organizationId,
+        planId: trialPlan.plan.id,
+        pricingTierId: trialPlan.tiers[0].id,
+        status: "active",
+        trialStart: new Date(now.getTime() - 15 * 24 * 60 * 60 * 1000),
+        trialEnd,
+        trialUsed: true,
+        seats: 1,
+      });
+
+      const response = await app.handle(
+        new Request(`${BASE_URL}/test/require-active-subscription`, {
+          headers,
+        })
+      );
+
+      expect(response.status).toBe(403);
+      const body = await response.json();
+      expect(body.error.code).toBe("SUBSCRIPTION_REQUIRED");
     });
 
     test("should allow admin even with inactive subscription (default bypass)", async () => {
@@ -197,7 +276,7 @@ describe("Feature Guard", () => {
       });
 
       // Create expired subscription
-      await createExpiredSubscription(organization.id, "test-plan-gold");
+      await createExpiredSubscription(organization.id, goldPlan.plan.id);
 
       const response = await app.handle(
         new Request(`${BASE_URL}/test/require-active-subscription`, {
@@ -218,7 +297,7 @@ describe("Feature Guard", () => {
       });
 
       // Gold plan doesn't have payroll feature
-      await createActiveSubscription(organizationId, "test-plan-gold");
+      await createActiveSubscription(organizationId, goldPlan.plan.id);
 
       const response = await app.handle(
         new Request(`${BASE_URL}/test/require-feature-platinum`, {
@@ -236,7 +315,7 @@ describe("Feature Guard", () => {
         emailVerified: true,
       });
 
-      await createActiveSubscription(organizationId, "test-plan-gold");
+      await createActiveSubscription(organizationId, goldPlan.plan.id);
 
       const response = await app.handle(
         new Request(`${BASE_URL}/test/require-feature-gold`, {
@@ -254,10 +333,42 @@ describe("Feature Guard", () => {
         emailVerified: true,
       });
 
-      await createActiveSubscription(organizationId, "test-plan-platinum");
+      await createActiveSubscription(organizationId, platinumPlan.plan.id);
 
       const response = await app.handle(
         new Request(`${BASE_URL}/test/require-feature-gold`, {
+          headers,
+        })
+      );
+
+      expect(response.status).toBe(200);
+      const body = await response.json();
+      expect(body.success).toBe(true);
+    });
+
+    test("should allow trial plan user to access any feature (trial has all features)", async () => {
+      const { headers, organizationId } = await createTestUserWithOrganization({
+        emailVerified: true,
+      });
+
+      // Trial plan has ALL features including payroll
+      const now = new Date();
+      const trialEnd = new Date(now.getTime() + 14 * 24 * 60 * 60 * 1000);
+
+      await db.insert(schema.orgSubscriptions).values({
+        id: `test-sub-${crypto.randomUUID()}`,
+        organizationId,
+        planId: trialPlan.plan.id,
+        pricingTierId: trialPlan.tiers[0].id,
+        status: "active",
+        trialStart: now,
+        trialEnd,
+        trialUsed: true,
+        seats: 1,
+      });
+
+      const response = await app.handle(
+        new Request(`${BASE_URL}/test/require-feature-platinum`, {
           headers,
         })
       );
@@ -284,7 +395,7 @@ describe("Feature Guard", () => {
       });
 
       // Gold plan doesn't have payroll
-      await createActiveSubscription(organization.id, "test-plan-gold");
+      await createActiveSubscription(organization.id, goldPlan.plan.id);
 
       const response = await app.handle(
         new Request(`${BASE_URL}/test/require-feature-platinum`, {
@@ -305,7 +416,7 @@ describe("Feature Guard", () => {
       });
 
       // Gold plan doesn't have birthdays or ppe (diamond features)
-      await createActiveSubscription(organizationId, "test-plan-gold");
+      await createActiveSubscription(organizationId, goldPlan.plan.id);
 
       const response = await app.handle(
         new Request(`${BASE_URL}/test/require-multiple-features`, {
@@ -324,7 +435,7 @@ describe("Feature Guard", () => {
       });
 
       // Diamond plan has birthdays and ppe
-      await createActiveSubscription(organizationId, "test-plan-diamond");
+      await createActiveSubscription(organizationId, diamondPlan.plan.id);
 
       const response = await app.handle(
         new Request(`${BASE_URL}/test/require-multiple-features`, {

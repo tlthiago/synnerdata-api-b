@@ -3,8 +3,8 @@ import { eq } from "drizzle-orm";
 import { db } from "@/db";
 import { schema } from "@/db/schema";
 import { env } from "@/env";
+import { type CreatePlanResult, createPaidPlan } from "@/test/factories/plan";
 import { createTestApp, type TestApp } from "@/test/helpers/app";
-import { seedPlans } from "@/test/helpers/seed";
 import { createActiveSubscription } from "@/test/helpers/subscription";
 import { createTestUserWithOrganization } from "@/test/helpers/user";
 
@@ -12,10 +12,15 @@ const BASE_URL = env.API_URL;
 
 describe("GET /v1/payments/subscription/scheduled-change", () => {
   let app: TestApp;
+  let diamondPlanResult: CreatePlanResult;
+  let goldPlanResult: CreatePlanResult;
 
   beforeAll(async () => {
     app = createTestApp();
-    await seedPlans();
+    [diamondPlanResult, goldPlanResult] = await Promise.all([
+      createPaidPlan("diamond"),
+      createPaidPlan("gold"),
+    ]);
   });
 
   test("should reject unauthenticated requests", async () => {
@@ -33,7 +38,7 @@ describe("GET /v1/payments/subscription/scheduled-change", () => {
       emailVerified: true,
     });
 
-    await createActiveSubscription(organizationId, "test-plan-diamond");
+    await createActiveSubscription(organizationId, diamondPlanResult.plan.id);
 
     const response = await app.handle(
       new Request(`${BASE_URL}/v1/payments/subscription/scheduled-change`, {
@@ -55,7 +60,7 @@ describe("GET /v1/payments/subscription/scheduled-change", () => {
       emailVerified: true,
     });
 
-    await createActiveSubscription(organizationId, "test-plan-diamond");
+    await createActiveSubscription(organizationId, diamondPlanResult.plan.id);
 
     const scheduledAt = new Date();
     scheduledAt.setDate(scheduledAt.getDate() + 30);
@@ -63,7 +68,7 @@ describe("GET /v1/payments/subscription/scheduled-change", () => {
     await db
       .update(schema.orgSubscriptions)
       .set({
-        pendingPlanId: "test-plan-gold",
+        pendingPlanId: goldPlanResult.plan.id,
         pendingBillingCycle: "monthly",
         planChangeAt: scheduledAt,
       })
@@ -82,7 +87,7 @@ describe("GET /v1/payments/subscription/scheduled-change", () => {
     expect(body.success).toBe(true);
     expect(body.data.hasScheduledChange).toBe(true);
     expect(body.data.change).toBeDefined();
-    expect(body.data.change.pendingPlanId).toBe("test-plan-gold");
+    expect(body.data.change.pendingPlanId).toBe(goldPlanResult.plan.id);
     expect(body.data.change.pendingBillingCycle).toBe("monthly");
     expect(body.data.change.scheduledAt).toBeDefined();
   });
@@ -90,10 +95,15 @@ describe("GET /v1/payments/subscription/scheduled-change", () => {
 
 describe("DELETE /v1/payments/subscription/scheduled-change", () => {
   let app: TestApp;
+  let diamondPlanResult: CreatePlanResult;
+  let goldPlanResult: CreatePlanResult;
 
   beforeAll(async () => {
     app = createTestApp();
-    await seedPlans();
+    [diamondPlanResult, goldPlanResult] = await Promise.all([
+      createPaidPlan("diamond"),
+      createPaidPlan("gold"),
+    ]);
   });
 
   test("should reject unauthenticated requests", async () => {
@@ -111,7 +121,7 @@ describe("DELETE /v1/payments/subscription/scheduled-change", () => {
       emailVerified: true,
     });
 
-    await createActiveSubscription(organizationId, "test-plan-diamond");
+    await createActiveSubscription(organizationId, diamondPlanResult.plan.id);
 
     const scheduledAt = new Date();
     scheduledAt.setDate(scheduledAt.getDate() + 30);
@@ -119,7 +129,7 @@ describe("DELETE /v1/payments/subscription/scheduled-change", () => {
     await db
       .update(schema.orgSubscriptions)
       .set({
-        pendingPlanId: "test-plan-gold",
+        pendingPlanId: goldPlanResult.plan.id,
         pendingBillingCycle: "monthly",
         planChangeAt: scheduledAt,
       })
@@ -155,7 +165,7 @@ describe("DELETE /v1/payments/subscription/scheduled-change", () => {
       emailVerified: true,
     });
 
-    await createActiveSubscription(organizationId, "test-plan-diamond");
+    await createActiveSubscription(organizationId, diamondPlanResult.plan.id);
 
     const response = await app.handle(
       new Request(`${BASE_URL}/v1/payments/subscription/scheduled-change`, {
