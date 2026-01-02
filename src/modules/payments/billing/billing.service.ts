@@ -28,41 +28,6 @@ import type {
   UpdateProfileInput,
 } from "./billing.model";
 
-function filterDefinedValues<T extends Record<string, unknown>>(
-  obj: T
-): Partial<T> {
-  return Object.fromEntries(
-    Object.entries(obj).filter(([, v]) => v !== undefined)
-  ) as Partial<T>;
-}
-
-function buildProfileUpdateData(
-  input: UpdateProfileInput
-): Partial<BillingProfile> {
-  const baseFields = filterDefinedValues({
-    legalName: input.legalName,
-    taxId: input.taxId,
-    email: input.email,
-    phone: input.phone,
-  });
-
-  if (!input.address) {
-    return baseFields;
-  }
-
-  const addressFields = filterDefinedValues({
-    street: input.address.street,
-    number: input.address.number,
-    complement: input.address.complement,
-    neighborhood: input.address.neighborhood,
-    city: input.address.city,
-    state: input.address.state,
-    zipCode: input.address.zipCode,
-  });
-
-  return { ...baseFields, ...addressFields };
-}
-
 async function syncCustomerToPagarme(
   existing: BillingProfile,
   input: UpdateProfileInput,
@@ -152,11 +117,21 @@ export abstract class BillingService {
   ): Promise<BillingProfile> {
     const existing = await BillingService.getProfileOrThrow(organizationId);
 
-    const updateData = buildProfileUpdateData(input);
-
     const [updated] = await db
       .update(billingProfiles)
-      .set(updateData)
+      .set({
+        legalName: input.legalName,
+        taxId: input.taxId,
+        email: input.email,
+        phone: input.phone,
+        street: input.address?.street,
+        number: input.address?.number,
+        complement: input.address?.complement,
+        neighborhood: input.address?.neighborhood,
+        city: input.address?.city,
+        state: input.address?.state,
+        zipCode: input.address?.zipCode,
+      })
       .where(eq(billingProfiles.id, existing.id))
       .returning();
 
