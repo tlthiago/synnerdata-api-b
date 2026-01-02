@@ -3,9 +3,9 @@ import { inArray } from "drizzle-orm";
 import { db } from "@/db";
 import { schema } from "@/db/schema";
 import { env } from "@/env";
-import { createPaidPlan } from "@/test/factories/plan";
-import { createTestApp, type TestApp } from "@/test/helpers/app";
-import { createTestAdminUser, createTestUser } from "@/test/helpers/user";
+import { PlanFactory } from "@/test/factories/payments/plan.factory";
+import { UserFactory } from "@/test/factories/user.factory";
+import { createTestApp, type TestApp } from "@/test/support/app";
 import { EMPLOYEE_TIERS, PLAN_FEATURES } from "../plans.constants";
 
 const BASE_URL = env.API_URL;
@@ -29,7 +29,7 @@ describe("PUT /payments/plans/:id", () => {
 
   beforeAll(async () => {
     app = createTestApp();
-    const { headers } = await createTestAdminUser({ emailVerified: true });
+    const { headers } = await UserFactory.createAdmin({ emailVerified: true });
     authHeaders = headers;
   });
 
@@ -46,7 +46,7 @@ describe("PUT /payments/plans/:id", () => {
   });
 
   test("should reject unauthenticated requests", async () => {
-    const { plan } = await createPaidPlan("gold");
+    const { plan } = await PlanFactory.createPaid("gold");
     createdPlanIds.push(plan.id);
 
     const response = await app.handle(
@@ -60,9 +60,9 @@ describe("PUT /payments/plans/:id", () => {
   });
 
   test("should reject non-admin users", async () => {
-    const { plan } = await createPaidPlan("gold");
+    const { plan } = await PlanFactory.createPaid("gold");
     createdPlanIds.push(plan.id);
-    const { headers: nonAdminHeaders } = await createTestUser({
+    const { headers: nonAdminHeaders } = await UserFactory.create({
       emailVerified: true,
     });
 
@@ -77,7 +77,7 @@ describe("PUT /payments/plans/:id", () => {
   });
 
   test("should update plan displayName", async () => {
-    const { plan } = await createPaidPlan("gold");
+    const { plan } = await PlanFactory.createPaid("gold");
     createdPlanIds.push(plan.id);
 
     const response = await app.handle(
@@ -96,7 +96,7 @@ describe("PUT /payments/plans/:id", () => {
   });
 
   test("should update plan limits with valid features", async () => {
-    const { plan } = await createPaidPlan("gold");
+    const { plan } = await PlanFactory.createPaid("gold");
     createdPlanIds.push(plan.id);
     const newLimits = { features: DIAMOND_FEATURES };
 
@@ -115,7 +115,7 @@ describe("PUT /payments/plans/:id", () => {
   });
 
   test("should update plan status flags", async () => {
-    const { plan } = await createPaidPlan("diamond");
+    const { plan } = await PlanFactory.createPaid("diamond");
     createdPlanIds.push(plan.id);
 
     const response = await app.handle(
@@ -151,7 +151,7 @@ describe("PUT /payments/plans/:id", () => {
   });
 
   test("should preserve plan name when updating other fields", async () => {
-    const { plan } = await createPaidPlan("platinum");
+    const { plan } = await PlanFactory.createPaid("platinum");
     createdPlanIds.push(plan.id);
 
     const response = await app.handle(
@@ -170,7 +170,7 @@ describe("PUT /payments/plans/:id", () => {
   });
 
   test("should update multiple fields at once", async () => {
-    const { plan } = await createPaidPlan("gold");
+    const { plan } = await PlanFactory.createPaid("gold");
     createdPlanIds.push(plan.id);
 
     const updateData = {
@@ -196,7 +196,7 @@ describe("PUT /payments/plans/:id", () => {
   });
 
   test("should update all pricing tiers at once", async () => {
-    const { plan } = await createPaidPlan("diamond");
+    const { plan } = await PlanFactory.createPaid("diamond");
     createdPlanIds.push(plan.id);
     const newTiers = generateTierPrices(5000);
 

@@ -4,16 +4,12 @@ import {
   PlanNotFoundError,
 } from "@/modules/payments/errors";
 import { PlansService } from "@/modules/payments/plans/plans.service";
-import {
-  createInactivePlan,
-  createPaidPlan,
-  createTrialPlan,
-} from "@/test/factories/plan";
+import { PlanFactory } from "@/test/factories/payments/plan.factory";
 
 describe("PlansService", () => {
   describe("getAvailableById", () => {
     test("should return active plan", async () => {
-      const { plan } = await createPaidPlan("gold");
+      const { plan } = await PlanFactory.createPaid("gold");
 
       const result = await PlansService.getAvailableById(plan.id);
 
@@ -23,7 +19,9 @@ describe("PlansService", () => {
     });
 
     test("should throw PlanNotAvailableError for inactive plan", async () => {
-      const { plan: inactivePlan } = await createInactivePlan({ type: "gold" });
+      const { plan: inactivePlan } = await PlanFactory.createInactive({
+        type: "gold",
+      });
 
       expect(() => PlansService.getAvailableById(inactivePlan.id)).toThrow(
         PlanNotAvailableError
@@ -39,7 +37,7 @@ describe("PlansService", () => {
 
   describe("getTrialPlan", () => {
     test("should return the trial plan", async () => {
-      await createTrialPlan();
+      await PlanFactory.createTrial();
 
       const trialPlan = await PlansService.getTrialPlan();
 
@@ -49,7 +47,7 @@ describe("PlansService", () => {
     });
 
     test("should return trial plan with single pricing tier", async () => {
-      await createTrialPlan();
+      await PlanFactory.createTrial();
 
       const trialPlan = await PlansService.getTrialPlan();
 
@@ -61,7 +59,7 @@ describe("PlansService", () => {
 
   describe("getTierById", () => {
     test("should return tier with correct data", async () => {
-      const planResult = await createPaidPlan("gold");
+      const planResult = await PlanFactory.createPaid("gold");
       const expectedTier = planResult.tiers[0];
 
       const result = await PlansService.getTierById(expectedTier.id);

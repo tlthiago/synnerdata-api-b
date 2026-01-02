@@ -1,16 +1,10 @@
 import { beforeAll, describe, expect, test } from "bun:test";
 import { env } from "@/env";
-import { createTestBillingProfile } from "@/test/factories/billing-profile";
-import { createTestApp, type TestApp } from "@/test/helpers/app";
-import { faker, generateCnpj, generateMobile } from "@/test/helpers/faker";
-import {
-  addMemberToOrganization,
-  createTestOrganization,
-} from "@/test/helpers/organization";
-import {
-  createTestUser,
-  createTestUserWithOrganization,
-} from "@/test/helpers/user";
+import { OrganizationFactory } from "@/test/factories/organization.factory";
+import { BillingProfileFactory } from "@/test/factories/payments/billing-profile.factory";
+import { UserFactory } from "@/test/factories/user.factory";
+import { createTestApp, type TestApp } from "@/test/support/app";
+import { faker, generateCnpj, generateMobile } from "@/test/support/faker";
 
 const BASE_URL = env.API_URL;
 const ENDPOINT = `${BASE_URL}/v1/payments/billing/profile`;
@@ -35,11 +29,11 @@ describe("PATCH /payments/billing/profile", () => {
   });
 
   test("should reject non-owner users (manager)", async () => {
-    const org = await createTestOrganization();
-    await createTestBillingProfile({ organizationId: org.id });
+    const org = await OrganizationFactory.create();
+    await BillingProfileFactory.create({ organizationId: org.id });
 
-    const manager = await createTestUser({ emailVerified: true });
-    await addMemberToOrganization(manager, {
+    const manager = await UserFactory.create();
+    await OrganizationFactory.addMember(manager, {
       organizationId: org.id,
       role: "manager",
     });
@@ -56,9 +50,7 @@ describe("PATCH /payments/billing/profile", () => {
   });
 
   test("should return 404 when billing profile does not exist", async () => {
-    const { headers } = await createTestUserWithOrganization({
-      emailVerified: true,
-    });
+    const { headers } = await UserFactory.createWithOrganization();
 
     const response = await app.handle(
       new Request(ENDPOINT, {
@@ -72,11 +64,11 @@ describe("PATCH /payments/billing/profile", () => {
   });
 
   test("should update billing profile legalName", async () => {
-    const org = await createTestOrganization();
-    await createTestBillingProfile({ organizationId: org.id });
+    const org = await OrganizationFactory.create();
+    await BillingProfileFactory.create({ organizationId: org.id });
 
-    const owner = await createTestUser({ emailVerified: true });
-    await addMemberToOrganization(owner, {
+    const owner = await UserFactory.create();
+    await OrganizationFactory.addMember(owner, {
       organizationId: org.id,
       role: "owner",
     });
@@ -100,11 +92,11 @@ describe("PATCH /payments/billing/profile", () => {
   });
 
   test("should update multiple fields at once", async () => {
-    const org = await createTestOrganization();
-    await createTestBillingProfile({ organizationId: org.id });
+    const org = await OrganizationFactory.create();
+    await BillingProfileFactory.create({ organizationId: org.id });
 
-    const owner = await createTestUser({ emailVerified: true });
-    await addMemberToOrganization(owner, {
+    const owner = await UserFactory.create();
+    await OrganizationFactory.addMember(owner, {
       organizationId: org.id,
       role: "owner",
     });
@@ -135,11 +127,11 @@ describe("PATCH /payments/billing/profile", () => {
   });
 
   test("should reject invalid email on update", async () => {
-    const org = await createTestOrganization();
-    await createTestBillingProfile({ organizationId: org.id });
+    const org = await OrganizationFactory.create();
+    await BillingProfileFactory.create({ organizationId: org.id });
 
-    const owner = await createTestUser({ emailVerified: true });
-    await addMemberToOrganization(owner, {
+    const owner = await UserFactory.create();
+    await OrganizationFactory.addMember(owner, {
       organizationId: org.id,
       role: "owner",
     });
@@ -156,11 +148,11 @@ describe("PATCH /payments/billing/profile", () => {
   });
 
   test("should reject taxId too short on update", async () => {
-    const org = await createTestOrganization();
-    await createTestBillingProfile({ organizationId: org.id });
+    const org = await OrganizationFactory.create();
+    await BillingProfileFactory.create({ organizationId: org.id });
 
-    const owner = await createTestUser({ emailVerified: true });
-    await addMemberToOrganization(owner, {
+    const owner = await UserFactory.create();
+    await OrganizationFactory.addMember(owner, {
       organizationId: org.id,
       role: "owner",
     });
@@ -179,14 +171,14 @@ describe("PATCH /payments/billing/profile", () => {
   test("should preserve null pagarmeCustomerId on update", async () => {
     // Test that pagarmeCustomerId remains null when updating a profile
     // without triggering Pagarme sync (which would require a real customer)
-    const org = await createTestOrganization();
-    await createTestBillingProfile({
+    const org = await OrganizationFactory.create();
+    await BillingProfileFactory.create({
       organizationId: org.id,
       // No pagarmeCustomerId - won't trigger Pagarme sync
     });
 
-    const owner = await createTestUser({ emailVerified: true });
-    await addMemberToOrganization(owner, {
+    const owner = await UserFactory.create();
+    await OrganizationFactory.addMember(owner, {
       organizationId: org.id,
       role: "owner",
     });

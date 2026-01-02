@@ -1,12 +1,8 @@
 import { beforeAll, describe, expect, spyOn, test } from "bun:test";
 import { env } from "@/env";
-import { createTestApp, type TestApp } from "@/test/helpers/app";
-import { skipIntegration } from "@/test/helpers/skip-integration";
-import {
-  createTestAdminUser,
-  createTestUser,
-  createTestUserWithOrganization,
-} from "@/test/helpers/user";
+import { UserFactory } from "@/test/factories/user.factory";
+import { createTestApp, type TestApp } from "@/test/support/app";
+import { skipIntegration } from "@/test/support/skip-integration";
 
 const BASE_URL = env.API_URL;
 
@@ -28,7 +24,7 @@ describe("GET /v1/payments/customers", () => {
   });
 
   test("should reject non-admin user", async () => {
-    const { headers } = await createTestUser({ emailVerified: true });
+    const { headers } = await UserFactory.create({ emailVerified: true });
 
     const response = await app.handle(
       new Request(`${BASE_URL}/v1/payments/customers`, {
@@ -43,7 +39,7 @@ describe("GET /v1/payments/customers", () => {
   });
 
   test("should reject organization owner without admin role", async () => {
-    const { headers } = await createTestUserWithOrganization({
+    const { headers } = await UserFactory.createWithOrganization({
       emailVerified: true,
     });
 
@@ -60,7 +56,7 @@ describe("GET /v1/payments/customers", () => {
   });
 
   test("should reject invalid page parameter", async () => {
-    const { headers } = await createTestAdminUser({ emailVerified: true });
+    const { headers } = await UserFactory.createAdmin({ emailVerified: true });
 
     const response = await app.handle(
       new Request(`${BASE_URL}/v1/payments/customers?page=0`, {
@@ -73,7 +69,7 @@ describe("GET /v1/payments/customers", () => {
   });
 
   test("should reject invalid size parameter", async () => {
-    const { headers } = await createTestAdminUser({ emailVerified: true });
+    const { headers } = await UserFactory.createAdmin({ emailVerified: true });
 
     const response = await app.handle(
       new Request(`${BASE_URL}/v1/payments/customers?size=101`, {
@@ -88,7 +84,7 @@ describe("GET /v1/payments/customers", () => {
   test("should handle Pagarme API connection failure", async () => {
     const { PagarmeClient } = await import("../../pagarme/client");
 
-    const { headers } = await createTestAdminUser({ emailVerified: true });
+    const { headers } = await UserFactory.createAdmin({ emailVerified: true });
 
     const getCustomersSpy = spyOn(
       PagarmeClient,
@@ -110,7 +106,7 @@ describe("GET /v1/payments/customers", () => {
   test("should list customers successfully with admin auth", async () => {
     const { PagarmeClient } = await import("../../pagarme/client");
 
-    const { headers } = await createTestAdminUser({ emailVerified: true });
+    const { headers } = await UserFactory.createAdmin({ emailVerified: true });
 
     const mockCustomers = {
       data: [
@@ -164,7 +160,7 @@ describe("GET /v1/payments/customers", () => {
   test("should pass filter parameters to Pagarme API", async () => {
     const { PagarmeClient } = await import("../../pagarme/client");
 
-    const { headers } = await createTestAdminUser({ emailVerified: true });
+    const { headers } = await UserFactory.createAdmin({ emailVerified: true });
 
     const getCustomersSpy = spyOn(
       PagarmeClient,
@@ -203,7 +199,9 @@ describe.skipIf(skipIntegration)(
     });
 
     test("should list customers from Pagarme API", async () => {
-      const { headers } = await createTestAdminUser({ emailVerified: true });
+      const { headers } = await UserFactory.createAdmin({
+        emailVerified: true,
+      });
 
       const response = await app.handle(
         new Request(`${BASE_URL}/v1/payments/customers`, {
@@ -222,7 +220,9 @@ describe.skipIf(skipIntegration)(
     });
 
     test("should filter customers by name in Pagarme API", async () => {
-      const { headers } = await createTestAdminUser({ emailVerified: true });
+      const { headers } = await UserFactory.createAdmin({
+        emailVerified: true,
+      });
 
       const response = await app.handle(
         new Request(`${BASE_URL}/v1/payments/customers?name=Test`, {
@@ -239,7 +239,9 @@ describe.skipIf(skipIntegration)(
     });
 
     test("should paginate customers from Pagarme API", async () => {
-      const { headers } = await createTestAdminUser({ emailVerified: true });
+      const { headers } = await UserFactory.createAdmin({
+        emailVerified: true,
+      });
 
       const response = await app.handle(
         new Request(`${BASE_URL}/v1/payments/customers?page=1&size=5`, {

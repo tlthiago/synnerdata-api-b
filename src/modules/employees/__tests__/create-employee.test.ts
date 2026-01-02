@@ -47,17 +47,15 @@ const createValidEmployeeData = (overrides?: Record<string, unknown>) => ({
 });
 
 async function setupSubscription(organizationId: string) {
-  const { goldPlan } = await import("@/test/fixtures/plans");
-  const { createTestSubscription } = await import(
-    "@/test/helpers/subscription"
+  const { PlanFactory } = await import(
+    "@/test/factories/payments/plan.factory"
+  );
+  const { SubscriptionFactory } = await import(
+    "@/test/factories/payments/subscription.factory"
   );
 
-  if (!goldPlan) {
-    throw new Error("Gold plan not found");
-  }
-  await createTestSubscription(organizationId, goldPlan.id, {
-    status: "active",
-  });
+  const { plan } = await PlanFactory.createPaid("gold");
+  await SubscriptionFactory.createActive(organizationId, plan.id);
 }
 
 async function createTestDependencies(organizationId: string, userId: string) {

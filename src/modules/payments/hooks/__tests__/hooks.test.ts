@@ -21,7 +21,7 @@ function createMockSubscription(
     currentPeriodStart: new Date(),
     currentPeriodEnd: new Date(),
     pagarmeSubscriptionId: null,
-    pagarmeCustomerId: null,
+    pagarmeUpdatedAt: null,
     canceledAt: null,
     pastDueSince: null,
     gracePeriodEnds: null,

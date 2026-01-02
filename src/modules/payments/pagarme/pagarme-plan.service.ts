@@ -64,7 +64,7 @@ export abstract class PagarmePlanService {
     return pagarmePlan.id;
   }
 
-  private static async createPlanInPagarme(
+  private static createPlanInPagarme(
     tier: {
       id: string;
       minEmployees: number;

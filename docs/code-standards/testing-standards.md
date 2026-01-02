@@ -109,19 +109,45 @@ Consulte `docs/code-standards/module-implementation-guide.md` seção 3.4 para c
 ```text
 src/
 ├── test/
-│   ├── setup.ts              # Setup global (verifica conexão com banco)
-│   ├── factories/            # Funções que CRIAM registros no banco
-│   │   └── plan.ts           # Factory de plans com IDs dinâmicos
-│   └── helpers/              # Funções auxiliares para setup de testes
-│       ├── faker.ts          # Geradores de dados BR (CPF, CNPJ, etc.)
-│       ├── organization.ts   # Cria organizações
-│       ├── subscription.ts   # Cria subscriptions
-│       ├── user.ts           # Cria usuários
-│       └── ...
+│   ├── setup.ts                          # Setup global (verifica conexão com banco)
+│   │
+│   ├── factories/                        # Classes que CRIAM registros no banco
+│   │   ├── plan.factory.ts               # PlanFactory - cria planos com tiers
+│   │   ├── subscription.factory.ts       # SubscriptionFactory - cria assinaturas
+│   │   ├── checkout.factory.ts           # CheckoutFactory - cria checkouts
+│   │   ├── billing-profile.factory.ts    # BillingProfileFactory - cria perfis
+│   │   ├── organization.factory.ts       # OrganizationFactory - cria orgs
+│   │   └── user.factory.ts               # UserFactory - cria usuários
+│   │
+│   ├── builders/                         # Classes para objetos em memória (fluent API)
+│   │   ├── webhook-payload.builder.ts    # WebhookPayloadBuilder - payloads Pagarme
+│   │   └── request.builder.ts            # RequestBuilder - requests HTTP
+│   │
+│   ├── support/                          # Utilitários puros (não criam dados)
+│   │   ├── app.ts                        # createTestApp()
+│   │   ├── faker.ts                      # Geradores BR (CPF, CNPJ, etc.)
+│   │   ├── auth.ts                       # Headers de autenticação
+│   │   └── wait.ts                       # Polling utilities
+│   │
+│   └── helpers/                          # [LEGADO] Helpers de domínio (migração pendente)
+│       ├── employee.ts                   # createTestEmployee
+│       ├── sector.ts                     # createTestSector
+│       └── ...                           # Outros helpers de domínio
+│
 └── modules/{domain}/{module-name}/
     └── __tests__/
         └── {action}-{resource}.test.ts   # Ex: create-checkout.test.ts
 ```
+
+### Diferença entre Factory, Builder e Support
+
+| Tipo | Persiste no DB? | Padrão | Quando Usar |
+|------|-----------------|--------|-------------|
+| **Factory** | ✅ Sim | `abstract class` + `static` | Criar entidades reais no banco |
+| **Builder** | ❌ Não | `class` + fluent API | Criar payloads, requests em memória |
+| **Support** | ❌ Não | Funções puras | Utilitários (faker, auth, wait) |
+
+> **Nota**: A pasta `helpers/` contém helpers de domínio legados que serão migrados para `factories/` gradualmente.
 
 ---
 
@@ -130,9 +156,9 @@ src/
 ```typescript
 import { beforeAll, describe, expect, test } from "bun:test";
 import { env } from "@/env";
-import { createTestApp, type TestApp } from "@/test/helpers/app";
-import { createTestAdminUser, createTestUser } from "@/test/helpers/user";
-import { createPaidPlan } from "@/test/factories/plan";
+import { createTestApp, type TestApp } from "@/test/support/app";
+import { UserFactory } from "@/test/factories/user.factory";
+import { PlanFactory } from "@/test/factories/payments/plan.factory";
 import { PLAN_FEATURES } from "../plans.constants";
 
 const BASE_URL = env.API_URL;
@@ -146,7 +172,7 @@ describe("POST /v1/{domain}/{resource}", () => {
 
   beforeAll(async () => {
     app = createTestApp();
-    const { headers } = await createTestAdminUser({ emailVerified: true });
+    const { headers } = await UserFactory.createAdmin({ emailVerified: true });
     authHeaders = headers;
   });
 
@@ -160,39 +186,49 @@ describe("POST /v1/{domain}/{resource}", () => {
 
 ## Factories para Dados de Teste
 
-Factories criam dados diretamente no banco com IDs dinâmicos (`plan-${crypto.randomUUID()}`).
+Factories são classes abstratas com métodos estáticos que criam dados diretamente no banco.
+Seguem o padrão recomendado pelo Elysia para serviços não dependentes de request.
 
 **Localização:** `src/test/factories/`
 
-**Diferença entre Factory, Helper e Fixture:**
+**Nomenclatura:** `{resource}.factory.ts` (ex: `plan.factory.ts`, `user.factory.ts`)
 
-| Tipo | Cria no Banco? | Exemplo |
-|------|----------------|---------|
-| **Factory** | Sim, inserção direta | `createTestPlan()` |
-| **Helper** | Sim, via API ou DB | `createOrganizationViaApi()` |
-| **Fixture** | Não usar | ~~`testPlans.gold`~~ (removido) |
-
-**Exemplo - Plan Factory:**
+**Exemplo - PlanFactory:**
 
 ```typescript
-import { createPaidPlan, createTrialPlan, getFirstTier } from "@/test/factories/plan";
+import { PlanFactory } from "@/test/factories/payments/plan.factory";
 
 // Criar plano pago com todos os tiers
-const { plan, tiers } = await createPaidPlan("gold");
-const tier = getFirstTier({ plan, tiers });
+const { plan, tiers } = await PlanFactory.createPaid("gold");
+const tier = PlanFactory.getFirstTier({ plan, tiers });
 
 // Criar plano trial
-const { plan: trialPlan } = await createTrialPlan();
+const { plan: trialPlan } = await PlanFactory.createTrial();
 
-// Usar IDs dinâmicos nos testes
-const response = await app.handle(
-  new Request(`${BASE_URL}/v1/payments/checkout`, {
-    body: JSON.stringify({
-      planId: plan.id,      // plan-a1b2c3d4-...
-      tierId: tier.id,      // tier-e5f6g7h8-...
-    }),
-  })
-);
+// Criar com opções customizadas
+const { plan } = await PlanFactory.create({
+  type: "diamond",
+  displayName: "Custom Diamond",
+  isActive: false,
+});
+```
+
+**Exemplo - SubscriptionFactory:**
+
+```typescript
+import { SubscriptionFactory } from "@/test/factories/payments/subscription.factory";
+
+// Criar subscription trial
+const subId = await SubscriptionFactory.createTrial(orgId, trialPlanId);
+
+// Criar subscription ativa (paga)
+const subId = await SubscriptionFactory.createActive(orgId, paidPlanId, "sub_pagarme_123");
+
+// Criar com status específico
+const subId = await SubscriptionFactory.create(orgId, planId, {
+  status: "past_due",
+  billingCycle: "yearly",
+});
 ```
 
 **Quando usar Factory vs API:**
@@ -200,9 +236,72 @@ const response = await app.handle(
 | Situação | Abordagem |
 |----------|-----------|
 | Testar criação de plano (POST /plans) | Criar via **API** (é o foco) |
-| Plano é dependência para checkout | Usar **factory** |
+| Plano é dependência para checkout | Usar **Factory** |
 | Testar criação de employee | Criar via **API** |
-| Employee é dependência para absence | Usar **helper** |
+| Employee é dependência para absence | Usar **Factory** (ou helper legado) |
+
+---
+
+## Builders para Objetos em Memória
+
+Builders usam fluent API para criar objetos complexos em memória (não persistem no banco).
+Ideal para payloads de webhook, requests HTTP e outros objetos de teste.
+
+**Localização:** `src/test/builders/`
+
+**Nomenclatura:** `{resource}.builder.ts` (ex: `webhook-payload.builder.ts`)
+
+**Exemplo - WebhookPayloadBuilder:**
+
+```typescript
+import { WebhookPayloadBuilder } from "@/test/builders/webhook-payload.builder";
+
+// Criar payload de charge.paid
+const payload = new WebhookPayloadBuilder()
+  .chargePaid()
+  .withSubscriptionId("sub_123")
+  .withOrganizationId(orgId)
+  .build();
+
+// Criar payload de subscription.created (via checkout)
+const payload = new WebhookPayloadBuilder()
+  .subscriptionCreated()
+  .withPaymentLinkCode("pl_abc123")
+  .withCustomer({ name: "John Doe", email: "john@example.com" })
+  .build();
+
+// Criar payload de falha de pagamento
+const payload = new WebhookPayloadBuilder()
+  .chargePaymentFailed()
+  .withOrganizationId(orgId)
+  .withAmount(9900)
+  .build();
+```
+
+**Exemplo - RequestBuilder:**
+
+```typescript
+import { RequestBuilder } from "@/test/builders/request.builder";
+
+// Criar request GET autenticado
+const request = new RequestBuilder()
+  .get("/v1/plans")
+  .withAuth(sessionCookie)
+  .build();
+
+// Criar request POST com JSON
+const request = new RequestBuilder()
+  .post("/v1/payments/checkout")
+  .withAuth(sessionCookie)
+  .withJson({ planId: "plan-123", tierId: "tier-456" })
+  .build();
+
+// Criar request de webhook
+const request = new RequestBuilder()
+  .webhook("/v1/payments/webhook")
+  .withWebhookPayload(payload)
+  .build();
+```
 
 ---
 
@@ -878,7 +977,7 @@ import { eq } from "drizzle-orm";
 import { db } from "@/db";
 import { schema } from "@/db/schema";
 import { createTestOrganization } from "@/test/helpers/organization";
-import { createPaidPlan, createTrialPlan } from "@/test/factories/plan";
+import { createPaidPlan, createTrialPlan } from "@/test/factories/payments/plan";
 import { createTestSubscription } from "@/test/helpers/subscription";
 import { SubscriptionService } from "../subscription.service";
 

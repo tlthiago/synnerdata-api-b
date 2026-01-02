@@ -3,14 +3,15 @@ import { expect, test } from "@playwright/test";
 import { eq } from "drizzle-orm";
 import { db } from "@/db";
 import { schema } from "@/db/schema";
-import { proPlan, starterPlan } from "@/test/fixtures/plans";
-import { createTestApp } from "@/test/helpers/app";
-import { seedPlans } from "@/test/helpers/seed";
 import {
-  createTestSubscription,
-  waitForSubscriptionActive,
-} from "@/test/helpers/subscription";
-import { createTestUserWithOrganization } from "@/test/helpers/user";
+  type CreatePlanResult,
+  PlanFactory,
+} from "@/test/factories/payments/plan.factory";
+import { SubscriptionFactory } from "@/test/factories/payments/subscription.factory";
+import { UserFactory } from "@/test/factories/user.factory";
+import { createTestApp } from "@/test/support/app";
+import { waitForCheckoutEmail } from "@/test/support/mailhog";
+import { waitForSubscriptionActive } from "@/test/support/wait";
 
 /**
  * E2E Test: Complete Upgrade Flow with Real Webhook
@@ -50,6 +51,9 @@ const TEST_CUSTOMER = {
   number: "100",
 };
 
+let proPlanResult: CreatePlanResult;
+let trialPlanResult: CreatePlanResult;
+
 test.describe("Upgrade Use Case E2E: Trial → Paid Subscription (Real Webhook)", () => {
   test.beforeAll(async () => {
     if (!TUNNEL_URL) {
@@ -60,15 +64,15 @@ test.describe("Upgrade Use Case E2E: Trial → Paid Subscription (Real Webhook)"
       );
       return;
     }
-    await seedPlans();
+    // Create trial plan (needed for trial creation) and paid plans
+    trialPlanResult = await PlanFactory.createTrial();
+    proPlanResult = await PlanFactory.createPaid("gold");
 
     // Reset pagarmePlanIds for pricing tiers to test sync
-    if (proPlan) {
-      await db
-        .update(schema.planPricingTiers)
-        .set({ pagarmePlanIdMonthly: null, pagarmePlanIdYearly: null })
-        .where(eq(schema.planPricingTiers.planId, proPlan.id));
-    }
+    await db
+      .update(schema.planPricingTiers)
+      .set({ pagarmePlanIdMonthly: null, pagarmePlanIdYearly: null })
+      .where(eq(schema.planPricingTiers.planId, proPlanResult.plan.id));
   });
 
   test("should complete full upgrade flow: Trial → Checkout → Payment → Webhook → Active", async ({
@@ -89,18 +93,10 @@ test.describe("Upgrade Use Case E2E: Trial → Paid Subscription (Real Webhook)"
 
     console.log("\n=== FASE 1: Setup - Usuário com Trial ===");
 
-    if (!(proPlan && starterPlan)) {
-      throw new Error("Test plans not found in fixtures");
-    }
-
     const { user, session, organizationId } =
-      await createTestUserWithOrganization({
+      await UserFactory.createWithOrganization({
         emailVerified: true,
       });
-
-    if (!organizationId) {
-      throw new Error("Organization not created for test user");
-    }
 
     console.log(`  User ID: ${user.id}`);
     console.log(`  Organization ID: ${organizationId}`);
@@ -111,7 +107,10 @@ test.describe("Upgrade Use Case E2E: Trial → Paid Subscription (Real Webhook)"
       .delete(schema.orgSubscriptions)
       .where(eq(schema.orgSubscriptions.organizationId, organizationId));
 
-    await createTestSubscription(organizationId, starterPlan.id, "trial");
+    await SubscriptionFactory.createTrial(
+      organizationId,
+      trialPlanResult.plan.id
+    );
 
     // Verify trial subscription was created
     const [initialSubscription] = await db
@@ -154,7 +153,7 @@ test.describe("Upgrade Use Case E2E: Trial → Paid Subscription (Real Webhook)"
           Cookie: `better-auth.session_token=${session.token}`,
         },
         body: JSON.stringify({
-          planId: proPlan.id,
+          planId: proPlanResult.plan.id,
           employeeCount: 10,
           successUrl: `${TUNNEL_URL}/checkout/success`,
         }),
@@ -215,18 +214,17 @@ test.describe("Upgrade Use Case E2E: Trial → Paid Subscription (Real Webhook)"
 
     expect(pendingCheckout).toBeDefined();
     expect(pendingCheckout.organizationId).toBe(organizationId);
-    expect(pendingCheckout.planId).toBe(proPlan.id);
+    expect(pendingCheckout.planId).toBe(proPlanResult.plan.id);
     expect(pendingCheckout.status).toBe("pending");
 
     console.log(`  Pending checkout created: ${pendingCheckout.id}`);
 
     // Verify checkout link email was sent via Mailhog
-    const { waitForCheckoutEmail } = await import("@/test/helpers/mailhog");
     const checkoutEmail = await waitForCheckoutEmail(user.email);
 
     expect(checkoutEmail.subject).toContain("Complete seu upgrade");
     expect(checkoutEmail.checkoutUrl).toBe(checkoutUrl);
-    expect(checkoutEmail.planName).toBe(proPlan.displayName);
+    expect(checkoutEmail.planName).toBe(proPlanResult.plan.displayName);
 
     console.log(`  Checkout email sent to: ${user.email}`);
     console.log(`  Email subject: ${checkoutEmail.subject}`);
@@ -482,7 +480,7 @@ test.describe("Upgrade Use Case E2E: Trial → Paid Subscription (Real Webhook)"
           Cookie: `better-auth.session_token=${session.token}`,
         },
         body: JSON.stringify({
-          planId: proPlan.id,
+          planId: proPlanResult.plan.id,
           employeeCount: 10,
           successUrl: `${TUNNEL_URL}/checkout/success`,
         }),
@@ -504,7 +502,7 @@ test.describe("Upgrade Use Case E2E: Trial → Paid Subscription (Real Webhook)"
 
     console.log("\n=== TESTE E2E COMPLETO COM SUCESSO ===");
     console.log(`  Organization: ${organizationId}`);
-    console.log(`  Plan: ${proPlan.displayName}`);
+    console.log(`  Plan: ${proPlanResult.plan.displayName}`);
     console.log(
       `  Subscription: ${activatedSubscription.pagarmeSubscriptionId}`
     );

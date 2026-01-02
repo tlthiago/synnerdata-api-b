@@ -1,15 +1,9 @@
 import { beforeAll, describe, expect, test } from "bun:test";
 import { env } from "@/env";
-import { createTestApp, type TestApp } from "@/test/helpers/app";
-import { faker, generateCnpj, generateMobile } from "@/test/helpers/faker";
-import {
-  addMemberToOrganization,
-  createTestOrganization,
-} from "@/test/helpers/organization";
-import {
-  createTestUser,
-  createTestUserWithOrganization,
-} from "@/test/helpers/user";
+import { OrganizationFactory } from "@/test/factories/organization.factory";
+import { UserFactory } from "@/test/factories/user.factory";
+import { createTestApp, type TestApp } from "@/test/support/app";
+import { faker, generateCnpj, generateMobile } from "@/test/support/faker";
 
 const BASE_URL = env.API_URL;
 const ENDPOINT = `${BASE_URL}/v1/payments/billing/profile`;
@@ -43,9 +37,9 @@ describe("POST /payments/billing/profile", () => {
   });
 
   test("should reject non-owner users (manager)", async () => {
-    const org = await createTestOrganization();
-    const manager = await createTestUser({ emailVerified: true });
-    await addMemberToOrganization(manager, {
+    const org = await OrganizationFactory.create();
+    const manager = await UserFactory.create();
+    await OrganizationFactory.addMember(manager, {
       organizationId: org.id,
       role: "manager",
     });
@@ -62,9 +56,8 @@ describe("POST /payments/billing/profile", () => {
   });
 
   test("should create billing profile with valid data", async () => {
-    const { headers, organizationId } = await createTestUserWithOrganization({
-      emailVerified: true,
-    });
+    const { headers, organizationId } =
+      await UserFactory.createWithOrganization();
 
     const input = generateValidInput();
 
@@ -91,9 +84,7 @@ describe("POST /payments/billing/profile", () => {
   });
 
   test("should reject duplicate billing profile for same organization", async () => {
-    const { headers } = await createTestUserWithOrganization({
-      emailVerified: true,
-    });
+    const { headers } = await UserFactory.createWithOrganization();
 
     const input = generateValidInput();
 
@@ -117,9 +108,7 @@ describe("POST /payments/billing/profile", () => {
   });
 
   test("should reject invalid email", async () => {
-    const { headers } = await createTestUserWithOrganization({
-      emailVerified: true,
-    });
+    const { headers } = await UserFactory.createWithOrganization();
 
     const response = await app.handle(
       new Request(ENDPOINT, {
@@ -136,9 +125,7 @@ describe("POST /payments/billing/profile", () => {
   });
 
   test("should reject missing required fields", async () => {
-    const { headers } = await createTestUserWithOrganization({
-      emailVerified: true,
-    });
+    const { headers } = await UserFactory.createWithOrganization();
 
     const response = await app.handle(
       new Request(ENDPOINT, {
@@ -155,9 +142,7 @@ describe("POST /payments/billing/profile", () => {
   });
 
   test("should reject taxId too short", async () => {
-    const { headers } = await createTestUserWithOrganization({
-      emailVerified: true,
-    });
+    const { headers } = await UserFactory.createWithOrganization();
 
     const response = await app.handle(
       new Request(ENDPOINT, {

@@ -3,11 +3,11 @@ import { eq } from "drizzle-orm";
 import { db } from "@/db";
 import { schema } from "@/db/schema";
 import { env } from "@/env";
-import { createPaidPlan } from "@/test/factories/plan";
-import { createTestApp, type TestApp } from "@/test/helpers/app";
-import { createTestOrganization } from "@/test/helpers/organization";
-import { createActiveSubscription } from "@/test/helpers/subscription";
-import { createTestAdminUser, createTestUser } from "@/test/helpers/user";
+import { OrganizationFactory } from "@/test/factories/organization.factory";
+import { PlanFactory } from "@/test/factories/payments/plan.factory";
+import { SubscriptionFactory } from "@/test/factories/payments/subscription.factory";
+import { UserFactory } from "@/test/factories/user.factory";
+import { createTestApp, type TestApp } from "@/test/support/app";
 
 const BASE_URL = env.API_URL;
 
@@ -17,12 +17,12 @@ describe("DELETE /payments/plans/:id", () => {
 
   beforeAll(async () => {
     app = createTestApp();
-    const { headers } = await createTestAdminUser({ emailVerified: true });
+    const { headers } = await UserFactory.createAdmin({ emailVerified: true });
     authHeaders = headers;
   });
 
   test("should reject unauthenticated requests", async () => {
-    const { plan } = await createPaidPlan("gold");
+    const { plan } = await PlanFactory.createPaid("gold");
 
     const response = await app.handle(
       new Request(`${BASE_URL}/v1/payments/plans/${plan.id}`, {
@@ -33,8 +33,8 @@ describe("DELETE /payments/plans/:id", () => {
   });
 
   test("should reject non-admin users", async () => {
-    const { plan } = await createPaidPlan("gold");
-    const { headers: nonAdminHeaders } = await createTestUser({
+    const { plan } = await PlanFactory.createPaid("gold");
+    const { headers: nonAdminHeaders } = await UserFactory.create({
       emailVerified: true,
     });
 
@@ -48,7 +48,7 @@ describe("DELETE /payments/plans/:id", () => {
   });
 
   test("should delete plan successfully", async () => {
-    const { plan } = await createPaidPlan("diamond");
+    const { plan } = await PlanFactory.createPaid("diamond");
 
     const response = await app.handle(
       new Request(`${BASE_URL}/v1/payments/plans/${plan.id}`, {
@@ -72,7 +72,7 @@ describe("DELETE /payments/plans/:id", () => {
   });
 
   test("should delete plan and its pricing tiers", async () => {
-    const { plan, tiers } = await createPaidPlan("platinum");
+    const { plan, tiers } = await PlanFactory.createPaid("platinum");
     const tierId = tiers[0].id;
 
     const response = await app.handle(
@@ -106,10 +106,10 @@ describe("DELETE /payments/plans/:id", () => {
   });
 
   test("should reject deletion of plan with active subscriptions", async () => {
-    const { plan, tiers } = await createPaidPlan("gold");
-    const organization = await createTestOrganization();
+    const { plan, tiers } = await PlanFactory.createPaid("gold");
+    const organization = await OrganizationFactory.create();
 
-    await createActiveSubscription(organization.id, plan.id);
+    await SubscriptionFactory.createActive(organization.id, plan.id);
 
     const response = await app.handle(
       new Request(`${BASE_URL}/v1/payments/plans/${plan.id}`, {

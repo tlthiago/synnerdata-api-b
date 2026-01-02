@@ -6,9 +6,9 @@ import {
   BillingProfileAlreadyExistsError,
   BillingProfileNotFoundError,
 } from "@/modules/payments/errors";
-import { createTestBillingProfile } from "@/test/factories/billing-profile";
-import { faker, generateCnpj, generateMobile } from "@/test/helpers/faker";
-import { createTestOrganization } from "@/test/helpers/organization";
+import { OrganizationFactory } from "@/test/factories/organization.factory";
+import { BillingProfileFactory } from "@/test/factories/payments/billing-profile.factory";
+import { faker, generateCnpj, generateMobile } from "@/test/support/faker";
 import { BillingService } from "../billing.service";
 
 describe("BillingService - Profile Methods", () => {
@@ -20,7 +20,7 @@ describe("BillingService - Profile Methods", () => {
     });
 
     test("should return null for organization without billing profile", async () => {
-      const org = await createTestOrganization();
+      const org = await OrganizationFactory.create();
 
       const result = await BillingService.getProfile(org.id);
 
@@ -28,8 +28,8 @@ describe("BillingService - Profile Methods", () => {
     });
 
     test("should return profile when it exists", async () => {
-      const org = await createTestOrganization();
-      const createdProfile = await createTestBillingProfile({
+      const org = await OrganizationFactory.create();
+      const createdProfile = await BillingProfileFactory.create({
         organizationId: org.id,
       });
 
@@ -53,7 +53,7 @@ describe("BillingService - Profile Methods", () => {
     });
 
     test("should throw BillingProfileNotFoundError for organization without profile", async () => {
-      const org = await createTestOrganization();
+      const org = await OrganizationFactory.create();
 
       await expect(
         BillingService.getProfileOrThrow(org.id)
@@ -61,8 +61,8 @@ describe("BillingService - Profile Methods", () => {
     });
 
     test("should return profile when it exists", async () => {
-      const org = await createTestOrganization();
-      const createdProfile = await createTestBillingProfile({
+      const org = await OrganizationFactory.create();
+      const createdProfile = await BillingProfileFactory.create({
         organizationId: org.id,
       });
 
@@ -75,7 +75,7 @@ describe("BillingService - Profile Methods", () => {
 
   describe("createProfile", () => {
     test("should create profile with valid data", async () => {
-      const org = await createTestOrganization();
+      const org = await OrganizationFactory.create();
       const input = {
         legalName: faker.company.name(),
         taxId: generateCnpj(),
@@ -95,8 +95,8 @@ describe("BillingService - Profile Methods", () => {
     });
 
     test("should throw BillingProfileAlreadyExistsError when profile exists", async () => {
-      const org = await createTestOrganization();
-      await createTestBillingProfile({ organizationId: org.id });
+      const org = await OrganizationFactory.create();
+      await BillingProfileFactory.create({ organizationId: org.id });
 
       const input = {
         legalName: faker.company.name(),
@@ -113,8 +113,8 @@ describe("BillingService - Profile Methods", () => {
 
   describe("updateProfile", () => {
     test("should update single field", async () => {
-      const org = await createTestOrganization();
-      await createTestBillingProfile({ organizationId: org.id });
+      const org = await OrganizationFactory.create();
+      await BillingProfileFactory.create({ organizationId: org.id });
 
       const newLegalName = faker.company.name();
 
@@ -126,8 +126,8 @@ describe("BillingService - Profile Methods", () => {
     });
 
     test("should update multiple fields", async () => {
-      const org = await createTestOrganization();
-      await createTestBillingProfile({ organizationId: org.id });
+      const org = await OrganizationFactory.create();
+      await BillingProfileFactory.create({ organizationId: org.id });
 
       const updates = {
         legalName: faker.company.name(),
@@ -145,7 +145,7 @@ describe("BillingService - Profile Methods", () => {
     });
 
     test("should throw BillingProfileNotFoundError for non-existent profile", async () => {
-      const org = await createTestOrganization();
+      const org = await OrganizationFactory.create();
 
       await expect(
         BillingService.updateProfile(org.id, { legalName: "New Name" })
@@ -153,58 +153,10 @@ describe("BillingService - Profile Methods", () => {
     });
   });
 
-  describe("setCustomerId", () => {
-    test("should set pagarmeCustomerId on profile", async () => {
-      const org = await createTestOrganization();
-      await createTestBillingProfile({ organizationId: org.id });
-
-      const customerId = `cus_${crypto.randomUUID().slice(0, 8)}`;
-
-      await BillingService.setCustomerId(org.id, customerId);
-
-      const [profile] = await db
-        .select({ pagarmeCustomerId: billingProfiles.pagarmeCustomerId })
-        .from(billingProfiles)
-        .where(eq(billingProfiles.organizationId, org.id))
-        .limit(1);
-
-      expect(profile.pagarmeCustomerId).toBe(customerId);
-    });
-
-    test("should overwrite existing pagarmeCustomerId", async () => {
-      const org = await createTestOrganization();
-      const oldCustomerId = `cus_old_${crypto.randomUUID().slice(0, 8)}`;
-      await createTestBillingProfile({
-        organizationId: org.id,
-        pagarmeCustomerId: oldCustomerId,
-      });
-
-      const newCustomerId = `cus_new_${crypto.randomUUID().slice(0, 8)}`;
-
-      await BillingService.setCustomerId(org.id, newCustomerId);
-
-      const [profile] = await db
-        .select({ pagarmeCustomerId: billingProfiles.pagarmeCustomerId })
-        .from(billingProfiles)
-        .where(eq(billingProfiles.organizationId, org.id))
-        .limit(1);
-
-      expect(profile.pagarmeCustomerId).toBe(newCustomerId);
-    });
-
-    test("should throw BillingProfileNotFoundError for non-existent profile", async () => {
-      const org = await createTestOrganization();
-
-      await expect(
-        BillingService.setCustomerId(org.id, "cus_test")
-      ).rejects.toBeInstanceOf(BillingProfileNotFoundError);
-    });
-  });
-
   describe("setCustomerIdIfNull", () => {
     test("should set pagarmeCustomerId when null and return true", async () => {
-      const org = await createTestOrganization();
-      await createTestBillingProfile({ organizationId: org.id });
+      const org = await OrganizationFactory.create();
+      await BillingProfileFactory.create({ organizationId: org.id });
 
       const customerId = `cus_${crypto.randomUUID().slice(0, 8)}`;
 
@@ -225,9 +177,9 @@ describe("BillingService - Profile Methods", () => {
     });
 
     test("should NOT overwrite existing pagarmeCustomerId and return false", async () => {
-      const org = await createTestOrganization();
+      const org = await OrganizationFactory.create();
       const existingCustomerId = `cus_existing_${crypto.randomUUID().slice(0, 8)}`;
-      await createTestBillingProfile({
+      await BillingProfileFactory.create({
         organizationId: org.id,
         pagarmeCustomerId: existingCustomerId,
       });
@@ -252,7 +204,7 @@ describe("BillingService - Profile Methods", () => {
     });
 
     test("should return false for non-existent profile", async () => {
-      const org = await createTestOrganization();
+      const org = await OrganizationFactory.create();
 
       const result = await BillingService.setCustomerIdIfNull(
         org.id,
@@ -271,7 +223,7 @@ describe("BillingService - Profile Methods", () => {
     });
 
     test("should return null for organization without billing profile", async () => {
-      const org = await createTestOrganization();
+      const org = await OrganizationFactory.create();
 
       const result = await BillingService.getCustomerId(org.id);
 
@@ -279,8 +231,8 @@ describe("BillingService - Profile Methods", () => {
     });
 
     test("should return null for profile without pagarmeCustomerId", async () => {
-      const org = await createTestOrganization();
-      await createTestBillingProfile({ organizationId: org.id });
+      const org = await OrganizationFactory.create();
+      await BillingProfileFactory.create({ organizationId: org.id });
 
       const result = await BillingService.getCustomerId(org.id);
 
@@ -288,9 +240,9 @@ describe("BillingService - Profile Methods", () => {
     });
 
     test("should return pagarmeCustomerId when it exists", async () => {
-      const org = await createTestOrganization();
+      const org = await OrganizationFactory.create();
       const customerId = `cus_${crypto.randomUUID().slice(0, 8)}`;
-      await createTestBillingProfile({
+      await BillingProfileFactory.create({
         organizationId: org.id,
         pagarmeCustomerId: customerId,
       });

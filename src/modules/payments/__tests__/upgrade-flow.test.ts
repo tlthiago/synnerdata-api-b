@@ -3,16 +3,35 @@ import { and, eq, gte, lte } from "drizzle-orm";
 import { db } from "@/db";
 import { schema } from "@/db/schema";
 import { env } from "@/env";
-import { diamondPlan } from "@/test/fixtures/plans";
-import { createTestApp, type TestApp } from "@/test/helpers/app";
-import { createOrganizationViaApi } from "@/test/helpers/organization";
-import { seedPlans } from "@/test/helpers/seed";
-import { createTestUser } from "@/test/helpers/user";
-import { createWebhookRequest, webhookPayloads } from "@/test/helpers/webhook";
+import type { PagarmeWebhookPayload } from "@/modules/payments/pagarme/pagarme.types";
+import { WebhookPayloadBuilder } from "@/test/builders/webhook-payload.builder";
+import { OrganizationFactory } from "@/test/factories/organization.factory";
+import { BillingProfileFactory } from "@/test/factories/payments/billing-profile.factory";
+import {
+  type CreatePlanResult,
+  PlanFactory,
+} from "@/test/factories/payments/plan.factory";
+import { UserFactory } from "@/test/factories/user.factory";
+import { createTestApp, type TestApp } from "@/test/support/app";
+import { createWebhookAuthHeader } from "@/test/support/auth";
 
 const BASE_URL = env.API_URL;
 const WEBHOOK_URL = `${BASE_URL}/v1/payments/webhooks/pagarme`;
 const DEFAULT_EMPLOYEE_COUNT = 5;
+
+function createWebhookRequest(
+  url: string,
+  payload: PagarmeWebhookPayload
+): Request {
+  return new Request(url, {
+    method: "POST",
+    headers: {
+      "Content-Type": "application/json",
+      Authorization: createWebhookAuthHeader(),
+    },
+    body: JSON.stringify(payload),
+  });
+}
 
 /**
  * Test the complete upgrade flow from trial to paid subscription
@@ -31,15 +50,18 @@ describe("Upgrade Flow: Trial → Paid (Mocked Pagarme)", () => {
   let userId: string;
   let paymentLinkId: string;
   let tierId: string;
+  let diamondPlanResult: CreatePlanResult;
 
   beforeAll(async () => {
     app = createTestApp();
-    await seedPlans();
+    // Create trial plan (needed for trial hook) and diamond plan
+    await PlanFactory.createTrial();
+    diamondPlanResult = await PlanFactory.createPaid("diamond");
   });
 
   describe("Fase 1: Criação de Usuário e Organização via API", () => {
     test("should create user via auth API", async () => {
-      const result = await createTestUser({ emailVerified: true });
+      const result = await UserFactory.create({ emailVerified: true });
 
       expect(result.user.id).toBeDefined();
       expect(result.user.emailVerified).toBe(true);
@@ -55,7 +77,7 @@ describe("Upgrade Flow: Trial → Paid (Mocked Pagarme)", () => {
         headers: sessionHeaders,
       };
 
-      const result = await createOrganizationViaApi(userResult, {
+      const result = await OrganizationFactory.createViaApi(userResult, {
         name: "Test Upgrade Org",
         tradeName: "Test Company",
         phone: "11999999999",
@@ -91,11 +113,7 @@ describe("Upgrade Flow: Trial → Paid (Mocked Pagarme)", () => {
     });
 
     test("should create billing profile for checkout", async () => {
-      const { createTestBillingProfile } = await import(
-        "@/test/factories/billing-profile"
-      );
-
-      const billingProfile = await createTestBillingProfile({
+      const billingProfile = await BillingProfileFactory.create({
         organizationId,
       });
 
@@ -110,10 +128,6 @@ describe("Upgrade Flow: Trial → Paid (Mocked Pagarme)", () => {
     const mockCheckoutUrl = `https://pagar.me/checkout/${mockPaymentLinkId}`;
 
     test("should pre-configure pricing tier with Pagarme plan ID", async () => {
-      if (!diamondPlan) {
-        throw new Error("Diamond plan not found in fixtures");
-      }
-
       // Pre-configure the pricing tier with a mock Pagarme plan ID
       // This simulates the tier already being synced with Pagarme
       await db
@@ -121,7 +135,7 @@ describe("Upgrade Flow: Trial → Paid (Mocked Pagarme)", () => {
         .set({ pagarmePlanIdMonthly: mockPagarmePlanId })
         .where(
           and(
-            eq(schema.planPricingTiers.planId, diamondPlan.id),
+            eq(schema.planPricingTiers.planId, diamondPlanResult.plan.id),
             lte(schema.planPricingTiers.minEmployees, DEFAULT_EMPLOYEE_COUNT),
             gte(schema.planPricingTiers.maxEmployees, DEFAULT_EMPLOYEE_COUNT)
           )
@@ -132,7 +146,7 @@ describe("Upgrade Flow: Trial → Paid (Mocked Pagarme)", () => {
         .from(schema.planPricingTiers)
         .where(
           and(
-            eq(schema.planPricingTiers.planId, diamondPlan.id),
+            eq(schema.planPricingTiers.planId, diamondPlanResult.plan.id),
             lte(schema.planPricingTiers.minEmployees, DEFAULT_EMPLOYEE_COUNT),
             gte(schema.planPricingTiers.maxEmployees, DEFAULT_EMPLOYEE_COUNT)
           )
@@ -144,10 +158,6 @@ describe("Upgrade Flow: Trial → Paid (Mocked Pagarme)", () => {
     });
 
     test("should create checkout with mocked Pagarme API", async () => {
-      if (!diamondPlan) {
-        throw new Error("Diamond plan not found in fixtures");
-      }
-
       // Mock Pagarme API for payment link creation only
       const { PagarmeClient } = await import(
         "@/modules/payments/pagarme/client"
@@ -176,7 +186,7 @@ describe("Upgrade Flow: Trial → Paid (Mocked Pagarme)", () => {
             "Content-Type": "application/json",
           },
           body: JSON.stringify({
-            planId: diamondPlan.id,
+            planId: diamondPlanResult.plan.id,
             tierId,
             successUrl: "https://example.com/success",
           }),
@@ -234,10 +244,11 @@ describe("Upgrade Flow: Trial → Paid (Mocked Pagarme)", () => {
     };
 
     test("should receive and process subscription.created webhook", async () => {
-      const payload = webhookPayloads.subscriptionCreatedFromPaymentLink(
-        paymentLinkId,
-        customerData
-      );
+      const payload = new WebhookPayloadBuilder()
+        .subscriptionCreated()
+        .withPaymentLinkCode(paymentLinkId)
+        .withCustomer(customerData)
+        .build();
 
       const request = createWebhookRequest(WEBHOOK_URL, payload);
       const response = await app.handle(request);
@@ -306,10 +317,6 @@ describe("Upgrade Flow: Trial → Paid (Mocked Pagarme)", () => {
 
   describe("Fase 5: Validação Final", () => {
     test("should have complete active subscription", async () => {
-      if (!diamondPlan) {
-        throw new Error("Diamond plan not found in fixtures");
-      }
-
       const [subscription] = await db
         .select()
         .from(schema.orgSubscriptions)
@@ -331,17 +338,13 @@ describe("Upgrade Flow: Trial → Paid (Mocked Pagarme)", () => {
       expect(subscription.trialUsed).toBe(true);
 
       // Plan
-      expect(subscription.planId).toBe(diamondPlan.id);
+      expect(subscription.planId).toBe(diamondPlanResult.plan.id);
 
       // Pricing tier
       expect(subscription.pricingTierId).toBeDefined();
     });
 
     test("should reject new checkout for already active subscription", async () => {
-      if (!diamondPlan) {
-        throw new Error("Diamond plan not found in fixtures");
-      }
-
       const response = await app.handle(
         new Request(`${BASE_URL}/v1/payments/checkout`, {
           method: "POST",
@@ -350,7 +353,7 @@ describe("Upgrade Flow: Trial → Paid (Mocked Pagarme)", () => {
             "Content-Type": "application/json",
           },
           body: JSON.stringify({
-            planId: diamondPlan.id,
+            planId: diamondPlanResult.plan.id,
             tierId,
             successUrl: "https://example.com/success",
           }),

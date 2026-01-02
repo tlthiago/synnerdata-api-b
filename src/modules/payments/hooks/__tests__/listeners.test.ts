@@ -4,12 +4,12 @@ import { db } from "@/db";
 import { schema } from "@/db/schema";
 import { PaymentHooks } from "@/modules/payments/hooks";
 import { registerPaymentListeners } from "@/modules/payments/hooks/listeners";
-import { type CreatePlanResult, createPaidPlan } from "@/test/factories/plan";
 import {
-  createActiveSubscription,
-  createTestSubscription,
-} from "@/test/helpers/subscription";
-import { createTestUserWithOrganization } from "@/test/helpers/user";
+  type CreatePlanResult,
+  PlanFactory,
+} from "@/test/factories/payments/plan.factory";
+import { SubscriptionFactory } from "@/test/factories/payments/subscription.factory";
+import { UserFactory } from "@/test/factories/user.factory";
 
 // Mock email module
 const mockSendTrialExpiringEmail = mock(() => Promise.resolve());
@@ -29,12 +29,16 @@ mock.module("@/lib/email", () => ({
 }));
 
 let diamondPlanResult: CreatePlanResult;
+let trialPlanResult: CreatePlanResult;
 
 describe("Payment Listeners", () => {
   beforeAll(async () => {
     // Register listeners for tests (normally done at app startup)
     registerPaymentListeners();
-    diamondPlanResult = await createPaidPlan("diamond");
+    [diamondPlanResult, trialPlanResult] = await Promise.all([
+      PlanFactory.createPaid("diamond"),
+      PlanFactory.createTrial(),
+    ]);
   });
 
   afterEach(() => {
@@ -48,13 +52,12 @@ describe("Payment Listeners", () => {
 
   describe("trial.expiring listener", () => {
     test("should call sendTrialExpiringEmail when trial is expiring", async () => {
-      const { organizationId } = await createTestUserWithOrganization({
+      const { organizationId } = await UserFactory.createWithOrganization({
         emailVerified: true,
       });
-      await createTestSubscription(
+      await SubscriptionFactory.createTrial(
         organizationId,
-        diamondPlanResult.plan.id,
-        "trial"
+        trialPlanResult.plan.id
       );
 
       const [subscription] = await db
@@ -72,8 +75,9 @@ describe("Payment Listeners", () => {
       await new Promise((resolve) => setTimeout(resolve, 100));
 
       expect(mockSendTrialExpiringEmail).toHaveBeenCalledTimes(1);
-      const callArgs = mockSendTrialExpiringEmail.mock.calls[0][0];
-      expect(callArgs.daysRemaining).toBe(3);
+      expect(mockSendTrialExpiringEmail).toHaveBeenCalledWith(
+        expect.objectContaining({ daysRemaining: 3 })
+      );
     });
 
     test("should not send email if owner not found", async () => {
@@ -81,24 +85,26 @@ describe("Payment Listeners", () => {
       const subscription = {
         id: "sub_test",
         organizationId: "non-existent-org",
-        planId: diamondPlanResult.plan.id,
-        status: "trial" as const,
+        planId: trialPlanResult.plan.id,
+        status: "active" as const,
         trialEnd: new Date(Date.now() + 3 * 24 * 60 * 60 * 1000),
         trialStart: new Date(),
         trialUsed: true,
         seats: 1,
-        pricingTierId: diamondPlanResult.tiers[0].id,
+        pricingTierId: trialPlanResult.tiers[0].id,
         billingCycle: null,
         currentPeriodStart: null,
         currentPeriodEnd: null,
         pagarmeSubscriptionId: null,
-        pagarmeCustomerId: null,
+        pagarmeUpdatedAt: null,
         cancelAtPeriodEnd: false,
         canceledAt: null,
         pastDueSince: null,
         gracePeriodEnds: null,
         pendingPlanId: null,
         pendingBillingCycle: null,
+        pendingPricingTierId: null,
+        planChangeAt: null,
         createdAt: new Date(),
         updatedAt: new Date(),
       };
@@ -116,13 +122,12 @@ describe("Payment Listeners", () => {
 
   describe("trial.expired listener", () => {
     test("should call sendTrialExpiredEmail when trial expires", async () => {
-      const { organizationId } = await createTestUserWithOrganization({
+      const { organizationId } = await UserFactory.createWithOrganization({
         emailVerified: true,
       });
-      await createTestSubscription(
+      await SubscriptionFactory.createTrial(
         organizationId,
-        diamondPlanResult.plan.id,
-        "trial"
+        trialPlanResult.plan.id
       );
 
       const [subscription] = await db
@@ -141,10 +146,13 @@ describe("Payment Listeners", () => {
 
   describe("subscription.activated listener", () => {
     test("should call sendUpgradeConfirmationEmail when subscription is activated", async () => {
-      const { organizationId } = await createTestUserWithOrganization({
+      const { organizationId } = await UserFactory.createWithOrganization({
         emailVerified: true,
       });
-      await createActiveSubscription(organizationId, diamondPlanResult.plan.id);
+      await SubscriptionFactory.createActive(
+        organizationId,
+        diamondPlanResult.plan.id
+      );
 
       const [subscription] = await db
         .select()
@@ -162,10 +170,13 @@ describe("Payment Listeners", () => {
 
   describe("subscription.cancelScheduled listener", () => {
     test("should call sendCancellationScheduledEmail when cancellation is scheduled", async () => {
-      const { organizationId } = await createTestUserWithOrganization({
+      const { organizationId } = await UserFactory.createWithOrganization({
         emailVerified: true,
       });
-      await createActiveSubscription(organizationId, diamondPlanResult.plan.id);
+      await SubscriptionFactory.createActive(
+        organizationId,
+        diamondPlanResult.plan.id
+      );
 
       const [subscription] = await db
         .select()
@@ -181,13 +192,12 @@ describe("Payment Listeners", () => {
     });
 
     test("should not send email if currentPeriodEnd is null", async () => {
-      const { organizationId } = await createTestUserWithOrganization({
+      const { organizationId } = await UserFactory.createWithOrganization({
         emailVerified: true,
       });
-      await createTestSubscription(
+      await SubscriptionFactory.createTrial(
         organizationId,
-        diamondPlanResult.plan.id,
-        "trial"
+        trialPlanResult.plan.id
       );
 
       const [subscription] = await db
@@ -207,10 +217,13 @@ describe("Payment Listeners", () => {
 
   describe("subscription.canceled listener", () => {
     test("should call sendSubscriptionCanceledEmail when subscription is canceled", async () => {
-      const { organizationId } = await createTestUserWithOrganization({
+      const { organizationId } = await UserFactory.createWithOrganization({
         emailVerified: true,
       });
-      await createActiveSubscription(organizationId, diamondPlanResult.plan.id);
+      await SubscriptionFactory.createActive(
+        organizationId,
+        diamondPlanResult.plan.id
+      );
 
       const [subscription] = await db
         .select()
@@ -236,10 +249,13 @@ describe("Payment Listeners", () => {
 
   describe("charge.failed listener", () => {
     test("should call sendPaymentFailedEmail when charge fails", async () => {
-      const { organizationId } = await createTestUserWithOrganization({
+      const { organizationId } = await UserFactory.createWithOrganization({
         emailVerified: true,
       });
-      await createActiveSubscription(organizationId, diamondPlanResult.plan.id);
+      await SubscriptionFactory.createActive(
+        organizationId,
+        diamondPlanResult.plan.id
+      );
 
       // Set grace period
       const gracePeriodEnds = new Date();
@@ -269,15 +285,19 @@ describe("Payment Listeners", () => {
       await new Promise((resolve) => setTimeout(resolve, 100));
 
       expect(mockSendPaymentFailedEmail).toHaveBeenCalledTimes(1);
-      const callArgs = mockSendPaymentFailedEmail.mock.calls[0][0];
-      expect(callArgs.errorMessage).toBe("Card declined");
+      expect(mockSendPaymentFailedEmail).toHaveBeenCalledWith(
+        expect.objectContaining({ errorMessage: "Card declined" })
+      );
     });
 
     test("should not send email if gracePeriodEnds is not set", async () => {
-      const { organizationId } = await createTestUserWithOrganization({
+      const { organizationId } = await UserFactory.createWithOrganization({
         emailVerified: true,
       });
-      await createActiveSubscription(organizationId, diamondPlanResult.plan.id);
+      await SubscriptionFactory.createActive(
+        organizationId,
+        diamondPlanResult.plan.id
+      );
 
       const [subscription] = await db
         .select()

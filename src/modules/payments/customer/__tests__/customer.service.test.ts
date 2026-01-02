@@ -4,18 +4,15 @@ import { db } from "@/db";
 import { billingProfiles } from "@/db/schema/billing-profiles";
 import { CustomerService } from "@/modules/payments/customer/customer.service";
 import { BillingProfileNotFoundError } from "@/modules/payments/errors";
-import {
-  createTestBillingProfile,
-  createTestBillingProfileWithCustomer,
-} from "@/test/factories/billing-profile";
-import { generateCnpj } from "@/test/helpers/faker";
-import { createTestOrganization } from "@/test/helpers/organization";
-import { skipIntegration } from "@/test/helpers/skip-integration";
+import { OrganizationFactory } from "@/test/factories/organization.factory";
+import { BillingProfileFactory } from "@/test/factories/payments/billing-profile.factory";
+import { generateCnpj } from "@/test/support/faker";
+import { skipIntegration } from "@/test/support/skip-integration";
 
 describe("CustomerService", () => {
   describe("getCustomerId (no Pagarme API)", () => {
     test("should return null for organization without billing profile", async () => {
-      const org = await createTestOrganization();
+      const org = await OrganizationFactory.create();
 
       const result = await CustomerService.getCustomerId(org.id);
 
@@ -23,8 +20,8 @@ describe("CustomerService", () => {
     });
 
     test("should return null for billing profile without pagarmeCustomerId", async () => {
-      const org = await createTestOrganization();
-      await createTestBillingProfile({ organizationId: org.id });
+      const org = await OrganizationFactory.create();
+      await BillingProfileFactory.create({ organizationId: org.id });
 
       const result = await CustomerService.getCustomerId(org.id);
 
@@ -32,8 +29,10 @@ describe("CustomerService", () => {
     });
 
     test("should return pagarmeCustomerId when it exists", async () => {
-      const org = await createTestOrganization();
-      await createTestBillingProfileWithCustomer({ organizationId: org.id });
+      const org = await OrganizationFactory.create();
+      await BillingProfileFactory.createWithCustomer({
+        organizationId: org.id,
+      });
 
       const result = await CustomerService.getCustomerId(org.id);
 
@@ -50,8 +49,8 @@ describe("CustomerService", () => {
 
   describe.skipIf(skipIntegration)("create (Pagarme API)", () => {
     test("should create customer in Pagarme without persisting customerId", async () => {
-      const org = await createTestOrganization();
-      await createTestBillingProfile({ organizationId: org.id });
+      const org = await OrganizationFactory.create();
+      await BillingProfileFactory.create({ organizationId: org.id });
 
       const result = await CustomerService.create({
         organizationId: org.id,
@@ -76,8 +75,8 @@ describe("CustomerService", () => {
     });
 
     test("should parse phone with country code correctly", async () => {
-      const org = await createTestOrganization();
-      await createTestBillingProfile({ organizationId: org.id });
+      const org = await OrganizationFactory.create();
+      await BillingProfileFactory.create({ organizationId: org.id });
 
       const result = await CustomerService.create({
         organizationId: org.id,
@@ -92,8 +91,8 @@ describe("CustomerService", () => {
     });
 
     test("should parse phone without country code correctly", async () => {
-      const org = await createTestOrganization();
-      await createTestBillingProfile({ organizationId: org.id });
+      const org = await OrganizationFactory.create();
+      await BillingProfileFactory.create({ organizationId: org.id });
 
       const result = await CustomerService.create({
         organizationId: org.id,
@@ -108,8 +107,8 @@ describe("CustomerService", () => {
     });
 
     test("should strip non-numeric characters from document", async () => {
-      const org = await createTestOrganization();
-      await createTestBillingProfile({ organizationId: org.id });
+      const org = await OrganizationFactory.create();
+      await BillingProfileFactory.create({ organizationId: org.id });
 
       const taxId = generateCnpj();
       const formattedTaxId = `${taxId.slice(0, 2)}.${taxId.slice(2, 5)}.${taxId.slice(5, 8)}/${taxId.slice(8, 12)}-${taxId.slice(12)}`;
@@ -138,8 +137,8 @@ describe("CustomerService", () => {
 
       test("should return existing pagarmeCustomerId if already set", async () => {
         const existingCustomerId = `cus_existing_${crypto.randomUUID().slice(0, 8)}`;
-        const org = await createTestOrganization();
-        await createTestBillingProfile({
+        const org = await OrganizationFactory.create();
+        await BillingProfileFactory.create({
           organizationId: org.id,
           pagarmeCustomerId: existingCustomerId,
         });
@@ -150,8 +149,8 @@ describe("CustomerService", () => {
       });
 
       test("should create new customer when pagarmeCustomerId is null", async () => {
-        const org = await createTestOrganization();
-        await createTestBillingProfile({
+        const org = await OrganizationFactory.create();
+        await BillingProfileFactory.create({
           organizationId: org.id,
           phone: "11999999999",
         });

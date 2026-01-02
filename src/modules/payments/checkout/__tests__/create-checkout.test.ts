@@ -4,21 +4,16 @@ import { db } from "@/db";
 import { schema } from "@/db/schema";
 import { billingProfiles } from "@/db/schema/billing-profiles";
 import { env } from "@/env";
-import { createTestBillingProfile } from "@/test/factories/billing-profile";
+import { OrganizationFactory } from "@/test/factories/organization.factory";
+import { BillingProfileFactory } from "@/test/factories/payments/billing-profile.factory";
 import {
   type CreatePlanResult,
-  createInactivePlan,
-  createPaidPlan,
-  createTrialPlan,
-  getFirstTier,
-} from "@/test/factories/plan";
-import { createTestApp, type TestApp } from "@/test/helpers/app";
-import { skipIntegration } from "@/test/helpers/skip-integration";
-import { createTestSubscription } from "@/test/helpers/subscription";
-import {
-  createTestUser,
-  createTestUserWithOrganization,
-} from "@/test/helpers/user";
+  PlanFactory,
+} from "@/test/factories/payments/plan.factory";
+import { SubscriptionFactory } from "@/test/factories/payments/subscription.factory";
+import { UserFactory } from "@/test/factories/user.factory";
+import { createTestApp, type TestApp } from "@/test/support/app";
+import { skipIntegration } from "@/test/support/skip-integration";
 
 const BASE_URL = env.API_URL;
 
@@ -34,15 +29,15 @@ describe("POST /v1/payments/checkout", () => {
 
     [trialPlanResult, goldPlanResult, diamondPlanResult, inactivePlanResult] =
       await Promise.all([
-        createTrialPlan(),
-        createPaidPlan("gold"),
-        createPaidPlan("diamond"),
-        createInactivePlan({ type: "platinum" }),
+        PlanFactory.createTrial(),
+        PlanFactory.createPaid("gold"),
+        PlanFactory.createPaid("diamond"),
+        PlanFactory.createInactive({ type: "platinum" }),
       ]);
   });
 
   test("should reject unauthenticated requests", async () => {
-    const tier = getFirstTier(diamondPlanResult);
+    const tier = PlanFactory.getFirstTier(diamondPlanResult);
 
     const response = await app.handle(
       new Request(`${BASE_URL}/v1/payments/checkout`, {
@@ -60,10 +55,10 @@ describe("POST /v1/payments/checkout", () => {
   });
 
   test("should reject user with unverified email", async () => {
-    const { headers } = await createTestUserWithOrganization({
+    const { headers } = await UserFactory.createWithOrganization({
       emailVerified: false,
     });
-    const tier = getFirstTier(diamondPlanResult);
+    const tier = PlanFactory.getFirstTier(diamondPlanResult);
 
     const response = await app.handle(
       new Request(`${BASE_URL}/v1/payments/checkout`, {
@@ -86,18 +81,19 @@ describe("POST /v1/payments/checkout", () => {
   });
 
   test("should reject if organization already has active subscription", async () => {
-    const { headers, organizationId } = await createTestUserWithOrganization({
-      emailVerified: true,
-    });
+    const { headers, organizationId } =
+      await UserFactory.createWithOrganization({
+        emailVerified: true,
+      });
 
-    await createTestBillingProfile({ organizationId });
-    await createTestSubscription(
+    await BillingProfileFactory.create({ organizationId });
+    await SubscriptionFactory.create(
       organizationId,
       diamondPlanResult.plan.id,
-      "active"
+      { status: "active" }
     );
 
-    const tier = getFirstTier(goldPlanResult);
+    const tier = PlanFactory.getFirstTier(goldPlanResult);
 
     const response = await app.handle(
       new Request(`${BASE_URL}/v1/payments/checkout`, {
@@ -120,12 +116,13 @@ describe("POST /v1/payments/checkout", () => {
   });
 
   test("should reject for non-existent plan", async () => {
-    const { headers, organizationId } = await createTestUserWithOrganization({
-      emailVerified: true,
-    });
+    const { headers, organizationId } =
+      await UserFactory.createWithOrganization({
+        emailVerified: true,
+      });
 
-    await createTestBillingProfile({ organizationId });
-    const tier = getFirstTier(diamondPlanResult);
+    await BillingProfileFactory.create({ organizationId });
+    const tier = PlanFactory.getFirstTier(diamondPlanResult);
 
     const response = await app.handle(
       new Request(`${BASE_URL}/v1/payments/checkout`, {
@@ -147,13 +144,42 @@ describe("POST /v1/payments/checkout", () => {
     expect(body.error.code).toBe("PLAN_NOT_FOUND");
   });
 
-  test("should reject for inactive plan", async () => {
-    const { headers, organizationId } = await createTestUserWithOrganization({
-      emailVerified: true,
-    });
+  test("should reject for non-existent tier", async () => {
+    const { headers, organizationId } =
+      await UserFactory.createWithOrganization({
+        emailVerified: true,
+      });
 
-    await createTestBillingProfile({ organizationId });
-    const tier = getFirstTier(inactivePlanResult);
+    await BillingProfileFactory.create({ organizationId });
+
+    const response = await app.handle(
+      new Request(`${BASE_URL}/v1/payments/checkout`, {
+        method: "POST",
+        headers: {
+          ...headers,
+          "Content-Type": "application/json",
+        },
+        body: JSON.stringify({
+          planId: diamondPlanResult.plan.id,
+          tierId: "non-existent-tier",
+          successUrl: "https://example.com/success",
+        }),
+      })
+    );
+
+    expect(response.status).toBe(404);
+    const body = await response.json();
+    expect(body.error.code).toBe("PRICING_TIER_NOT_FOUND");
+  });
+
+  test("should reject for inactive plan", async () => {
+    const { headers, organizationId } =
+      await UserFactory.createWithOrganization({
+        emailVerified: true,
+      });
+
+    await BillingProfileFactory.create({ organizationId });
+    const tier = PlanFactory.getFirstTier(inactivePlanResult);
 
     const response = await app.handle(
       new Request(`${BASE_URL}/v1/payments/checkout`, {
@@ -176,12 +202,13 @@ describe("POST /v1/payments/checkout", () => {
   });
 
   test("should reject invalid successUrl", async () => {
-    const { headers, organizationId } = await createTestUserWithOrganization({
-      emailVerified: true,
-    });
+    const { headers, organizationId } =
+      await UserFactory.createWithOrganization({
+        emailVerified: true,
+      });
 
-    await createTestBillingProfile({ organizationId });
-    const tier = getFirstTier(diamondPlanResult);
+    await BillingProfileFactory.create({ organizationId });
+    const tier = PlanFactory.getFirstTier(diamondPlanResult);
 
     const response = await app.handle(
       new Request(`${BASE_URL}/v1/payments/checkout`, {
@@ -202,11 +229,12 @@ describe("POST /v1/payments/checkout", () => {
   });
 
   test("should reject missing required fields", async () => {
-    const { headers, organizationId } = await createTestUserWithOrganization({
-      emailVerified: true,
-    });
+    const { headers, organizationId } =
+      await UserFactory.createWithOrganization({
+        emailVerified: true,
+      });
 
-    await createTestBillingProfile({ organizationId });
+    await BillingProfileFactory.create({ organizationId });
 
     const response = await app.handle(
       new Request(`${BASE_URL}/v1/payments/checkout`, {
@@ -223,11 +251,12 @@ describe("POST /v1/payments/checkout", () => {
   });
 
   test("should reject missing tierId", async () => {
-    const { headers, organizationId } = await createTestUserWithOrganization({
-      emailVerified: true,
-    });
+    const { headers, organizationId } =
+      await UserFactory.createWithOrganization({
+        emailVerified: true,
+      });
 
-    await createTestBillingProfile({ organizationId });
+    await BillingProfileFactory.create({ organizationId });
 
     const response = await app.handle(
       new Request(`${BASE_URL}/v1/payments/checkout`, {
@@ -249,12 +278,13 @@ describe("POST /v1/payments/checkout", () => {
   test.skipIf(skipIntegration)(
     "should create payment link and return checkoutUrl and paymentLinkId",
     async () => {
-      const { headers, organizationId } = await createTestUserWithOrganization({
-        emailVerified: true,
-      });
+      const { headers, organizationId } =
+        await UserFactory.createWithOrganization({
+          emailVerified: true,
+        });
 
-      await createTestBillingProfile({ organizationId });
-      const tier = getFirstTier(diamondPlanResult);
+      await BillingProfileFactory.create({ organizationId });
+      const tier = PlanFactory.getFirstTier(diamondPlanResult);
 
       const response = await app.handle(
         new Request(`${BASE_URL}/v1/payments/checkout`, {
@@ -285,12 +315,13 @@ describe("POST /v1/payments/checkout", () => {
   test.skipIf(skipIntegration)(
     "should sync pricing tier plan to Pagarme if not yet synced",
     async () => {
-      const { headers, organizationId } = await createTestUserWithOrganization({
-        emailVerified: true,
-      });
+      const { headers, organizationId } =
+        await UserFactory.createWithOrganization({
+          emailVerified: true,
+        });
 
-      await createTestBillingProfile({ organizationId });
-      const tier = getFirstTier(diamondPlanResult);
+      await BillingProfileFactory.create({ organizationId });
+      const tier = PlanFactory.getFirstTier(diamondPlanResult);
 
       // Reset Pagarme IDs for all pricing tiers of this plan
       await db
@@ -331,12 +362,13 @@ describe("POST /v1/payments/checkout", () => {
   test.skipIf(skipIntegration)(
     "should reuse existing pagarmePlanId if already synced",
     async () => {
-      const { headers, organizationId } = await createTestUserWithOrganization({
-        emailVerified: true,
-      });
+      const { headers, organizationId } =
+        await UserFactory.createWithOrganization({
+          emailVerified: true,
+        });
 
-      await createTestBillingProfile({ organizationId });
-      const tier = getFirstTier(diamondPlanResult);
+      await BillingProfileFactory.create({ organizationId });
+      const tier = PlanFactory.getFirstTier(diamondPlanResult);
 
       const firstResponse = await app.handle(
         new Request(`${BASE_URL}/v1/payments/checkout`, {
@@ -364,11 +396,11 @@ describe("POST /v1/payments/checkout", () => {
       )?.pagarmePlanIdMonthly;
 
       const { headers: headers2, organizationId: orgId2 } =
-        await createTestUserWithOrganization({
+        await UserFactory.createWithOrganization({
           emailVerified: true,
         });
 
-      await createTestBillingProfile({ organizationId: orgId2 });
+      await BillingProfileFactory.create({ organizationId: orgId2 });
 
       const secondResponse = await app.handle(
         new Request(`${BASE_URL}/v1/payments/checkout`, {
@@ -402,17 +434,21 @@ describe("POST /v1/payments/checkout", () => {
   test.skipIf(skipIntegration).each(["trial", "canceled"] as const)(
     "should allow checkout for org with %s subscription",
     async (status) => {
-      const { headers, organizationId } = await createTestUserWithOrganization({
-        emailVerified: true,
-      });
+      const { headers, organizationId } =
+        await UserFactory.createWithOrganization({
+          emailVerified: true,
+        });
 
-      await createTestBillingProfile({ organizationId });
+      await BillingProfileFactory.create({ organizationId });
       // Use trial plan for trial status, paid plan for canceled status
       const subscriptionPlanId =
         status === "trial" ? trialPlanResult.plan.id : goldPlanResult.plan.id;
-      await createTestSubscription(organizationId, subscriptionPlanId, status);
+      const subscriptionStatus = status === "trial" ? "active" : "canceled";
+      await SubscriptionFactory.create(organizationId, subscriptionPlanId, {
+        status: subscriptionStatus,
+      });
 
-      const tier = getFirstTier(diamondPlanResult);
+      const tier = PlanFactory.getFirstTier(diamondPlanResult);
 
       const response = await app.handle(
         new Request(`${BASE_URL}/v1/payments/checkout`, {
@@ -443,12 +479,13 @@ describe("POST /v1/payments/checkout", () => {
   test.skipIf(skipIntegration)(
     "should create checkout without prior customer_id",
     async () => {
-      const { headers, organizationId } = await createTestUserWithOrganization({
-        emailVerified: true,
-      });
+      const { headers, organizationId } =
+        await UserFactory.createWithOrganization({
+          emailVerified: true,
+        });
 
       // Create billing profile WITHOUT pagarmeCustomerId
-      await createTestBillingProfile({ organizationId });
+      await BillingProfileFactory.create({ organizationId });
 
       const [profile] = await db
         .select({
@@ -460,7 +497,7 @@ describe("POST /v1/payments/checkout", () => {
 
       expect(profile.pagarmeCustomerId).toBeNull();
 
-      const tier = getFirstTier(diamondPlanResult);
+      const tier = PlanFactory.getFirstTier(diamondPlanResult);
 
       const response = await app.handle(
         new Request(`${BASE_URL}/v1/payments/checkout`, {
@@ -488,15 +525,18 @@ describe("POST /v1/payments/checkout", () => {
   test.skipIf(skipIntegration)(
     "should reuse existing customer_id from billing profile",
     async () => {
-      const { headers, organizationId } = await createTestUserWithOrganization({
-        emailVerified: true,
-      });
+      const { headers, organizationId } =
+        await UserFactory.createWithOrganization({
+          emailVerified: true,
+        });
 
       // Create billing profile without customer
-      const billingProfile = await createTestBillingProfile({ organizationId });
+      const billingProfile = await BillingProfileFactory.create({
+        organizationId,
+      });
       expect(billingProfile.pagarmeCustomerId).toBeNull();
 
-      const tier = getFirstTier(diamondPlanResult);
+      const tier = PlanFactory.getFirstTier(diamondPlanResult);
 
       // First checkout - creates customer in Pagarme
       const firstResponse = await app.handle(
@@ -564,12 +604,13 @@ describe("POST /v1/payments/checkout", () => {
   test.skipIf(skipIntegration)(
     "should create pending_checkout record for webhook lookup",
     async () => {
-      const { headers, organizationId } = await createTestUserWithOrganization({
-        emailVerified: true,
-      });
+      const { headers, organizationId } =
+        await UserFactory.createWithOrganization({
+          emailVerified: true,
+        });
 
-      await createTestBillingProfile({ organizationId });
-      const tier = getFirstTier(diamondPlanResult);
+      await BillingProfileFactory.create({ organizationId });
+      const tier = PlanFactory.getFirstTier(diamondPlanResult);
 
       const response = await app.handle(
         new Request(`${BASE_URL}/v1/payments/checkout`, {
@@ -613,24 +654,20 @@ describe("POST /v1/payments/checkout", () => {
     "manager",
     "supervisor",
   ] as const)("should reject %s member from creating checkout", async (role) => {
-    const { addMemberToOrganization } = await import(
-      "@/test/helpers/organization"
-    );
-
-    const { organizationId } = await createTestUserWithOrganization({
+    const { organizationId } = await UserFactory.createWithOrganization({
       emailVerified: true,
     });
 
-    await createTestBillingProfile({ organizationId });
+    await BillingProfileFactory.create({ organizationId });
 
-    const memberResult = await createTestUser({ emailVerified: true });
+    const memberResult = await UserFactory.create({ emailVerified: true });
 
-    await addMemberToOrganization(memberResult, {
+    await OrganizationFactory.addMember(memberResult, {
       organizationId,
       role,
     });
     const memberHeaders = memberResult.headers;
-    const tier = getFirstTier(diamondPlanResult);
+    const tier = PlanFactory.getFirstTier(diamondPlanResult);
 
     const response = await app.handle(
       new Request(`${BASE_URL}/v1/payments/checkout`, {
@@ -653,12 +690,13 @@ describe("POST /v1/payments/checkout", () => {
   });
 
   test("should reject empty planId", async () => {
-    const { headers, organizationId } = await createTestUserWithOrganization({
-      emailVerified: true,
-    });
+    const { headers, organizationId } =
+      await UserFactory.createWithOrganization({
+        emailVerified: true,
+      });
 
-    await createTestBillingProfile({ organizationId });
-    const tier = getFirstTier(diamondPlanResult);
+    await BillingProfileFactory.create({ organizationId });
+    const tier = PlanFactory.getFirstTier(diamondPlanResult);
 
     const response = await app.handle(
       new Request(`${BASE_URL}/v1/payments/checkout`, {
@@ -681,12 +719,13 @@ describe("POST /v1/payments/checkout", () => {
   test("should handle Pagarme API connection failure", async () => {
     const { PagarmeClient } = await import("../../pagarme/client");
 
-    const { headers, organizationId } = await createTestUserWithOrganization({
-      emailVerified: true,
-    });
+    const { headers, organizationId } =
+      await UserFactory.createWithOrganization({
+        emailVerified: true,
+      });
 
-    await createTestBillingProfile({ organizationId });
-    const tier = getFirstTier(diamondPlanResult);
+    await BillingProfileFactory.create({ organizationId });
+    const tier = PlanFactory.getFirstTier(diamondPlanResult);
 
     const createPaymentLinkSpy = spyOn(
       PagarmeClient,
@@ -714,12 +753,12 @@ describe("POST /v1/payments/checkout", () => {
   });
 
   test("should reject checkout without billing profile", async () => {
-    const { headers } = await createTestUserWithOrganization({
+    const { headers } = await UserFactory.createWithOrganization({
       emailVerified: true,
     });
 
     // Do NOT create billing profile
-    const tier = getFirstTier(diamondPlanResult);
+    const tier = PlanFactory.getFirstTier(diamondPlanResult);
 
     const response = await app.handle(
       new Request(`${BASE_URL}/v1/payments/checkout`, {

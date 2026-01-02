@@ -4,18 +4,12 @@ import { db } from "@/db";
 import { schema } from "@/db/schema";
 import { SubscriptionAlreadyActiveError } from "@/modules/payments/errors";
 import { SubscriptionService } from "@/modules/payments/subscription/subscription.service";
+import { OrganizationFactory } from "@/test/factories/organization.factory";
 import {
   type CreatePlanResult,
-  createPaidPlan,
-  createTrialPlan,
-} from "@/test/factories/plan";
-import { createTestOrganization } from "@/test/helpers/organization";
-import {
-  createActiveSubscription,
-  createCanceledSubscription,
-  createExpiredSubscription,
-  createTestSubscription,
-} from "@/test/helpers/subscription";
+  PlanFactory,
+} from "@/test/factories/payments/plan.factory";
+import { SubscriptionFactory } from "@/test/factories/payments/subscription.factory";
 
 let diamondPlanResult: CreatePlanResult;
 let trialPlanResult: CreatePlanResult;
@@ -24,15 +18,15 @@ describe("SubscriptionService", () => {
   beforeAll(async () => {
     // Create plans: diamond for paid tests, trial for trial-related tests
     [diamondPlanResult, trialPlanResult] = await Promise.all([
-      createPaidPlan("diamond"),
-      createTrialPlan(), // Creates a trial plan with isTrial=true
+      PlanFactory.createPaid("diamond"),
+      PlanFactory.createTrial(), // Creates a trial plan with isTrial=true
     ]);
   });
 
   describe("hasPaidSubscription", () => {
     test("should return true for active subscription", async () => {
-      const org = await createTestOrganization();
-      await createActiveSubscription(org.id, diamondPlanResult.plan.id);
+      const org = await OrganizationFactory.create();
+      await SubscriptionFactory.createActive(org.id, diamondPlanResult.plan.id);
 
       const result = await SubscriptionService.hasPaidSubscription(org.id);
 
@@ -40,9 +34,9 @@ describe("SubscriptionService", () => {
     });
 
     test("should return false for trial subscription", async () => {
-      const org = await createTestOrganization();
+      const org = await OrganizationFactory.create();
       // Use trial plan for proper trial behavior
-      await createTestSubscription(org.id, trialPlanResult.plan.id, "trial");
+      await SubscriptionFactory.createTrial(org.id, trialPlanResult.plan.id);
 
       const result = await SubscriptionService.hasPaidSubscription(org.id);
 
@@ -50,8 +44,11 @@ describe("SubscriptionService", () => {
     });
 
     test("should return false for canceled subscription", async () => {
-      const org = await createTestOrganization();
-      await createCanceledSubscription(org.id, diamondPlanResult.plan.id);
+      const org = await OrganizationFactory.create();
+      await SubscriptionFactory.createCanceled(
+        org.id,
+        diamondPlanResult.plan.id
+      );
 
       const result = await SubscriptionService.hasPaidSubscription(org.id);
 
@@ -59,7 +56,7 @@ describe("SubscriptionService", () => {
     });
 
     test("should return false for organization without subscription", async () => {
-      const org = await createTestOrganization();
+      const org = await OrganizationFactory.create();
 
       const result = await SubscriptionService.hasPaidSubscription(org.id);
 
@@ -69,9 +66,9 @@ describe("SubscriptionService", () => {
 
   describe("ensureNoPaidSubscription", () => {
     test("should not throw for trial subscription", async () => {
-      const org = await createTestOrganization();
+      const org = await OrganizationFactory.create();
       // Use trial plan for proper trial behavior
-      await createTestSubscription(org.id, trialPlanResult.plan.id, "trial");
+      await SubscriptionFactory.createTrial(org.id, trialPlanResult.plan.id);
 
       await expect(
         SubscriptionService.ensureNoPaidSubscription(org.id)
@@ -79,8 +76,11 @@ describe("SubscriptionService", () => {
     });
 
     test("should not throw for canceled subscription", async () => {
-      const org = await createTestOrganization();
-      await createCanceledSubscription(org.id, diamondPlanResult.plan.id);
+      const org = await OrganizationFactory.create();
+      await SubscriptionFactory.createCanceled(
+        org.id,
+        diamondPlanResult.plan.id
+      );
 
       await expect(
         SubscriptionService.ensureNoPaidSubscription(org.id)
@@ -88,7 +88,7 @@ describe("SubscriptionService", () => {
     });
 
     test("should not throw for organization without subscription", async () => {
-      const org = await createTestOrganization();
+      const org = await OrganizationFactory.create();
 
       await expect(
         SubscriptionService.ensureNoPaidSubscription(org.id)
@@ -96,8 +96,8 @@ describe("SubscriptionService", () => {
     });
 
     test("should throw SubscriptionAlreadyActiveError for active subscription", async () => {
-      const org = await createTestOrganization();
-      await createActiveSubscription(org.id, diamondPlanResult.plan.id);
+      const org = await OrganizationFactory.create();
+      await SubscriptionFactory.createActive(org.id, diamondPlanResult.plan.id);
 
       await expect(
         SubscriptionService.ensureNoPaidSubscription(org.id)
@@ -107,7 +107,7 @@ describe("SubscriptionService", () => {
 
   describe("checkAccess", () => {
     test("should return no_subscription for organization without subscription", async () => {
-      const org = await createTestOrganization();
+      const org = await OrganizationFactory.create();
 
       const result = await SubscriptionService.checkAccess(org.id);
 
@@ -119,8 +119,8 @@ describe("SubscriptionService", () => {
     });
 
     test("should return active status with full access", async () => {
-      const org = await createTestOrganization();
-      await createActiveSubscription(org.id, diamondPlanResult.plan.id);
+      const org = await OrganizationFactory.create();
+      await SubscriptionFactory.createActive(org.id, diamondPlanResult.plan.id);
 
       const result = await SubscriptionService.checkAccess(org.id);
 
@@ -132,10 +132,10 @@ describe("SubscriptionService", () => {
     });
 
     test("should return trial status with days remaining", async () => {
-      const org = await createTestOrganization();
+      const org = await OrganizationFactory.create();
       // Use trial plan for proper trial behavior
-      await createTestSubscription(org.id, trialPlanResult.plan.id, {
-        status: "trial",
+      await SubscriptionFactory.create(org.id, trialPlanResult.plan.id, {
+        status: "active",
         trialDays: 14,
       });
 
@@ -150,10 +150,10 @@ describe("SubscriptionService", () => {
     });
 
     test("should return trial_expired when trial has ended", async () => {
-      const org = await createTestOrganization();
+      const org = await OrganizationFactory.create();
       // Use trial plan for proper trial behavior
-      await createTestSubscription(org.id, trialPlanResult.plan.id, {
-        status: "trial",
+      await SubscriptionFactory.create(org.id, trialPlanResult.plan.id, {
+        status: "active",
         trialDays: -1,
       });
 
@@ -167,8 +167,11 @@ describe("SubscriptionService", () => {
     });
 
     test("should return canceled status without access", async () => {
-      const org = await createTestOrganization();
-      await createCanceledSubscription(org.id, diamondPlanResult.plan.id);
+      const org = await OrganizationFactory.create();
+      await SubscriptionFactory.createCanceled(
+        org.id,
+        diamondPlanResult.plan.id
+      );
 
       const result = await SubscriptionService.checkAccess(org.id);
 
@@ -178,8 +181,11 @@ describe("SubscriptionService", () => {
     });
 
     test("should return expired status without access", async () => {
-      const org = await createTestOrganization();
-      await createExpiredSubscription(org.id, diamondPlanResult.plan.id);
+      const org = await OrganizationFactory.create();
+      await SubscriptionFactory.createExpired(
+        org.id,
+        diamondPlanResult.plan.id
+      );
 
       const result = await SubscriptionService.checkAccess(org.id);
 
@@ -189,8 +195,8 @@ describe("SubscriptionService", () => {
     });
 
     test("should return past_due status with access", async () => {
-      const org = await createTestOrganization();
-      await createTestSubscription(org.id, diamondPlanResult.plan.id, {
+      const org = await OrganizationFactory.create();
+      await SubscriptionFactory.create(org.id, diamondPlanResult.plan.id, {
         status: "past_due",
       });
 
@@ -204,7 +210,7 @@ describe("SubscriptionService", () => {
 
   describe("createTrial", () => {
     test("should create trial subscription with trial plan", async () => {
-      const org = await createTestOrganization();
+      const org = await OrganizationFactory.create();
 
       await SubscriptionService.createTrial(org.id);
 
@@ -237,8 +243,8 @@ describe("SubscriptionService", () => {
 
   describe("activate", () => {
     test("should activate subscription with billing period", async () => {
-      const org = await createTestOrganization();
-      await createTestSubscription(org.id, diamondPlanResult.plan.id, "trial");
+      const org = await OrganizationFactory.create();
+      await SubscriptionFactory.createTrial(org.id, diamondPlanResult.plan.id);
 
       const periodStart = new Date();
       const periodEnd = new Date();
@@ -266,8 +272,11 @@ describe("SubscriptionService", () => {
     });
 
     test("should clear cancellation flags when activating", async () => {
-      const org = await createTestOrganization();
-      await createCanceledSubscription(org.id, diamondPlanResult.plan.id);
+      const org = await OrganizationFactory.create();
+      await SubscriptionFactory.createCanceled(
+        org.id,
+        diamondPlanResult.plan.id
+      );
 
       await db
         .update(schema.orgSubscriptions)
@@ -299,8 +308,8 @@ describe("SubscriptionService", () => {
 
   describe("markPastDue", () => {
     test("should update subscription status to past_due", async () => {
-      const org = await createTestOrganization();
-      await createActiveSubscription(org.id, diamondPlanResult.plan.id);
+      const org = await OrganizationFactory.create();
+      await SubscriptionFactory.createActive(org.id, diamondPlanResult.plan.id);
 
       await SubscriptionService.markPastDue(org.id);
 
@@ -316,12 +325,11 @@ describe("SubscriptionService", () => {
 
   describe("expireTrial", () => {
     test("should expire trial subscription", async () => {
-      const org = await createTestOrganization();
+      const org = await OrganizationFactory.create();
       // Use trial plan for proper trial behavior
-      const subscriptionId = await createTestSubscription(
+      const subscriptionId = await SubscriptionFactory.createTrial(
         org.id,
-        trialPlanResult.plan.id,
-        "trial"
+        trialPlanResult.plan.id
       );
 
       await SubscriptionService.expireTrial(subscriptionId);
@@ -336,8 +344,8 @@ describe("SubscriptionService", () => {
     });
 
     test("should not expire non-trial subscription", async () => {
-      const org = await createTestOrganization();
-      const subscriptionId = await createActiveSubscription(
+      const org = await OrganizationFactory.create();
+      const subscriptionId = await SubscriptionFactory.createActive(
         org.id,
         diamondPlanResult.plan.id
       );
@@ -362,8 +370,8 @@ describe("SubscriptionService", () => {
 
   describe("suspend", () => {
     test("should change past_due subscription to canceled", async () => {
-      const org = await createTestOrganization();
-      const subscriptionId = await createTestSubscription(
+      const org = await OrganizationFactory.create();
+      const subscriptionId = await SubscriptionFactory.create(
         org.id,
         diamondPlanResult.plan.id,
         { status: "past_due" }
@@ -381,8 +389,8 @@ describe("SubscriptionService", () => {
     });
 
     test("should not change active subscription", async () => {
-      const org = await createTestOrganization();
-      const subscriptionId = await createActiveSubscription(
+      const org = await OrganizationFactory.create();
+      const subscriptionId = await SubscriptionFactory.createActive(
         org.id,
         diamondPlanResult.plan.id
       );
@@ -407,8 +415,8 @@ describe("SubscriptionService", () => {
 
   describe("cancelByWebhook", () => {
     test("should cancel subscription by organizationId", async () => {
-      const org = await createTestOrganization();
-      await createActiveSubscription(org.id, diamondPlanResult.plan.id);
+      const org = await OrganizationFactory.create();
+      await SubscriptionFactory.createActive(org.id, diamondPlanResult.plan.id);
 
       const result = await SubscriptionService.cancelByWebhook(org.id);
 
@@ -434,8 +442,8 @@ describe("SubscriptionService", () => {
     });
 
     test("should emit subscription.canceled event", async () => {
-      const org = await createTestOrganization();
-      await createActiveSubscription(org.id, diamondPlanResult.plan.id);
+      const org = await OrganizationFactory.create();
+      await SubscriptionFactory.createActive(org.id, diamondPlanResult.plan.id);
 
       const result = await SubscriptionService.cancelByWebhook(org.id);
 
@@ -446,12 +454,14 @@ describe("SubscriptionService", () => {
 
   describe("cancelByPagarmeId", () => {
     test("should cancel subscription by pagarmeSubscriptionId", async () => {
-      const org = await createTestOrganization();
+      const org = await OrganizationFactory.create();
       const pagarmeSubId = `sub_pagarme_${crypto.randomUUID().slice(0, 8)}`;
-      await createActiveSubscription(
+      await SubscriptionFactory.createActive(
         org.id,
         diamondPlanResult.plan.id,
-        pagarmeSubId
+        {
+          pagarmeSubscriptionId: pagarmeSubId,
+        }
       );
 
       const result = await SubscriptionService.cancelByPagarmeId(pagarmeSubId);
@@ -479,8 +489,8 @@ describe("SubscriptionService", () => {
 
   describe("activate with optional fields", () => {
     test("should activate subscription with planId and pricingTierId", async () => {
-      const org = await createTestOrganization();
-      await createTestSubscription(org.id, diamondPlanResult.plan.id, "trial");
+      const org = await OrganizationFactory.create();
+      await SubscriptionFactory.createTrial(org.id, diamondPlanResult.plan.id);
 
       const periodStart = new Date();
       const periodEnd = new Date();
@@ -512,8 +522,8 @@ describe("SubscriptionService", () => {
     });
 
     test("should mark trialUsed as true when activating", async () => {
-      const org = await createTestOrganization();
-      await createTestSubscription(org.id, diamondPlanResult.plan.id, "trial");
+      const org = await OrganizationFactory.create();
+      await SubscriptionFactory.createTrial(org.id, diamondPlanResult.plan.id);
 
       // Manually set trialUsed to false to verify it gets set
       await db
@@ -542,8 +552,8 @@ describe("SubscriptionService", () => {
     });
 
     test("should emit subscription.activated event", async () => {
-      const org = await createTestOrganization();
-      await createTestSubscription(org.id, diamondPlanResult.plan.id, "trial");
+      const org = await OrganizationFactory.create();
+      await SubscriptionFactory.createTrial(org.id, diamondPlanResult.plan.id);
 
       const periodStart = new Date();
       const periodEnd = new Date();
@@ -579,8 +589,8 @@ describe("SubscriptionService", () => {
 
   describe("markActive", () => {
     test("should mark subscription as active with period data", async () => {
-      const org = await createTestOrganization();
-      await createTestSubscription(org.id, diamondPlanResult.plan.id, {
+      const org = await OrganizationFactory.create();
+      await SubscriptionFactory.create(org.id, diamondPlanResult.plan.id, {
         status: "past_due",
       });
 
@@ -605,8 +615,8 @@ describe("SubscriptionService", () => {
     });
 
     test("should clear grace period fields when marking active", async () => {
-      const org = await createTestOrganization();
-      await createTestSubscription(org.id, diamondPlanResult.plan.id, {
+      const org = await OrganizationFactory.create();
+      await SubscriptionFactory.create(org.id, diamondPlanResult.plan.id, {
         status: "past_due",
       });
 
@@ -646,8 +656,8 @@ describe("SubscriptionService", () => {
     });
 
     test("should work without optional pagarmeSubscriptionId", async () => {
-      const org = await createTestOrganization();
-      await createTestSubscription(org.id, diamondPlanResult.plan.id, {
+      const org = await OrganizationFactory.create();
+      await SubscriptionFactory.create(org.id, diamondPlanResult.plan.id, {
         status: "past_due",
       });
 
@@ -663,8 +673,8 @@ describe("SubscriptionService", () => {
 
   describe("cancelByRefund", () => {
     test("should cancel subscription by organizationId", async () => {
-      const org = await createTestOrganization();
-      await createActiveSubscription(org.id, diamondPlanResult.plan.id);
+      const org = await OrganizationFactory.create();
+      await SubscriptionFactory.createActive(org.id, diamondPlanResult.plan.id);
 
       const result = await SubscriptionService.cancelByRefund({
         organizationId: org.id,
@@ -687,12 +697,14 @@ describe("SubscriptionService", () => {
     });
 
     test("should cancel subscription by pagarmeSubscriptionId", async () => {
-      const org = await createTestOrganization();
+      const org = await OrganizationFactory.create();
       const pagarmeSubId = `sub_refund_${crypto.randomUUID().slice(0, 8)}`;
-      await createActiveSubscription(
+      await SubscriptionFactory.createActive(
         org.id,
         diamondPlanResult.plan.id,
-        pagarmeSubId
+        {
+          pagarmeSubscriptionId: pagarmeSubId,
+        }
       );
 
       const result = await SubscriptionService.cancelByRefund({
@@ -745,8 +757,8 @@ describe("SubscriptionService", () => {
 
   describe("cancelScheduled", () => {
     test("should cancel subscription scheduled for cancellation", async () => {
-      const org = await createTestOrganization();
-      const subscriptionId = await createActiveSubscription(
+      const org = await OrganizationFactory.create();
+      const subscriptionId = await SubscriptionFactory.createActive(
         org.id,
         diamondPlanResult.plan.id
       );
@@ -774,8 +786,8 @@ describe("SubscriptionService", () => {
     });
 
     test("should return false for subscription not scheduled for cancellation", async () => {
-      const org = await createTestOrganization();
-      const subscriptionId = await createActiveSubscription(
+      const org = await OrganizationFactory.create();
+      const subscriptionId = await SubscriptionFactory.createActive(
         org.id,
         diamondPlanResult.plan.id
       );
@@ -796,8 +808,11 @@ describe("SubscriptionService", () => {
     });
 
     test("should return false for non-active subscription", async () => {
-      const org = await createTestOrganization();
-      await createCanceledSubscription(org.id, diamondPlanResult.plan.id);
+      const org = await OrganizationFactory.create();
+      await SubscriptionFactory.createCanceled(
+        org.id,
+        diamondPlanResult.plan.id
+      );
 
       const [sub] = await db
         .select()

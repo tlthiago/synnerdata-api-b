@@ -3,22 +3,14 @@ import { eq } from "drizzle-orm";
 import { db } from "@/db";
 import { schema } from "@/db/schema";
 import { env } from "@/env";
+import { OrganizationFactory } from "@/test/factories/organization.factory";
 import {
   type CreatePlanResult,
-  createPaidPlan,
-  createTrialPlan,
-} from "@/test/factories/plan";
-import { createTestApp, type TestApp } from "@/test/helpers/app";
-import {
-  createActiveSubscription,
-  createCanceledSubscription,
-  createExpiredSubscription,
-  createTestSubscription,
-} from "@/test/helpers/subscription";
-import {
-  createTestUser,
-  createTestUserWithOrganization,
-} from "@/test/helpers/user";
+  PlanFactory,
+} from "@/test/factories/payments/plan.factory";
+import { SubscriptionFactory } from "@/test/factories/payments/subscription.factory";
+import { UserFactory } from "@/test/factories/user.factory";
+import { createTestApp, type TestApp } from "@/test/support/app";
 
 const BASE_URL = env.API_URL;
 
@@ -31,8 +23,8 @@ describe("POST /v1/payments/subscription/restore", () => {
   beforeAll(async () => {
     app = createTestApp();
     [diamondPlanResult, trialPlanResult] = await Promise.all([
-      createPaidPlan("diamond"),
-      createTrialPlan(),
+      PlanFactory.createPaid("diamond"),
+      PlanFactory.createTrial(),
     ]);
   });
 
@@ -47,7 +39,7 @@ describe("POST /v1/payments/subscription/restore", () => {
   });
 
   test("should reject for organization without subscription", async () => {
-    const { headers } = await createTestUserWithOrganization({
+    const { headers } = await UserFactory.createWithOrganization({
       emailVerified: true,
     });
 
@@ -64,11 +56,15 @@ describe("POST /v1/payments/subscription/restore", () => {
   });
 
   test("should reject restoring non-canceled subscription", async () => {
-    const { headers, organizationId } = await createTestUserWithOrganization({
-      emailVerified: true,
-    });
+    const { headers, organizationId } =
+      await UserFactory.createWithOrganization({
+        emailVerified: true,
+      });
 
-    await createActiveSubscription(organizationId, diamondPlanResult.plan.id);
+    await SubscriptionFactory.createActive(
+      organizationId,
+      diamondPlanResult.plan.id
+    );
 
     const response = await app.handle(
       new Request(`${BASE_URL}/v1/payments/subscription/restore`, {
@@ -83,14 +79,14 @@ describe("POST /v1/payments/subscription/restore", () => {
   });
 
   test("should reject restoring trial subscription without cancelAtPeriodEnd", async () => {
-    const { headers, organizationId } = await createTestUserWithOrganization({
-      emailVerified: true,
-    });
+    const { headers, organizationId } =
+      await UserFactory.createWithOrganization({
+        emailVerified: true,
+      });
 
-    await createTestSubscription(
+    await SubscriptionFactory.createTrial(
       organizationId,
-      diamondPlanResult.plan.id,
-      "trial"
+      diamondPlanResult.plan.id
     );
 
     const response = await app.handle(
@@ -106,11 +102,15 @@ describe("POST /v1/payments/subscription/restore", () => {
   });
 
   test("should reject restoring expired subscription", async () => {
-    const { headers, organizationId } = await createTestUserWithOrganization({
-      emailVerified: true,
-    });
+    const { headers, organizationId } =
+      await UserFactory.createWithOrganization({
+        emailVerified: true,
+      });
 
-    await createExpiredSubscription(organizationId, diamondPlanResult.plan.id);
+    await SubscriptionFactory.createExpired(
+      organizationId,
+      diamondPlanResult.plan.id
+    );
 
     await db
       .update(schema.orgSubscriptions)
@@ -130,11 +130,15 @@ describe("POST /v1/payments/subscription/restore", () => {
   });
 
   test("should reject restoring fully canceled subscription (via Pagarme webhook)", async () => {
-    const { headers, organizationId } = await createTestUserWithOrganization({
-      emailVerified: true,
-    });
+    const { headers, organizationId } =
+      await UserFactory.createWithOrganization({
+        emailVerified: true,
+      });
 
-    await createCanceledSubscription(organizationId, diamondPlanResult.plan.id);
+    await SubscriptionFactory.createCanceled(
+      organizationId,
+      diamondPlanResult.plan.id
+    );
 
     const response = await app.handle(
       new Request(`${BASE_URL}/v1/payments/subscription/restore`, {
@@ -149,13 +153,14 @@ describe("POST /v1/payments/subscription/restore", () => {
   });
 
   test("should keep active status when restoring canceled trial subscription", async () => {
-    const { headers, organizationId } = await createTestUserWithOrganization({
-      emailVerified: true,
-    });
+    const { headers, organizationId } =
+      await UserFactory.createWithOrganization({
+        emailVerified: true,
+      });
 
     // Trial subscriptions have status "active" in DB (trial is determined by plan.isTrial)
-    await createTestSubscription(organizationId, trialPlanResult.plan.id, {
-      status: "trial",
+    await SubscriptionFactory.create(organizationId, trialPlanResult.plan.id, {
+      status: "active",
       trialDays: 14,
     });
 
@@ -189,11 +194,15 @@ describe("POST /v1/payments/subscription/restore", () => {
   });
 
   test("should keep active status when restoring canceled active subscription", async () => {
-    const { headers, organizationId } = await createTestUserWithOrganization({
-      emailVerified: true,
-    });
+    const { headers, organizationId } =
+      await UserFactory.createWithOrganization({
+        emailVerified: true,
+      });
 
-    await createActiveSubscription(organizationId, diamondPlanResult.plan.id);
+    await SubscriptionFactory.createActive(
+      organizationId,
+      diamondPlanResult.plan.id
+    );
 
     await db
       .update(schema.orgSubscriptions)
@@ -224,11 +233,15 @@ describe("POST /v1/payments/subscription/restore", () => {
   });
 
   test("should restore canceled subscription and return restored true", async () => {
-    const { headers, organizationId } = await createTestUserWithOrganization({
-      emailVerified: true,
-    });
+    const { headers, organizationId } =
+      await UserFactory.createWithOrganization({
+        emailVerified: true,
+      });
 
-    await createActiveSubscription(organizationId, diamondPlanResult.plan.id);
+    await SubscriptionFactory.createActive(
+      organizationId,
+      diamondPlanResult.plan.id
+    );
 
     await db
       .update(schema.orgSubscriptions)
@@ -257,15 +270,14 @@ describe("POST /v1/payments/subscription/restore", () => {
     "manager",
     "supervisor",
   ] as const)("should reject %s member from restoring subscription", async (role) => {
-    const { addMemberToOrganization } = await import(
-      "@/test/helpers/organization"
-    );
-
-    const { organizationId } = await createTestUserWithOrganization({
+    const { organizationId } = await UserFactory.createWithOrganization({
       emailVerified: true,
     });
 
-    await createActiveSubscription(organizationId, diamondPlanResult.plan.id);
+    await SubscriptionFactory.createActive(
+      organizationId,
+      diamondPlanResult.plan.id
+    );
 
     await db
       .update(schema.orgSubscriptions)
@@ -275,9 +287,9 @@ describe("POST /v1/payments/subscription/restore", () => {
       })
       .where(eq(schema.orgSubscriptions.organizationId, organizationId));
 
-    const memberResult = await createTestUser({ emailVerified: true });
+    const memberResult = await UserFactory.create({ emailVerified: true });
 
-    await addMemberToOrganization(memberResult, {
+    await OrganizationFactory.addMember(memberResult, {
       organizationId,
       role,
     });

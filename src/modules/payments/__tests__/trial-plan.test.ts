@@ -4,20 +4,27 @@ import { db } from "@/db";
 import { schema } from "@/db/schema";
 import { env } from "@/env";
 import { SubscriptionService } from "@/modules/payments/subscription/subscription.service";
-import { trialPlan } from "@/test/fixtures/plans";
-import { createTestApp, type TestApp } from "@/test/helpers/app";
-import { getTestPlan, seedPlans } from "@/test/helpers/seed";
-import { createTestUserWithOrganization } from "@/test/helpers/user";
+import {
+  type CreatePlanResult,
+  PlanFactory,
+} from "@/test/factories/payments/plan.factory";
+import { UserFactory } from "@/test/factories/user.factory";
+import { createTestApp, type TestApp } from "@/test/support/app";
 
 const BASE_URL = env.API_URL;
 
 describe("Trial Plan", () => {
   let app: TestApp;
   let organizationId: string;
+  let trialPlanResult: CreatePlanResult;
 
   beforeAll(async () => {
     app = createTestApp();
-    await seedPlans();
+    trialPlanResult = await PlanFactory.createTrial();
+    // Create paid plans for the public list test
+    await PlanFactory.createPaid("gold");
+    await PlanFactory.createPaid("diamond");
+    await PlanFactory.createPaid("platinum");
   });
 
   afterAll(async () => {
@@ -30,32 +37,22 @@ describe("Trial Plan", () => {
   });
 
   describe("Trial plan configuration", () => {
-    test("should have trial plan in fixtures with isTrial=true", () => {
-      expect(trialPlan).toBeDefined();
-      expect(trialPlan?.isTrial).toBe(true);
-      expect(trialPlan?.isPublic).toBe(false);
-      expect(trialPlan?.trialDays).toBe(14);
-    });
-
-    test("should be accessible via getTestPlan helper", () => {
-      const plan = getTestPlan("trial");
-      expect(plan).toBeDefined();
-      expect(plan?.name).toBe("trial");
-      expect(plan?.isTrial).toBe(true);
+    test("should have trial plan created with isTrial=true", () => {
+      expect(trialPlanResult.plan).toBeDefined();
+      expect(trialPlanResult.plan.isTrial).toBe(true);
+      expect(trialPlanResult.plan.isPublic).toBe(false);
+      expect(trialPlanResult.plan.trialDays).toBe(14);
     });
 
     test("should have trial plan in database with isTrial=true", async () => {
-      // Order by ID DESC to get fixture plan ("test-plan-trial" after "plan-xxx")
-      const { desc } = await import("drizzle-orm");
       const [plan] = await db
         .select()
         .from(schema.subscriptionPlans)
-        .where(eq(schema.subscriptionPlans.isTrial, true))
-        .orderBy(desc(schema.subscriptionPlans.id))
+        .where(eq(schema.subscriptionPlans.id, trialPlanResult.plan.id))
         .limit(1);
 
       expect(plan).toBeDefined();
-      expect(plan.name).toBe("trial");
+      expect(plan.name).toStartWith("trial"); // Name has UUID suffix for uniqueness
       expect(plan.isPublic).toBe(false);
       expect(plan.trialDays).toBe(14);
     });
@@ -63,9 +60,8 @@ describe("Trial Plan", () => {
 
   describe("Trial subscription creation", () => {
     test("should create trial subscription with trial plan and employee limit", async () => {
-      const result = await createTestUserWithOrganization({
+      const result = await UserFactory.createWithOrganization({
         emailVerified: true,
-        skipTrialCreation: true,
       });
 
       organizationId = result.organizationId;
@@ -84,14 +80,22 @@ describe("Trial Plan", () => {
         .limit(1);
 
       expect(subscription.status).toBe("active"); // Trial is a plan, not a status
-      expect(subscription.planId).toBe("test-plan-trial");
       expect(subscription.pricingTierId).toBeDefined();
+
+      // Verify the subscription uses a trial plan (isTrial=true)
+      const [plan] = await db
+        .select({ isTrial: schema.subscriptionPlans.isTrial })
+        .from(schema.subscriptionPlans)
+        .where(eq(schema.subscriptionPlans.id, subscription.planId))
+        .limit(1);
+
+      expect(plan.isTrial).toBe(true);
     });
   });
 
   describe("Public plan list", () => {
     test("trial plan should not appear in public plan list", async () => {
-      const result = await createTestUserWithOrganization({
+      const result = await UserFactory.createWithOrganization({
         emailVerified: true,
       });
 
@@ -112,7 +116,7 @@ describe("Trial Plan", () => {
     });
 
     test("paid plans should appear in public plan list", async () => {
-      const result = await createTestUserWithOrganization({
+      const result = await UserFactory.createWithOrganization({
         emailVerified: true,
       });
 

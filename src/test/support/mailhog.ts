@@ -338,3 +338,100 @@ export async function waitForPaymentFailedEmail(
     `Payment failed email not found for ${email} after ${maxRetries} retries`
   );
 }
+
+// ============================================================
+// PLAN CHANGE EXECUTED EMAIL
+// ============================================================
+
+export type PlanChangeEmailData = {
+  subject: string;
+  previousPlanName: string;
+  newPlanName: string;
+  body: string;
+};
+
+const PLAN_CHANGE_SUBJECT_PATTERN = "Mudança de Plano";
+const PLAN_CHANGE_PREVIOUS_REGEX =
+  /<strong>Plano anterior:<\/strong><\/td>\s*<td[^>]*>([^<]+)<\/td>/i;
+const PLAN_CHANGE_NEW_REGEX =
+  /<strong>Novo plano:<\/strong><\/td>\s*<td[^>]*>([^<]+)<\/td>/i;
+
+function isPlanChangeEmail(message: MailHogMessage): boolean {
+  const subject = message.Content.Headers.Subject?.[0] ?? "";
+  return subject.includes(PLAN_CHANGE_SUBJECT_PATTERN);
+}
+
+function extractPlanNamesFromBody(htmlBody: string): {
+  previousPlanName: string;
+  newPlanName: string;
+} {
+  const decodedBody = htmlBody.replace(/=3D/g, "=").replace(/=\r?\n/g, "");
+  const previousMatch = decodedBody.match(PLAN_CHANGE_PREVIOUS_REGEX);
+  const newMatch = decodedBody.match(PLAN_CHANGE_NEW_REGEX);
+
+  return {
+    previousPlanName: previousMatch?.[1]?.trim() ?? "",
+    newPlanName: newMatch?.[1]?.trim() ?? "",
+  };
+}
+
+async function tryGetPlanChangeEmail(
+  email: string
+): Promise<PlanChangeEmailData | null> {
+  const messages = await searchEmailsByRecipient(email);
+
+  const planChangeEmail = messages.find(isPlanChangeEmail);
+
+  if (!planChangeEmail) {
+    return null;
+  }
+
+  const subject = planChangeEmail.Content.Headers.Subject?.[0] ?? "";
+  const body = planChangeEmail.Content.Body;
+  const { previousPlanName, newPlanName } = extractPlanNamesFromBody(body);
+
+  return {
+    subject,
+    previousPlanName,
+    newPlanName,
+    body,
+  };
+}
+
+export async function waitForPlanChangeEmail(
+  email: string,
+  maxRetries = DEFAULT_MAX_RETRIES,
+  delayMs = DEFAULT_RETRY_DELAY_MS
+): Promise<PlanChangeEmailData> {
+  for (let attempt = 1; attempt <= maxRetries; attempt++) {
+    try {
+      const emailData = await tryGetPlanChangeEmail(email);
+
+      if (emailData) {
+        return emailData;
+      }
+
+      if (attempt >= maxRetries) {
+        throw new Error(
+          `No plan change email found for ${email} after ${maxRetries} attempts.`
+        );
+      }
+
+      await delay(delayMs);
+    } catch (error) {
+      if (error instanceof TypeError && error.message.includes("fetch")) {
+        throwMailHogUnavailableError();
+      }
+
+      if (attempt >= maxRetries) {
+        throw error;
+      }
+
+      await delay(delayMs);
+    }
+  }
+
+  throw new Error(
+    `Plan change email not found for ${email} after ${maxRetries} retries`
+  );
+}

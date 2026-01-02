@@ -1,7 +1,7 @@
 import { beforeAll, describe, expect, test } from "bun:test";
 import { env } from "@/env";
-import { createTestApp, type TestApp } from "@/test/helpers/app";
-import { createTestAdminUser, createTestUser } from "@/test/helpers/user";
+import { UserFactory } from "@/test/factories/user.factory";
+import { createTestApp, type TestApp } from "@/test/support/app";
 import { EMPLOYEE_TIERS, PLAN_FEATURES } from "../plans.constants";
 
 const BASE_URL = env.API_URL;
@@ -28,7 +28,7 @@ describe("POST /payments/plans", () => {
 
   beforeAll(async () => {
     app = createTestApp();
-    const { headers } = await createTestAdminUser({ emailVerified: true });
+    const { headers } = await UserFactory.createAdmin({ emailVerified: true });
     authHeaders = headers;
   });
 
@@ -49,7 +49,7 @@ describe("POST /payments/plans", () => {
   });
 
   test("should reject non-admin users", async () => {
-    const { headers: nonAdminHeaders } = await createTestUser({
+    const { headers: nonAdminHeaders } = await UserFactory.create({
       emailVerified: true,
     });
 

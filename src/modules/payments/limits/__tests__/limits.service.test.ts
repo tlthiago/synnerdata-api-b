@@ -13,12 +13,11 @@ import {
 import { PLAN_FEATURES } from "@/modules/payments/plans/plans.constants";
 import {
   type CreatePlanResult,
-  createPaidPlan,
-  createTrialPlan,
-} from "@/test/factories/plan";
+  PlanFactory,
+} from "@/test/factories/payments/plan.factory";
+import { SubscriptionFactory } from "@/test/factories/payments/subscription.factory";
+import { UserFactory } from "@/test/factories/user.factory";
 import { createTestEmployees } from "@/test/helpers/employee";
-import { createTestSubscription } from "@/test/helpers/subscription";
-import { createTestUserWithOrganization } from "@/test/helpers/user";
 
 let goldPlanResult: CreatePlanResult;
 let diamondPlanResult: CreatePlanResult;
@@ -36,16 +35,19 @@ describe("LimitsService", () => {
     // Create plans with proper sortOrder for hierarchy testing
     [goldPlanResult, diamondPlanResult, platinumPlanResult, trialPlanResult] =
       await Promise.all([
-        createPaidPlan("gold", { name: `gold-${testSuffix}`, sortOrder: 1 }),
-        createPaidPlan("diamond", {
+        PlanFactory.createPaid("gold", {
+          name: `gold-${testSuffix}`,
+          sortOrder: 1,
+        }),
+        PlanFactory.createPaid("diamond", {
           name: `diamond-${testSuffix}`,
           sortOrder: 2,
         }),
-        createPaidPlan("platinum", {
+        PlanFactory.createPaid("platinum", {
           name: `platinum-${testSuffix}`,
           sortOrder: 3,
         }),
-        createTrialPlan(),
+        PlanFactory.createTrial(),
       ]);
   });
 
@@ -56,15 +58,13 @@ describe("LimitsService", () => {
 
   describe("checkFeature()", () => {
     test("should return hasAccess true for feature in plan", async () => {
-      const { organizationId } = await createTestUserWithOrganization({
+      const { organizationId } = await UserFactory.createWithOrganization({
         emailVerified: true,
       });
 
-      await createTestSubscription(
-        organizationId,
-        goldPlanResult.plan.id,
-        "active"
-      );
+      await SubscriptionFactory.create(organizationId, goldPlanResult.plan.id, {
+        status: "active",
+      });
 
       const result = await LimitsService.checkFeature(
         organizationId,
@@ -76,16 +76,14 @@ describe("LimitsService", () => {
     });
 
     test("should return hasAccess false for feature not in plan", async () => {
-      const { organizationId } = await createTestUserWithOrganization({
+      const { organizationId } = await UserFactory.createWithOrganization({
         emailVerified: true,
       });
 
       // Gold plan doesn't have payroll feature (platinum only)
-      await createTestSubscription(
-        organizationId,
-        goldPlanResult.plan.id,
-        "active"
-      );
+      await SubscriptionFactory.create(organizationId, goldPlanResult.plan.id, {
+        status: "active",
+      });
 
       const result = await LimitsService.checkFeature(
         organizationId,
@@ -100,14 +98,14 @@ describe("LimitsService", () => {
     });
 
     test("should return hasAccess true for trial subscription", async () => {
-      const { organizationId } = await createTestUserWithOrganization({
+      const { organizationId } = await UserFactory.createWithOrganization({
         emailVerified: true,
       });
 
-      await createTestSubscription(
+      await SubscriptionFactory.create(
         organizationId,
         diamondPlanResult.plan.id,
-        "trial"
+        { status: "active" }
       );
 
       const result = await LimitsService.checkFeature(
@@ -119,14 +117,14 @@ describe("LimitsService", () => {
     });
 
     test("should return hasAccess false for canceled subscription", async () => {
-      const { organizationId } = await createTestUserWithOrganization({
+      const { organizationId } = await UserFactory.createWithOrganization({
         emailVerified: true,
       });
 
-      await createTestSubscription(
+      await SubscriptionFactory.create(
         organizationId,
         platinumPlanResult.plan.id,
-        "canceled"
+        { status: "canceled" }
       );
 
       const result = await LimitsService.checkFeature(
@@ -138,7 +136,7 @@ describe("LimitsService", () => {
     });
 
     test("should return hasAccess false for organization without subscription", async () => {
-      const { organizationId } = await createTestUserWithOrganization({
+      const { organizationId } = await UserFactory.createWithOrganization({
         emailVerified: true,
       });
 
@@ -158,14 +156,14 @@ describe("LimitsService", () => {
 
   describe("checkFeatures()", () => {
     test("should check multiple features at once", async () => {
-      const { organizationId } = await createTestUserWithOrganization({
+      const { organizationId } = await UserFactory.createWithOrganization({
         emailVerified: true,
       });
 
-      await createTestSubscription(
+      await SubscriptionFactory.create(
         organizationId,
         diamondPlanResult.plan.id,
-        "active"
+        { status: "active" }
       );
 
       const result = await LimitsService.checkFeatures(organizationId, [
@@ -196,15 +194,13 @@ describe("LimitsService", () => {
 
   describe("requireFeature()", () => {
     test("should not throw for available feature", async () => {
-      const { organizationId } = await createTestUserWithOrganization({
+      const { organizationId } = await UserFactory.createWithOrganization({
         emailVerified: true,
       });
 
-      await createTestSubscription(
-        organizationId,
-        goldPlanResult.plan.id,
-        "active"
-      );
+      await SubscriptionFactory.create(organizationId, goldPlanResult.plan.id, {
+        status: "active",
+      });
 
       await expect(
         LimitsService.requireFeature(organizationId, "absences")
@@ -212,15 +208,13 @@ describe("LimitsService", () => {
     });
 
     test("should throw FeatureNotAvailableError for unavailable feature", async () => {
-      const { organizationId } = await createTestUserWithOrganization({
+      const { organizationId } = await UserFactory.createWithOrganization({
         emailVerified: true,
       });
 
-      await createTestSubscription(
-        organizationId,
-        goldPlanResult.plan.id,
-        "active"
-      );
+      await SubscriptionFactory.create(organizationId, goldPlanResult.plan.id, {
+        status: "active",
+      });
 
       await expect(
         LimitsService.requireFeature(organizationId, "payroll")
@@ -230,15 +224,13 @@ describe("LimitsService", () => {
 
   describe("getAvailableFeatures()", () => {
     test("should return all features for gold plan", async () => {
-      const { organizationId } = await createTestUserWithOrganization({
+      const { organizationId } = await UserFactory.createWithOrganization({
         emailVerified: true,
       });
 
-      await createTestSubscription(
-        organizationId,
-        goldPlanResult.plan.id,
-        "active"
-      );
+      await SubscriptionFactory.create(organizationId, goldPlanResult.plan.id, {
+        status: "active",
+      });
 
       const features = await LimitsService.getAvailableFeatures(organizationId);
 
@@ -250,14 +242,14 @@ describe("LimitsService", () => {
     });
 
     test("should return all features for platinum plan", async () => {
-      const { organizationId } = await createTestUserWithOrganization({
+      const { organizationId } = await UserFactory.createWithOrganization({
         emailVerified: true,
       });
 
-      await createTestSubscription(
+      await SubscriptionFactory.create(
         organizationId,
         platinumPlanResult.plan.id,
-        "active"
+        { status: "active" }
       );
 
       const features = await LimitsService.getAvailableFeatures(organizationId);
@@ -268,7 +260,7 @@ describe("LimitsService", () => {
     });
 
     test("should return empty array for organization without subscription", async () => {
-      const { organizationId } = await createTestUserWithOrganization({
+      const { organizationId } = await UserFactory.createWithOrganization({
         emailVerified: true,
       });
 
@@ -285,14 +277,14 @@ describe("LimitsService", () => {
 
   describe("hasPlanOrHigher()", () => {
     test("should return true when organization has same plan", async () => {
-      const { organizationId } = await createTestUserWithOrganization({
+      const { organizationId } = await UserFactory.createWithOrganization({
         emailVerified: true,
       });
 
-      await createTestSubscription(
+      await SubscriptionFactory.create(
         organizationId,
         diamondPlanResult.plan.id,
-        "active"
+        { status: "active" }
       );
 
       const result = await LimitsService.hasPlanOrHigher(
@@ -304,14 +296,14 @@ describe("LimitsService", () => {
     });
 
     test("should return true when organization has higher plan", async () => {
-      const { organizationId } = await createTestUserWithOrganization({
+      const { organizationId } = await UserFactory.createWithOrganization({
         emailVerified: true,
       });
 
-      await createTestSubscription(
+      await SubscriptionFactory.create(
         organizationId,
         platinumPlanResult.plan.id,
-        "active"
+        { status: "active" }
       );
 
       const result = await LimitsService.hasPlanOrHigher(
@@ -323,15 +315,13 @@ describe("LimitsService", () => {
     });
 
     test("should return false when organization has lower plan", async () => {
-      const { organizationId } = await createTestUserWithOrganization({
+      const { organizationId } = await UserFactory.createWithOrganization({
         emailVerified: true,
       });
 
-      await createTestSubscription(
-        organizationId,
-        goldPlanResult.plan.id,
-        "active"
-      );
+      await SubscriptionFactory.create(organizationId, goldPlanResult.plan.id, {
+        status: "active",
+      });
 
       const result = await LimitsService.hasPlanOrHigher(
         organizationId,
@@ -342,7 +332,7 @@ describe("LimitsService", () => {
     });
 
     test("should return false for organization without subscription", async () => {
-      const { organizationId } = await createTestUserWithOrganization({
+      const { organizationId } = await UserFactory.createWithOrganization({
         emailVerified: true,
       });
 
@@ -361,14 +351,14 @@ describe("LimitsService", () => {
 
   describe("getCapabilities()", () => {
     test("should return full capabilities for active subscription", async () => {
-      const { organizationId } = await createTestUserWithOrganization({
+      const { organizationId } = await UserFactory.createWithOrganization({
         emailVerified: true,
       });
 
-      await createTestSubscription(
+      await SubscriptionFactory.create(
         organizationId,
         diamondPlanResult.plan.id,
-        "active"
+        { status: "active" }
       );
 
       const capabilities = await LimitsService.getCapabilities(organizationId);
@@ -387,15 +377,15 @@ describe("LimitsService", () => {
     });
 
     test("should return full capabilities for trial subscription", async () => {
-      const { organizationId } = await createTestUserWithOrganization({
+      const { organizationId } = await UserFactory.createWithOrganization({
         emailVerified: true,
       });
 
       // Use actual trial plan (isTrial=true) for proper trial behavior
-      await createTestSubscription(
+      await SubscriptionFactory.create(
         organizationId,
         trialPlanResult.plan.id,
-        "trial"
+        { status: "active" }
       );
 
       const capabilities = await LimitsService.getCapabilities(organizationId);
@@ -409,11 +399,11 @@ describe("LimitsService", () => {
     });
 
     test("should return no access for expired subscription", async () => {
-      const { organizationId } = await createTestUserWithOrganization({
+      const { organizationId } = await UserFactory.createWithOrganization({
         emailVerified: true,
       });
 
-      await createTestSubscription(organizationId, goldPlanResult.plan.id, {
+      await SubscriptionFactory.create(organizationId, goldPlanResult.plan.id, {
         status: "expired",
       });
 
@@ -427,11 +417,11 @@ describe("LimitsService", () => {
     });
 
     test("should return no access for canceled subscription", async () => {
-      const { organizationId } = await createTestUserWithOrganization({
+      const { organizationId } = await UserFactory.createWithOrganization({
         emailVerified: true,
       });
 
-      await createTestSubscription(organizationId, goldPlanResult.plan.id, {
+      await SubscriptionFactory.create(organizationId, goldPlanResult.plan.id, {
         status: "canceled",
       });
 
@@ -443,7 +433,7 @@ describe("LimitsService", () => {
     });
 
     test("should return no subscription status for org without subscription", async () => {
-      const { organizationId } = await createTestUserWithOrganization({
+      const { organizationId } = await UserFactory.createWithOrganization({
         emailVerified: true,
       });
 
@@ -461,15 +451,13 @@ describe("LimitsService", () => {
     });
 
     test("should include all features with access status", async () => {
-      const { organizationId } = await createTestUserWithOrganization({
+      const { organizationId } = await UserFactory.createWithOrganization({
         emailVerified: true,
       });
 
-      await createTestSubscription(
-        organizationId,
-        goldPlanResult.plan.id,
-        "active"
-      );
+      await SubscriptionFactory.create(organizationId, goldPlanResult.plan.id, {
+        status: "active",
+      });
 
       const capabilities = await LimitsService.getCapabilities(organizationId);
 
@@ -494,14 +482,14 @@ describe("LimitsService", () => {
 
   describe("Plan feature inheritance", () => {
     test("diamond plan should have all gold features plus diamond features", async () => {
-      const { organizationId } = await createTestUserWithOrganization({
+      const { organizationId } = await UserFactory.createWithOrganization({
         emailVerified: true,
       });
 
-      await createTestSubscription(
+      await SubscriptionFactory.create(
         organizationId,
         diamondPlanResult.plan.id,
-        "active"
+        { status: "active" }
       );
 
       const features = await LimitsService.getAvailableFeatures(organizationId);
@@ -518,14 +506,14 @@ describe("LimitsService", () => {
     });
 
     test("platinum plan should have all features", async () => {
-      const { organizationId } = await createTestUserWithOrganization({
+      const { organizationId } = await UserFactory.createWithOrganization({
         emailVerified: true,
       });
 
-      await createTestSubscription(
+      await SubscriptionFactory.create(
         organizationId,
         platinumPlanResult.plan.id,
-        "active"
+        { status: "active" }
       );
 
       const features = await LimitsService.getAvailableFeatures(organizationId);
@@ -545,14 +533,14 @@ describe("LimitsService", () => {
 
   describe("checkEmployeeLimit()", () => {
     test("should return current count and limit for organization with subscription", async () => {
-      const { organizationId } = await createTestUserWithOrganization({
+      const { organizationId } = await UserFactory.createWithOrganization({
         emailVerified: true,
       });
 
       // Use first tier (0-10 employees)
       const pricingTierId = goldPlanResult.tiers[0].id;
 
-      await createTestSubscription(organizationId, goldPlanResult.plan.id, {
+      await SubscriptionFactory.create(organizationId, goldPlanResult.plan.id, {
         status: "active",
         pricingTierId,
       });
@@ -565,14 +553,16 @@ describe("LimitsService", () => {
     });
 
     test("should return canAdd false when limit is reached", async () => {
-      const { organizationId, user } = await createTestUserWithOrganization({
-        emailVerified: true,
-      });
+      const { organizationId, user } = await UserFactory.createWithOrganization(
+        {
+          emailVerified: true,
+        }
+      );
 
       // Use first tier (0-10 employees)
       const pricingTierId = goldPlanResult.tiers[0].id;
 
-      await createTestSubscription(organizationId, goldPlanResult.plan.id, {
+      await SubscriptionFactory.create(organizationId, goldPlanResult.plan.id, {
         status: "active",
         pricingTierId,
       });
@@ -592,7 +582,7 @@ describe("LimitsService", () => {
     });
 
     test("should return zero limit for organization without subscription", async () => {
-      const { organizationId } = await createTestUserWithOrganization({
+      const { organizationId } = await UserFactory.createWithOrganization({
         emailVerified: true,
       });
 
@@ -610,13 +600,13 @@ describe("LimitsService", () => {
 
   describe("requireEmployeeLimit()", () => {
     test("should not throw when under limit", async () => {
-      const { organizationId } = await createTestUserWithOrganization({
+      const { organizationId } = await UserFactory.createWithOrganization({
         emailVerified: true,
       });
 
       const pricingTierId = goldPlanResult.tiers[0].id;
 
-      await createTestSubscription(organizationId, goldPlanResult.plan.id, {
+      await SubscriptionFactory.create(organizationId, goldPlanResult.plan.id, {
         status: "active",
         pricingTierId,
       });
@@ -627,13 +617,15 @@ describe("LimitsService", () => {
     });
 
     test("should throw EmployeeLimitReachedError when limit is reached", async () => {
-      const { organizationId, user } = await createTestUserWithOrganization({
-        emailVerified: true,
-      });
+      const { organizationId, user } = await UserFactory.createWithOrganization(
+        {
+          emailVerified: true,
+        }
+      );
 
       const pricingTierId = goldPlanResult.tiers[0].id;
 
-      await createTestSubscription(organizationId, goldPlanResult.plan.id, {
+      await SubscriptionFactory.create(organizationId, goldPlanResult.plan.id, {
         status: "active",
         pricingTierId,
       });
@@ -653,13 +645,13 @@ describe("LimitsService", () => {
 
   describe("getEmployeeUsagePercentage()", () => {
     test("should return 0 when no employees", async () => {
-      const { organizationId } = await createTestUserWithOrganization({
+      const { organizationId } = await UserFactory.createWithOrganization({
         emailVerified: true,
       });
 
       const pricingTierId = goldPlanResult.tiers[0].id;
 
-      await createTestSubscription(organizationId, goldPlanResult.plan.id, {
+      await SubscriptionFactory.create(organizationId, goldPlanResult.plan.id, {
         status: "active",
         pricingTierId,
       });
@@ -671,13 +663,15 @@ describe("LimitsService", () => {
     });
 
     test("should return correct percentage", async () => {
-      const { organizationId, user } = await createTestUserWithOrganization({
-        emailVerified: true,
-      });
+      const { organizationId, user } = await UserFactory.createWithOrganization(
+        {
+          emailVerified: true,
+        }
+      );
 
       const pricingTierId = goldPlanResult.tiers[0].id;
 
-      await createTestSubscription(organizationId, goldPlanResult.plan.id, {
+      await SubscriptionFactory.create(organizationId, goldPlanResult.plan.id, {
         status: "active",
         pricingTierId,
       });
@@ -696,7 +690,7 @@ describe("LimitsService", () => {
     });
 
     test("should return 100 when limit is zero", async () => {
-      const { organizationId } = await createTestUserWithOrganization({
+      const { organizationId } = await UserFactory.createWithOrganization({
         emailVerified: true,
       });
 

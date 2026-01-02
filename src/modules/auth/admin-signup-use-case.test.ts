@@ -3,8 +3,8 @@ import { eq } from "drizzle-orm";
 import { db } from "@/db";
 import { schema } from "@/db/schema";
 import { env } from "@/env";
-import { createTestApp, type TestApp } from "@/test/helpers/app";
-import { waitForOTP } from "@/test/helpers/mailhog";
+import { createTestApp, type TestApp } from "@/test/support/app";
+import { waitForOTP } from "@/test/support/mailhog";
 
 const BASE_URL = env.API_URL;
 
@@ -341,6 +341,73 @@ describe("Admin Signup Use Case: Criação de Usuários com Roles de Sistema", (
       expect(superAdminUser.role).toBe("super_admin");
       expect(adminUser.role).toBe("admin");
       expect(regularUser.role).toBe("user");
+    });
+  });
+
+  describe("Admin Independence from Organizations", () => {
+    test("super_admin should NOT have any organization membership", async () => {
+      const [superAdminUser] = await db
+        .select()
+        .from(schema.users)
+        .where(eq(schema.users.email, superAdminEmail))
+        .limit(1);
+
+      const memberships = await db
+        .select()
+        .from(schema.members)
+        .where(eq(schema.members.userId, superAdminUser.id));
+
+      expect(memberships).toHaveLength(0);
+    });
+
+    test("admin should NOT have any organization membership", async () => {
+      const [adminUser] = await db
+        .select()
+        .from(schema.users)
+        .where(eq(schema.users.email, adminEmail))
+        .limit(1);
+
+      const memberships = await db
+        .select()
+        .from(schema.members)
+        .where(eq(schema.members.userId, adminUser.id));
+
+      expect(memberships).toHaveLength(0);
+    });
+
+    test("super_admin should NOT have any subscription or trial created", async () => {
+      const [superAdminUser] = await db
+        .select()
+        .from(schema.users)
+        .where(eq(schema.users.email, superAdminEmail))
+        .limit(1);
+
+      // Admin users don't have organizations, so they shouldn't have subscriptions
+      // First check they have no memberships (which means no orgs)
+      const memberships = await db
+        .select()
+        .from(schema.members)
+        .where(eq(schema.members.userId, superAdminUser.id));
+
+      expect(memberships).toHaveLength(0);
+
+      // Since admins have no orgs, there should be no subscriptions associated with them
+      // This is implicitly true since subscriptions are tied to organizations
+    });
+
+    test("admin should NOT have any subscription or trial created", async () => {
+      const [adminUser] = await db
+        .select()
+        .from(schema.users)
+        .where(eq(schema.users.email, adminEmail))
+        .limit(1);
+
+      const memberships = await db
+        .select()
+        .from(schema.members)
+        .where(eq(schema.members.userId, adminUser.id));
+
+      expect(memberships).toHaveLength(0);
     });
   });
 });

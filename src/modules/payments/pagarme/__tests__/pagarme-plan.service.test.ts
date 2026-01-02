@@ -4,14 +4,14 @@ import { db } from "@/db";
 import { schema } from "@/db/schema";
 import { PricingTierNotFoundError } from "@/modules/payments/errors";
 import { PagarmePlanService } from "@/modules/payments/pagarme/pagarme-plan.service";
-import { createPaidPlan, getFirstTier } from "@/test/factories/plan";
-import { skipIntegration } from "@/test/helpers/skip-integration";
+import { PlanFactory } from "@/test/factories/payments/plan.factory";
+import { skipIntegration } from "@/test/support/skip-integration";
 
 describe("PagarmePlanService", () => {
   describe("ensurePlan - cache hit (no API call)", () => {
     test("should return existing pagarmePlanIdMonthly when cached", async () => {
-      const planResult = await createPaidPlan("gold");
-      const tier = getFirstTier(planResult);
+      const planResult = await PlanFactory.createPaid("gold");
+      const tier = PlanFactory.getFirstTier(planResult);
 
       const cachedPlanId = `plan_cached_monthly_${crypto.randomUUID().slice(0, 8)}`;
 
@@ -26,8 +26,8 @@ describe("PagarmePlanService", () => {
     });
 
     test("should return existing pagarmePlanIdYearly when cached", async () => {
-      const planResult = await createPaidPlan("gold");
-      const tier = getFirstTier(planResult);
+      const planResult = await PlanFactory.createPaid("gold");
+      const tier = PlanFactory.getFirstTier(planResult);
 
       const cachedPlanId = `plan_cached_yearly_${crypto.randomUUID().slice(0, 8)}`;
 
@@ -42,8 +42,8 @@ describe("PagarmePlanService", () => {
     });
 
     test("should return monthly cache even if yearly is also cached", async () => {
-      const planResult = await createPaidPlan("gold");
-      const tier = getFirstTier(planResult);
+      const planResult = await PlanFactory.createPaid("gold");
+      const tier = PlanFactory.getFirstTier(planResult);
 
       const monthlyPlanId = `plan_monthly_${crypto.randomUUID().slice(0, 8)}`;
       const yearlyPlanId = `plan_yearly_${crypto.randomUUID().slice(0, 8)}`;
@@ -62,8 +62,8 @@ describe("PagarmePlanService", () => {
     });
 
     test("should return yearly cache even if monthly is also cached", async () => {
-      const planResult = await createPaidPlan("gold");
-      const tier = getFirstTier(planResult);
+      const planResult = await PlanFactory.createPaid("gold");
+      const tier = PlanFactory.getFirstTier(planResult);
 
       const monthlyPlanId = `plan_monthly_${crypto.randomUUID().slice(0, 8)}`;
       const yearlyPlanId = `plan_yearly_${crypto.randomUUID().slice(0, 8)}`;
@@ -103,8 +103,8 @@ describe("PagarmePlanService", () => {
     "ensurePlan - integration (Pagarme API)",
     () => {
       test("should create plan in Pagarme and save ID to database", async () => {
-        const planResult = await createPaidPlan("diamond");
-        const tier = getFirstTier(planResult);
+        const planResult = await PlanFactory.createPaid("diamond");
+        const tier = PlanFactory.getFirstTier(planResult);
 
         // Verify tier has no cached plan ID
         const [tierBefore] = await db
@@ -139,8 +139,8 @@ describe("PagarmePlanService", () => {
       });
 
       test("should return same plan ID on subsequent calls (no duplicate)", async () => {
-        const planResult = await createPaidPlan("platinum");
-        const tier = getFirstTier(planResult);
+        const planResult = await PlanFactory.createPaid("platinum");
+        const tier = PlanFactory.getFirstTier(planResult);
 
         // First call - creates plan
         const firstPlanId = await PagarmePlanService.ensurePlan(
@@ -158,8 +158,8 @@ describe("PagarmePlanService", () => {
       });
 
       test("should create separate plans for monthly and yearly", async () => {
-        const planResult = await createPaidPlan("gold");
-        const tier = getFirstTier(planResult);
+        const planResult = await PlanFactory.createPaid("gold");
+        const tier = PlanFactory.getFirstTier(planResult);
 
         const monthlyPlanId = await PagarmePlanService.ensurePlan(
           tier.id,

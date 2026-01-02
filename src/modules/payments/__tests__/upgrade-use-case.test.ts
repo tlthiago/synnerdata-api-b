@@ -4,23 +4,36 @@ import { db } from "@/db";
 import { schema } from "@/db/schema";
 import { billingProfiles } from "@/db/schema/billing-profiles";
 import { env } from "@/env";
-import { diamondPlan, diamondTiers, trialPlan } from "@/test/fixtures/plans";
-import { createTestApp, type TestApp } from "@/test/helpers/app";
-import { seedPlans } from "@/test/helpers/seed";
-import { skipIntegration } from "@/test/helpers/skip-integration";
-import { createTestSubscription } from "@/test/helpers/subscription";
-import { createTestUserWithOrganization } from "@/test/helpers/user";
-import { createWebhookRequest, webhookPayloads } from "@/test/helpers/webhook";
+import type { PagarmeWebhookPayload } from "@/modules/payments/pagarme/pagarme.types";
+import { WebhookPayloadBuilder } from "@/test/builders/webhook-payload.builder";
+import { BillingProfileFactory } from "@/test/factories/payments/billing-profile.factory";
+import {
+  type CreatePlanResult,
+  PlanFactory,
+} from "@/test/factories/payments/plan.factory";
+import { SubscriptionFactory } from "@/test/factories/payments/subscription.factory";
+import { UserFactory } from "@/test/factories/user.factory";
+import { createTestApp, type TestApp } from "@/test/support/app";
+import { createWebhookAuthHeader } from "@/test/support/auth";
+import { waitForCheckoutEmail } from "@/test/support/mailhog";
+import { skipIntegration } from "@/test/support/skip-integration";
 
 const BASE_URL = env.API_URL;
 const WEBHOOK_URL = `${BASE_URL}/v1/payments/webhooks/pagarme`;
 const DEFAULT_EMPLOYEE_COUNT = 15;
 
-// Get tier for employee count (15 falls in 11-20 range, index 1)
-function getTierForEmployeeCount(employeeCount: number) {
-  return diamondTiers.find(
-    (t) => employeeCount >= t.minEmployees && employeeCount <= t.maxEmployees
-  );
+function createWebhookRequest(
+  url: string,
+  payload: PagarmeWebhookPayload
+): Request {
+  return new Request(url, {
+    method: "POST",
+    headers: {
+      "Content-Type": "application/json",
+      Authorization: createWebhookAuthHeader(),
+    },
+    body: JSON.stringify(payload),
+  });
 }
 
 describe.skipIf(skipIntegration)(
@@ -33,13 +46,21 @@ describe.skipIf(skipIntegration)(
     let paymentLinkId: string;
     let checkoutUrl: string;
     let tierId: string;
+    let trialPlanResult: CreatePlanResult;
+    let diamondPlanResult: CreatePlanResult;
 
     beforeAll(async () => {
       app = createTestApp();
-      await seedPlans();
+      // Create plans dynamically
+      trialPlanResult = await PlanFactory.createTrial();
+      diamondPlanResult = await PlanFactory.createPaid("diamond");
 
-      // Get tier for employee count
-      const tier = getTierForEmployeeCount(DEFAULT_EMPLOYEE_COUNT);
+      // Get tier for employee count (15 falls in 11-20 range)
+      const tier = diamondPlanResult.tiers.find(
+        (t) =>
+          DEFAULT_EMPLOYEE_COUNT >= t.minEmployees &&
+          DEFAULT_EMPLOYEE_COUNT <= t.maxEmployees
+      );
       if (!tier) {
         throw new Error(
           `No tier found for employee count ${DEFAULT_EMPLOYEE_COUNT}`
@@ -50,7 +71,7 @@ describe.skipIf(skipIntegration)(
 
     describe("Fase 1: Setup - Usuário com Trial", () => {
       test("should create authenticated user with organization", async () => {
-        const result = await createTestUserWithOrganization({
+        const result = await UserFactory.createWithOrganization({
           emailVerified: true,
         });
 
@@ -64,16 +85,15 @@ describe.skipIf(skipIntegration)(
       });
 
       test("should create trial subscription for organization", async () => {
-        if (!trialPlan) {
-          throw new Error("Trial plan not found in fixtures");
-        }
-
         // Delete any existing subscriptions for this org to ensure clean state
         await db
           .delete(schema.orgSubscriptions)
           .where(eq(schema.orgSubscriptions.organizationId, organizationId));
 
-        await createTestSubscription(organizationId, trialPlan.id, "trial");
+        await SubscriptionFactory.createTrial(
+          organizationId,
+          trialPlanResult.plan.id
+        );
 
         const [subscription] = await db
           .select()
@@ -87,10 +107,7 @@ describe.skipIf(skipIntegration)(
       });
 
       test("should create billing profile for organization", async () => {
-        const { createTestBillingProfile } = await import(
-          "@/test/factories/billing-profile"
-        );
-        await createTestBillingProfile({ organizationId });
+        await BillingProfileFactory.create({ organizationId });
 
         const [profile] = await db
           .select()
@@ -107,10 +124,6 @@ describe.skipIf(skipIntegration)(
       test(
         "should create payment link for upgrade",
         async () => {
-          if (!diamondPlan) {
-            throw new Error("Diamond plan not found in fixtures");
-          }
-
           const response = await app.handle(
             new Request(`${BASE_URL}/v1/payments/checkout`, {
               method: "POST",
@@ -119,7 +132,7 @@ describe.skipIf(skipIntegration)(
                 "Content-Type": "application/json",
               },
               body: JSON.stringify({
-                planId: diamondPlan.id,
+                planId: diamondPlanResult.plan.id,
                 tierId,
                 successUrl: "https://example.com/success",
               }),
@@ -142,17 +155,13 @@ describe.skipIf(skipIntegration)(
       );
 
       test("should create pricing tier plan in Pagarme", async () => {
-        if (!diamondPlan) {
-          throw new Error("Diamond plan not found in fixtures");
-        }
-
         // The pricing tier for the employee count should have a Pagarme plan ID
         const [tier] = await db
           .select()
           .from(schema.planPricingTiers)
           .where(
             and(
-              eq(schema.planPricingTiers.planId, diamondPlan.id),
+              eq(schema.planPricingTiers.planId, diamondPlanResult.plan.id),
               lte(schema.planPricingTiers.minEmployees, DEFAULT_EMPLOYEE_COUNT),
               gte(schema.planPricingTiers.maxEmployees, DEFAULT_EMPLOYEE_COUNT)
             )
@@ -167,10 +176,6 @@ describe.skipIf(skipIntegration)(
       });
 
       test("should create pending checkout record", async () => {
-        if (!diamondPlan) {
-          throw new Error("Diamond plan not found in fixtures");
-        }
-
         const [checkout] = await db
           .select()
           .from(schema.pendingCheckouts)
@@ -179,7 +184,7 @@ describe.skipIf(skipIntegration)(
 
         expect(checkout).toBeDefined();
         expect(checkout.organizationId).toBe(organizationId);
-        expect(checkout.planId).toBe(diamondPlan.id);
+        expect(checkout.planId).toBe(diamondPlanResult.plan.id);
         expect(checkout.status).toBe("pending");
         expect(checkout.pricingTierId).toBeDefined();
         expect(checkout.expiresAt).toBeInstanceOf(Date);
@@ -187,16 +192,11 @@ describe.skipIf(skipIntegration)(
       });
 
       test("should send checkout link email", async () => {
-        if (!diamondPlan) {
-          throw new Error("Diamond plan not found in fixtures");
-        }
-
-        const { waitForCheckoutEmail } = await import("@/test/helpers/mailhog");
         const emailData = await waitForCheckoutEmail(userEmail);
 
         expect(emailData.subject).toContain("Complete seu upgrade");
         expect(emailData.checkoutUrl).toBe(checkoutUrl);
-        expect(emailData.planName).toBe(diamondPlan.displayName);
+        expect(emailData.planName).toBe(diamondPlanResult.plan.displayName);
       });
 
       test("should still have trial subscription (not activated yet)", async () => {
@@ -220,10 +220,11 @@ describe.skipIf(skipIntegration)(
       };
 
       test("should receive subscription.created webhook", async () => {
-        const payload = webhookPayloads.subscriptionCreatedFromPaymentLink(
-          paymentLinkId,
-          customerData
-        );
+        const payload = new WebhookPayloadBuilder()
+          .subscriptionCreated()
+          .withPaymentLinkCode(paymentLinkId)
+          .withCustomer(customerData)
+          .build();
 
         const request = createWebhookRequest(WEBHOOK_URL, payload);
         const response = await app.handle(request);
@@ -306,10 +307,6 @@ describe.skipIf(skipIntegration)(
 
     describe("Fase 5: Validação Final", () => {
       test("should have complete active subscription", async () => {
-        if (!diamondPlan) {
-          throw new Error("Diamond plan not found in fixtures");
-        }
-
         const [subscription] = await db
           .select()
           .from(schema.orgSubscriptions)
@@ -333,14 +330,10 @@ describe.skipIf(skipIntegration)(
         expect(subscription.trialUsed).toBe(true);
 
         // Plan
-        expect(subscription.planId).toBe(diamondPlan.id);
+        expect(subscription.planId).toBe(diamondPlanResult.plan.id);
       });
 
       test("should reject new checkout for already active subscription", async () => {
-        if (!diamondPlan) {
-          throw new Error("Diamond plan not found in fixtures");
-        }
-
         const response = await app.handle(
           new Request(`${BASE_URL}/v1/payments/checkout`, {
             method: "POST",
@@ -349,7 +342,7 @@ describe.skipIf(skipIntegration)(
               "Content-Type": "application/json",
             },
             body: JSON.stringify({
-              planId: diamondPlan.id,
+              planId: diamondPlanResult.plan.id,
               tierId,
               successUrl: "https://example.com/success",
             }),

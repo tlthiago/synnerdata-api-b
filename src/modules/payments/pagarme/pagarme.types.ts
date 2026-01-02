@@ -286,6 +286,8 @@ export type PagarmeWebhookData = {
     exp_month: number;
     exp_year: number;
   };
+  // Subscription updated timestamp
+  updated_at?: string;
   metadata?: Record<string, string>;
 };
 

@@ -1,7 +1,7 @@
 import { beforeAll, describe, expect, test } from "bun:test";
 import { env } from "@/env";
-import { createInactivePlan, createPaidPlan } from "@/test/factories/plan";
-import { createTestApp, type TestApp } from "@/test/helpers/app";
+import { PlanFactory } from "@/test/factories/payments/plan.factory";
+import { createTestApp, type TestApp } from "@/test/support/app";
 
 const BASE_URL = env.API_URL;
 
@@ -13,8 +13,7 @@ describe("GET /payments/plans", () => {
   });
 
   test("should list plans without authentication (public route)", async () => {
-    // Garantir que existe pelo menos um plano ativo e público
-    await createPaidPlan("gold");
+    await PlanFactory.createPaid("gold");
 
     const response = await app.handle(
       new Request(`${BASE_URL}/v1/payments/plans`)
@@ -28,20 +27,18 @@ describe("GET /payments/plans", () => {
   });
 
   test("should return only active and public plans", async () => {
-    const { plan: activePlan } = await createPaidPlan("diamond");
+    const { plan: activePlan } = await PlanFactory.createPaid("diamond");
 
     const response = await app.handle(
       new Request(`${BASE_URL}/v1/payments/plans`)
     );
     const body = await response.json();
 
-    // Verificar que todos os planos retornados são ativos e públicos
     for (const plan of body.data.plans) {
       expect(plan.isActive).toBe(true);
       expect(plan.isPublic).toBe(true);
     }
 
-    // Verificar que o plano criado está na lista
     const foundPlan = body.data.plans.find(
       (p: { id: string }) => p.id === activePlan.id
     );
@@ -49,7 +46,9 @@ describe("GET /payments/plans", () => {
   });
 
   test("should not return inactive plans", async () => {
-    const { plan: inactivePlan } = await createInactivePlan({ type: "gold" });
+    const { plan: inactivePlan } = await PlanFactory.createInactive({
+      type: "gold",
+    });
 
     const response = await app.handle(
       new Request(`${BASE_URL}/v1/payments/plans`)
@@ -63,7 +62,7 @@ describe("GET /payments/plans", () => {
   });
 
   test("should not return private plans", async () => {
-    const { plan: privatePlan } = await createPaidPlan("platinum", {
+    const { plan: privatePlan } = await PlanFactory.createPaid("platinum", {
       isPublic: false,
     });
 
@@ -79,9 +78,8 @@ describe("GET /payments/plans", () => {
   });
 
   test("should return plans ordered by sortOrder", async () => {
-    // Criar planos com sortOrder específico
-    await createPaidPlan("gold", { sortOrder: 10 });
-    await createPaidPlan("diamond", { sortOrder: 20 });
+    await PlanFactory.createPaid("gold", { sortOrder: 10 });
+    await PlanFactory.createPaid("diamond", { sortOrder: 20 });
 
     const response = await app.handle(
       new Request(`${BASE_URL}/v1/payments/plans`)
@@ -95,7 +93,7 @@ describe("GET /payments/plans", () => {
   });
 
   test("should return correct plan properties", async () => {
-    await createPaidPlan("gold");
+    await PlanFactory.createPaid("gold");
 
     const response = await app.handle(
       new Request(`${BASE_URL}/v1/payments/plans`)
@@ -119,7 +117,7 @@ describe("GET /payments/plans", () => {
   });
 
   test("should return plan limits with features array", async () => {
-    const { plan: createdPlan } = await createPaidPlan("diamond");
+    const { plan: createdPlan } = await PlanFactory.createPaid("diamond");
 
     const response = await app.handle(
       new Request(`${BASE_URL}/v1/payments/plans`)
@@ -137,7 +135,7 @@ describe("GET /payments/plans", () => {
   });
 
   test("should return pricing tiers with correct structure", async () => {
-    const { plan: createdPlan } = await createPaidPlan("gold");
+    const { plan: createdPlan } = await PlanFactory.createPaid("gold");
 
     const response = await app.handle(
       new Request(`${BASE_URL}/v1/payments/plans`)

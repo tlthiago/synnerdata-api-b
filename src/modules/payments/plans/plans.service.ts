@@ -107,7 +107,6 @@ export abstract class PlansService {
   }
 
   static async getTrialPlan(): Promise<PlanWithTiersData> {
-    // Order by ID DESC to prefer fixture plan ("test-plan-trial" after "plan-xxx")
     const { desc } = await import("drizzle-orm");
     const [plan] = await db
       .select()

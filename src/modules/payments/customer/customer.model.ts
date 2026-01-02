@@ -58,7 +58,6 @@ export type ListCustomersInput = z.infer<typeof listCustomersSchema>;
 export type CustomerData = z.infer<typeof customerDataSchema>;
 export type ListCustomersResponse = z.infer<typeof listCustomersResponseSchema>;
 
-// Data-only type for service layer
 export type ListCustomersData = z.infer<typeof listCustomersDataSchema>;
 
 export type CreateCustomerInput = {

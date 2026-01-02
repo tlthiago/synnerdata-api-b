@@ -1,14 +1,13 @@
 import "dotenv/config";
 import { expect, test } from "@playwright/test";
 import { env } from "@/env";
-import { createTestBillingProfile } from "@/test/factories/billing-profile";
+import { BillingProfileFactory } from "@/test/factories/payments/billing-profile.factory";
 import {
   type CreatePlanResult,
-  createPaidPlan,
-  getFirstTier,
-} from "@/test/factories/plan";
-import { createTestApp } from "@/test/helpers/app";
-import { createTestUserWithOrganization } from "@/test/helpers/user";
+  PlanFactory,
+} from "@/test/factories/payments/plan.factory";
+import { UserFactory } from "@/test/factories/user.factory";
+import { createTestApp } from "@/test/support/app";
 
 const API_URL = env.API_URL;
 const PAGARME_URL_REGEX = /pagar\.me/;
@@ -31,7 +30,7 @@ let proPlanResult: CreatePlanResult;
 test.describe("Checkout Flow E2E", () => {
   test.beforeAll(async () => {
     // Create plans dynamically using factories
-    proPlanResult = await createPaidPlan("gold");
+    proPlanResult = await PlanFactory.createPaid("gold");
   });
 
   test("should complete full checkout flow with Pagarme payment link", async ({
@@ -39,17 +38,13 @@ test.describe("Checkout Flow E2E", () => {
   }) => {
     // 1. Create authenticated test user with organization
     const { user, session, organizationId } =
-      await createTestUserWithOrganization({ emailVerified: true });
-
-    if (!organizationId) {
-      throw new Error("Organization not created for test user");
-    }
+      await UserFactory.createWithOrganization({ emailVerified: true });
 
     // Create billing profile (required for checkout)
-    await createTestBillingProfile({ organizationId });
+    await BillingProfileFactory.create({ organizationId });
 
     // Get first tier for the plan
-    const tier = getFirstTier(proPlanResult);
+    const tier = proPlanResult.tiers[0];
 
     // 2. Set authentication cookie in browser context
     await page.context().addCookies([
@@ -254,20 +249,16 @@ test.describe("Checkout Flow E2E", () => {
     page,
   }) => {
     // Create authenticated test user
-    const { session, organizationId } = await createTestUserWithOrganization({
-      emailVerified: true,
-    });
-
-    if (!organizationId) {
-      test.skip(true, "Missing organization");
-      return;
-    }
+    const { session, organizationId } =
+      await UserFactory.createWithOrganization({
+        emailVerified: true,
+      });
 
     // Create billing profile (required for checkout)
-    await createTestBillingProfile({ organizationId });
+    await BillingProfileFactory.create({ organizationId });
 
     // Get first tier for the plan
-    const tier = getFirstTier(proPlanResult);
+    const tier = proPlanResult.tiers[0];
 
     // Create checkout
     const app = createTestApp();
@@ -312,7 +303,7 @@ test.describe("Checkout Flow E2E", () => {
     request,
   }) => {
     // Get first tier for the plan (needed for valid request body)
-    const tier = getFirstTier(proPlanResult);
+    const tier = proPlanResult.tiers[0];
 
     // Attempt to call checkout API without auth cookie
     const response = await request.post(`${API_URL}/v1/payments/checkout`, {

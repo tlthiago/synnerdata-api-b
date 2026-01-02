@@ -1,12 +1,8 @@
 import { beforeAll, describe, expect, test } from "bun:test";
 import { env } from "@/env";
-import {
-  createInactivePlan,
-  createPaidPlan,
-  getFirstTier,
-} from "@/test/factories/plan";
-import { createTestApp, type TestApp } from "@/test/helpers/app";
-import { createTestAdminUser, createTestUser } from "@/test/helpers/user";
+import { PlanFactory } from "@/test/factories/payments/plan.factory";
+import { UserFactory } from "@/test/factories/user.factory";
+import { createTestApp, type TestApp } from "@/test/support/app";
 
 const BASE_URL = env.API_URL;
 
@@ -16,12 +12,12 @@ describe("GET /payments/plans/:id", () => {
 
   beforeAll(async () => {
     app = createTestApp();
-    const { headers } = await createTestAdminUser({ emailVerified: true });
+    const { headers } = await UserFactory.createAdmin({ emailVerified: true });
     authHeaders = headers;
   });
 
   test("should reject unauthenticated requests", async () => {
-    const { plan } = await createPaidPlan("diamond");
+    const { plan } = await PlanFactory.createPaid("diamond");
 
     const response = await app.handle(
       new Request(`${BASE_URL}/v1/payments/plans/${plan.id}`)
@@ -30,8 +26,8 @@ describe("GET /payments/plans/:id", () => {
   });
 
   test("should reject non-admin users", async () => {
-    const { plan } = await createPaidPlan("diamond");
-    const { headers: nonAdminHeaders } = await createTestUser({
+    const { plan } = await PlanFactory.createPaid("diamond");
+    const { headers: nonAdminHeaders } = await UserFactory.create({
       emailVerified: true,
     });
 
@@ -44,7 +40,7 @@ describe("GET /payments/plans/:id", () => {
   });
 
   test("should get plan by id with admin authentication", async () => {
-    const { plan } = await createPaidPlan("diamond");
+    const { plan } = await PlanFactory.createPaid("diamond");
 
     const response = await app.handle(
       new Request(`${BASE_URL}/v1/payments/plans/${plan.id}`, {
@@ -73,7 +69,9 @@ describe("GET /payments/plans/:id", () => {
   });
 
   test("should return inactive plans (no filter on get by id)", async () => {
-    const { plan: inactivePlan } = await createInactivePlan({ type: "gold" });
+    const { plan: inactivePlan } = await PlanFactory.createInactive({
+      type: "gold",
+    });
 
     const response = await app.handle(
       new Request(`${BASE_URL}/v1/payments/plans/${inactivePlan.id}`, {
@@ -89,9 +87,9 @@ describe("GET /payments/plans/:id", () => {
   });
 
   test("should return all plan properties", async () => {
-    const result = await createPaidPlan("diamond");
+    const result = await PlanFactory.createPaid("diamond");
     const { plan } = result;
-    const tier = getFirstTier(result);
+    const tier = PlanFactory.getFirstTier(result);
 
     const response = await app.handle(
       new Request(`${BASE_URL}/v1/payments/plans/${plan.id}`, {

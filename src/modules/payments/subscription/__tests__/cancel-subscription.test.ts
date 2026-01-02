@@ -3,22 +3,14 @@ import { eq } from "drizzle-orm";
 import { db } from "@/db";
 import { schema } from "@/db/schema";
 import { env } from "@/env";
+import { OrganizationFactory } from "@/test/factories/organization.factory";
 import {
   type CreatePlanResult,
-  createPaidPlan,
-  createTrialPlan,
-} from "@/test/factories/plan";
-import { createTestApp, type TestApp } from "@/test/helpers/app";
-import {
-  createActiveSubscription,
-  createCanceledSubscription,
-  createExpiredSubscription,
-  createTestSubscription,
-} from "@/test/helpers/subscription";
-import {
-  createTestUser,
-  createTestUserWithOrganization,
-} from "@/test/helpers/user";
+  PlanFactory,
+} from "@/test/factories/payments/plan.factory";
+import { SubscriptionFactory } from "@/test/factories/payments/subscription.factory";
+import { UserFactory } from "@/test/factories/user.factory";
+import { createTestApp, type TestApp } from "@/test/support/app";
 
 const BASE_URL = env.API_URL;
 
@@ -31,8 +23,8 @@ describe("POST /v1/payments/subscription/cancel", () => {
   beforeAll(async () => {
     app = createTestApp();
     [diamondPlanResult, trialPlanResult] = await Promise.all([
-      createPaidPlan("diamond"),
-      createTrialPlan(),
+      PlanFactory.createPaid("diamond"),
+      PlanFactory.createTrial(),
     ]);
   });
 
@@ -47,7 +39,7 @@ describe("POST /v1/payments/subscription/cancel", () => {
   });
 
   test("should reject for organization without subscription", async () => {
-    const { headers } = await createTestUserWithOrganization({
+    const { headers } = await UserFactory.createWithOrganization({
       emailVerified: true,
     });
 
@@ -64,11 +56,15 @@ describe("POST /v1/payments/subscription/cancel", () => {
   });
 
   test("should reject canceling already canceled subscription", async () => {
-    const { headers, organizationId } = await createTestUserWithOrganization({
-      emailVerified: true,
-    });
+    const { headers, organizationId } =
+      await UserFactory.createWithOrganization({
+        emailVerified: true,
+      });
 
-    await createCanceledSubscription(organizationId, diamondPlanResult.plan.id);
+    await SubscriptionFactory.createCanceled(
+      organizationId,
+      diamondPlanResult.plan.id
+    );
 
     const response = await app.handle(
       new Request(`${BASE_URL}/v1/payments/subscription/cancel`, {
@@ -83,11 +79,15 @@ describe("POST /v1/payments/subscription/cancel", () => {
   });
 
   test("should reject canceling expired subscription", async () => {
-    const { headers, organizationId } = await createTestUserWithOrganization({
-      emailVerified: true,
-    });
+    const { headers, organizationId } =
+      await UserFactory.createWithOrganization({
+        emailVerified: true,
+      });
 
-    await createExpiredSubscription(organizationId, diamondPlanResult.plan.id);
+    await SubscriptionFactory.createExpired(
+      organizationId,
+      diamondPlanResult.plan.id
+    );
 
     const response = await app.handle(
       new Request(`${BASE_URL}/v1/payments/subscription/cancel`, {
@@ -102,13 +102,18 @@ describe("POST /v1/payments/subscription/cancel", () => {
   });
 
   test("should reject canceling past_due subscription", async () => {
-    const { headers, organizationId } = await createTestUserWithOrganization({
-      emailVerified: true,
-    });
+    const { headers, organizationId } =
+      await UserFactory.createWithOrganization({
+        emailVerified: true,
+      });
 
-    await createTestSubscription(organizationId, diamondPlanResult.plan.id, {
-      status: "past_due",
-    });
+    await SubscriptionFactory.create(
+      organizationId,
+      diamondPlanResult.plan.id,
+      {
+        status: "past_due",
+      }
+    );
 
     const response = await app.handle(
       new Request(`${BASE_URL}/v1/payments/subscription/cancel`, {
@@ -123,11 +128,15 @@ describe("POST /v1/payments/subscription/cancel", () => {
   });
 
   test("should cancel active subscription and return cancelAtPeriodEnd", async () => {
-    const { headers, organizationId } = await createTestUserWithOrganization({
-      emailVerified: true,
-    });
+    const { headers, organizationId } =
+      await UserFactory.createWithOrganization({
+        emailVerified: true,
+      });
 
-    await createActiveSubscription(organizationId, diamondPlanResult.plan.id);
+    await SubscriptionFactory.createActive(
+      organizationId,
+      diamondPlanResult.plan.id
+    );
 
     const response = await app.handle(
       new Request(`${BASE_URL}/v1/payments/subscription/cancel`, {
@@ -145,14 +154,14 @@ describe("POST /v1/payments/subscription/cancel", () => {
   });
 
   test("should cancel trial subscription", async () => {
-    const { headers, organizationId } = await createTestUserWithOrganization({
-      emailVerified: true,
-    });
+    const { headers, organizationId } =
+      await UserFactory.createWithOrganization({
+        emailVerified: true,
+      });
 
-    await createTestSubscription(
+    await SubscriptionFactory.createTrial(
       organizationId,
-      diamondPlanResult.plan.id,
-      "trial"
+      diamondPlanResult.plan.id
     );
 
     const response = await app.handle(
@@ -170,11 +179,15 @@ describe("POST /v1/payments/subscription/cancel", () => {
   });
 
   test("should keep original status when canceling active subscription", async () => {
-    const { headers, organizationId } = await createTestUserWithOrganization({
-      emailVerified: true,
-    });
+    const { headers, organizationId } =
+      await UserFactory.createWithOrganization({
+        emailVerified: true,
+      });
 
-    await createActiveSubscription(organizationId, diamondPlanResult.plan.id);
+    await SubscriptionFactory.createActive(
+      organizationId,
+      diamondPlanResult.plan.id
+    );
 
     const response = await app.handle(
       new Request(`${BASE_URL}/v1/payments/subscription/cancel`, {
@@ -197,13 +210,14 @@ describe("POST /v1/payments/subscription/cancel", () => {
   });
 
   test("should keep original status when canceling trial subscription", async () => {
-    const { headers, organizationId } = await createTestUserWithOrganization({
-      emailVerified: true,
-    });
+    const { headers, organizationId } =
+      await UserFactory.createWithOrganization({
+        emailVerified: true,
+      });
 
     // Trial subscriptions have status "active" in DB (trial is determined by plan.isTrial)
-    await createTestSubscription(organizationId, trialPlanResult.plan.id, {
-      status: "trial",
+    await SubscriptionFactory.create(organizationId, trialPlanResult.plan.id, {
+      status: "active",
       trialDays: 14,
     });
 
@@ -231,14 +245,15 @@ describe("POST /v1/payments/subscription/cancel", () => {
   test("should not call Pagarme immediately (soft cancel)", async () => {
     const { PagarmeClient } = await import("../../pagarme/client");
 
-    const { headers, organizationId } = await createTestUserWithOrganization({
-      emailVerified: true,
-    });
+    const { headers, organizationId } =
+      await UserFactory.createWithOrganization({
+        emailVerified: true,
+      });
 
-    await createActiveSubscription(
+    await SubscriptionFactory.createActive(
       organizationId,
       diamondPlanResult.plan.id,
-      "sub_test_soft_cancel"
+      { pagarmeSubscriptionId: "sub_test_soft_cancel" }
     );
 
     const cancelSubscriptionSpy = spyOn(
@@ -264,19 +279,18 @@ describe("POST /v1/payments/subscription/cancel", () => {
     "manager",
     "supervisor",
   ] as const)("should reject %s member from canceling subscription", async (role) => {
-    const { addMemberToOrganization } = await import(
-      "@/test/helpers/organization"
-    );
-
-    const { organizationId } = await createTestUserWithOrganization({
+    const { organizationId } = await UserFactory.createWithOrganization({
       emailVerified: true,
     });
 
-    await createActiveSubscription(organizationId, diamondPlanResult.plan.id);
+    await SubscriptionFactory.createActive(
+      organizationId,
+      diamondPlanResult.plan.id
+    );
 
-    const memberResult = await createTestUser({ emailVerified: true });
+    const memberResult = await UserFactory.create({ emailVerified: true });
 
-    await addMemberToOrganization(memberResult, {
+    await OrganizationFactory.addMember(memberResult, {
       organizationId,
       role,
     });

@@ -28,9 +28,6 @@ export const billingController = new Elysia({
   detail: { tags: ["Payments - Billing"] },
 })
   .use(betterAuthPlugin)
-  // ============================================
-  // Profile Endpoints
-  // ============================================
   .get(
     "/profile",
     async ({ session }) => {
@@ -113,9 +110,6 @@ export const billingController = new Elysia({
       },
     }
   )
-  // ============================================
-  // Invoice Endpoints
-  // ============================================
   .get(
     "/invoices",
     async ({ session, query }) =>
@@ -173,9 +167,6 @@ export const billingController = new Elysia({
       },
     }
   )
-  // ============================================
-  // Card Management
-  // ============================================
   .post(
     "/update-card",
     async ({ session, body }) =>
@@ -205,9 +196,6 @@ export const billingController = new Elysia({
       },
     }
   )
-  // ============================================
-  // Usage
-  // ============================================
   .get(
     "/usage",
     async ({ session }) =>

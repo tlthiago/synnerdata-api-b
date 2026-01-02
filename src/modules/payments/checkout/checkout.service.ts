@@ -40,17 +40,14 @@ export abstract class CheckoutService {
 
     await SubscriptionService.ensureNoPaidSubscription(organizationId);
 
-    // Get plan and tier details
     const plan = await PlansService.getAvailableById(planId);
     const tier = await PlansService.getTierById(tierId);
 
-    // Ensure Pagarme plan exists (lazy creation)
     const pagarmePlanId = await PagarmePlanService.ensurePlan(
       tierId,
       billingCycle
     );
 
-    // Get or create Pagarme customer (requires billing profile to exist)
     const { pagarmeCustomerId } =
       await CustomerService.getOrCreateForCheckout(organizationId);
 
@@ -108,7 +105,6 @@ export abstract class CheckoutService {
       expiresAt,
     });
 
-    // Send checkout link email
     const [emailData] = await db
       .select({
         userName: schema.users.name,

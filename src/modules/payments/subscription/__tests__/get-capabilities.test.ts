@@ -1,23 +1,14 @@
 import { beforeAll, describe, expect, test } from "bun:test";
 import { env } from "@/env";
 import { PLAN_FEATURES } from "@/modules/payments/plans/plans.constants";
+import { OrganizationFactory } from "@/test/factories/organization.factory";
 import {
   type CreatePlanResult,
-  createPaidPlan,
-  createTrialPlan,
-} from "@/test/factories/plan";
-import { createTestApp, type TestApp } from "@/test/helpers/app";
-import { addMemberToOrganization } from "@/test/helpers/organization";
-import {
-  createActiveSubscription,
-  createCanceledSubscription,
-  createExpiredSubscription,
-  createTestSubscription,
-} from "@/test/helpers/subscription";
-import {
-  createTestUser,
-  createTestUserWithOrganization,
-} from "@/test/helpers/user";
+  PlanFactory,
+} from "@/test/factories/payments/plan.factory";
+import { SubscriptionFactory } from "@/test/factories/payments/subscription.factory";
+import { UserFactory } from "@/test/factories/user.factory";
+import { createTestApp, type TestApp } from "@/test/support/app";
 
 const BASE_URL = env.API_URL;
 const ENDPOINT = `${BASE_URL}/v1/payments/subscription/capabilities`;
@@ -31,8 +22,8 @@ describe("GET /v1/payments/subscription/capabilities", () => {
   beforeAll(async () => {
     app = createTestApp();
     [diamondPlanResult, trialPlanResult] = await Promise.all([
-      createPaidPlan("diamond"),
-      createTrialPlan(),
+      PlanFactory.createPaid("diamond"),
+      PlanFactory.createTrial(),
     ]);
   });
 
@@ -43,7 +34,7 @@ describe("GET /v1/payments/subscription/capabilities", () => {
   });
 
   test("should return no_subscription for organization without subscription", async () => {
-    const { headers } = await createTestUserWithOrganization({
+    const { headers } = await UserFactory.createWithOrganization({
       emailVerified: true,
     });
 
@@ -65,13 +56,14 @@ describe("GET /v1/payments/subscription/capabilities", () => {
   });
 
   test("should return trial status with features for trial subscription", async () => {
-    const { headers, organizationId } = await createTestUserWithOrganization({
-      emailVerified: true,
-    });
+    const { headers, organizationId } =
+      await UserFactory.createWithOrganization({
+        emailVerified: true,
+      });
 
     // Use trial plan (isTrial=true) for proper trial behavior
-    await createTestSubscription(organizationId, trialPlanResult.plan.id, {
-      status: "trial",
+    await SubscriptionFactory.create(organizationId, trialPlanResult.plan.id, {
+      status: "active",
       trialDays: 14,
     });
 
@@ -97,11 +89,15 @@ describe("GET /v1/payments/subscription/capabilities", () => {
   });
 
   test("should return active status with features for active subscription", async () => {
-    const { headers, organizationId } = await createTestUserWithOrganization({
-      emailVerified: true,
-    });
+    const { headers, organizationId } =
+      await UserFactory.createWithOrganization({
+        emailVerified: true,
+      });
 
-    await createActiveSubscription(organizationId, diamondPlanResult.plan.id);
+    await SubscriptionFactory.createActive(
+      organizationId,
+      diamondPlanResult.plan.id
+    );
 
     const response = await app.handle(
       new Request(ENDPOINT, { method: "GET", headers })
@@ -119,11 +115,15 @@ describe("GET /v1/payments/subscription/capabilities", () => {
   });
 
   test("should return expired status without features for expired subscription", async () => {
-    const { headers, organizationId } = await createTestUserWithOrganization({
-      emailVerified: true,
-    });
+    const { headers, organizationId } =
+      await UserFactory.createWithOrganization({
+        emailVerified: true,
+      });
 
-    await createExpiredSubscription(organizationId, diamondPlanResult.plan.id);
+    await SubscriptionFactory.createExpired(
+      organizationId,
+      diamondPlanResult.plan.id
+    );
 
     const response = await app.handle(
       new Request(ENDPOINT, { method: "GET", headers })
@@ -141,11 +141,15 @@ describe("GET /v1/payments/subscription/capabilities", () => {
   });
 
   test("should return canceled status without features for canceled subscription", async () => {
-    const { headers, organizationId } = await createTestUserWithOrganization({
-      emailVerified: true,
-    });
+    const { headers, organizationId } =
+      await UserFactory.createWithOrganization({
+        emailVerified: true,
+      });
 
-    await createCanceledSubscription(organizationId, diamondPlanResult.plan.id);
+    await SubscriptionFactory.createCanceled(
+      organizationId,
+      diamondPlanResult.plan.id
+    );
 
     const response = await app.handle(
       new Request(ENDPOINT, { method: "GET", headers })
@@ -163,13 +167,18 @@ describe("GET /v1/payments/subscription/capabilities", () => {
   });
 
   test("should return past_due status with access during grace period", async () => {
-    const { headers, organizationId } = await createTestUserWithOrganization({
-      emailVerified: true,
-    });
+    const { headers, organizationId } =
+      await UserFactory.createWithOrganization({
+        emailVerified: true,
+      });
 
-    await createTestSubscription(organizationId, diamondPlanResult.plan.id, {
-      status: "past_due",
-    });
+    await SubscriptionFactory.create(
+      organizationId,
+      diamondPlanResult.plan.id,
+      {
+        status: "past_due",
+      }
+    );
 
     const response = await app.handle(
       new Request(ENDPOINT, { method: "GET", headers })
@@ -185,11 +194,15 @@ describe("GET /v1/payments/subscription/capabilities", () => {
   });
 
   test("should return all features with hasAccess and requiredPlan", async () => {
-    const { headers, organizationId } = await createTestUserWithOrganization({
-      emailVerified: true,
-    });
+    const { headers, organizationId } =
+      await UserFactory.createWithOrganization({
+        emailVerified: true,
+      });
 
-    await createActiveSubscription(organizationId, diamondPlanResult.plan.id);
+    await SubscriptionFactory.createActive(
+      organizationId,
+      diamondPlanResult.plan.id
+    );
 
     const response = await app.handle(
       new Request(ENDPOINT, { method: "GET", headers })
@@ -223,18 +236,18 @@ describe("GET /v1/payments/subscription/capabilities", () => {
   });
 
   test("should allow viewer member to access capabilities", async () => {
-    const { organizationId } = await createTestUserWithOrganization({
+    const { organizationId } = await UserFactory.createWithOrganization({
       emailVerified: true,
     });
 
     // Use trial plan for proper trial status
-    await createTestSubscription(organizationId, trialPlanResult.plan.id, {
-      status: "trial",
+    await SubscriptionFactory.create(organizationId, trialPlanResult.plan.id, {
+      status: "active",
       trialDays: 14,
     });
 
-    const viewer = await createTestUser({ emailVerified: true });
-    await addMemberToOrganization(viewer, {
+    const viewer = await UserFactory.create({ emailVerified: true });
+    await OrganizationFactory.addMember(viewer, {
       organizationId,
       role: "viewer",
     });
@@ -251,14 +264,17 @@ describe("GET /v1/payments/subscription/capabilities", () => {
   });
 
   test("should allow manager member to access capabilities", async () => {
-    const { organizationId } = await createTestUserWithOrganization({
+    const { organizationId } = await UserFactory.createWithOrganization({
       emailVerified: true,
     });
 
-    await createActiveSubscription(organizationId, diamondPlanResult.plan.id);
+    await SubscriptionFactory.createActive(
+      organizationId,
+      diamondPlanResult.plan.id
+    );
 
-    const manager = await createTestUser({ emailVerified: true });
-    await addMemberToOrganization(manager, {
+    const manager = await UserFactory.create({ emailVerified: true });
+    await OrganizationFactory.addMember(manager, {
       organizationId,
       role: "manager",
     });

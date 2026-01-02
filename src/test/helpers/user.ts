@@ -1,8 +1,8 @@
 import { eq } from "drizzle-orm";
 import { db } from "@/db";
 import { schema } from "@/db/schema";
+import { waitForOTP } from "../support/mailhog";
 import { createTestApp } from "./app";
-import { waitForOTP } from "./mailhog";
 
 export type TestUser = {
   id: string;

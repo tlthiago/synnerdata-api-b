@@ -3,18 +3,15 @@ import { expect, test } from "@playwright/test";
 import { eq } from "drizzle-orm";
 import { db } from "@/db";
 import { schema } from "@/db/schema";
-import { createTestBillingProfile } from "@/test/factories/billing-profile";
+import { BillingProfileFactory } from "@/test/factories/payments/billing-profile.factory";
 import {
   type CreatePlanResult,
-  createPaidPlan,
-  getFirstTier,
-} from "@/test/factories/plan";
-import { createTestApp } from "@/test/helpers/app";
-import {
-  createTestSubscription,
-  waitForSubscriptionActive,
-} from "@/test/helpers/subscription";
-import { createTestUserWithOrganization } from "@/test/helpers/user";
+  PlanFactory,
+} from "@/test/factories/payments/plan.factory";
+import { SubscriptionFactory } from "@/test/factories/payments/subscription.factory";
+import { UserFactory } from "@/test/factories/user.factory";
+import { createTestApp } from "@/test/support/app";
+import { waitForSubscriptionActive } from "@/test/support/wait";
 
 const TUNNEL_URL = process.env.TUNNEL_URL;
 const PAGARME_URL_REGEX = /pagar\.me/;
@@ -38,7 +35,7 @@ test.describe("Checkout + Webhook E2E Flow", () => {
       return;
     }
     // Create plans dynamically using factories
-    goldPlanResult = await createPaidPlan("gold");
+    goldPlanResult = await PlanFactory.createPaid("gold");
   });
 
   test("should complete checkout and activate subscription via webhook", async ({
@@ -51,22 +48,17 @@ test.describe("Checkout + Webhook E2E Flow", () => {
 
     // 1. Setup: Create user with trial subscription
     const { user, session, organizationId } =
-      await createTestUserWithOrganization({ emailVerified: true });
-
-    if (!organizationId) {
-      throw new Error("Organization not created for test user");
-    }
+      await UserFactory.createWithOrganization({ emailVerified: true });
 
     // Create billing profile (required for checkout)
-    await createTestBillingProfile({ organizationId });
+    await BillingProfileFactory.create({ organizationId });
 
     // Get first tier for the plan
-    const tier = getFirstTier(goldPlanResult);
+    const tier = goldPlanResult.tiers[0];
 
-    await createTestSubscription(
+    await SubscriptionFactory.createTrial(
       organizationId,
-      goldPlanResult.plan.id,
-      "trial"
+      goldPlanResult.plan.id
     );
 
     // 2. Create checkout with tunnel URL for webhook

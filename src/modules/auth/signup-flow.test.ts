@@ -3,9 +3,9 @@ import { eq } from "drizzle-orm";
 import { db } from "@/db";
 import { schema } from "@/db/schema";
 import { env } from "@/env";
-import { createTrialPlan } from "@/test/factories/plan";
-import { createTestApp, type TestApp } from "@/test/helpers/app";
-import { waitForOTP } from "@/test/helpers/mailhog";
+import { PlanFactory } from "@/test/factories/payments/plan.factory";
+import { createTestApp, type TestApp } from "@/test/support/app";
+import { waitForOTP } from "@/test/support/mailhog";
 
 const BASE_URL = env.API_URL;
 
@@ -25,7 +25,7 @@ describe("Signup Use Case: Novo Usuário até Trial Ativo", () => {
     emailModule = await import("@/lib/email");
 
     // Create trial plan for subscription creation
-    await createTrialPlan();
+    await PlanFactory.createTrial();
   });
 
   beforeEach(() => {

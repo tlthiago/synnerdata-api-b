@@ -1,54 +1,26 @@
-import { afterAll, beforeAll, describe, expect, test } from "bun:test";
+import { beforeAll, describe, expect, test } from "bun:test";
 import { eq } from "drizzle-orm";
 import { db } from "@/db";
 import { schema } from "@/db/schema";
 import { env } from "@/env";
-import { type CreatePlanResult, createPaidPlan } from "@/test/factories/plan";
-import { createTestApp, type TestApp } from "@/test/helpers/app";
+import { OrganizationFactory } from "@/test/factories/organization.factory";
 import {
-  addMemberToOrganization,
-  createTestOrganization,
-  type TestOrganization,
-} from "@/test/helpers/organization";
-import { createTestSubscription } from "@/test/helpers/subscription";
-import { createTestUser, type TestUserResult } from "@/test/helpers/user";
+  type CreatePlanResult,
+  PlanFactory,
+} from "@/test/factories/payments/plan.factory";
+import { SubscriptionFactory } from "@/test/factories/payments/subscription.factory";
+import { UserFactory } from "@/test/factories/user.factory";
+import { createTestApp, type TestApp } from "@/test/support/app";
 
 const BASE_URL = env.API_URL;
 
 describe("POST /v1/payments/jobs/expire-trials", () => {
   let app: TestApp;
   let diamondPlan: CreatePlanResult;
-  const createdOrganizations: TestOrganization[] = [];
 
   beforeAll(async () => {
     app = createTestApp();
-    diamondPlan = await createPaidPlan("diamond");
-  });
-
-  afterAll(async () => {
-    for (const org of createdOrganizations) {
-      await db
-        .delete(schema.orgSubscriptions)
-        .where(eq(schema.orgSubscriptions.organizationId, org.id));
-      await db
-        .delete(schema.members)
-        .where(eq(schema.members.organizationId, org.id));
-      await db
-        .delete(schema.organizationProfiles)
-        .where(eq(schema.organizationProfiles.organizationId, org.id));
-      await db
-        .delete(schema.organizations)
-        .where(eq(schema.organizations.id, org.id));
-    }
-
-    if (diamondPlan) {
-      await db
-        .delete(schema.planPricingTiers)
-        .where(eq(schema.planPricingTiers.planId, diamondPlan.plan.id));
-      await db
-        .delete(schema.subscriptionPlans)
-        .where(eq(schema.subscriptionPlans.id, diamondPlan.plan.id));
-    }
+    diamondPlan = await PlanFactory.createPaid("diamond");
   });
 
   test("should reject requests without x-api-key header", async () => {
@@ -78,13 +50,9 @@ describe("POST /v1/payments/jobs/expire-trials", () => {
   });
 
   test("should expire trials with valid x-api-key", async () => {
-    const org = await createTestOrganization();
-    createdOrganizations.push(org);
+    const org = await OrganizationFactory.create();
 
-    await createTestSubscription(org.id, diamondPlan.plan.id, {
-      status: "trial",
-      trialDays: -1,
-    });
+    await SubscriptionFactory.createTrial(org.id, diamondPlan.plan.id, -1);
 
     const response = await app.handle(
       new Request(`${BASE_URL}/v1/payments/jobs/expire-trials`, {
@@ -124,47 +92,10 @@ describe("POST /v1/payments/jobs/expire-trials", () => {
 describe("POST /v1/payments/jobs/notify-expiring-trials", () => {
   let app: TestApp;
   let diamondPlan: CreatePlanResult;
-  const createdOrganizations: TestOrganization[] = [];
-  const createdUsers: TestUserResult[] = [];
 
   beforeAll(async () => {
     app = createTestApp();
-    diamondPlan = await createPaidPlan("diamond");
-  });
-
-  afterAll(async () => {
-    for (const org of createdOrganizations) {
-      await db
-        .delete(schema.orgSubscriptions)
-        .where(eq(schema.orgSubscriptions.organizationId, org.id));
-      await db
-        .delete(schema.members)
-        .where(eq(schema.members.organizationId, org.id));
-      await db
-        .delete(schema.organizationProfiles)
-        .where(eq(schema.organizationProfiles.organizationId, org.id));
-      await db
-        .delete(schema.organizations)
-        .where(eq(schema.organizations.id, org.id));
-    }
-
-    for (const userResult of createdUsers) {
-      await db
-        .delete(schema.sessions)
-        .where(eq(schema.sessions.userId, userResult.user.id));
-      await db
-        .delete(schema.users)
-        .where(eq(schema.users.id, userResult.user.id));
-    }
-
-    if (diamondPlan) {
-      await db
-        .delete(schema.planPricingTiers)
-        .where(eq(schema.planPricingTiers.planId, diamondPlan.plan.id));
-      await db
-        .delete(schema.subscriptionPlans)
-        .where(eq(schema.subscriptionPlans.id, diamondPlan.plan.id));
-    }
+    diamondPlan = await PlanFactory.createPaid("diamond");
   });
 
   test("should reject requests without x-api-key header", async () => {
@@ -194,21 +125,15 @@ describe("POST /v1/payments/jobs/notify-expiring-trials", () => {
   });
 
   test("should notify expiring trials with valid x-api-key", async () => {
-    const org = await createTestOrganization();
-    createdOrganizations.push(org);
+    const org = await OrganizationFactory.create();
+    const owner = await UserFactory.create({ emailVerified: true });
 
-    const owner = await createTestUser({ emailVerified: true });
-    createdUsers.push(owner);
-
-    await addMemberToOrganization(owner, {
+    await OrganizationFactory.addMember(owner, {
       organizationId: org.id,
       role: "owner",
     });
 
-    await createTestSubscription(org.id, diamondPlan.plan.id, {
-      status: "trial",
-      trialDays: 3,
-    });
+    await SubscriptionFactory.createTrial(org.id, diamondPlan.plan.id, 3);
 
     const now = new Date();
     const trialEnd = new Date(now.getTime() + 3.5 * 24 * 60 * 60 * 1000);
@@ -256,7 +181,7 @@ describe("POST /v1/payments/jobs/notify-expiring-trials", () => {
 describe("POST /v1/payments/jobs/process-cancellations", () => {
   let app: TestApp;
 
-  beforeAll(async () => {
+  beforeAll(() => {
     app = createTestApp();
   });
 
@@ -309,7 +234,7 @@ describe("POST /v1/payments/jobs/process-cancellations", () => {
 describe("POST /v1/payments/jobs/suspend-expired-grace-periods", () => {
   let app: TestApp;
 
-  beforeAll(async () => {
+  beforeAll(() => {
     app = createTestApp();
   });
 
@@ -371,7 +296,7 @@ describe("POST /v1/payments/jobs/suspend-expired-grace-periods", () => {
 describe("POST /v1/payments/jobs/process-scheduled-plan-changes", () => {
   let app: TestApp;
 
-  beforeAll(async () => {
+  beforeAll(() => {
     app = createTestApp();
   });
 

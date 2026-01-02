@@ -1,8 +1,6 @@
 import { z } from "zod";
 import { successResponseSchema } from "@/lib/responses/response.types";
-
-// Regex patterns - defined at top level for performance
-const REPEATED_DIGITS_REGEX = /^(\d)\1+$/;
+import { isValidCNPJ } from "@/lib/validation/documents";
 
 export const listInvoicesQuerySchema = z.object({
   page: z.coerce
@@ -113,7 +111,7 @@ const addressSchema = z.object({
 export const updateBillingInfoSchema = z.object({
   taxId: z.string().min(14).max(18).optional().describe("CNPJ"),
   legalName: z.string().min(1).max(255).optional().describe("Legal name"),
-  billingEmail: z.string().email().optional().describe("Billing email"),
+  billingEmail: z.email().optional().describe("Billing email"),
   phone: z.string().min(10).max(15).optional().describe("Phone number"),
   address: addressSchema.optional().describe("Billing address"),
 });
@@ -134,33 +132,15 @@ export type UpdateBillingInfoResponse = z.infer<
   typeof updateBillingInfoResponseSchema
 >;
 
-// Data-only types for service layer
 export type ListInvoicesData = z.infer<typeof listInvoicesDataSchema>;
 export type DownloadInvoiceData = z.infer<typeof downloadInvoiceDataSchema>;
 export type UpdateCardData = z.infer<typeof updateCardDataSchema>;
 export type GetUsageData = z.infer<typeof getUsageDataSchema>;
 export type UpdateBillingInfoData = z.infer<typeof updateBillingInfoDataSchema>;
 
-// ============================================
-// Profile Schemas (unified from billing-profile)
-// ============================================
-
 const cnpjSchema = z
   .string()
-  .refine(
-    (value) => {
-      const cleaned = value.replace(/\D/g, "");
-      if (cleaned.length !== 14) {
-        return false;
-      }
-      // Basic CNPJ validation - reject repeated digits
-      if (REPEATED_DIGITS_REGEX.test(cleaned)) {
-        return false;
-      }
-      return true;
-    },
-    { message: "CNPJ inválido" }
-  )
+  .refine((value) => isValidCNPJ(value), { message: "CNPJ inválido" })
   .describe("CNPJ do pagador");
 
 export const billingAddressSchema = z.object({
@@ -176,7 +156,7 @@ export const billingAddressSchema = z.object({
 export const createProfileSchema = z.object({
   legalName: z.string().min(1).describe("Razão social do pagador"),
   taxId: cnpjSchema,
-  email: z.string().email().describe("Email de cobrança"),
+  email: z.email().describe("Email de cobrança"),
   phone: z.string().min(10).max(15).describe("Telefone de contato"),
   address: billingAddressSchema.optional().describe("Billing address"),
 });
@@ -184,7 +164,7 @@ export const createProfileSchema = z.object({
 export const updateProfileSchema = z.object({
   legalName: z.string().min(1).optional().describe("Razão social do pagador"),
   taxId: cnpjSchema.optional(),
-  email: z.string().email().optional().describe("Email de cobrança"),
+  email: z.email().optional().describe("Email de cobrança"),
   phone: z.string().min(10).max(15).optional().describe("Telefone de contato"),
   address: billingAddressSchema
     .partial()

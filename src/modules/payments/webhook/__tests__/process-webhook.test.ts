@@ -3,11 +3,15 @@ import { eq } from "drizzle-orm";
 import { db } from "@/db";
 import { schema } from "@/db/schema";
 import { env } from "@/env";
-import { type CreatePlanResult, createPaidPlan } from "@/test/factories/plan";
-import { createTestApp, type TestApp } from "@/test/helpers/app";
-import { createPendingCheckout } from "@/test/helpers/checkout";
-import { createTestOrganization } from "@/test/helpers/organization";
-import { createTestSubscription } from "@/test/helpers/subscription";
+import { WebhookPayloadBuilder } from "@/test/builders/webhook-payload.builder";
+import { OrganizationFactory } from "@/test/factories/organization.factory";
+import { CheckoutFactory } from "@/test/factories/payments/checkout.factory";
+import {
+  type CreatePlanResult,
+  PlanFactory,
+} from "@/test/factories/payments/plan.factory";
+import { SubscriptionFactory } from "@/test/factories/payments/subscription.factory";
+import { createTestApp, type TestApp } from "@/test/support/app";
 
 const BASE_URL = env.API_URL;
 
@@ -18,29 +22,16 @@ function createWebhookAuthHeader(): string {
   return `Basic ${Buffer.from(credentials).toString("base64")}`;
 }
 
-function createWebhookPayload(
-  type: string,
-  data: Record<string, unknown>,
-  id?: string
-) {
-  return {
-    id: id ?? `evt_${crypto.randomUUID()}`,
-    type,
-    created_at: new Date().toISOString(),
-    data,
-  };
-}
-
 describe("POST /v1/payments/webhooks/pagarme", () => {
   let app: TestApp;
 
   beforeAll(async () => {
     app = createTestApp();
-    diamondPlanResult = await createPaidPlan("diamond");
+    diamondPlanResult = await PlanFactory.createPaid("diamond");
   });
 
   test("should reject request without Authorization header", async () => {
-    const payload = createWebhookPayload("charge.paid", {});
+    const payload = new WebhookPayloadBuilder().chargePaid().build();
 
     const response = await app.handle(
       new Request(`${BASE_URL}/v1/payments/webhooks/pagarme`, {
@@ -56,7 +47,7 @@ describe("POST /v1/payments/webhooks/pagarme", () => {
   });
 
   test("should reject request with invalid credentials", async () => {
-    const payload = createWebhookPayload("charge.paid", {});
+    const payload = new WebhookPayloadBuilder().chargePaid().build();
 
     const response = await app.handle(
       new Request(`${BASE_URL}/v1/payments/webhooks/pagarme`, {
@@ -75,7 +66,7 @@ describe("POST /v1/payments/webhooks/pagarme", () => {
   });
 
   test("should reject request with malformed auth header", async () => {
-    const payload = createWebhookPayload("charge.paid", {});
+    const payload = new WebhookPayloadBuilder().chargePaid().build();
 
     const response = await app.handle(
       new Request(`${BASE_URL}/v1/payments/webhooks/pagarme`, {
@@ -92,18 +83,14 @@ describe("POST /v1/payments/webhooks/pagarme", () => {
   });
 
   test("should process valid webhook and return success response", async () => {
-    const org = await createTestOrganization();
-    await createTestSubscription(org.id, diamondPlanResult.plan.id, "trial");
+    const org = await OrganizationFactory.create();
+    await SubscriptionFactory.createTrial(org.id, diamondPlanResult.plan.id);
 
-    const payload = createWebhookPayload("charge.paid", {
-      metadata: { organization_id: org.id },
-      subscription: { id: "sub_test_123" },
-      current_period: {
-        start_at: new Date().toISOString(),
-        end_at: new Date(Date.now() + 30 * 24 * 60 * 60 * 1000).toISOString(),
-      },
-    });
-    const rawBody = JSON.stringify(payload);
+    const payload = new WebhookPayloadBuilder()
+      .chargePaid()
+      .withOrganizationId(org.id)
+      .withSubscriptionId("sub_test_123")
+      .build();
 
     const response = await app.handle(
       new Request(`${BASE_URL}/v1/payments/webhooks/pagarme`, {
@@ -112,7 +99,7 @@ describe("POST /v1/payments/webhooks/pagarme", () => {
           "Content-Type": "application/json",
           Authorization: createWebhookAuthHeader(),
         },
-        body: rawBody,
+        body: JSON.stringify(payload),
       })
     );
 
@@ -124,12 +111,12 @@ describe("POST /v1/payments/webhooks/pagarme", () => {
 
   test("should create subscription_events record", async () => {
     const eventId = `evt_${crypto.randomUUID()}`;
-    const payload = createWebhookPayload(
-      "charge.paid",
-      { metadata: { organization_id: "test-org" } },
-      eventId
-    );
-    const rawBody = JSON.stringify(payload);
+    const payload = new WebhookPayloadBuilder()
+      .chargePaid()
+      .withEventId(eventId)
+      .withOrganizationId("test-org")
+      .build();
+
     const response = await app.handle(
       new Request(`${BASE_URL}/v1/payments/webhooks/pagarme`, {
         method: "POST",
@@ -137,7 +124,7 @@ describe("POST /v1/payments/webhooks/pagarme", () => {
           "Content-Type": "application/json",
           Authorization: createWebhookAuthHeader(),
         },
-        body: rawBody,
+        body: JSON.stringify(payload),
       })
     );
 
@@ -156,8 +143,7 @@ describe("POST /v1/payments/webhooks/pagarme", () => {
 
   test("should skip already processed event (idempotency)", async () => {
     const eventId = `evt_${crypto.randomUUID()}`;
-    const payload = createWebhookPayload("charge.paid", {}, eventId);
-    const rawBody = JSON.stringify(payload);
+
     await db.insert(schema.subscriptionEvents).values({
       id: `event-${crypto.randomUUID()}`,
       pagarmeEventId: eventId,
@@ -166,6 +152,11 @@ describe("POST /v1/payments/webhooks/pagarme", () => {
       processedAt: new Date(),
     });
 
+    const payload = new WebhookPayloadBuilder()
+      .chargePaid()
+      .withEventId(eventId)
+      .build();
+
     const response = await app.handle(
       new Request(`${BASE_URL}/v1/payments/webhooks/pagarme`, {
         method: "POST",
@@ -173,7 +164,7 @@ describe("POST /v1/payments/webhooks/pagarme", () => {
           "Content-Type": "application/json",
           Authorization: createWebhookAuthHeader(),
         },
-        body: rawBody,
+        body: JSON.stringify(payload),
       })
     );
 
@@ -181,24 +172,21 @@ describe("POST /v1/payments/webhooks/pagarme", () => {
   });
 
   test("should process subscription.created and activate subscription", async () => {
-    const org = await createTestOrganization();
-    const checkout = await createPendingCheckout(
+    const org = await OrganizationFactory.create();
+    const checkout = await CheckoutFactory.create(
       org.id,
       diamondPlanResult.plan.id
     );
-    await createTestSubscription(org.id, diamondPlanResult.plan.id, "trial");
+    await SubscriptionFactory.createTrial(org.id, diamondPlanResult.plan.id);
 
-    const payload = createWebhookPayload("subscription.created", {
-      id: `sub_${crypto.randomUUID()}`,
-      code: checkout.paymentLinkId,
-      metadata: { organization_id: org.id, plan_id: diamondPlanResult.plan.id },
-      customer: { id: "cus_123", name: "Test", document: "12345678909" },
-      current_period: {
-        start_at: new Date().toISOString(),
-        end_at: new Date(Date.now() + 30 * 24 * 60 * 60 * 1000).toISOString(),
-      },
-    });
-    const rawBody = JSON.stringify(payload);
+    const payload = new WebhookPayloadBuilder()
+      .subscriptionCreated()
+      .withPaymentLinkCode(checkout.paymentLinkId)
+      .withOrganizationId(org.id)
+      .withPlanId(diamondPlanResult.plan.id)
+      .withCustomer({ id: "cus_123", name: "Test", document: "12345678909" })
+      .build();
+
     const response = await app.handle(
       new Request(`${BASE_URL}/v1/payments/webhooks/pagarme`, {
         method: "POST",
@@ -206,7 +194,7 @@ describe("POST /v1/payments/webhooks/pagarme", () => {
           "Content-Type": "application/json",
           Authorization: createWebhookAuthHeader(),
         },
-        body: rawBody,
+        body: JSON.stringify(payload),
       })
     );
 
@@ -223,22 +211,18 @@ describe("POST /v1/payments/webhooks/pagarme", () => {
   });
 
   test("should mark pending checkout as completed on subscription.created", async () => {
-    const org = await createTestOrganization();
-    const checkout = await createPendingCheckout(
+    const org = await OrganizationFactory.create();
+    const checkout = await CheckoutFactory.create(
       org.id,
       diamondPlanResult.plan.id
     );
-    await createTestSubscription(org.id, diamondPlanResult.plan.id, "trial");
+    await SubscriptionFactory.createTrial(org.id, diamondPlanResult.plan.id);
 
-    const payload = createWebhookPayload("subscription.created", {
-      id: `sub_${crypto.randomUUID()}`,
-      code: checkout.paymentLinkId,
-      current_period: {
-        start_at: new Date().toISOString(),
-        end_at: new Date(Date.now() + 30 * 24 * 60 * 60 * 1000).toISOString(),
-      },
-    });
-    const rawBody = JSON.stringify(payload);
+    const payload = new WebhookPayloadBuilder()
+      .subscriptionCreated()
+      .withPaymentLinkCode(checkout.paymentLinkId)
+      .build();
+
     await app.handle(
       new Request(`${BASE_URL}/v1/payments/webhooks/pagarme`, {
         method: "POST",
@@ -246,7 +230,7 @@ describe("POST /v1/payments/webhooks/pagarme", () => {
           "Content-Type": "application/json",
           Authorization: createWebhookAuthHeader(),
         },
-        body: rawBody,
+        body: JSON.stringify(payload),
       })
     );
 
@@ -261,14 +245,14 @@ describe("POST /v1/payments/webhooks/pagarme", () => {
   });
 
   test("should update subscription to past_due on charge.payment_failed", async () => {
-    const org = await createTestOrganization();
-    await createTestSubscription(org.id, diamondPlanResult.plan.id, "active");
+    const org = await OrganizationFactory.create();
+    await SubscriptionFactory.createActive(org.id, diamondPlanResult.plan.id);
 
-    const payload = createWebhookPayload("charge.payment_failed", {
-      metadata: { organization_id: org.id },
-      invoice: { id: "inv_123" },
-    });
-    const rawBody = JSON.stringify(payload);
+    const payload = new WebhookPayloadBuilder()
+      .chargePaymentFailed()
+      .withOrganizationId(org.id)
+      .build();
+
     const response = await app.handle(
       new Request(`${BASE_URL}/v1/payments/webhooks/pagarme`, {
         method: "POST",
@@ -276,7 +260,7 @@ describe("POST /v1/payments/webhooks/pagarme", () => {
           "Content-Type": "application/json",
           Authorization: createWebhookAuthHeader(),
         },
-        body: rawBody,
+        body: JSON.stringify(payload),
       })
     );
 
@@ -292,14 +276,15 @@ describe("POST /v1/payments/webhooks/pagarme", () => {
   });
 
   test("should update subscription to canceled on subscription.canceled", async () => {
-    const org = await createTestOrganization();
-    await createTestSubscription(org.id, diamondPlanResult.plan.id, "active");
+    const org = await OrganizationFactory.create();
+    await SubscriptionFactory.createActive(org.id, diamondPlanResult.plan.id);
 
-    const payload = createWebhookPayload("subscription.canceled", {
-      id: "sub_123",
-      metadata: { organization_id: org.id },
-    });
-    const rawBody = JSON.stringify(payload);
+    const payload = new WebhookPayloadBuilder()
+      .subscriptionCanceled()
+      .withSubscriptionId("sub_123")
+      .withOrganizationId(org.id)
+      .build();
+
     const response = await app.handle(
       new Request(`${BASE_URL}/v1/payments/webhooks/pagarme`, {
         method: "POST",
@@ -307,7 +292,7 @@ describe("POST /v1/payments/webhooks/pagarme", () => {
           "Content-Type": "application/json",
           Authorization: createWebhookAuthHeader(),
         },
-        body: rawBody,
+        body: JSON.stringify(payload),
       })
     );
 
@@ -324,8 +309,10 @@ describe("POST /v1/payments/webhooks/pagarme", () => {
   });
 
   test("should handle unhandled event types gracefully", async () => {
-    const payload = createWebhookPayload("unknown.event.type", {});
-    const rawBody = JSON.stringify(payload);
+    const payload = new WebhookPayloadBuilder()
+      .withEventType("unknown.event.type")
+      .build();
+
     const response = await app.handle(
       new Request(`${BASE_URL}/v1/payments/webhooks/pagarme`, {
         method: "POST",
@@ -333,7 +320,7 @@ describe("POST /v1/payments/webhooks/pagarme", () => {
           "Content-Type": "application/json",
           Authorization: createWebhookAuthHeader(),
         },
-        body: rawBody,
+        body: JSON.stringify(payload),
       })
     );
 

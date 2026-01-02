@@ -51,6 +51,22 @@ type CheckoutInfo = {
   pricingTierId?: string;
 };
 
+type SubscriptionUpdatedData = {
+  id: string;
+  status?: string;
+  updated_at?: string;
+  card?: {
+    id: string;
+    last_four_digits: string;
+    brand: string;
+    exp_month: number;
+    exp_year: number;
+  };
+  current_period?: { start_at: string; end_at: string };
+  next_billing_at?: string;
+  metadata?: Record<string, string>;
+};
+
 export abstract class WebhookService {
   static async process(
     payload: ProcessWebhook,
@@ -262,139 +278,154 @@ export abstract class WebhookService {
    * Uses timestamp validation to prevent out-of-order updates (idempotency).
    */
   private static async handleSubscriptionUpdated(payload: ProcessWebhook) {
-    const data = payload.data as {
-      id: string;
-      status?: string;
-      updated_at?: string;
-      card?: {
-        id: string;
-        last_four_digits: string;
-        brand: string;
-        exp_month: number;
-        exp_year: number;
-      };
-      current_period?: { start_at: string; end_at: string };
-      next_billing_at?: string;
-      metadata?: Record<string, string>;
-    };
-
+    const data = payload.data as SubscriptionUpdatedData;
     const organizationId = data.metadata?.organization_id;
-    const pagarmeSubscriptionId = data.id;
     const eventUpdatedAt = data.updated_at ? new Date(data.updated_at) : null;
 
-    // Use transaction for atomicity and timestamp validation
     const result = await db.transaction(async (tx) => {
-      // Find subscription by metadata or by pagarmeSubscriptionId
-      type Subscription = typeof schema.orgSubscriptions.$inferSelect;
-      let subscription: Subscription | undefined;
-
-      if (organizationId) {
-        [subscription] = await tx
-          .select()
-          .from(schema.orgSubscriptions)
-          .where(eq(schema.orgSubscriptions.organizationId, organizationId));
-      } else {
-        [subscription] = await tx
-          .select()
-          .from(schema.orgSubscriptions)
-          .where(
-            eq(
-              schema.orgSubscriptions.pagarmeSubscriptionId,
-              pagarmeSubscriptionId
-            )
-          );
-      }
+      const subscription = await WebhookService.findSubscriptionForUpdate(
+        tx,
+        organizationId,
+        data.id
+      );
 
       if (!subscription) {
         return null;
       }
 
-      // Idempotency check: skip if event is older than last processed
-      if (
-        eventUpdatedAt &&
-        subscription.pagarmeUpdatedAt &&
-        eventUpdatedAt <= subscription.pagarmeUpdatedAt
-      ) {
-        // Event is older or same as last processed, skip
+      if (WebhookService.isOutdatedEvent(eventUpdatedAt, subscription)) {
         return null;
       }
 
-      const changes: {
-        cardUpdated?: boolean;
-        statusChanged?: boolean;
-        previousStatus?: string;
-      } = {};
+      const { changes, newStatus } = WebhookService.calculateStatusChange(
+        data,
+        subscription
+      );
 
-      // Track status change
-      const previousStatus = subscription.status;
-      let newStatus = subscription.status;
-
-      if (data.status) {
-        const statusMap: Record<string, string> = {
-          active: "active",
-          canceled: "canceled",
-          pending: "past_due",
-          failed: "past_due",
-          unpaid: "past_due",
-        };
-
-        const mappedStatus = statusMap[data.status];
-        if (mappedStatus && mappedStatus !== subscription.status) {
-          newStatus = mappedStatus as typeof subscription.status;
-          changes.statusChanged = true;
-          changes.previousStatus = previousStatus;
-        }
-      }
-
-      // Track card update
       if (data.card?.id) {
         changes.cardUpdated = true;
       }
 
-      // Build update object
-      const updateData: Record<string, unknown> = {};
+      const updateData = WebhookService.buildSubscriptionUpdate(
+        data,
+        changes,
+        newStatus,
+        eventUpdatedAt
+      );
 
-      if (changes.statusChanged) {
-        updateData.status = newStatus;
-        if (newStatus === "canceled") {
-          updateData.canceledAt = new Date();
-        }
+      if (Object.keys(updateData).length === 0) {
+        return { subscription, changes };
       }
 
-      if (data.current_period?.start_at) {
-        updateData.currentPeriodStart = new Date(data.current_period.start_at);
-      }
+      const [updated] = await tx
+        .update(schema.orgSubscriptions)
+        .set(updateData)
+        .where(eq(schema.orgSubscriptions.id, subscription.id))
+        .returning();
 
-      if (data.current_period?.end_at) {
-        updateData.currentPeriodEnd = new Date(data.current_period.end_at);
-      }
-
-      // Always update pagarmeUpdatedAt if available
-      if (eventUpdatedAt) {
-        updateData.pagarmeUpdatedAt = eventUpdatedAt;
-      }
-
-      // Only update if there are changes
-      if (Object.keys(updateData).length > 0) {
-        const [updated] = await tx
-          .update(schema.orgSubscriptions)
-          .set(updateData)
-          .where(eq(schema.orgSubscriptions.id, subscription.id))
-          .returning();
-
-        return { subscription: updated, changes };
-      }
-
-      return { subscription, changes };
+      return { subscription: updated, changes };
     });
 
-    // Emit event outside transaction
     if (result?.subscription) {
       PaymentHooks.emit("subscription.updated", {
         subscription: result.subscription,
         changes: result.changes,
       });
     }
+  }
+
+  private static async findSubscriptionForUpdate(
+    tx: Parameters<Parameters<typeof db.transaction>[0]>[0],
+    organizationId: string | undefined,
+    pagarmeSubscriptionId: string
+  ) {
+    type Subscription = typeof schema.orgSubscriptions.$inferSelect;
+
+    const whereClause = organizationId
+      ? eq(schema.orgSubscriptions.organizationId, organizationId)
+      : eq(
+          schema.orgSubscriptions.pagarmeSubscriptionId,
+          pagarmeSubscriptionId
+        );
+
+    const [subscription] = await tx
+      .select()
+      .from(schema.orgSubscriptions)
+      .where(whereClause);
+
+    return subscription as Subscription | undefined;
+  }
+
+  private static isOutdatedEvent(
+    eventUpdatedAt: Date | null,
+    subscription: { pagarmeUpdatedAt: Date | null }
+  ): boolean {
+    if (!(eventUpdatedAt && subscription.pagarmeUpdatedAt)) {
+      return false;
+    }
+    return eventUpdatedAt <= subscription.pagarmeUpdatedAt;
+  }
+
+  private static calculateStatusChange(
+    data: SubscriptionUpdatedData,
+    subscription: { status: string }
+  ) {
+    const changes: {
+      cardUpdated?: boolean;
+      statusChanged?: boolean;
+      previousStatus?: string;
+    } = {};
+
+    const statusMap: Record<string, string> = {
+      active: "active",
+      canceled: "canceled",
+      pending: "past_due",
+      failed: "past_due",
+      unpaid: "past_due",
+    };
+
+    let newStatus = subscription.status;
+
+    if (data.status) {
+      const mappedStatus = statusMap[data.status];
+      if (mappedStatus && mappedStatus !== subscription.status) {
+        newStatus = mappedStatus;
+        changes.statusChanged = true;
+        changes.previousStatus = subscription.status;
+      }
+    }
+
+    return { changes, newStatus };
+  }
+
+  private static buildSubscriptionUpdate(
+    data: SubscriptionUpdatedData,
+    changes: { statusChanged?: boolean },
+    newStatus: string,
+    eventUpdatedAt: Date | null
+  ): Record<string, unknown> {
+    const updateData: Record<string, unknown> = {};
+
+    if (changes.statusChanged) {
+      updateData.status = newStatus;
+      if (newStatus === "canceled") {
+        updateData.canceledAt = new Date();
+      }
+    }
+
+    if (data.current_period?.start_at) {
+      updateData.currentPeriodStart = new Date(data.current_period.start_at);
+    }
+
+    if (data.current_period?.end_at) {
+      updateData.currentPeriodEnd = new Date(data.current_period.end_at);
+    }
+
+    if (eventUpdatedAt) {
+      updateData.pagarmeUpdatedAt = eventUpdatedAt;
+    }
+
+    return updateData;
   }
 
   private static async handleSubscriptionCanceled(payload: ProcessWebhook) {

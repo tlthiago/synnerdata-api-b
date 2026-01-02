@@ -63,7 +63,6 @@ export abstract class PlanChangeService {
 
     // 1. Get current subscription with plan and tier
     const result = await findSubscriptionWithPlanAndTier(organizationId);
-
     if (!result) {
       throw new SubscriptionNotFoundError(organizationId);
     }
@@ -73,62 +72,48 @@ export abstract class PlanChangeService {
     // 2. Validate subscription state
     PlanChangeService.validateSubscriptionForChange(subscription);
 
-    // 3. Determine final values (use current if not provided)
-    const currentBillingCycle = (subscription.billingCycle ?? "monthly") as
-      | "monthly"
-      | "yearly";
-    const currentTierId = subscription.pricingTierId;
+    // 3. Resolve final values (use current as defaults)
+    const resolved = PlanChangeService.resolveFinalValues(subscription, {
+      newPlanId,
+      newBillingCycle,
+      newTierId,
+    });
 
-    const finalPlanId = newPlanId ?? subscription.planId;
-    const finalBillingCycle = newBillingCycle ?? currentBillingCycle;
-    const finalTierId = newTierId ?? currentTierId;
+    // 4. Validate a change is being requested
+    PlanChangeService.validateChangeRequested(subscription, resolved);
 
-    // 4. Validate "no change" scenario
-    if (
-      finalPlanId === subscription.planId &&
-      finalBillingCycle === currentBillingCycle &&
-      finalTierId === currentTierId
-    ) {
-      throw new NoChangeRequestedError();
-    }
-
-    // 5. Get new plan (if changing)
+    // 5. Get new plan and tier
     const newPlan =
-      finalPlanId !== subscription.planId
-        ? await PlansService.getAvailableById(finalPlanId)
+      resolved.finalPlanId !== subscription.planId
+        ? await PlansService.getAvailableById(resolved.finalPlanId)
         : currentPlan;
 
-    // 6. Get new tier
-    if (!finalTierId) {
+    if (!resolved.finalTierId) {
       throw new SubscriptionNotFoundError(organizationId);
     }
-    const newTier = await PlansService.getTierById(finalTierId);
+    const newTier = await PlansService.getTierById(resolved.finalTierId);
 
-    // 7. Validate yearly billing availability
-    if (finalBillingCycle === "yearly" && newTier.priceYearly === 0) {
-      throw new YearlyBillingNotAvailableError(finalPlanId);
+    // 6. Validate yearly billing availability
+    if (resolved.finalBillingCycle === "yearly" && newTier.priceYearly === 0) {
+      throw new YearlyBillingNotAvailableError(resolved.finalPlanId);
     }
 
-    // 8. Calculate prices
-    const currentPrice = currentTier
-      ? currentBillingCycle === "yearly"
-        ? currentTier.priceYearly
-        : currentTier.priceMonthly
-      : 0;
-    const newPrice =
-      finalBillingCycle === "yearly"
-        ? newTier.priceYearly
-        : newTier.priceMonthly;
+    // 7. Calculate prices and determine change type
+    const { currentPrice, newPrice } = PlanChangeService.calculatePrices(
+      currentTier,
+      newTier,
+      resolved.currentBillingCycle,
+      resolved.finalBillingCycle
+    );
 
-    // 9. Determine change type
     const changeType = ProrationService.getChangeType({
       currentPlanPrice: currentPrice,
       newPlanPrice: newPrice,
-      currentBillingCycle,
-      newBillingCycle: finalBillingCycle,
+      currentBillingCycle: resolved.currentBillingCycle,
+      newBillingCycle: resolved.finalBillingCycle,
     });
 
-    // 10. [2.4] If downgrade, validate employee count fits in new tier
+    // 8. If downgrade, validate employee count fits in new tier
     if (changeType === "downgrade") {
       await PlanChangeService.validateEmployeeCountForDowngrade(
         organizationId,
@@ -136,35 +121,32 @@ export abstract class PlanChangeService {
       );
     }
 
-    // 11. Process upgrade or schedule downgrade
+    // 9. Process upgrade or schedule downgrade
+    const planData = {
+      id: newPlan.id,
+      name: newPlan.name,
+      displayName: newPlan.displayName,
+    };
+
     if (changeType === "upgrade") {
       return PlanChangeService.processUnifiedUpgrade({
         subscription,
         currentPlan,
-        newPlan: {
-          id: newPlan.id,
-          name: newPlan.name,
-          displayName: newPlan.displayName,
-        },
+        newPlan: planData,
         newTier,
         currentPrice,
         newPrice,
-        finalBillingCycle,
+        finalBillingCycle: resolved.finalBillingCycle,
         successUrl,
         organizationId,
       });
     }
 
-    // [2.5] Downgrade saves pendingPricingTierId
     return PlanChangeService.scheduleUnifiedDowngrade({
       subscription,
-      newPlan: {
-        id: newPlan.id,
-        name: newPlan.name,
-        displayName: newPlan.displayName,
-      },
+      newPlan: planData,
       newTier,
-      finalBillingCycle,
+      finalBillingCycle: resolved.finalBillingCycle,
       organizationId,
     });
   }
@@ -303,131 +285,13 @@ export abstract class PlanChangeService {
 
     // 3. Execute plan change inside transaction
     const result = await db.transaction(async (tx) => {
-      // Re-read subscription with current and pending plans
-      const [data] = await tx
-        .select({
-          subscription: schema.orgSubscriptions,
-          currentPlan: schema.subscriptionPlans,
-        })
-        .from(schema.orgSubscriptions)
-        .innerJoin(
-          schema.subscriptionPlans,
-          eq(schema.orgSubscriptions.planId, schema.subscriptionPlans.id)
-        )
-        .where(eq(schema.orgSubscriptions.id, subscriptionId));
-
-      if (!data) {
-        return null;
-      }
-
-      const { subscription } = data;
-
-      // Re-validate: may have been canceled by user
-      if (!(subscription.pendingPlanId || subscription.pendingBillingCycle)) {
-        return null;
-      }
-
-      const previousPlanId = subscription.planId;
-      const previousBillingCycle = subscription.billingCycle;
-      const newPlanId = subscription.pendingPlanId ?? subscription.planId;
-      const newBillingCycle =
-        subscription.pendingBillingCycle ?? subscription.billingCycle;
-      const newPricingTierId =
-        subscription.pendingPricingTierId ?? subscription.pricingTierId;
-
-      // Validate: pricingTierId is required for employee limits to work
-      if (!newPricingTierId) {
-        const { logger } = await import("@/lib/logger");
-        logger.error({
-          type: "plan-change:execute:missing-pricing-tier",
-          subscriptionId: subscription.id,
-          organizationId: subscription.organizationId,
-          pendingPlanId: subscription.pendingPlanId,
-          pendingPricingTierId: subscription.pendingPricingTierId,
-          currentPricingTierId: subscription.pricingTierId,
-        });
-        // Abort: executing without pricingTierId would set limit to 0
-        return null;
-      }
-
-      // Validate: employee count must fit within new tier's range
-      // This catches cases where employee count changed between scheduling and execution
-      const [tierInfo] = await tx
-        .select({
-          minEmployees: schema.planPricingTiers.minEmployees,
-          maxEmployees: schema.planPricingTiers.maxEmployees,
-        })
-        .from(schema.planPricingTiers)
-        .where(eq(schema.planPricingTiers.id, newPricingTierId));
-
-      if (tierInfo) {
-        const { count } = await import("drizzle-orm");
-        const [employeeCount] = await tx
-          .select({ value: count() })
-          .from(schema.employees)
-          .where(
-            and(
-              eq(schema.employees.organizationId, subscription.organizationId),
-              isNull(schema.employees.deletedAt)
-            )
-          );
-
-        const currentEmployees = employeeCount?.value ?? 0;
-
-        if (currentEmployees > tierInfo.maxEmployees) {
-          const { logger } = await import("@/lib/logger");
-          logger.warn({
-            type: "plan-change:execute:employee-count-exceeds-tier",
-            subscriptionId: subscription.id,
-            organizationId: subscription.organizationId,
-            currentEmployees,
-            tierMaxEmployees: tierInfo.maxEmployees,
-            newPricingTierId,
-          });
-          // Abort: would violate employee limit
-          return null;
-        }
-      }
-
-      // Get new plan name for email
-      const [newPlan] = await tx
-        .select({ displayName: schema.subscriptionPlans.displayName })
-        .from(schema.subscriptionPlans)
-        .where(eq(schema.subscriptionPlans.id, newPlanId));
-
-      if (!newPlan) {
-        throw new PlanNotFoundError(newPlanId);
-      }
-
-      // Update inside transaction
-      const [updated] = await tx
-        .update(schema.orgSubscriptions)
-        .set({
-          planId: newPlanId,
-          billingCycle: newBillingCycle,
-          pricingTierId: newPricingTierId,
-          pendingPlanId: null,
-          pendingBillingCycle: null,
-          pendingPricingTierId: null,
-          planChangeAt: null,
-          pagarmeSubscriptionId: null,
-          currentPeriodStart: new Date(),
-          currentPeriodEnd: ProrationService.calculatePeriodEnd(
-            new Date(),
-            newBillingCycle as "monthly" | "yearly"
-          ),
-        })
-        .where(eq(schema.orgSubscriptions.id, subscription.id))
-        .returning();
-
-      return {
-        subscription: updated,
-        previousPlanId,
-        previousBillingCycle,
-        previousPlanName: currentPlan.displayName,
-        newPlanName: newPlan.displayName,
-        organizationId: subscription.organizationId,
-      };
+      const transactionResult =
+        await PlanChangeService.executeScheduledChangeTransaction(
+          tx,
+          subscriptionId,
+          currentPlan.displayName
+        );
+      return transactionResult;
     });
 
     // 4. Emit event and send email OUTSIDE transaction
@@ -475,6 +339,91 @@ export abstract class PlanChangeService {
   // PRIVATE METHODS
   // ============================================================
 
+  /**
+   * Resolves final values for plan change, using current values as defaults.
+   */
+  private static resolveFinalValues(
+    subscription: typeof schema.orgSubscriptions.$inferSelect,
+    input: {
+      newPlanId?: string;
+      newBillingCycle?: "monthly" | "yearly";
+      newTierId?: string;
+    }
+  ): {
+    currentBillingCycle: "monthly" | "yearly";
+    currentTierId: string | null;
+    finalPlanId: string;
+    finalBillingCycle: "monthly" | "yearly";
+    finalTierId: string | null;
+  } {
+    const currentBillingCycle = (subscription.billingCycle ?? "monthly") as
+      | "monthly"
+      | "yearly";
+    const currentTierId = subscription.pricingTierId;
+
+    return {
+      currentBillingCycle,
+      currentTierId,
+      finalPlanId: input.newPlanId ?? subscription.planId,
+      finalBillingCycle: input.newBillingCycle ?? currentBillingCycle,
+      finalTierId: input.newTierId ?? currentTierId,
+    };
+  }
+
+  /**
+   * Gets the price for a tier based on billing cycle.
+   */
+  private static getTierPrice(
+    tier: { priceMonthly: number; priceYearly: number } | null,
+    billingCycle: "monthly" | "yearly"
+  ): number {
+    if (!tier) {
+      return 0;
+    }
+    return billingCycle === "yearly" ? tier.priceYearly : tier.priceMonthly;
+  }
+
+  /**
+   * Calculates current and new prices based on billing cycles.
+   */
+  private static calculatePrices(
+    currentTier: { priceMonthly: number; priceYearly: number } | null,
+    newTier: { priceMonthly: number; priceYearly: number },
+    currentBillingCycle: "monthly" | "yearly",
+    finalBillingCycle: "monthly" | "yearly"
+  ): { currentPrice: number; newPrice: number } {
+    return {
+      currentPrice: PlanChangeService.getTierPrice(
+        currentTier,
+        currentBillingCycle
+      ),
+      newPrice: PlanChangeService.getTierPrice(newTier, finalBillingCycle),
+    };
+  }
+
+  /**
+   * Validates that a change is actually being requested.
+   */
+  private static validateChangeRequested(
+    subscription: typeof schema.orgSubscriptions.$inferSelect,
+    resolved: {
+      finalPlanId: string;
+      finalBillingCycle: "monthly" | "yearly";
+      finalTierId: string | null;
+      currentBillingCycle: "monthly" | "yearly";
+      currentTierId: string | null;
+    }
+  ): void {
+    const noChange =
+      resolved.finalPlanId === subscription.planId &&
+      resolved.finalBillingCycle === resolved.currentBillingCycle &&
+      resolved.finalTierId === resolved.currentTierId;
+
+    if (noChange) {
+      throw new NoChangeRequestedError();
+    }
+  }
+
   private static validateSubscriptionForChange(
     subscription: typeof schema.orgSubscriptions.$inferSelect
   ): void {
@@ -507,6 +456,178 @@ export abstract class PlanChangeService {
     if (current > newMaxEmployees) {
       throw new EmployeeCountExceedsNewPlanLimitError(current, newMaxEmployees);
     }
+  }
+
+  /**
+   * Validates employee count for scheduled change execution.
+   * Returns false if validation fails (should abort).
+   */
+  private static async validateEmployeeCountForExecution(
+    tx: Parameters<Parameters<typeof db.transaction>[0]>[0],
+    subscription: typeof schema.orgSubscriptions.$inferSelect,
+    tierInfo: { minEmployees: number; maxEmployees: number },
+    newPricingTierId: string
+  ): Promise<boolean> {
+    const { count } = await import("drizzle-orm");
+    const [employeeCount] = await tx
+      .select({ value: count() })
+      .from(schema.employees)
+      .where(
+        and(
+          eq(schema.employees.organizationId, subscription.organizationId),
+          isNull(schema.employees.deletedAt)
+        )
+      );
+
+    const currentEmployees = employeeCount?.value ?? 0;
+
+    if (currentEmployees > tierInfo.maxEmployees) {
+      const { logger } = await import("@/lib/logger");
+      logger.warn({
+        type: "plan-change:execute:employee-count-exceeds-tier",
+        subscriptionId: subscription.id,
+        organizationId: subscription.organizationId,
+        currentEmployees,
+        tierMaxEmployees: tierInfo.maxEmployees,
+        newPricingTierId,
+      });
+      return false;
+    }
+
+    return true;
+  }
+
+  /**
+   * Logs missing pricing tier error during scheduled change execution.
+   */
+  private static async logMissingPricingTier(
+    subscription: typeof schema.orgSubscriptions.$inferSelect
+  ): Promise<void> {
+    const { logger } = await import("@/lib/logger");
+    logger.error({
+      type: "plan-change:execute:missing-pricing-tier",
+      subscriptionId: subscription.id,
+      organizationId: subscription.organizationId,
+      pendingPlanId: subscription.pendingPlanId,
+      pendingPricingTierId: subscription.pendingPricingTierId,
+      currentPricingTierId: subscription.pricingTierId,
+    });
+  }
+
+  /**
+   * Executes scheduled change transaction logic.
+   * Extracted to reduce cognitive complexity of executeScheduledChange.
+   */
+  private static async executeScheduledChangeTransaction(
+    tx: Parameters<Parameters<typeof db.transaction>[0]>[0],
+    subscriptionId: string,
+    currentPlanDisplayName: string
+  ): Promise<{
+    subscription: typeof schema.orgSubscriptions.$inferSelect;
+    previousPlanId: string;
+    previousBillingCycle: string | null;
+    previousPlanName: string;
+    newPlanName: string;
+    organizationId: string;
+  } | null> {
+    // Re-read subscription with current and pending plans
+    const [data] = await tx
+      .select({
+        subscription: schema.orgSubscriptions,
+        currentPlan: schema.subscriptionPlans,
+      })
+      .from(schema.orgSubscriptions)
+      .innerJoin(
+        schema.subscriptionPlans,
+        eq(schema.orgSubscriptions.planId, schema.subscriptionPlans.id)
+      )
+      .where(eq(schema.orgSubscriptions.id, subscriptionId));
+
+    if (!data) {
+      return null;
+    }
+
+    const { subscription } = data;
+
+    // Re-validate: may have been canceled by user
+    if (!(subscription.pendingPlanId || subscription.pendingBillingCycle)) {
+      return null;
+    }
+
+    const previousPlanId = subscription.planId;
+    const previousBillingCycle = subscription.billingCycle;
+    const newPlanId = subscription.pendingPlanId ?? subscription.planId;
+    const newBillingCycle =
+      subscription.pendingBillingCycle ?? subscription.billingCycle;
+    const newPricingTierId =
+      subscription.pendingPricingTierId ?? subscription.pricingTierId;
+
+    // Validate: pricingTierId is required for employee limits to work
+    if (!newPricingTierId) {
+      await PlanChangeService.logMissingPricingTier(subscription);
+      return null;
+    }
+
+    // Validate: employee count must fit within new tier's range
+    const [tierInfo] = await tx
+      .select({
+        minEmployees: schema.planPricingTiers.minEmployees,
+        maxEmployees: schema.planPricingTiers.maxEmployees,
+      })
+      .from(schema.planPricingTiers)
+      .where(eq(schema.planPricingTiers.id, newPricingTierId));
+
+    if (tierInfo) {
+      const isValid = await PlanChangeService.validateEmployeeCountForExecution(
+        tx,
+        subscription,
+        tierInfo,
+        newPricingTierId
+      );
+      if (!isValid) {
+        return null;
+      }
+    }
+
+    // Get new plan name for email
+    const [newPlan] = await tx
+      .select({ displayName: schema.subscriptionPlans.displayName })
+      .from(schema.subscriptionPlans)
+      .where(eq(schema.subscriptionPlans.id, newPlanId));
+
+    if (!newPlan) {
+      throw new PlanNotFoundError(newPlanId);
+    }
+
+    // Update inside transaction
+    const [updated] = await tx
+      .update(schema.orgSubscriptions)
+      .set({
+        planId: newPlanId,
+        billingCycle: newBillingCycle,
+        pricingTierId: newPricingTierId,
+        pendingPlanId: null,
+        pendingBillingCycle: null,
+        pendingPricingTierId: null,
+        planChangeAt: null,
+        pagarmeSubscriptionId: null,
+        currentPeriodStart: new Date(),
+        currentPeriodEnd: ProrationService.calculatePeriodEnd(
+          new Date(),
+          newBillingCycle as "monthly" | "yearly"
+        ),
+      })
+      .where(eq(schema.orgSubscriptions.id, subscription.id))
+      .returning();
+
+    return {
+      subscription: updated,
+      previousPlanId,
+      previousBillingCycle,
+      previousPlanName: currentPlanDisplayName,
+      newPlanName: newPlan.displayName,
+      organizationId: subscription.organizationId,
+    };
   }
 
   /**

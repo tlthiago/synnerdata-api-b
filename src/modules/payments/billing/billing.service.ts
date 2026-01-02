@@ -28,14 +28,66 @@ import type {
   UpdateProfileInput,
 } from "./billing.model";
 
-export abstract class BillingService {
-  // ============================================
-  // Profile CRUD Methods
-  // ============================================
+function filterDefinedValues<T extends Record<string, unknown>>(
+  obj: T
+): Partial<T> {
+  return Object.fromEntries(
+    Object.entries(obj).filter(([, v]) => v !== undefined)
+  ) as Partial<T>;
+}
 
-  /**
-   * Get billing profile by organization ID
-   */
+function buildProfileUpdateData(
+  input: UpdateProfileInput
+): Partial<BillingProfile> {
+  const baseFields = filterDefinedValues({
+    legalName: input.legalName,
+    taxId: input.taxId,
+    email: input.email,
+    phone: input.phone,
+  });
+
+  if (!input.address) {
+    return baseFields;
+  }
+
+  const addressFields = filterDefinedValues({
+    street: input.address.street,
+    number: input.address.number,
+    complement: input.address.complement,
+    neighborhood: input.address.neighborhood,
+    city: input.address.city,
+    state: input.address.state,
+    zipCode: input.address.zipCode,
+  });
+
+  return { ...baseFields, ...addressFields };
+}
+
+async function syncCustomerToPagarme(
+  existing: BillingProfile,
+  input: UpdateProfileInput,
+  organizationId: string
+): Promise<void> {
+  const document =
+    input.taxId?.replace(/\D/g, "") ?? existing.taxId?.replace(/\D/g, "");
+  const type = document && document.length === 11 ? "individual" : "company";
+
+  await Retry.withRetry(
+    () =>
+      PagarmeClient.updateCustomer(
+        existing.pagarmeCustomerId as string,
+        {
+          name: input.legalName ?? existing.legalName,
+          document,
+          type,
+        },
+        `update-customer-${organizationId}-${Date.now()}`
+      ),
+    PAGARME_RETRY_CONFIG.WRITE
+  );
+}
+
+export abstract class BillingService {
   static async getProfile(
     organizationId: string
   ): Promise<BillingProfile | null> {
@@ -48,9 +100,6 @@ export abstract class BillingService {
     return profile ?? null;
   }
 
-  /**
-   * Get billing profile or throw if not found
-   */
   static async getProfileOrThrow(
     organizationId: string
   ): Promise<BillingProfile> {
@@ -63,9 +112,6 @@ export abstract class BillingService {
     return profile;
   }
 
-  /**
-   * Create a new billing profile for an organization
-   */
   static async createProfile(
     organizationId: string,
     input: CreateProfileInput
@@ -100,55 +146,13 @@ export abstract class BillingService {
     return profile;
   }
 
-  /**
-   * Update billing profile and sync with Pagarme if customer exists
-   */
   static async updateProfile(
     organizationId: string,
     input: UpdateProfileInput
   ): Promise<BillingProfile> {
     const existing = await BillingService.getProfileOrThrow(organizationId);
 
-    const updateData: Partial<BillingProfile> = {};
-
-    // Basic fields
-    if (input.legalName) {
-      updateData.legalName = input.legalName;
-    }
-    if (input.taxId) {
-      updateData.taxId = input.taxId;
-    }
-    if (input.email) {
-      updateData.email = input.email;
-    }
-    if (input.phone) {
-      updateData.phone = input.phone;
-    }
-
-    // Address fields
-    if (input.address) {
-      if (input.address.street) {
-        updateData.street = input.address.street;
-      }
-      if (input.address.number) {
-        updateData.number = input.address.number;
-      }
-      if (input.address.complement !== undefined) {
-        updateData.complement = input.address.complement;
-      }
-      if (input.address.neighborhood) {
-        updateData.neighborhood = input.address.neighborhood;
-      }
-      if (input.address.city) {
-        updateData.city = input.address.city;
-      }
-      if (input.address.state) {
-        updateData.state = input.address.state;
-      }
-      if (input.address.zipCode) {
-        updateData.zipCode = input.address.zipCode;
-      }
-    }
+    const updateData = buildProfileUpdateData(input);
 
     const [updated] = await db
       .update(billingProfiles)
@@ -156,53 +160,13 @@ export abstract class BillingService {
       .where(eq(billingProfiles.id, existing.id))
       .returning();
 
-    // Sync with Pagarme if customer exists
     if (existing.pagarmeCustomerId) {
-      const document =
-        input.taxId?.replace(/\D/g, "") ?? existing.taxId?.replace(/\D/g, "");
-      // Determine customer type: CPF (11 digits) = individual, CNPJ (14 digits) = company
-      const type =
-        document && document.length === 11 ? "individual" : "company";
-
-      await Retry.withRetry(
-        () =>
-          PagarmeClient.updateCustomer(
-            existing.pagarmeCustomerId as string,
-            {
-              name: input.legalName ?? existing.legalName,
-              document,
-              type,
-            },
-            `update-customer-${organizationId}-${Date.now()}`
-          ),
-        PAGARME_RETRY_CONFIG.WRITE
-      );
+      await syncCustomerToPagarme(existing, input, organizationId);
     }
 
     return updated;
   }
 
-  /**
-   * Set Pagarme customer ID for an organization.
-   * @deprecated Use setCustomerIdIfNull for atomic operations
-   */
-  static async setCustomerId(
-    organizationId: string,
-    pagarmeCustomerId: string
-  ): Promise<void> {
-    const profile = await BillingService.getProfileOrThrow(organizationId);
-
-    await db
-      .update(billingProfiles)
-      .set({ pagarmeCustomerId })
-      .where(eq(billingProfiles.id, profile.id));
-  }
-
-  /**
-   * Atomically set Pagarme customer ID only if not already set.
-   * Returns true if the update was applied, false if a customer ID was already set.
-   * This prevents race conditions when multiple requests try to create the same customer.
-   */
   static async setCustomerIdIfNull(
     organizationId: string,
     pagarmeCustomerId: string
@@ -218,17 +182,10 @@ export abstract class BillingService {
     return result.length > 0;
   }
 
-  /**
-   * Get Pagarme customer ID for an organization
-   */
   static async getCustomerId(organizationId: string): Promise<string | null> {
     const profile = await BillingService.getProfile(organizationId);
     return profile?.pagarmeCustomerId ?? null;
   }
-
-  // ============================================
-  // Invoice Methods
-  // ============================================
 
   static async listInvoices(
     input: ListInvoicesInput
@@ -305,10 +262,6 @@ export abstract class BillingService {
     };
   }
 
-  // ============================================
-  // Card Management
-  // ============================================
-
   static async updateCard(input: UpdateCardInput): Promise<UpdateCardData> {
     const { organizationId, cardId } = input;
 
@@ -334,10 +287,6 @@ export abstract class BillingService {
       updated: true as const,
     };
   }
-
-  // ============================================
-  // Usage
-  // ============================================
 
   static async getUsage(input: GetUsageInput): Promise<GetUsageData> {
     const { organizationId } = input;
@@ -372,7 +321,6 @@ export abstract class BillingService {
       .where(eq(schema.members.organizationId, organizationId));
 
     const membersCurrent = Number(membersCount.count);
-    // Use tier's maxEmployees as member limit, fallback to default trial limit
     const membersLimit =
       result.tier?.maxEmployees ?? DEFAULT_TRIAL_EMPLOYEE_LIMIT;
 

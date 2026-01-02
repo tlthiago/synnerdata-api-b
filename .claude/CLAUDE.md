@@ -117,7 +117,6 @@ Biome's linter will catch most issues automatically. Focus your attention on:
 3. **Architecture decisions** - Component structure, data flow, and API design
 4. **Edge cases** - Handle boundary conditions and error states
 5. **User experience** - Accessibility, performance, and usability considerations
-6. **Documentation** - Add comments for complex logic, but prefer self-documenting code
 
 ---
 

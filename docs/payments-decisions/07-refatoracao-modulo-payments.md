@@ -260,38 +260,141 @@ Retorna sem expirar se subscription nao existe ou plano nao e trial, mas loga o 
 - `expire-trial:subscription-not-found` - subscription foi deletada
 - `expire-trial:not-trial-plan` - usuario fez upgrade entre agendamento e execucao do job
 
-## Melhorias Futuras
+---
 
-### Payload Enriquecido nos Eventos
+## Revisao de Modulos (em andamento)
 
-Atualmente cada listener faz queries independentes. Payload deve ser enriquecido no momento do emit:
+### Proposito
 
-```typescript
-// Atual - 3 queries por evento
-PaymentHooks.on("subscription.activated", async ({ subscription }) => {
-  const ownerEmail = await getOrganizationOwnerEmail(...);
-  const orgName = await getOrganizationName(...);
-  // ...
-});
+Revisar sistematicamente cada submodulo de `@src/modules/payments/` para garantir:
 
-// Planejado - dados ja disponiveis no contexto
-PaymentHooks.emit("subscription.activated", {
-  subscription,
-  ownerEmail,
-  organizationName,
-  planDisplayName,
-});
+1. **Conformidade com padroes** - Codigo segue `module-code-standards.md`
+2. **Cobertura de testes** - Cada metodo/endpoint tem testes que validam seu comportamento
+3. **Qualidade do codigo** - Auto-explicativo, sem duplicacao ou complexidade desnecessaria
+
+**Foco principal**: Garantir que a implementacao existente esta coberta por testes. Para cada service/controller:
+- Listar todos os metodos/endpoints
+- Verificar se existem testes para cada um
+- Criar testes faltantes seguindo `testing-standards.md`
+
+### Criterios de Revisao
+
+**Padroes de codigo**: Ver [module-code-standards.md](../code-standards/module-code-standards.md)
+
+**Padroes de teste**: Ver [testing-standards.md](../code-standards/testing-standards.md)
+
+**Checklist por modulo**:
+- [ ] Codigo segue padroes de `module-code-standards.md`
+- [ ] Testes seguem padroes de `testing-standards.md`
+- [ ] Cobertura: auth (401), permissoes (403), validacao (400/422), happy path (200), erros (500)
+
+### Progresso
+
+| Modulo | Status | Observacoes |
+|--------|--------|-------------|
+| **plans/** | ✅ Revisado | 54 testes, adicionado list-all-plans.test.ts |
+| **billing/** | ✅ Revisado | 77 testes, 8 arquivos migrados para factories |
+| **subscription/** | ✅ Revisado | 91 testes, 5 arquivos migrados para factories |
+| **checkout/** | ✅ Revisado | 23 testes (15 unit + 8 integration), migrado para factories |
+| **plan-change/** | ✅ Revisado | 36 testes, 2 arquivos migrados para factories |
+| **limits/** | ✅ Revisado | 31 testes, 1 arquivo migrado para factories |
+| **customer/** | ✅ Revisado | 12 testes (11 skip integration), 2 arquivos migrados para factories |
+| **webhook/** | ✅ Revisado | 47 testes, 2 arquivos migrados para factories + WebhookPayloadBuilder |
+| **jobs/** | ✅ Revisado | 37 testes, 2 arquivos migrados para factories |
+| **pagarme/** | ✅ Revisado | 10 testes (6 unit + 4 integration skip), 1 arquivo migrado para factories |
+| **hooks/** | ✅ Revisado | 23 testes (14 hooks.test + 9 listeners.test), 1 arquivo migrado para factories |
+
+**Legenda**: ⬜ Pendente | 🔄 Em revisao | ✅ Revisado | ⚠️ Requer atencao
+
+### Infraestrutura de Testes
+
+| Item | Status | Observacoes |
+|------|--------|-------------|
+| Factories payments (plan, subscription, checkout, billing-profile) | ✅ Concluido | `abstract class` pattern |
+| Factories core (user, organization) | ✅ Concluido | Migrado para suportar payments |
+| Builders (webhook-payload, request) | ✅ Concluido | Fluent API implementada |
+| Support utils (faker, auth, wait, skip-integration) | ✅ Concluido | `src/test/support/` |
+| Helpers de dominio (employee, etc.) | ⬜ Pendente | Migracao futura |
+| Compatibilidade backward | ✅ Concluido | Re-exports com @deprecated |
+| Remocao de re-exports | 🔄 Em andamento | billing/, subscription/, checkout/, customer/, limits/ migrados |
+
+### Migracao: Eliminar Re-exports e Usar Factories
+
+**Objetivo**: Eliminar TODOS os re-exports deprecados de payments. Ao final da revisao, testes devem importar apenas de:
+- `@/test/factories/` - Factories (criam dados no banco)
+- `@/test/builders/` - Builders (criam objetos em memoria)
+- `@/test/support/` - Utilitarios puros
+
+**Estrutura final esperada:**
+```text
+src/test/
+├── factories/                    # ✅ Usar este
+│   ├── payments/
+│   │   ├── plan.factory.ts
+│   │   ├── subscription.factory.ts
+│   │   ├── checkout.factory.ts
+│   │   └── billing-profile.factory.ts
+│   ├── user.factory.ts
+│   └── organization.factory.ts
+│
+├── builders/                     # ✅ Usar este
+│   ├── webhook-payload.builder.ts
+│   └── request.builder.ts
+│
+├── support/                      # ✅ Usar este
+│   ├── app.ts
+│   ├── mailhog.ts
+│   └── faker.ts
+│
+└── helpers/                      # ⚠️ Apenas domínios NAO-payments
+    ├── employee.ts               # Fora do escopo (outro domínio)
+    ├── sector.ts                 # Fora do escopo (outro domínio)
+    └── ...                       # Migracao futura em outra revisao
 ```
 
-### Consolidar Helpers Duplicados
+**Ao revisar cada modulo de payments:**
 
-Helpers de query estao duplicados entre `subscription.helpers.ts` e `plan-change.helpers.ts`. Reutilizar via re-export:
+1. Identificar imports de `@/test/helpers/` relacionados a payments
+2. Substituir por imports corretos:
 
 ```typescript
-// plan-change.helpers.ts
-export {
-  findByOrganizationId,
-  findById,
-  findByIdWithPlan
-} from "../subscription/subscription.helpers";
+// ❌ ANTES (re-exports deprecados)
+import { createTestUser } from "@/test/helpers/user";
+import { createPaidPlan } from "@/test/helpers/plan";
+import { createTestApp } from "@/test/helpers/app";
+import { createTestSubscription } from "@/test/helpers/subscription";
+
+// ✅ DEPOIS (imports diretos)
+import { UserFactory } from "@/test/factories/user.factory";
+import { PlanFactory } from "@/test/factories/payments/plan.factory";
+import { SubscriptionFactory } from "@/test/factories/payments/subscription.factory";
+import { createTestApp } from "@/test/support/app";
 ```
+
+**Arquivos a REMOVER ao final da revisao:**
+
+| Arquivo | Tipo |
+|---------|------|
+| `src/test/helpers/app.ts` | Re-export → support/app.ts |
+| `src/test/helpers/faker.ts` | Re-export → support/faker.ts |
+| `src/test/helpers/user.ts` | Re-export → factories/user.factory.ts |
+| `src/test/helpers/organization.ts` | Re-export → factories/organization.factory.ts |
+| `src/test/helpers/checkout.ts` | Re-export → factories/payments/checkout.factory.ts |
+| `src/test/helpers/subscription.ts` | Re-export → factories/payments/subscription.factory.ts |
+| `src/test/helpers/webhook.ts` | Re-export → builders/webhook-payload.builder.ts |
+| `src/test/factories/plan.ts` | Re-export → factories/payments/plan.factory.ts |
+| `src/test/factories/billing-profile.ts` | Re-export → factories/payments/billing-profile.factory.ts |
+| `src/test/helpers/skip-integration.ts` | Re-export → support/skip-integration.ts |
+
+**Nota**: Helpers de outros dominios (employee, sector, branch, etc.) ficam FORA do escopo desta revisao
+
+### Proximos Passos
+
+1. ~~Iniciar revisao pelo modulo `plans/` (base para os demais)~~ ✅
+2. Para cada modulo:
+   - Ler codigo existente
+   - Identificar gaps vs padroes
+   - Corrigir implementacao se necessario
+   - Verificar/criar testes faltantes
+   - Atualizar status na tabela acima
+3. Ao final, rodar suite completa de testes
