@@ -1,6 +1,9 @@
 import { z } from "zod";
 import { successResponseSchema } from "@/lib/responses/response.types";
-import { planLimitsSchema } from "@/modules/payments/plans/plans.model";
+import {
+  planLimitsSchema,
+  pricingTierSchema,
+} from "@/modules/payments/plans/plans.model";
 
 /**
  * Database subscription status - persisted state
@@ -75,6 +78,9 @@ const subscriptionDataSchema = z.object({
     .describe("Whether subscription cancels at period end"),
   canceledAt: z.iso.datetime().nullable().describe("Cancellation date"),
   seats: z.number().int().describe("Number of seats"),
+  pricingTier: pricingTierSchema
+    .nullable()
+    .describe("Current pricing tier (null for trials without tier)"),
 });
 
 const cancelSubscriptionDataSchema = z.object({

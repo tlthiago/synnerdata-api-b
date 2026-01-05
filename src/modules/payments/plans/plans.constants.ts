@@ -83,3 +83,28 @@ export function calculateYearlyPrice(monthlyPrice: number): number {
   const discount = Math.round(yearlyFullPrice * YEARLY_DISCOUNT);
   return yearlyFullPrice - discount;
 }
+
+export function compareFeatures(
+  currentFeatures: string[],
+  newFeatures: string[]
+): { gained: string[]; lost: string[] } {
+  const currentSet = new Set(currentFeatures);
+  const newSet = new Set(newFeatures);
+
+  const gained: string[] = [];
+  const lost: string[] = [];
+
+  for (const feature of newSet) {
+    if (!currentSet.has(feature)) {
+      gained.push(FEATURE_DISPLAY_NAMES[feature] ?? feature);
+    }
+  }
+
+  for (const feature of currentSet) {
+    if (!newSet.has(feature)) {
+      lost.push(FEATURE_DISPLAY_NAMES[feature] ?? feature);
+    }
+  }
+
+  return { gained, lost };
+}

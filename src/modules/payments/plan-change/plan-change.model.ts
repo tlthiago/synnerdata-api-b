@@ -117,3 +117,74 @@ export type ChangeSubscriptionData = z.infer<
 export type ChangeSubscriptionResponse = z.infer<
   typeof changeSubscriptionResponseSchema
 >;
+
+// Preview change schemas
+export const previewChangeSchema = z.object({
+  newPlanId: z.string().optional().describe("ID of the new plan (optional)"),
+  newBillingCycle: z
+    .enum(["monthly", "yearly"])
+    .optional()
+    .describe("New billing cycle (optional)"),
+  newTierId: z
+    .string()
+    .optional()
+    .describe("ID of the new pricing tier (optional)"),
+});
+
+const previewPlanInfoSchema = z.object({
+  id: z.string().describe("Plan ID"),
+  displayName: z.string().describe("Plan display name"),
+  billingCycle: z.enum(["monthly", "yearly"]).describe("Billing cycle"),
+});
+
+const previewTierInfoSchema = z.object({
+  id: z.string().describe("Tier ID"),
+  minEmployees: z.number().describe("Minimum employees in tier"),
+  maxEmployees: z.number().describe("Maximum employees in tier"),
+  priceMonthly: z.number().describe("Monthly price in centavos"),
+  priceYearly: z.number().describe("Yearly price in centavos"),
+});
+
+const previewChangeDataSchema = z.object({
+  changeType: changeTypeEnum.describe("Type of change: upgrade or downgrade"),
+  immediate: z
+    .boolean()
+    .describe("Whether the change is immediate (true for upgrades)"),
+
+  currentPlan: previewPlanInfoSchema.describe("Current plan information"),
+  currentTier: previewTierInfoSchema.describe("Current tier information"),
+  newPlan: previewPlanInfoSchema.describe("New plan information"),
+  newTier: previewTierInfoSchema.describe("New tier information"),
+
+  prorationAmount: z
+    .number()
+    .optional()
+    .describe("Proration amount in centavos (upgrades only)"),
+  daysRemaining: z
+    .number()
+    .optional()
+    .describe("Days remaining in current period (upgrades only)"),
+  scheduledAt: z
+    .string()
+    .optional()
+    .describe("ISO date when change will be applied (downgrades only)"),
+
+  featuresGained: z
+    .array(z.string())
+    .describe("Features gained with the new plan (display names)"),
+  featuresLost: z
+    .array(z.string())
+    .describe("Features lost with the new plan (display names)"),
+});
+
+export const previewChangeResponseSchema = successResponseSchema(
+  previewChangeDataSchema
+);
+
+// Preview change types
+export type PreviewChange = z.infer<typeof previewChangeSchema>;
+export type PreviewChangeInput = PreviewChange & {
+  userId: string;
+  organizationId: string;
+};
+export type PreviewChangeData = z.infer<typeof previewChangeDataSchema>;

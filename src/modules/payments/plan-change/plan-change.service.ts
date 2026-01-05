@@ -335,9 +335,301 @@ export abstract class PlanChangeService {
     return subscriptions;
   }
 
+  /**
+   * Previews a subscription change without executing any side effects.
+   * Returns all information needed for the frontend confirmation modal.
+   */
+  static async previewChange(input: {
+    organizationId: string;
+    newPlanId?: string;
+    newBillingCycle?: "monthly" | "yearly";
+    newTierId?: string;
+  }): Promise<{
+    changeType: "upgrade" | "downgrade";
+    immediate: boolean;
+    currentPlan: {
+      id: string;
+      displayName: string;
+      billingCycle: "monthly" | "yearly";
+    };
+    currentTier: {
+      id: string;
+      minEmployees: number;
+      maxEmployees: number;
+      priceMonthly: number;
+      priceYearly: number;
+    };
+    newPlan: {
+      id: string;
+      displayName: string;
+      billingCycle: "monthly" | "yearly";
+    };
+    newTier: {
+      id: string;
+      minEmployees: number;
+      maxEmployees: number;
+      priceMonthly: number;
+      priceYearly: number;
+    };
+    prorationAmount?: number;
+    daysRemaining?: number;
+    scheduledAt?: string;
+    featuresGained: string[];
+    featuresLost: string[];
+  }> {
+    const { organizationId, newPlanId, newBillingCycle, newTierId } = input;
+
+    // 1. Get and validate current subscription
+    const { subscription, currentPlan, currentTier, resolved } =
+      await PlanChangeService.getAndValidateSubscriptionForPreview(
+        organizationId,
+        { newPlanId, newBillingCycle, newTierId }
+      );
+
+    // 2. Get new plan and tier
+    const { newPlan, newTier } =
+      await PlanChangeService.getNewPlanAndTierForPreview(
+        subscription,
+        currentPlan,
+        resolved
+      );
+
+    // 3. Calculate change type and validate
+    const { changeType, currentPrice, newPrice } =
+      await PlanChangeService.calculateChangeTypeForPreview(
+        organizationId,
+        currentTier,
+        newTier,
+        resolved
+      );
+
+    // 4. Build and return preview response
+    return PlanChangeService.buildPreviewResponse({
+      subscription,
+      currentPlan,
+      currentTier,
+      newPlan,
+      newTier,
+      resolved,
+      changeType,
+      currentPrice,
+      newPrice,
+    });
+  }
+
   // ============================================================
   // PRIVATE METHODS
   // ============================================================
+
+  /**
+   * Gets and validates subscription for preview.
+   */
+  private static async getAndValidateSubscriptionForPreview(
+    organizationId: string,
+    input: {
+      newPlanId?: string;
+      newBillingCycle?: "monthly" | "yearly";
+      newTierId?: string;
+    }
+  ) {
+    const result = await findSubscriptionWithPlanAndTier(organizationId);
+    if (!result) {
+      throw new SubscriptionNotFoundError(organizationId);
+    }
+
+    const { subscription, plan: currentPlan, tier: currentTier } = result;
+
+    PlanChangeService.validateSubscriptionForChange(subscription);
+
+    const resolved = PlanChangeService.resolveFinalValues(subscription, input);
+
+    PlanChangeService.validateChangeRequested(subscription, resolved);
+
+    return { subscription, currentPlan, currentTier, resolved };
+  }
+
+  /**
+   * Gets new plan and tier for preview.
+   */
+  private static async getNewPlanAndTierForPreview(
+    subscription: typeof schema.orgSubscriptions.$inferSelect,
+    currentPlan: typeof schema.subscriptionPlans.$inferSelect,
+    resolved: {
+      finalPlanId: string;
+      finalBillingCycle: "monthly" | "yearly";
+      finalTierId: string | null;
+    }
+  ) {
+    const newPlan =
+      resolved.finalPlanId !== subscription.planId
+        ? await PlansService.getAvailableById(resolved.finalPlanId)
+        : currentPlan;
+
+    if (!resolved.finalTierId) {
+      throw new SubscriptionNotFoundError(subscription.organizationId);
+    }
+    const newTier = await PlansService.getTierById(resolved.finalTierId);
+
+    if (resolved.finalBillingCycle === "yearly" && newTier.priceYearly === 0) {
+      throw new YearlyBillingNotAvailableError(resolved.finalPlanId);
+    }
+
+    return { newPlan, newTier };
+  }
+
+  /**
+   * Calculates change type for preview and validates employee count for downgrades.
+   */
+  private static async calculateChangeTypeForPreview(
+    organizationId: string,
+    currentTier: { priceMonthly: number; priceYearly: number } | null,
+    newTier: {
+      priceMonthly: number;
+      priceYearly: number;
+      maxEmployees: number;
+    },
+    resolved: {
+      currentBillingCycle: "monthly" | "yearly";
+      finalBillingCycle: "monthly" | "yearly";
+    }
+  ) {
+    const { currentPrice, newPrice } = PlanChangeService.calculatePrices(
+      currentTier,
+      newTier,
+      resolved.currentBillingCycle,
+      resolved.finalBillingCycle
+    );
+
+    const changeType = ProrationService.getChangeType({
+      currentPlanPrice: currentPrice,
+      newPlanPrice: newPrice,
+      currentBillingCycle: resolved.currentBillingCycle,
+      newBillingCycle: resolved.finalBillingCycle,
+    });
+
+    if (changeType === "downgrade") {
+      await PlanChangeService.validateEmployeeCountForDowngrade(
+        organizationId,
+        newTier.maxEmployees
+      );
+    }
+
+    return { changeType, currentPrice, newPrice };
+  }
+
+  /**
+   * Builds preview response object.
+   */
+  private static async buildPreviewResponse(params: {
+    subscription: typeof schema.orgSubscriptions.$inferSelect;
+    currentPlan: typeof schema.subscriptionPlans.$inferSelect;
+    currentTier: {
+      id: string;
+      minEmployees: number;
+      maxEmployees: number;
+      priceMonthly: number;
+      priceYearly: number;
+    } | null;
+    newPlan: typeof schema.subscriptionPlans.$inferSelect;
+    newTier: {
+      id: string;
+      minEmployees: number;
+      maxEmployees: number;
+      priceMonthly: number;
+      priceYearly: number;
+    };
+    resolved: {
+      currentBillingCycle: "monthly" | "yearly";
+      finalBillingCycle: "monthly" | "yearly";
+    };
+    changeType: "upgrade" | "downgrade";
+    currentPrice: number;
+    newPrice: number;
+  }) {
+    const {
+      subscription,
+      currentPlan,
+      currentTier,
+      newPlan,
+      newTier,
+      resolved,
+      changeType,
+      currentPrice,
+      newPrice,
+    } = params;
+
+    let prorationAmount: number | undefined;
+    let daysRemaining: number | undefined;
+
+    if (changeType === "upgrade") {
+      const calculatedProration = ProrationService.calculateProration({
+        currentPlanPrice: currentPrice,
+        newPlanPrice: newPrice,
+        currentPeriodStart: subscription.currentPeriodStart ?? new Date(),
+        currentPeriodEnd: subscription.currentPeriodEnd ?? new Date(),
+      });
+
+      if (calculatedProration > 0) {
+        prorationAmount = calculatedProration;
+      }
+
+      const now = new Date();
+      const periodEnd = subscription.currentPeriodEnd ?? new Date();
+      daysRemaining = Math.max(
+        0,
+        Math.ceil((periodEnd.getTime() - now.getTime()) / (1000 * 60 * 60 * 24))
+      );
+    }
+
+    const scheduledAt =
+      changeType === "downgrade"
+        ? subscription.currentPeriodEnd?.toISOString()
+        : undefined;
+
+    const { compareFeatures } = await import(
+      "@/modules/payments/plans/plans.constants"
+    );
+    const currentFeatures = currentPlan.limits?.features ?? [];
+    const newFeatures = newPlan.limits?.features ?? [];
+    const { gained: featuresGained, lost: featuresLost } = compareFeatures(
+      currentFeatures,
+      newFeatures
+    );
+
+    return {
+      changeType,
+      immediate: changeType === "upgrade",
+      currentPlan: {
+        id: currentPlan.id,
+        displayName: currentPlan.displayName,
+        billingCycle: resolved.currentBillingCycle,
+      },
+      currentTier: {
+        id: currentTier?.id ?? "",
+        minEmployees: currentTier?.minEmployees ?? 0,
+        maxEmployees: currentTier?.maxEmployees ?? 0,
+        priceMonthly: currentTier?.priceMonthly ?? 0,
+        priceYearly: currentTier?.priceYearly ?? 0,
+      },
+      newPlan: {
+        id: newPlan.id,
+        displayName: newPlan.displayName,
+        billingCycle: resolved.finalBillingCycle,
+      },
+      newTier: {
+        id: newTier.id,
+        minEmployees: newTier.minEmployees,
+        maxEmployees: newTier.maxEmployees,
+        priceMonthly: newTier.priceMonthly,
+        priceYearly: newTier.priceYearly,
+      },
+      prorationAmount,
+      daysRemaining,
+      scheduledAt,
+      featuresGained,
+      featuresLost,
+    };
+  }
 
   /**
    * Resolves final values for plan change, using current values as defaults.

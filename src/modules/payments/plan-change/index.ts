@@ -12,6 +12,8 @@ import {
   changeSubscriptionResponseSchema,
   changeSubscriptionSchema,
   getScheduledChangeResponseSchema,
+  previewChangeResponseSchema,
+  previewChangeSchema,
 } from "./plan-change.model";
 import { PlanChangeService } from "./plan-change.service";
 
@@ -103,6 +105,35 @@ export const planChangeController = new Elysia({
         summary: "Get scheduled plan change",
         description:
           "Returns information about any scheduled plan change, including the pending plan and scheduled date.",
+      },
+    }
+  )
+  .post(
+    "/preview-change",
+    async ({ session, body }) =>
+      wrapSuccess(
+        await PlanChangeService.previewChange({
+          ...body,
+          organizationId: session.activeOrganizationId as string,
+        })
+      ),
+    {
+      auth: {
+        permissions: { subscription: ["read"] },
+        requireOrganization: true,
+      },
+      body: previewChangeSchema,
+      response: {
+        200: previewChangeResponseSchema,
+        422: validationErrorSchema,
+        401: unauthorizedErrorSchema,
+        403: forbiddenErrorSchema,
+        404: notFoundErrorSchema,
+      },
+      detail: {
+        summary: "Preview subscription change",
+        description:
+          "Returns a preview of what would happen if the subscription change was executed. Does not make any changes. Useful for confirmation modals.",
       },
     }
   );

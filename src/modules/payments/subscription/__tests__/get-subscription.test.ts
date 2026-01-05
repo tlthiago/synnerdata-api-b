@@ -85,17 +85,21 @@ describe("GET /v1/payments/subscription", () => {
     expect(body.data.plan.name).toBe(trialPlanResult.plan.name);
     expect(body.data.plan.displayName).toBe(trialPlanResult.plan.displayName);
     expect(body.data.plan.limits).toBeDefined();
+    // Trial subscriptions created without pricingTierId should return null
+    expect(body.data.pricingTier).toBeNull();
   });
 
-  test("should return subscription with plan details for active", async () => {
+  test("should return subscription with plan details and pricingTier for active", async () => {
     const { headers, organizationId } =
       await UserFactory.createWithOrganization({
         emailVerified: true,
       });
 
+    const tier = PlanFactory.getFirstTier(diamondPlanResult);
     await SubscriptionFactory.createActive(
       organizationId,
-      diamondPlanResult.plan.id
+      diamondPlanResult.plan.id,
+      { pricingTierId: tier.id }
     );
 
     const response = await app.handle(
@@ -111,6 +115,13 @@ describe("GET /v1/payments/subscription", () => {
     expect(body.data.status).toBe("active");
     expect(body.data.currentPeriodStart).toBeDefined();
     expect(body.data.currentPeriodEnd).toBeDefined();
+    // Should return pricing tier details
+    expect(body.data.pricingTier).toBeDefined();
+    expect(body.data.pricingTier.id).toBe(tier.id);
+    expect(body.data.pricingTier.minEmployees).toBe(tier.minEmployees);
+    expect(body.data.pricingTier.maxEmployees).toBe(tier.maxEmployees);
+    expect(body.data.pricingTier.priceMonthly).toBe(tier.priceMonthly);
+    expect(body.data.pricingTier.priceYearly).toBe(tier.priceYearly);
   });
 
   test("should return correct trial dates and status", async () => {
@@ -149,10 +160,11 @@ describe("GET /v1/payments/subscription", () => {
         emailVerified: true,
       });
 
+    const tier = PlanFactory.getFirstTier(diamondPlanResult);
     await SubscriptionFactory.createActive(
       organizationId,
       diamondPlanResult.plan.id,
-      { pagarmeSubscriptionId: "sub_test123" }
+      { pagarmeSubscriptionId: "sub_test123", pricingTierId: tier.id }
     );
 
     const response = await app.handle(
@@ -168,6 +180,33 @@ describe("GET /v1/payments/subscription", () => {
     expect(body.data.currentPeriodStart).toBeString();
     expect(body.data.currentPeriodEnd).toBeString();
     expect(body.data.trialUsed).toBe(true);
+    expect(body.data.pricingTier).toBeDefined();
+    expect(body.data.pricingTier.id).toBe(tier.id);
+  });
+
+  test("should return pricingTier as null when subscription has no tier", async () => {
+    const { headers, organizationId } =
+      await UserFactory.createWithOrganization({
+        emailVerified: true,
+      });
+
+    // Create subscription WITHOUT pricingTierId (simulates legacy migration)
+    await SubscriptionFactory.createActive(
+      organizationId,
+      diamondPlanResult.plan.id
+      // No pricingTierId passed
+    );
+
+    const response = await app.handle(
+      new Request(`${BASE_URL}/v1/payments/subscription`, {
+        method: "GET",
+        headers,
+      })
+    );
+
+    expect(response.status).toBe(200);
+    const body = await response.json();
+    expect(body.data.pricingTier).toBeNull();
   });
 
   test("should return cancelAtPeriodEnd and canceledAt when canceled", async () => {

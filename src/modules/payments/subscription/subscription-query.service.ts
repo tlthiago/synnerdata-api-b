@@ -46,7 +46,7 @@ export abstract class SubscriptionQueryService {
       throw new SubscriptionNotFoundError(organizationId);
     }
 
-    const { subscription, plan } = result;
+    const { subscription, plan, pricingTier } = result;
 
     return {
       id: subscription.id,
@@ -69,6 +69,15 @@ export abstract class SubscriptionQueryService {
       cancelAtPeriodEnd: subscription.cancelAtPeriodEnd,
       canceledAt: subscription.canceledAt?.toISOString() ?? null,
       seats: subscription.seats,
+      pricingTier: pricingTier
+        ? {
+            id: pricingTier.id,
+            minEmployees: pricingTier.minEmployees,
+            maxEmployees: pricingTier.maxEmployees,
+            priceMonthly: pricingTier.priceMonthly,
+            priceYearly: pricingTier.priceYearly,
+          }
+        : null,
     };
   }
 

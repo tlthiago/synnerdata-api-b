@@ -4,26 +4,34 @@ import { schema } from "@/db/schema";
 
 export type Subscription = typeof schema.orgSubscriptions.$inferSelect;
 export type Plan = typeof schema.subscriptionPlans.$inferSelect;
+export type PricingTier = typeof schema.planPricingTiers.$inferSelect;
 
 export const GRACE_PERIOD_DAYS = 15;
 export const MS_PER_DAY = 1000 * 60 * 60 * 24;
 
 /**
- * Busca subscription com dados do plano (join) por organizationId.
+ * Busca subscription com dados do plano e pricing tier por organizationId.
  * Usado por: getByOrganizationId, cancel, hasPaidSubscription, checkAccess
  */
-export async function findWithPlan(
-  organizationId: string
-): Promise<{ subscription: Subscription; plan: Plan } | null> {
+export async function findWithPlan(organizationId: string): Promise<{
+  subscription: Subscription;
+  plan: Plan;
+  pricingTier: PricingTier | null;
+} | null> {
   const [result] = await db
     .select({
       subscription: schema.orgSubscriptions,
       plan: schema.subscriptionPlans,
+      pricingTier: schema.planPricingTiers,
     })
     .from(schema.orgSubscriptions)
     .innerJoin(
       schema.subscriptionPlans,
       eq(schema.orgSubscriptions.planId, schema.subscriptionPlans.id)
+    )
+    .leftJoin(
+      schema.planPricingTiers,
+      eq(schema.orgSubscriptions.pricingTierId, schema.planPricingTiers.id)
     )
     .where(eq(schema.orgSubscriptions.organizationId, organizationId))
     .limit(1);
