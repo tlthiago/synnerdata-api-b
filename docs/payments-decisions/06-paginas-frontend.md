@@ -43,8 +43,6 @@ Dashboard principal de gerenciamento da assinatura.
 │                                                                 │
 │  [PLANO ATUAL]                                                  │
 │                                                                 │
-│  [MÉTODO DE PAGAMENTO]                                          │
-│                                                                 │
 │  [DADOS DE COBRANÇA]                                            │
 │                                                                 │
 │  [FATURAS RECENTES]                                             │
@@ -155,40 +153,6 @@ Exibir no topo quando houver ação pendente:
 │  │  Próxima cobrança: R$ 499,00 em 15/02/2025               │ │
 │  │                                                            │ │
 │  │  [Gerenciar plano →]                                      │ │
-│  │                                                            │ │
-│  └───────────────────────────────────────────────────────────┘ │
-│                                                                 │
-└─────────────────────────────────────────────────────────────────┘
-```
-
-### Seção: Método de Pagamento
-
-**Com cartão cadastrado:**
-```
-┌─────────────────────────────────────────────────────────────────┐
-│  Método de Pagamento                                            │
-│                                                                 │
-│  ┌───────────────────────────────────────────────────────────┐ │
-│  │                                                            │ │
-│  │  💳 Visa terminado em 4242                                │ │
-│  │  Expira em 12/2026                                        │ │
-│  │                                                            │ │
-│  │  [Atualizar cartão]                                       │ │
-│  │                                                            │ │
-│  └───────────────────────────────────────────────────────────┘ │
-│                                                                 │
-└─────────────────────────────────────────────────────────────────┘
-```
-
-**Sem cartão (trial):**
-```
-┌─────────────────────────────────────────────────────────────────┐
-│  Método de Pagamento                                            │
-│                                                                 │
-│  ┌───────────────────────────────────────────────────────────┐ │
-│  │                                                            │ │
-│  │  Nenhum método de pagamento cadastrado.                   │ │
-│  │  Será solicitado ao contratar um plano.                   │ │
 │  │                                                            │ │
 │  └───────────────────────────────────────────────────────────┘ │
 │                                                                 │
@@ -337,33 +301,6 @@ Histórico completo de faturas com paginação.
 ---
 
 ## 5. Modais e Sheets
-
-### Modal: Atualizar Cartão
-
-```
-┌─────────────────────────────────────────────────────────────────┐
-│  Atualizar Cartão                                         [X]  │
-├─────────────────────────────────────────────────────────────────┤
-│                                                                 │
-│  Número do cartão                                               │
-│  ┌─────────────────────────────────────────────────────────┐   │
-│  │  0000 0000 0000 0000                                    │   │
-│  └─────────────────────────────────────────────────────────┘   │
-│                                                                 │
-│  Validade              CVV                                      │
-│  ┌───────────────┐     ┌───────────────┐                       │
-│  │  MM/AA        │     │  000          │                       │
-│  └───────────────┘     └───────────────┘                       │
-│                                                                 │
-│  Nome no cartão                                                 │
-│  ┌─────────────────────────────────────────────────────────┐   │
-│  │                                                          │   │
-│  └─────────────────────────────────────────────────────────┘   │
-│                                                                 │
-│  [Cancelar]                              [Salvar cartão]        │
-│                                                                 │
-└─────────────────────────────────────────────────────────────────┘
-```
 
 ### Modal: Editar Dados de Cobrança
 
@@ -736,7 +673,6 @@ Página com foco total em conversão:
 | Alerta | Countdown do trial | Só se houver problema |
 | Plano | Barra de dias + expira em | Barra de funcionários + próxima cobrança |
 | Features | "O que você está aproveitando" | **Não mostra** |
-| Método pagamento | **Não mostra** | Mostra cartão |
 | Faturas | **Não mostra** | Mostra últimas 3 |
 | Dados cobrança | Incentiva preencher | Mostra preenchido |
 | Mini planos | Preview dos planos | **Não mostra** |
@@ -766,7 +702,6 @@ Settings
 ├── Assinatura (/settings/subscription)
 │   ├── → Planos (/settings/plans)
 │   ├── → Faturas (/settings/invoices)
-│   ├── [Modal] Atualizar cartão
 │   ├── [Modal] Editar dados cobrança
 │   └── [Modal] Fluxo cancelamento
 │
@@ -804,7 +739,6 @@ Settings
 - [ ] Página `/settings/plans` com seleção de planos
 - [ ] Alertas condicionais (trial, pagamento, downgrade, cancelamento)
 - [ ] Barra de progresso de funcionários
-- [ ] Modal atualizar cartão
 - [ ] Modal editar dados de cobrança
 - [ ] Modal preview upgrade
 - [ ] Modal preview downgrade

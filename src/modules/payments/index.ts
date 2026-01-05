@@ -3,22 +3,19 @@ import { billingController } from "./billing";
 import { checkoutController } from "./checkout";
 import { customerController } from "./customer";
 import { jobsController } from "./jobs";
-import { planProtectedController, planPublicController } from "./plan";
 import { planChangeController } from "./plan-change";
+import { plansProtectedController, plansPublicController } from "./plans";
 import { subscriptionController } from "./subscription";
 import { webhookController } from "./webhook";
-
-export { LimitsService } from "./limits/limits.service";
-export { SubscriptionService } from "./subscription/subscription.service";
 
 export const paymentsController = new Elysia({
   name: "payments",
   prefix: "/v1/payments",
   detail: { tags: ["Payments"] },
 })
-  .use(planPublicController)
+  .use(plansPublicController)
   .use(webhookController)
-  .use(planProtectedController)
+  .use(plansProtectedController)
   .use(checkoutController)
   .use(subscriptionController)
   .use(planChangeController)

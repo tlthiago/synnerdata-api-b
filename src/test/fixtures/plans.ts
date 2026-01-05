@@ -1,22 +1,26 @@
-import { PLAN_FEATURES, YEARLY_DISCOUNT } from "@/db/schema";
-import type { PlanLimits } from "@/modules/payments/plan/plan.model";
+import type { PlanLimits } from "@/db/schema";
+import {
+  calculateYearlyPrice,
+  DEFAULT_TRIAL_DAYS,
+  EMPLOYEE_TIERS,
+  PLAN_FEATURES,
+  TRIAL_TIER,
+} from "@/modules/payments/plans/plans.constants";
 
-type TestPlan = {
+type PlanFixture = {
   id: string;
   name: string;
   displayName: string;
-  description?: string;
-  priceMonthly: number;
-  priceYearly: number;
-  trialDays: number;
-  limits: PlanLimits;
+  description: string;
   isActive: boolean;
   isPublic: boolean;
   isTrial: boolean;
+  trialDays: number;
+  limits: PlanLimits;
   sortOrder: number;
 };
 
-type TestPricingTier = {
+type PricingTierFixture = {
   id: string;
   planId: string;
   minEmployees: number;
@@ -25,28 +29,7 @@ type TestPricingTier = {
   priceYearly: number;
 };
 
-const calculateYearlyPrice = (monthlyPrice: number): number => {
-  const yearlyFullPrice = monthlyPrice * 12;
-  const discount = Math.round(yearlyFullPrice * YEARLY_DISCOUNT);
-  return yearlyFullPrice - discount;
-};
-
-// Employee tier ranges - 10 tiers matching production
-const EMPLOYEE_TIERS = [
-  { min: 0, max: 10 },
-  { min: 11, max: 20 },
-  { min: 21, max: 30 },
-  { min: 31, max: 40 },
-  { min: 41, max: 50 },
-  { min: 51, max: 60 },
-  { min: 61, max: 70 },
-  { min: 71, max: 80 },
-  { min: 81, max: 90 },
-  { min: 91, max: 180 },
-] as const;
-
-// Monthly prices in cents per tier for each plan
-const TIER_PRICES = {
+const DEFAULT_TIER_PRICES = {
   gold: [
     39_900, 44_990, 49_990, 55_990, 61_990, 69_990, 77_990, 86_990, 96_990,
     107_990,
@@ -61,154 +44,106 @@ const TIER_PRICES = {
   ],
 } as const;
 
-// Test plans - matching production structure
-export const testPlans: TestPlan[] = [
-  {
-    id: "test-plan-trial",
-    name: "trial",
-    displayName: "Trial",
-    description: "Período de avaliação gratuito com acesso completo",
-    priceMonthly: 0,
-    priceYearly: 0,
-    trialDays: 14,
-    limits: {
-      features: PLAN_FEATURES.trial as unknown as string[],
-    },
-    isActive: true,
-    isPublic: false,
-    isTrial: true,
-    sortOrder: -1,
-  },
-  {
-    id: "test-plan-gold",
-    name: "gold",
-    displayName: "Ouro Insights",
-    description: "Essencial para contratações eficazes",
-    priceMonthly: TIER_PRICES.gold[0],
-    priceYearly: calculateYearlyPrice(TIER_PRICES.gold[0]),
-    trialDays: 14,
-    limits: {
-      features: PLAN_FEATURES.gold as unknown as string[],
-    },
-    isActive: true,
-    isPublic: true,
-    isTrial: false,
-    sortOrder: 0,
-  },
-  {
-    id: "test-plan-diamond",
-    name: "diamond",
-    displayName: "Diamante Analytics",
-    description: "Todos os recursos premium",
-    priceMonthly: TIER_PRICES.diamond[0],
-    priceYearly: calculateYearlyPrice(TIER_PRICES.diamond[0]),
-    trialDays: 14,
-    limits: {
-      features: PLAN_FEATURES.diamond as unknown as string[],
-    },
-    isActive: true,
-    isPublic: true,
-    isTrial: false,
-    sortOrder: 1,
-  },
-  {
-    id: "test-plan-platinum",
-    name: "platinum",
-    displayName: "Platina Vision",
-    description: "Recursos avançados de analytics",
-    priceMonthly: TIER_PRICES.platinum[0],
-    priceYearly: calculateYearlyPrice(TIER_PRICES.platinum[0]),
-    trialDays: 14,
-    limits: {
-      features: PLAN_FEATURES.platinum as unknown as string[],
-    },
-    isActive: true,
-    isPublic: true,
-    isTrial: false,
-    sortOrder: 2,
-  },
-  {
-    id: "test-plan-inactive",
-    name: "legacy",
-    displayName: "Legacy Plan",
-    priceMonthly: 4900,
-    priceYearly: 49_000,
-    trialDays: 7,
-    limits: {
-      features: ["basic"],
-    },
-    isActive: false,
-    isPublic: false,
-    isTrial: false,
-    sortOrder: 99,
-  },
-];
+const PLAN_DISPLAY_NAMES: Record<string, string> = {
+  trial: "Trial",
+  gold: "Ouro",
+  diamond: "Diamante",
+  platinum: "Platina",
+};
 
-// Generate pricing tiers for each plan
-function generatePricingTiers(): TestPricingTier[] {
-  const tiers: TestPricingTier[] = [];
+const PLAN_SORT_ORDER: Record<string, number> = {
+  trial: -1,
+  gold: 1,
+  diamond: 2,
+  platinum: 3,
+};
 
-  const planConfigs = [
-    { planId: "test-plan-gold", name: "gold", prices: TIER_PRICES.gold },
-    {
-      planId: "test-plan-diamond",
-      name: "diamond",
-      prices: TIER_PRICES.diamond,
-    },
-    {
-      planId: "test-plan-platinum",
-      name: "platinum",
-      prices: TIER_PRICES.platinum,
-    },
-  ];
+function createPlanFixture(
+  type: "trial" | "gold" | "diamond" | "platinum"
+): PlanFixture {
+  const isTrial = type === "trial";
 
-  for (const config of planConfigs) {
-    for (let i = 0; i < EMPLOYEE_TIERS.length; i++) {
-      const tier = EMPLOYEE_TIERS[i];
-      const priceMonthly = config.prices[i];
+  return {
+    id: `test-plan-${type}`,
+    name: type,
+    displayName: PLAN_DISPLAY_NAMES[type],
+    description: isTrial ? "Trial plan for testing" : `Test ${type} plan`,
+    isActive: true,
+    isPublic: !isTrial,
+    isTrial,
+    trialDays: isTrial ? DEFAULT_TRIAL_DAYS : 0,
+    limits: { features: [...PLAN_FEATURES[type]] },
+    sortOrder: PLAN_SORT_ORDER[type],
+  };
+}
 
-      tiers.push({
-        id: `test-tier-${config.name}-${tier.min}-${tier.max}`,
-        planId: config.planId,
-        minEmployees: tier.min,
-        maxEmployees: tier.max,
-        priceMonthly,
-        priceYearly: calculateYearlyPrice(priceMonthly),
-      });
-    }
+function createPricingTiersFixture(
+  planId: string,
+  type: "trial" | "gold" | "diamond" | "platinum"
+): PricingTierFixture[] {
+  if (type === "trial") {
+    return [
+      {
+        id: `test-tier-${planId}-0`,
+        planId,
+        minEmployees: TRIAL_TIER.min,
+        maxEmployees: TRIAL_TIER.max,
+        priceMonthly: 0,
+        priceYearly: 0,
+      },
+    ];
   }
 
-  return tiers;
+  const prices = DEFAULT_TIER_PRICES[type];
+
+  return EMPLOYEE_TIERS.map((tier, index) => ({
+    id: `test-tier-${planId}-${index}`,
+    planId,
+    minEmployees: tier.min,
+    maxEmployees: tier.max,
+    priceMonthly: prices[index],
+    priceYearly: calculateYearlyPrice(prices[index]),
+  }));
 }
 
-// Test pricing tiers - 10 tiers per plan (30 total)
-export const testPricingTiers: TestPricingTier[] = generatePricingTiers();
+// Plan fixtures
+export const trialPlan = createPlanFixture("trial");
+export const goldPlan = createPlanFixture("gold");
+export const diamondPlan = createPlanFixture("diamond");
+export const platinumPlan = createPlanFixture("platinum");
 
-export const activePlans = testPlans.filter((p) => p.isActive && p.isPublic);
-export const trialPlan = testPlans.find((p) => p.name === "trial");
-export const goldPlan = testPlans.find((p) => p.name === "gold");
-export const diamondPlan = testPlans.find((p) => p.name === "diamond");
-export const platinumPlan = testPlans.find((p) => p.name === "platinum");
-
-// Backwards compatibility aliases - use the new names in new code
-export const starterPlan = goldPlan;
+// Legacy aliases
+export const starterPlan = trialPlan;
 export const proPlan = diamondPlan;
-export const enterprisePlan = platinumPlan;
 
-// Helper to get tiers for a plan
-export function getTiersForPlan(planId: string): TestPricingTier[] {
-  return testPricingTiers.filter((t) => t.planId === planId);
-}
+// Pricing tier fixtures
+export const trialTiers = createPricingTiersFixture(trialPlan.id, "trial");
+export const goldTiers = createPricingTiersFixture(goldPlan.id, "gold");
+export const diamondTiers = createPricingTiersFixture(
+  diamondPlan.id,
+  "diamond"
+);
+export const platinumTiers = createPricingTiersFixture(
+  platinumPlan.id,
+  "platinum"
+);
 
-// Helper to get tier for employee count
-export function getTierForEmployeeCount(
-  planId: string,
-  employeeCount: number
-): TestPricingTier | undefined {
-  return testPricingTiers.find(
-    (t) =>
-      t.planId === planId &&
-      employeeCount >= t.minEmployees &&
-      employeeCount <= t.maxEmployees
-  );
-}
+// All plans and tiers
+export const allPlans = [trialPlan, goldPlan, diamondPlan, platinumPlan];
+export const allTiers = [
+  ...trialTiers,
+  ...goldTiers,
+  ...diamondTiers,
+  ...platinumTiers,
+];
+
+// Plan map for getTestPlan helper
+export const planMap = {
+  trial: trialPlan,
+  gold: goldPlan,
+  diamond: diamondPlan,
+  platinum: platinumPlan,
+  // Legacy aliases
+  starter: trialPlan,
+  pro: diamondPlan,
+} as const;

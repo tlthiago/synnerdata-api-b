@@ -1,14 +1,48 @@
 import { z } from "zod";
 import { successResponseSchema } from "@/lib/responses/response.types";
-import { planLimitsSchema } from "@/modules/payments/plan/plan.model";
+import {
+  planLimitsSchema,
+  pricingTierSchema,
+} from "@/modules/payments/plans/plans.model";
 
-export const subscriptionStatusSchema = z.enum([
-  "trial",
+/**
+ * Database subscription status - persisted state
+ * Note: "trial" is NOT a status. Trial is determined by plan.isTrial
+ */
+export const dbSubscriptionStatusSchema = z.enum([
   "active",
   "past_due",
   "canceled",
   "expired",
 ]);
+
+/**
+ * Access status - computed state for API/frontend
+ * Includes derived states like "trial" and "trial_expired"
+ */
+export const accessStatusSchema = z.enum([
+  "trial",
+  "trial_expired",
+  "active",
+  "past_due",
+  "canceled",
+  "expired",
+  "no_subscription",
+]);
+
+/**
+ * Response for checkAccess() - access verification result
+ */
+export const checkAccessDataSchema = z.object({
+  hasAccess: z.boolean().describe("Whether the organization has access"),
+  status: accessStatusSchema.describe("Computed access status"),
+  daysRemaining: z
+    .number()
+    .nullable()
+    .describe("Days remaining in trial/grace period"),
+  trialEnd: z.coerce.date().nullable().describe("Trial end date"),
+  requiresPayment: z.boolean().describe("Whether payment is required"),
+});
 
 const planDataSchema = z.object({
   id: z.string().describe("Plan ID"),
@@ -22,7 +56,8 @@ const billingCycleSchema = z.enum(["monthly", "yearly"]);
 const subscriptionDataSchema = z.object({
   id: z.string().describe("Subscription ID"),
   organizationId: z.string().describe("Organization ID"),
-  status: subscriptionStatusSchema.describe("Subscription status"),
+  status: dbSubscriptionStatusSchema.describe("Database subscription status"),
+  isTrial: z.boolean().describe("Whether this is a trial subscription"),
   plan: planDataSchema.describe("Associated plan"),
   billingCycle: billingCycleSchema
     .nullable()
@@ -43,6 +78,9 @@ const subscriptionDataSchema = z.object({
     .describe("Whether subscription cancels at period end"),
   canceledAt: z.iso.datetime().nullable().describe("Cancellation date"),
   seats: z.number().int().describe("Number of seats"),
+  pricingTier: pricingTierSchema
+    .nullable()
+    .describe("Current pricing tier (null for trials without tier)"),
 });
 
 const cancelSubscriptionDataSchema = z.object({
@@ -71,7 +109,9 @@ export const restoreSubscriptionResponseSchema = successResponseSchema(
   restoreSubscriptionDataSchema
 );
 
-export type SubscriptionStatus = z.infer<typeof subscriptionStatusSchema>;
+export type DbSubscriptionStatus = z.infer<typeof dbSubscriptionStatusSchema>;
+export type AccessStatus = z.infer<typeof accessStatusSchema>;
+export type CheckAccessData = z.infer<typeof checkAccessDataSchema>;
 
 export type GetSubscriptionInput = {
   userId: string;

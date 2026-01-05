@@ -1,8 +1,13 @@
 import { Retry } from "@/lib/utils/retry";
-import { ProfileNotFoundError } from "@/modules/organizations/profile/errors";
-import { OrganizationService } from "@/modules/organizations/profile/organization.service";
-import { CustomerCreationError } from "@/modules/payments/errors";
-import { PagarmeClient } from "@/modules/payments/pagarme/client";
+import { BillingService } from "@/modules/payments/billing/billing.service";
+import {
+  BillingProfileNotFoundError,
+  CustomerCreationError,
+} from "@/modules/payments/errors";
+import {
+  PAGARME_RETRY_CONFIG,
+  PagarmeClient,
+} from "@/modules/payments/pagarme/client";
 import type {
   CreateCustomerInput,
   ListCustomersData,
@@ -10,32 +15,61 @@ import type {
 } from "./customer.model";
 
 export abstract class CustomerService {
+  /**
+   * Gets or creates a Pagarme customer for checkout.
+   *
+   * Uses idempotency key with Pagarme and atomic DB update to prevent:
+   * - Duplicate customers in Pagarme (via idempotency key)
+   * - Race conditions in local DB (via setCustomerIdIfNull)
+   */
   static async getOrCreateForCheckout(
     organizationId: string
   ): Promise<{ pagarmeCustomerId: string }> {
-    const profile = await OrganizationService.getProfile(organizationId);
+    const billingProfile = await BillingService.getProfile(organizationId);
 
-    if (!profile) {
-      throw new ProfileNotFoundError(organizationId);
+    if (!billingProfile) {
+      throw new BillingProfileNotFoundError(organizationId);
     }
 
-    if (profile.pagarmeCustomerId) {
-      return { pagarmeCustomerId: profile.pagarmeCustomerId };
+    if (billingProfile.pagarmeCustomerId) {
+      return { pagarmeCustomerId: billingProfile.pagarmeCustomerId };
     }
 
-    const phone = profile.phone ?? profile.mobile;
-
+    // Create customer in Pagarme (idempotency key prevents duplicate customers)
     const customer = await CustomerService.create({
       organizationId,
-      name: profile.tradeName,
-      email: profile.email ?? "",
-      document: profile.taxId as string,
-      phone: phone as string,
+      name: billingProfile.legalName,
+      email: billingProfile.email,
+      document: billingProfile.taxId,
+      phone: billingProfile.phone,
     });
+
+    // Atomically save customer ID only if not already set by another request
+    const wasSet = await BillingService.setCustomerIdIfNull(
+      organizationId,
+      customer.pagarmeCustomerId
+    );
+
+    if (!wasSet) {
+      // Another request already set the customer ID, fetch and return it
+      const existingCustomerId =
+        await BillingService.getCustomerId(organizationId);
+      if (existingCustomerId) {
+        return { pagarmeCustomerId: existingCustomerId };
+      }
+      // This shouldn't happen, but handle gracefully
+      throw new CustomerCreationError(
+        "Failed to get or set customer ID after race condition"
+      );
+    }
 
     return { pagarmeCustomerId: customer.pagarmeCustomerId };
   }
 
+  /**
+   * Creates a customer in Pagarme.
+   * Note: Does NOT persist the customer ID - caller is responsible for saving it.
+   */
   static async create(
     input: CreateCustomerInput
   ): Promise<{ pagarmeCustomerId: string }> {
@@ -73,12 +107,7 @@ export abstract class CustomerService {
             },
             `create-customer-${organizationId}`
           ),
-        { maxAttempts: 3, delayMs: 1000 }
-      );
-
-      await OrganizationService.setCustomerId(
-        organizationId,
-        pagarmeCustomer.id
+        PAGARME_RETRY_CONFIG.WRITE
       );
 
       return { pagarmeCustomerId: pagarmeCustomer.id };
@@ -89,8 +118,7 @@ export abstract class CustomerService {
   }
 
   static async getCustomerId(organizationId: string): Promise<string | null> {
-    const profile = await OrganizationService.getProfile(organizationId);
-    return profile?.pagarmeCustomerId ?? null;
+    return await BillingService.getCustomerId(organizationId);
   }
 
   static async list(input: ListCustomersInput): Promise<ListCustomersData> {
@@ -103,7 +131,7 @@ export abstract class CustomerService {
           page: input.page,
           size: input.size,
         }),
-      { maxAttempts: 3, delayMs: 500 }
+      PAGARME_RETRY_CONFIG.READ
     );
 
     return {

@@ -1,28 +1,18 @@
 import { z } from "zod";
-import { MAX_EMPLOYEES } from "@/db/schema";
 import { successResponseSchema } from "@/lib/responses/response.types";
-import { billingDataSchema } from "@/modules/payments/customer/customer.model";
 
 const isProduction = process.env.NODE_ENV === "production";
 
 export const createCheckoutSchema = z.object({
   planId: z.string().min(1).describe("ID of the plan to checkout"),
-  employeeCount: z
-    .number()
-    .int()
-    .min(0)
-    .max(MAX_EMPLOYEES)
-    .describe("Number of employees for pricing tier"),
-  successUrl: (isProduction ? z.httpUrl() : z.url()).describe(
-    "URL to redirect after successful payment"
-  ),
+  tierId: z.string().min(1).describe("ID of the pricing tier"),
   billingCycle: z
     .enum(["monthly", "yearly"])
     .default("monthly")
     .describe("Billing cycle: monthly or yearly"),
-  billingData: billingDataSchema
-    .optional()
-    .describe("Billing data to create organization profile"),
+  successUrl: (isProduction ? z.httpUrl() : z.url()).describe(
+    "URL to redirect after successful payment"
+  ),
 });
 
 const checkoutDataSchema = z.object({

@@ -35,7 +35,6 @@ export type FeatureAccess = z.infer<typeof featureAccessSchema>;
 export type CheckFeatureResponse = z.infer<typeof checkFeatureResponseSchema>;
 export type CheckFeaturesResponse = z.infer<typeof checkFeaturesResponseSchema>;
 
-// Data-only types for service layer
 export type CheckFeatureData = FeatureAccess;
 export type CheckFeaturesData = {
   features: FeatureAccess[];
@@ -43,7 +42,6 @@ export type CheckFeaturesData = {
   planDisplayName: string;
 };
 
-// Capabilities endpoint types
 export const capabilitiesResponseSchema = successResponseSchema(
   z.object({
     subscription: z.object({
@@ -86,7 +84,6 @@ export const capabilitiesResponseSchema = successResponseSchema(
 export type CapabilitiesResponse = z.infer<typeof capabilitiesResponseSchema>;
 export type CapabilitiesData = CapabilitiesResponse["data"];
 
-// Employee limit types
 export type CheckEmployeeLimitData = {
   current: number;
   limit: number;

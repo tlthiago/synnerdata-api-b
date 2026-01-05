@@ -1,60 +1,34 @@
-import { afterAll, beforeAll, describe, expect, test } from "bun:test";
+import { beforeAll, describe, expect, test } from "bun:test";
 import { eq } from "drizzle-orm";
 import { db } from "@/db";
 import { schema } from "@/db/schema";
 import { JobsService } from "@/modules/payments/jobs/jobs.service";
+import { OrganizationFactory } from "@/test/factories/organization.factory";
 import {
-  addMemberToOrganization,
-  createTestOrganization,
-  type TestOrganization,
-} from "@/test/helpers/organization";
-import { seedPlans } from "@/test/helpers/seed";
-import { createTestSubscription } from "@/test/helpers/subscription";
-import { createTestUser, type TestUserResult } from "@/test/helpers/user";
+  type CreatePlanResult,
+  PlanFactory,
+} from "@/test/factories/payments/plan.factory";
+import { SubscriptionFactory } from "@/test/factories/payments/subscription.factory";
+import { UserFactory } from "@/test/factories/user.factory";
 
 describe("JobsService", () => {
-  const createdOrganizations: TestOrganization[] = [];
-  const createdUsers: TestUserResult[] = [];
+  let diamondPlan: CreatePlanResult;
+  let trialPlan: CreatePlanResult;
 
   beforeAll(async () => {
-    await seedPlans();
-  });
-
-  afterAll(async () => {
-    for (const org of createdOrganizations) {
-      await db
-        .delete(schema.orgSubscriptions)
-        .where(eq(schema.orgSubscriptions.organizationId, org.id));
-      await db
-        .delete(schema.members)
-        .where(eq(schema.members.organizationId, org.id));
-      await db
-        .delete(schema.organizationProfiles)
-        .where(eq(schema.organizationProfiles.organizationId, org.id));
-      await db
-        .delete(schema.organizations)
-        .where(eq(schema.organizations.id, org.id));
-    }
-
-    for (const userResult of createdUsers) {
-      await db
-        .delete(schema.sessions)
-        .where(eq(schema.sessions.userId, userResult.user.id));
-      await db
-        .delete(schema.users)
-        .where(eq(schema.users.id, userResult.user.id));
-    }
+    [diamondPlan, trialPlan] = await Promise.all([
+      PlanFactory.createPaid("diamond"),
+      PlanFactory.createTrial(),
+    ]);
   });
 
   describe("expireTrials", () => {
     test("should expire trials that have passed their end date", async () => {
-      const org = await createTestOrganization();
-      createdOrganizations.push(org);
+      const org = await OrganizationFactory.create();
 
-      await createTestSubscription(org.id, "test-plan-diamond", {
-        status: "trial",
-        trialDays: -1,
-      });
+      // Use trial plan (isTrial=true) for proper trial behavior
+      // trialDays = -1 means already expired
+      await SubscriptionFactory.createTrial(org.id, trialPlan.plan.id, -1);
 
       const result = await JobsService.expireTrials();
 
@@ -70,13 +44,10 @@ describe("JobsService", () => {
     });
 
     test("should not expire trials that are still valid", async () => {
-      const org = await createTestOrganization();
-      createdOrganizations.push(org);
+      const org = await OrganizationFactory.create();
 
-      await createTestSubscription(org.id, "test-plan-diamond", {
-        status: "trial",
-        trialDays: 14,
-      });
+      // Use trial plan (isTrial=true) for proper trial behavior
+      await SubscriptionFactory.createTrial(org.id, trialPlan.plan.id, 14);
 
       const result = await JobsService.expireTrials();
 
@@ -86,17 +57,15 @@ describe("JobsService", () => {
         .where(eq(schema.orgSubscriptions.organizationId, org.id))
         .limit(1);
 
-      expect(subscription.status).toBe("trial");
+      // Status is "active" because trial is determined by plan.isTrial, not status
+      expect(subscription.status).toBe("active");
       expect(result.expired).not.toContain(subscription.id);
     });
 
     test("should not affect active subscriptions", async () => {
-      const org = await createTestOrganization();
-      createdOrganizations.push(org);
+      const org = await OrganizationFactory.create();
 
-      await createTestSubscription(org.id, "test-plan-diamond", {
-        status: "active",
-      });
+      await SubscriptionFactory.createActive(org.id, diamondPlan.plan.id);
 
       await JobsService.expireTrials();
 
@@ -121,21 +90,15 @@ describe("JobsService", () => {
 
   describe("notifyExpiringTrials", () => {
     test("should notify trials expiring in ~3 days", async () => {
-      const org = await createTestOrganization();
-      createdOrganizations.push(org);
+      const org = await OrganizationFactory.create();
+      const owner = await UserFactory.create({ emailVerified: true });
 
-      const owner = await createTestUser({ emailVerified: true });
-      createdUsers.push(owner);
-
-      await addMemberToOrganization(owner, {
+      await OrganizationFactory.addMember(owner, {
         organizationId: org.id,
         role: "owner",
       });
 
-      await createTestSubscription(org.id, "test-plan-diamond", {
-        status: "trial",
-        trialDays: 3,
-      });
+      await SubscriptionFactory.createTrial(org.id, diamondPlan.plan.id, 3);
 
       const now = new Date();
       const trialEnd = new Date(now.getTime() + 3.5 * 24 * 60 * 60 * 1000);
@@ -154,21 +117,15 @@ describe("JobsService", () => {
     });
 
     test("should not notify trials expiring in less than 3 days", async () => {
-      const org = await createTestOrganization();
-      createdOrganizations.push(org);
+      const org = await OrganizationFactory.create();
+      const owner = await UserFactory.create({ emailVerified: true });
 
-      const owner = await createTestUser({ emailVerified: true });
-      createdUsers.push(owner);
-
-      await addMemberToOrganization(owner, {
+      await OrganizationFactory.addMember(owner, {
         organizationId: org.id,
         role: "owner",
       });
 
-      await createTestSubscription(org.id, "test-plan-diamond", {
-        status: "trial",
-        trialDays: 1,
-      });
+      await SubscriptionFactory.createTrial(org.id, diamondPlan.plan.id, 1);
 
       const result = await JobsService.notifyExpiringTrials();
 
@@ -182,21 +139,15 @@ describe("JobsService", () => {
     });
 
     test("should not notify trials expiring in more than 4 days", async () => {
-      const org = await createTestOrganization();
-      createdOrganizations.push(org);
+      const org = await OrganizationFactory.create();
+      const owner = await UserFactory.create({ emailVerified: true });
 
-      const owner = await createTestUser({ emailVerified: true });
-      createdUsers.push(owner);
-
-      await addMemberToOrganization(owner, {
+      await OrganizationFactory.addMember(owner, {
         organizationId: org.id,
         role: "owner",
       });
 
-      await createTestSubscription(org.id, "test-plan-diamond", {
-        status: "trial",
-        trialDays: 10,
-      });
+      await SubscriptionFactory.createTrial(org.id, diamondPlan.plan.id, 10);
 
       const result = await JobsService.notifyExpiringTrials();
 
@@ -210,16 +161,12 @@ describe("JobsService", () => {
     });
 
     test("should skip organizations without owner", async () => {
-      const org = await createTestOrganization();
-      createdOrganizations.push(org);
+      const org = await OrganizationFactory.create();
 
       const now = new Date();
       const trialEnd = new Date(now.getTime() + 3.5 * 24 * 60 * 60 * 1000);
 
-      await createTestSubscription(org.id, "test-plan-diamond", {
-        status: "trial",
-        trialDays: 3,
-      });
+      await SubscriptionFactory.createTrial(org.id, diamondPlan.plan.id, 3);
 
       await db
         .update(schema.orgSubscriptions)
@@ -249,13 +196,10 @@ describe("JobsService", () => {
 
   describe("processScheduledCancellations", () => {
     test("should cancel subscriptions past their period end", async () => {
-      const org = await createTestOrganization();
-      createdOrganizations.push(org);
+      const org = await OrganizationFactory.create();
+      const owner = await UserFactory.create({ emailVerified: true });
 
-      const owner = await createTestUser({ emailVerified: true });
-      createdUsers.push(owner);
-
-      await addMemberToOrganization(owner, {
+      await OrganizationFactory.addMember(owner, {
         organizationId: org.id,
         role: "owner",
       });
@@ -263,9 +207,7 @@ describe("JobsService", () => {
       const pastDate = new Date();
       pastDate.setDate(pastDate.getDate() - 1);
 
-      await createTestSubscription(org.id, "test-plan-diamond", {
-        status: "active",
-      });
+      await SubscriptionFactory.createActive(org.id, diamondPlan.plan.id);
 
       await db
         .update(schema.orgSubscriptions)
@@ -289,15 +231,12 @@ describe("JobsService", () => {
     });
 
     test("should not cancel subscriptions still within period", async () => {
-      const org = await createTestOrganization();
-      createdOrganizations.push(org);
+      const org = await OrganizationFactory.create();
 
       const futureDate = new Date();
       futureDate.setDate(futureDate.getDate() + 5);
 
-      await createTestSubscription(org.id, "test-plan-diamond", {
-        status: "active",
-      });
+      await SubscriptionFactory.createActive(org.id, diamondPlan.plan.id);
 
       await db
         .update(schema.orgSubscriptions)
@@ -321,15 +260,12 @@ describe("JobsService", () => {
     });
 
     test("should not cancel subscriptions without cancelAtPeriodEnd flag", async () => {
-      const org = await createTestOrganization();
-      createdOrganizations.push(org);
+      const org = await OrganizationFactory.create();
 
       const pastDate = new Date();
       pastDate.setDate(pastDate.getDate() - 1);
 
-      await createTestSubscription(org.id, "test-plan-diamond", {
-        status: "active",
-      });
+      await SubscriptionFactory.createActive(org.id, diamondPlan.plan.id);
 
       await db
         .update(schema.orgSubscriptions)
@@ -352,15 +288,12 @@ describe("JobsService", () => {
     });
 
     test("should not cancel already canceled subscriptions", async () => {
-      const org = await createTestOrganization();
-      createdOrganizations.push(org);
+      const org = await OrganizationFactory.create();
 
       const pastDate = new Date();
       pastDate.setDate(pastDate.getDate() - 1);
 
-      await createTestSubscription(org.id, "test-plan-diamond", {
-        status: "canceled",
-      });
+      await SubscriptionFactory.createCanceled(org.id, diamondPlan.plan.id);
 
       await db
         .update(schema.orgSubscriptions)
@@ -388,6 +321,119 @@ describe("JobsService", () => {
       expect(result).toHaveProperty("canceled");
       expect(typeof result.processed).toBe("number");
       expect(Array.isArray(result.canceled)).toBe(true);
+    });
+  });
+
+  describe("suspendExpiredGracePeriods", () => {
+    test("should suspend subscriptions with expired grace period", async () => {
+      const org = await OrganizationFactory.create();
+      const owner = await UserFactory.create({ emailVerified: true });
+
+      await OrganizationFactory.addMember(owner, {
+        organizationId: org.id,
+        role: "owner",
+      });
+
+      const pastDate = new Date();
+      pastDate.setDate(pastDate.getDate() - 1);
+
+      await SubscriptionFactory.createPastDue(org.id, diamondPlan.plan.id);
+
+      await db
+        .update(schema.orgSubscriptions)
+        .set({ gracePeriodEnds: pastDate })
+        .where(eq(schema.orgSubscriptions.organizationId, org.id));
+
+      const result = await JobsService.suspendExpiredGracePeriods();
+
+      const [subscription] = await db
+        .select()
+        .from(schema.orgSubscriptions)
+        .where(eq(schema.orgSubscriptions.organizationId, org.id))
+        .limit(1);
+
+      expect(subscription.status).toBe("canceled");
+      expect(result.suspended).toContain(subscription.id);
+    });
+
+    test("should not suspend subscriptions with valid grace period", async () => {
+      const org = await OrganizationFactory.create();
+
+      const futureDate = new Date();
+      futureDate.setDate(futureDate.getDate() + 5);
+
+      await SubscriptionFactory.createPastDue(org.id, diamondPlan.plan.id);
+
+      await db
+        .update(schema.orgSubscriptions)
+        .set({ gracePeriodEnds: futureDate })
+        .where(eq(schema.orgSubscriptions.organizationId, org.id));
+
+      const result = await JobsService.suspendExpiredGracePeriods();
+
+      const [subscription] = await db
+        .select()
+        .from(schema.orgSubscriptions)
+        .where(eq(schema.orgSubscriptions.organizationId, org.id))
+        .limit(1);
+
+      expect(subscription.status).toBe("past_due");
+      expect(result.suspended).not.toContain(subscription.id);
+    });
+
+    test("should not suspend active subscriptions", async () => {
+      const org = await OrganizationFactory.create();
+
+      const pastDate = new Date();
+      pastDate.setDate(pastDate.getDate() - 1);
+
+      await SubscriptionFactory.createActive(org.id, diamondPlan.plan.id);
+
+      await db
+        .update(schema.orgSubscriptions)
+        .set({ gracePeriodEnds: pastDate })
+        .where(eq(schema.orgSubscriptions.organizationId, org.id));
+
+      const result = await JobsService.suspendExpiredGracePeriods();
+
+      const [subscription] = await db
+        .select()
+        .from(schema.orgSubscriptions)
+        .where(eq(schema.orgSubscriptions.organizationId, org.id))
+        .limit(1);
+
+      expect(subscription.status).toBe("active");
+      expect(result.suspended).not.toContain(subscription.id);
+    });
+
+    test("should return correct response structure", async () => {
+      const result = await JobsService.suspendExpiredGracePeriods();
+
+      expect(result).toHaveProperty("processed");
+      expect(result).toHaveProperty("suspended");
+      expect(typeof result.processed).toBe("number");
+      expect(Array.isArray(result.suspended)).toBe(true);
+    });
+  });
+
+  describe("processScheduledPlanChanges", () => {
+    test("should return correct response structure", async () => {
+      const result = await JobsService.processScheduledPlanChanges();
+
+      expect(result).toHaveProperty("processed");
+      expect(result).toHaveProperty("executed");
+      expect(result).toHaveProperty("failed");
+      expect(typeof result.processed).toBe("number");
+      expect(Array.isArray(result.executed)).toBe(true);
+      expect(Array.isArray(result.failed)).toBe(true);
+    });
+
+    test("should return empty arrays when no scheduled changes exist", async () => {
+      const result = await JobsService.processScheduledPlanChanges();
+
+      expect(result.processed).toBeGreaterThanOrEqual(0);
+      expect(result.executed.length).toBeLessThanOrEqual(result.processed);
+      expect(result.failed.length).toBeLessThanOrEqual(result.processed);
     });
   });
 });

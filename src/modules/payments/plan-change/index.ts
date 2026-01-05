@@ -9,13 +9,11 @@ import {
 } from "@/lib/responses/response.types";
 import {
   cancelScheduledChangeResponseSchema,
-  changeBillingCycleResponseSchema,
-  changeBillingCycleSchema,
-  changePlanResponseSchema,
-  changePlanSchema,
   changeSubscriptionResponseSchema,
   changeSubscriptionSchema,
   getScheduledChangeResponseSchema,
+  previewChangeResponseSchema,
+  previewChangeSchema,
 } from "./plan-change.model";
 import { PlanChangeService } from "./plan-change.service";
 
@@ -25,7 +23,6 @@ export const planChangeController = new Elysia({
   detail: { tags: ["Payments - Plan Change"] },
 })
   .use(betterAuthPlugin)
-  // [2.3] Unified change subscription endpoint
   .post(
     "/change",
     async ({ user, session, body }) =>
@@ -53,66 +50,6 @@ export const planChangeController = new Elysia({
         summary: "Change subscription",
         description:
           "Unified endpoint to change plan, billing cycle, and/or employee count. Upgrades are processed immediately via payment link. Downgrades are scheduled for the end of the current billing period.",
-      },
-    }
-  )
-  .post(
-    "/change-plan",
-    async ({ user, session, body }) =>
-      wrapSuccess(
-        await PlanChangeService.changePlan({
-          ...body,
-          userId: user.id,
-          organizationId: session.activeOrganizationId as string,
-        })
-      ),
-    {
-      auth: {
-        permissions: { subscription: ["update"] },
-        requireOrganization: true,
-      },
-      body: changePlanSchema,
-      response: {
-        200: changePlanResponseSchema,
-        422: validationErrorSchema,
-        401: unauthorizedErrorSchema,
-        403: forbiddenErrorSchema,
-        404: notFoundErrorSchema,
-      },
-      detail: {
-        summary: "Change subscription plan",
-        description:
-          "Changes the subscription to a different plan. Upgrades are processed immediately via payment link. Downgrades are scheduled for the end of the current billing period.",
-      },
-    }
-  )
-  .post(
-    "/change-billing-cycle",
-    async ({ user, session, body }) =>
-      wrapSuccess(
-        await PlanChangeService.changeBillingCycle({
-          ...body,
-          userId: user.id,
-          organizationId: session.activeOrganizationId as string,
-        })
-      ),
-    {
-      auth: {
-        permissions: { subscription: ["update"] },
-        requireOrganization: true,
-      },
-      body: changeBillingCycleSchema,
-      response: {
-        200: changeBillingCycleResponseSchema,
-        422: validationErrorSchema,
-        401: unauthorizedErrorSchema,
-        403: forbiddenErrorSchema,
-        404: notFoundErrorSchema,
-      },
-      detail: {
-        summary: "Change billing cycle",
-        description:
-          "Changes the billing cycle between monthly and yearly. Monthly to yearly is processed immediately via payment link. Yearly to monthly is scheduled for the end of the current billing period.",
       },
     }
   )
@@ -168,6 +105,35 @@ export const planChangeController = new Elysia({
         summary: "Get scheduled plan change",
         description:
           "Returns information about any scheduled plan change, including the pending plan and scheduled date.",
+      },
+    }
+  )
+  .post(
+    "/preview-change",
+    async ({ session, body }) =>
+      wrapSuccess(
+        await PlanChangeService.previewChange({
+          ...body,
+          organizationId: session.activeOrganizationId as string,
+        })
+      ),
+    {
+      auth: {
+        permissions: { subscription: ["read"] },
+        requireOrganization: true,
+      },
+      body: previewChangeSchema,
+      response: {
+        200: previewChangeResponseSchema,
+        422: validationErrorSchema,
+        401: unauthorizedErrorSchema,
+        403: forbiddenErrorSchema,
+        404: notFoundErrorSchema,
+      },
+      detail: {
+        summary: "Preview subscription change",
+        description:
+          "Returns a preview of what would happen if the subscription change was executed. Does not make any changes. Useful for confirmation modals.",
       },
     }
   );

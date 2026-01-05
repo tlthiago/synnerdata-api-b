@@ -1,5 +1,6 @@
 import { z } from "zod";
 import { successResponseSchema } from "@/lib/responses/response.types";
+import { isValidCNPJ } from "@/lib/validation/documents";
 
 export const listInvoicesQuerySchema = z.object({
   page: z.coerce
@@ -110,7 +111,7 @@ const addressSchema = z.object({
 export const updateBillingInfoSchema = z.object({
   taxId: z.string().min(14).max(18).optional().describe("CNPJ"),
   legalName: z.string().min(1).max(255).optional().describe("Legal name"),
-  billingEmail: z.string().email().optional().describe("Billing email"),
+  billingEmail: z.email().optional().describe("Billing email"),
   phone: z.string().min(10).max(15).optional().describe("Phone number"),
   address: addressSchema.optional().describe("Billing address"),
 });
@@ -131,9 +132,68 @@ export type UpdateBillingInfoResponse = z.infer<
   typeof updateBillingInfoResponseSchema
 >;
 
-// Data-only types for service layer
 export type ListInvoicesData = z.infer<typeof listInvoicesDataSchema>;
 export type DownloadInvoiceData = z.infer<typeof downloadInvoiceDataSchema>;
 export type UpdateCardData = z.infer<typeof updateCardDataSchema>;
 export type GetUsageData = z.infer<typeof getUsageDataSchema>;
 export type UpdateBillingInfoData = z.infer<typeof updateBillingInfoDataSchema>;
+
+const cnpjSchema = z
+  .string()
+  .refine((value) => isValidCNPJ(value), { message: "CNPJ inválido" })
+  .describe("CNPJ do pagador");
+
+export const billingAddressSchema = z.object({
+  street: z.string().min(1).describe("Street name"),
+  number: z.string().min(1).describe("Street number"),
+  complement: z.string().optional().describe("Complement"),
+  neighborhood: z.string().min(1).describe("Neighborhood"),
+  city: z.string().min(1).describe("City"),
+  state: z.string().length(2).describe("State (UF)"),
+  zipCode: z.string().length(8).describe("ZIP code (CEP)"),
+});
+
+export const createProfileSchema = z.object({
+  legalName: z.string().min(1).describe("Razão social do pagador"),
+  taxId: cnpjSchema,
+  email: z.email().describe("Email de cobrança"),
+  phone: z.string().min(10).max(15).describe("Telefone de contato"),
+  address: billingAddressSchema.optional().describe("Billing address"),
+});
+
+export const updateProfileSchema = z.object({
+  legalName: z.string().min(1).optional().describe("Razão social do pagador"),
+  taxId: cnpjSchema.optional(),
+  email: z.email().optional().describe("Email de cobrança"),
+  phone: z.string().min(10).max(15).optional().describe("Telefone de contato"),
+  address: billingAddressSchema
+    .partial()
+    .optional()
+    .describe("Billing address"),
+});
+
+const profileDataSchema = z.object({
+  id: z.string().describe("Billing profile ID"),
+  organizationId: z.string().describe("Organization ID"),
+  legalName: z.string().describe("Razão social do pagador"),
+  taxId: z.string().describe("CNPJ do pagador"),
+  email: z.string().describe("Email de cobrança"),
+  phone: z.string().describe("Telefone de contato"),
+  street: z.string().nullable().describe("Street name"),
+  number: z.string().nullable().describe("Street number"),
+  complement: z.string().nullable().describe("Complement"),
+  neighborhood: z.string().nullable().describe("Neighborhood"),
+  city: z.string().nullable().describe("City"),
+  state: z.string().nullable().describe("State (UF)"),
+  zipCode: z.string().nullable().describe("ZIP code (CEP)"),
+  pagarmeCustomerId: z.string().nullable().describe("Pagarme customer ID"),
+  createdAt: z.date().describe("Data de criação"),
+  updatedAt: z.date().describe("Data da última atualização"),
+});
+
+export const profileResponseSchema = successResponseSchema(profileDataSchema);
+
+export type CreateProfileInput = z.infer<typeof createProfileSchema>;
+export type UpdateProfileInput = z.infer<typeof updateProfileSchema>;
+export type ProfileData = z.infer<typeof profileDataSchema>;
+export type ProfileResponse = z.infer<typeof profileResponseSchema>;

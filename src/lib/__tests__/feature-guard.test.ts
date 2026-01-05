@@ -1,23 +1,21 @@
-import { beforeAll, describe, expect, test } from "bun:test";
+import { afterAll, beforeAll, describe, expect, test } from "bun:test";
+import { eq } from "drizzle-orm";
 import Elysia from "elysia";
+import { db } from "@/db";
+import { schema } from "@/db/schema";
 import { env } from "@/env";
 import { betterAuthPlugin } from "@/lib/auth-plugin";
+import { OrganizationFactory } from "@/test/factories/organization.factory";
+import {
+  type CreatePlanResult,
+  PlanFactory,
+} from "@/test/factories/payments/plan.factory";
+import { SubscriptionFactory } from "@/test/factories/payments/subscription.factory";
+import { UserFactory } from "@/test/factories/user.factory";
 import {
   createApiKeyHeaders,
   createGlobalTestApiKey,
 } from "@/test/helpers/api-key";
-import { seedPlans } from "@/test/helpers/seed";
-import {
-  createActiveSubscription,
-  createCanceledSubscription,
-  createExpiredSubscription,
-  createTestSubscription,
-  createTrialSubscription,
-} from "@/test/helpers/subscription";
-import {
-  createTestAdminUser,
-  createTestUserWithOrganization,
-} from "@/test/helpers/user";
 
 const BASE_URL = env.API_URL;
 
@@ -63,15 +61,41 @@ function createFeatureGuardTestApp() {
 
 describe("Feature Guard", () => {
   let app: ReturnType<typeof createFeatureGuardTestApp>;
+  let trialPlan: CreatePlanResult;
+  let goldPlan: CreatePlanResult;
+  let diamondPlan: CreatePlanResult;
+  let platinumPlan: CreatePlanResult;
 
   beforeAll(async () => {
     app = createFeatureGuardTestApp();
-    await seedPlans();
+    [trialPlan, goldPlan, diamondPlan, platinumPlan] = await Promise.all([
+      PlanFactory.createTrial(),
+      PlanFactory.createPaid("gold"),
+      PlanFactory.createPaid("diamond"),
+      PlanFactory.createPaid("platinum"),
+    ]);
+  });
+
+  afterAll(async () => {
+    for (const plan of [trialPlan, goldPlan, diamondPlan, platinumPlan]) {
+      if (plan) {
+        // Delete subscriptions referencing this plan first
+        await db
+          .delete(schema.orgSubscriptions)
+          .where(eq(schema.orgSubscriptions.planId, plan.plan.id));
+        await db
+          .delete(schema.planPricingTiers)
+          .where(eq(schema.planPricingTiers.planId, plan.plan.id));
+        await db
+          .delete(schema.subscriptionPlans)
+          .where(eq(schema.subscriptionPlans.id, plan.plan.id));
+      }
+    }
   });
 
   describe("requireActiveSubscription", () => {
     test("should reject user with no subscription", async () => {
-      const { headers } = await createTestUserWithOrganization({
+      const { headers } = await UserFactory.createWithOrganization({
         emailVerified: true,
       });
 
@@ -87,11 +111,12 @@ describe("Feature Guard", () => {
     });
 
     test("should reject user with expired subscription", async () => {
-      const { headers, organizationId } = await createTestUserWithOrganization({
-        emailVerified: true,
-      });
+      const { headers, organizationId } =
+        await UserFactory.createWithOrganization({
+          emailVerified: true,
+        });
 
-      await createExpiredSubscription(organizationId, "test-plan-gold");
+      await SubscriptionFactory.createExpired(organizationId, goldPlan.plan.id);
 
       const response = await app.handle(
         new Request(`${BASE_URL}/test/require-active-subscription`, {
@@ -105,11 +130,15 @@ describe("Feature Guard", () => {
     });
 
     test("should reject user with canceled subscription", async () => {
-      const { headers, organizationId } = await createTestUserWithOrganization({
-        emailVerified: true,
-      });
+      const { headers, organizationId } =
+        await UserFactory.createWithOrganization({
+          emailVerified: true,
+        });
 
-      await createCanceledSubscription(organizationId, "test-plan-gold");
+      await SubscriptionFactory.createCanceled(
+        organizationId,
+        goldPlan.plan.id
+      );
 
       const response = await app.handle(
         new Request(`${BASE_URL}/test/require-active-subscription`, {
@@ -123,13 +152,12 @@ describe("Feature Guard", () => {
     });
 
     test("should reject user with past_due subscription (grace period expired)", async () => {
-      const { headers, organizationId } = await createTestUserWithOrganization({
-        emailVerified: true,
-      });
+      const { headers, organizationId } =
+        await UserFactory.createWithOrganization({
+          emailVerified: true,
+        });
 
-      await createTestSubscription(organizationId, "test-plan-gold", {
-        status: "past_due",
-      });
+      await SubscriptionFactory.createPastDue(organizationId, goldPlan.plan.id);
 
       // Note: past_due has grace period, so it may still have access
       // depending on gracePeriodEnds. For this test we just verify it works.
@@ -144,11 +172,12 @@ describe("Feature Guard", () => {
     });
 
     test("should allow user with active subscription", async () => {
-      const { headers, organizationId } = await createTestUserWithOrganization({
-        emailVerified: true,
-      });
+      const { headers, organizationId } =
+        await UserFactory.createWithOrganization({
+          emailVerified: true,
+        });
 
-      await createActiveSubscription(organizationId, "test-plan-gold");
+      await SubscriptionFactory.createActive(organizationId, goldPlan.plan.id);
 
       const response = await app.handle(
         new Request(`${BASE_URL}/test/require-active-subscription`, {
@@ -161,12 +190,28 @@ describe("Feature Guard", () => {
       expect(body.success).toBe(true);
     });
 
-    test("should allow user with trial subscription", async () => {
-      const { headers, organizationId } = await createTestUserWithOrganization({
-        emailVerified: true,
-      });
+    test("should allow user with trial plan subscription", async () => {
+      const { headers, organizationId } =
+        await UserFactory.createWithOrganization({
+          emailVerified: true,
+        });
 
-      await createTrialSubscription(organizationId, "test-plan-gold");
+      // Trial is now a PLAN type (isTrial=true), not a subscription status
+      // Create subscription with status "active" but using the trial plan
+      const now = new Date();
+      const trialEnd = new Date(now.getTime() + 14 * 24 * 60 * 60 * 1000);
+
+      await db.insert(schema.orgSubscriptions).values({
+        id: `test-sub-${crypto.randomUUID()}`,
+        organizationId,
+        planId: trialPlan.plan.id,
+        pricingTierId: trialPlan.tiers[0].id,
+        status: "active",
+        trialStart: now,
+        trialEnd,
+        trialUsed: true,
+        seats: 1,
+      });
 
       const response = await app.handle(
         new Request(`${BASE_URL}/test/require-active-subscription`, {
@@ -177,27 +222,59 @@ describe("Feature Guard", () => {
       expect(response.status).toBe(200);
       const body = await response.json();
       expect(body.success).toBe(true);
+    });
+
+    test("should reject user with expired trial plan", async () => {
+      const { headers, organizationId } =
+        await UserFactory.createWithOrganization({
+          emailVerified: true,
+        });
+
+      // Create trial subscription with expired trialEnd
+      const now = new Date();
+      const trialEnd = new Date(now.getTime() - 1 * 24 * 60 * 60 * 1000); // 1 day ago
+
+      await db.insert(schema.orgSubscriptions).values({
+        id: `test-sub-${crypto.randomUUID()}`,
+        organizationId,
+        planId: trialPlan.plan.id,
+        pricingTierId: trialPlan.tiers[0].id,
+        status: "active",
+        trialStart: new Date(now.getTime() - 15 * 24 * 60 * 60 * 1000),
+        trialEnd,
+        trialUsed: true,
+        seats: 1,
+      });
+
+      const response = await app.handle(
+        new Request(`${BASE_URL}/test/require-active-subscription`, {
+          headers,
+        })
+      );
+
+      expect(response.status).toBe(403);
+      const body = await response.json();
+      expect(body.error.code).toBe("SUBSCRIPTION_REQUIRED");
     });
 
     test("should allow admin even with inactive subscription (default bypass)", async () => {
-      const adminResult = await createTestAdminUser({
+      const adminResult = await UserFactory.createAdmin({
         emailVerified: true,
         role: "admin",
       });
 
       // Create organization for admin
-      const { addMemberToOrganization, createTestOrganization } = await import(
-        "@/test/helpers/organization"
-      );
-
-      const organization = await createTestOrganization();
-      await addMemberToOrganization(adminResult, {
+      const organization = await OrganizationFactory.create();
+      await OrganizationFactory.addMember(adminResult, {
         organizationId: organization.id,
         role: "owner",
       });
 
       // Create expired subscription
-      await createExpiredSubscription(organization.id, "test-plan-gold");
+      await SubscriptionFactory.createExpired(
+        organization.id,
+        goldPlan.plan.id
+      );
 
       const response = await app.handle(
         new Request(`${BASE_URL}/test/require-active-subscription`, {
@@ -213,12 +290,13 @@ describe("Feature Guard", () => {
 
   describe("requireFeature", () => {
     test("should reject user without feature in plan (gold trying platinum feature)", async () => {
-      const { headers, organizationId } = await createTestUserWithOrganization({
-        emailVerified: true,
-      });
+      const { headers, organizationId } =
+        await UserFactory.createWithOrganization({
+          emailVerified: true,
+        });
 
       // Gold plan doesn't have payroll feature
-      await createActiveSubscription(organizationId, "test-plan-gold");
+      await SubscriptionFactory.createActive(organizationId, goldPlan.plan.id);
 
       const response = await app.handle(
         new Request(`${BASE_URL}/test/require-feature-platinum`, {
@@ -232,11 +310,12 @@ describe("Feature Guard", () => {
     });
 
     test("should allow user with feature in plan (gold accessing gold feature)", async () => {
-      const { headers, organizationId } = await createTestUserWithOrganization({
-        emailVerified: true,
-      });
+      const { headers, organizationId } =
+        await UserFactory.createWithOrganization({
+          emailVerified: true,
+        });
 
-      await createActiveSubscription(organizationId, "test-plan-gold");
+      await SubscriptionFactory.createActive(organizationId, goldPlan.plan.id);
 
       const response = await app.handle(
         new Request(`${BASE_URL}/test/require-feature-gold`, {
@@ -250,11 +329,15 @@ describe("Feature Guard", () => {
     });
 
     test("should allow user with higher plan (platinum accessing gold feature)", async () => {
-      const { headers, organizationId } = await createTestUserWithOrganization({
-        emailVerified: true,
-      });
+      const { headers, organizationId } =
+        await UserFactory.createWithOrganization({
+          emailVerified: true,
+        });
 
-      await createActiveSubscription(organizationId, "test-plan-platinum");
+      await SubscriptionFactory.createActive(
+        organizationId,
+        platinumPlan.plan.id
+      );
 
       const response = await app.handle(
         new Request(`${BASE_URL}/test/require-feature-gold`, {
@@ -267,24 +350,53 @@ describe("Feature Guard", () => {
       expect(body.success).toBe(true);
     });
 
+    test("should allow trial plan user to access any feature (trial has all features)", async () => {
+      const { headers, organizationId } =
+        await UserFactory.createWithOrganization({
+          emailVerified: true,
+        });
+
+      // Trial plan has ALL features including payroll
+      const now = new Date();
+      const trialEnd = new Date(now.getTime() + 14 * 24 * 60 * 60 * 1000);
+
+      await db.insert(schema.orgSubscriptions).values({
+        id: `test-sub-${crypto.randomUUID()}`,
+        organizationId,
+        planId: trialPlan.plan.id,
+        pricingTierId: trialPlan.tiers[0].id,
+        status: "active",
+        trialStart: now,
+        trialEnd,
+        trialUsed: true,
+        seats: 1,
+      });
+
+      const response = await app.handle(
+        new Request(`${BASE_URL}/test/require-feature-platinum`, {
+          headers,
+        })
+      );
+
+      expect(response.status).toBe(200);
+      const body = await response.json();
+      expect(body.success).toBe(true);
+    });
+
     test("should allow admin even without feature in plan", async () => {
-      const adminResult = await createTestAdminUser({
+      const adminResult = await UserFactory.createAdmin({
         emailVerified: true,
         role: "admin",
       });
 
-      const { addMemberToOrganization, createTestOrganization } = await import(
-        "@/test/helpers/organization"
-      );
-
-      const organization = await createTestOrganization();
-      await addMemberToOrganization(adminResult, {
+      const organization = await OrganizationFactory.create();
+      await OrganizationFactory.addMember(adminResult, {
         organizationId: organization.id,
         role: "owner",
       });
 
       // Gold plan doesn't have payroll
-      await createActiveSubscription(organization.id, "test-plan-gold");
+      await SubscriptionFactory.createActive(organization.id, goldPlan.plan.id);
 
       const response = await app.handle(
         new Request(`${BASE_URL}/test/require-feature-platinum`, {
@@ -300,12 +412,13 @@ describe("Feature Guard", () => {
 
   describe("requireFeatures (multiple)", () => {
     test("should reject user missing any of the required features", async () => {
-      const { headers, organizationId } = await createTestUserWithOrganization({
-        emailVerified: true,
-      });
+      const { headers, organizationId } =
+        await UserFactory.createWithOrganization({
+          emailVerified: true,
+        });
 
       // Gold plan doesn't have birthdays or ppe (diamond features)
-      await createActiveSubscription(organizationId, "test-plan-gold");
+      await SubscriptionFactory.createActive(organizationId, goldPlan.plan.id);
 
       const response = await app.handle(
         new Request(`${BASE_URL}/test/require-multiple-features`, {
@@ -319,12 +432,16 @@ describe("Feature Guard", () => {
     });
 
     test("should allow user with all required features", async () => {
-      const { headers, organizationId } = await createTestUserWithOrganization({
-        emailVerified: true,
-      });
+      const { headers, organizationId } =
+        await UserFactory.createWithOrganization({
+          emailVerified: true,
+        });
 
       // Diamond plan has birthdays and ppe
-      await createActiveSubscription(organizationId, "test-plan-diamond");
+      await SubscriptionFactory.createActive(
+        organizationId,
+        diamondPlan.plan.id
+      );
 
       const response = await app.handle(
         new Request(`${BASE_URL}/test/require-multiple-features`, {
@@ -340,17 +457,13 @@ describe("Feature Guard", () => {
 
   describe("allowAdminBypass", () => {
     test("should bypass subscription check for admin by default", async () => {
-      const adminResult = await createTestAdminUser({
+      const adminResult = await UserFactory.createAdmin({
         emailVerified: true,
         role: "admin",
       });
 
-      const { addMemberToOrganization, createTestOrganization } = await import(
-        "@/test/helpers/organization"
-      );
-
-      const organization = await createTestOrganization();
-      await addMemberToOrganization(adminResult, {
+      const organization = await OrganizationFactory.create();
+      await OrganizationFactory.addMember(adminResult, {
         organizationId: organization.id,
         role: "owner",
       });
@@ -366,17 +479,13 @@ describe("Feature Guard", () => {
     });
 
     test("should bypass subscription check for super_admin", async () => {
-      const superAdminResult = await createTestAdminUser({
+      const superAdminResult = await UserFactory.createAdmin({
         emailVerified: true,
         role: "super_admin",
       });
 
-      const { addMemberToOrganization, createTestOrganization } = await import(
-        "@/test/helpers/organization"
-      );
-
-      const organization = await createTestOrganization();
-      await addMemberToOrganization(superAdminResult, {
+      const organization = await OrganizationFactory.create();
+      await OrganizationFactory.addMember(superAdminResult, {
         organizationId: organization.id,
         role: "owner",
       });
@@ -391,17 +500,13 @@ describe("Feature Guard", () => {
     });
 
     test("should bypass subscription check for API key (admin context)", async () => {
-      const adminResult = await createTestAdminUser({
+      const adminResult = await UserFactory.createAdmin({
         emailVerified: true,
         role: "admin",
       });
 
-      const { addMemberToOrganization, createTestOrganization } = await import(
-        "@/test/helpers/organization"
-      );
-
-      const organization = await createTestOrganization();
-      await addMemberToOrganization(adminResult, {
+      const organization = await OrganizationFactory.create();
+      await OrganizationFactory.addMember(adminResult, {
         organizationId: organization.id,
         role: "owner",
       });
@@ -420,17 +525,13 @@ describe("Feature Guard", () => {
     });
 
     test("should NOT bypass when allowAdminBypass is false", async () => {
-      const adminResult = await createTestAdminUser({
+      const adminResult = await UserFactory.createAdmin({
         emailVerified: true,
         role: "admin",
       });
 
-      const { addMemberToOrganization, createTestOrganization } = await import(
-        "@/test/helpers/organization"
-      );
-
-      const organization = await createTestOrganization();
-      await addMemberToOrganization(adminResult, {
+      const organization = await OrganizationFactory.create();
+      await OrganizationFactory.addMember(adminResult, {
         organizationId: organization.id,
         role: "owner",
       });

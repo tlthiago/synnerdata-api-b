@@ -1,42 +1,25 @@
 /**
  * Production seed data for subscription plans and pricing tiers.
  *
- * This defines the 3 base plans (Gold, Diamond, Platinum) with their features
- * and 10 pricing tiers per plan based on employee count ranges.
+ * This defines:
+ * - 1 Trial plan (free, 14 days, all features, 1 tier: 0-10 employees)
+ * - 3 paid plans (Gold, Diamond, Platinum) with their features
+ * - 10 pricing tiers per paid plan based on employee count ranges
  *
  * Run with: bun run db:seed
  */
 
 import { db } from "@/db";
+import { type PlanLimits, schema } from "@/db/schema";
 import {
+  calculateYearlyPrice,
+  DEFAULT_TRIAL_DAYS,
+  EMPLOYEE_TIERS,
   PLAN_FEATURES,
-  type PlanLimits,
-  schema,
-  YEARLY_DISCOUNT,
-} from "@/db/schema";
+  TRIAL_TIER,
+} from "@/modules/payments/plans/plans.constants";
 
-const calculateYearlyPrice = (monthlyPrice: number): number => {
-  const yearlyFullPrice = monthlyPrice * 12;
-  const discount = Math.round(yearlyFullPrice * YEARLY_DISCOUNT);
-  return yearlyFullPrice - discount;
-};
-
-// Employee tier ranges
-const EMPLOYEE_TIERS = [
-  { min: 0, max: 10 },
-  { min: 11, max: 20 },
-  { min: 21, max: 30 },
-  { min: 31, max: 40 },
-  { min: 41, max: 50 },
-  { min: 51, max: 60 },
-  { min: 61, max: 70 },
-  { min: 71, max: 80 },
-  { min: 81, max: 90 },
-  { min: 91, max: 180 },
-] as const;
-
-// Monthly prices in cents per tier for each plan
-const TIER_PRICES = {
+export const TIER_PRICES = {
   gold: [
     39_900, 44_990, 49_990, 55_990, 61_990, 69_990, 77_990, 86_990, 96_990,
     107_990,
@@ -51,57 +34,135 @@ const TIER_PRICES = {
   ],
 } as const;
 
-// Plan configurations
-const PLANS_CONFIG = [
-  {
-    id: "plan-gold",
-    name: "gold",
-    displayName: "Ouro Insights",
-    description: "Essencial para contratações eficazes",
-    trialDays: 14,
-    limits: {
-      features: PLAN_FEATURES.gold as unknown as string[],
-    } satisfies PlanLimits,
+export const PLAN_DISPLAY_NAMES = {
+  trial: "Trial",
+  gold: "Ouro Insights",
+  diamond: "Diamante Analytics",
+  platinum: "Platina Vision",
+} as const;
+
+export const PLAN_DESCRIPTIONS = {
+  trial: "Período de avaliação gratuito com acesso completo",
+  gold: "Essencial para contratações eficazes",
+  diamond: "Todos os recursos premium",
+  platinum: "Recursos avançados de analytics",
+} as const;
+
+type PlanName = keyof typeof PLAN_FEATURES;
+type PaidPlanName = keyof typeof TIER_PRICES;
+
+function createPlanId(name: string): string {
+  return `plan-${name}`;
+}
+
+function createTierId(planName: string, min: number, max: number): string {
+  return `tier-${planName}-${min}-${max}`;
+}
+
+type PlanConfig = {
+  id: string;
+  name: string;
+  displayName: string;
+  description: string;
+  trialDays: number;
+  limits: PlanLimits;
+  isActive: boolean;
+  isPublic: boolean;
+  isTrial: boolean;
+  sortOrder: number;
+};
+
+function createPlanConfig(
+  name: PlanName,
+  overrides: Partial<PlanConfig> = {}
+): PlanConfig {
+  return {
+    id: createPlanId(name),
+    name,
+    displayName: PLAN_DISPLAY_NAMES[name],
+    description: PLAN_DESCRIPTIONS[name],
+    trialDays: name === "trial" ? DEFAULT_TRIAL_DAYS : 0,
+    limits: { features: [...PLAN_FEATURES[name]] },
     isActive: true,
-    isPublic: true,
-    sortOrder: 0,
-    prices: TIER_PRICES.gold,
-  },
+    isPublic: name !== "trial",
+    isTrial: name === "trial",
+    sortOrder: name === "trial" ? -1 : Object.keys(PLAN_FEATURES).indexOf(name),
+    ...overrides,
+  };
+}
+
+const TRIAL_PLAN = createPlanConfig("trial");
+const PAID_PLANS: Array<PlanConfig & { prices: readonly number[] }> = [
+  { ...createPlanConfig("gold", { sortOrder: 0 }), prices: TIER_PRICES.gold },
   {
-    id: "plan-diamond",
-    name: "diamond",
-    displayName: "Diamante Analytics",
-    description: "Todos os recursos premium",
-    trialDays: 14,
-    limits: {
-      features: PLAN_FEATURES.diamond as unknown as string[],
-    } satisfies PlanLimits,
-    isActive: true,
-    isPublic: true,
-    sortOrder: 1,
+    ...createPlanConfig("diamond", { sortOrder: 1 }),
     prices: TIER_PRICES.diamond,
   },
   {
-    id: "plan-platinum",
-    name: "platinum",
-    displayName: "Platina Vision",
-    description: "Recursos avançados de analytics",
-    trialDays: 14,
-    limits: {
-      features: PLAN_FEATURES.platinum as unknown as string[],
-    } satisfies PlanLimits,
-    isActive: true,
-    isPublic: true,
-    sortOrder: 2,
+    ...createPlanConfig("platinum", { sortOrder: 2 }),
     prices: TIER_PRICES.platinum,
   },
-] as const;
+];
 
 export async function seedPlans(): Promise<void> {
   console.log("Seeding subscription plans and pricing tiers...");
 
-  for (const planConfig of PLANS_CONFIG) {
-    // Insert or update plan
+  // Seed trial plan with its single tier
+  const [trialPlan] = await db
+    .insert(schema.subscriptionPlans)
+    .values({
+      id: TRIAL_PLAN.id,
+      name: TRIAL_PLAN.name,
+      displayName: TRIAL_PLAN.displayName,
+      description: TRIAL_PLAN.description,
+      trialDays: TRIAL_PLAN.trialDays,
+      limits: TRIAL_PLAN.limits,
+      isActive: TRIAL_PLAN.isActive,
+      isPublic: TRIAL_PLAN.isPublic,
+      isTrial: TRIAL_PLAN.isTrial,
+      sortOrder: TRIAL_PLAN.sortOrder,
+    })
+    .onConflictDoUpdate({
+      target: schema.subscriptionPlans.id,
+      set: {
+        displayName: TRIAL_PLAN.displayName,
+        description: TRIAL_PLAN.description,
+        trialDays: TRIAL_PLAN.trialDays,
+        limits: TRIAL_PLAN.limits,
+        isActive: TRIAL_PLAN.isActive,
+        isPublic: TRIAL_PLAN.isPublic,
+        isTrial: TRIAL_PLAN.isTrial,
+        sortOrder: TRIAL_PLAN.sortOrder,
+      },
+    })
+    .returning();
+
+  console.log(`  Created/updated trial plan: ${trialPlan.displayName}`);
+
+  // Insert trial plan pricing tier (0-10 employees, free)
+  const trialTierId = createTierId("trial", TRIAL_TIER.min, TRIAL_TIER.max);
+  await db
+    .insert(schema.planPricingTiers)
+    .values({
+      id: trialTierId,
+      planId: TRIAL_PLAN.id,
+      minEmployees: TRIAL_TIER.min,
+      maxEmployees: TRIAL_TIER.max,
+      priceMonthly: 0,
+      priceYearly: 0,
+    })
+    .onConflictDoUpdate({
+      target: schema.planPricingTiers.id,
+      set: {
+        priceMonthly: 0,
+        priceYearly: 0,
+      },
+    });
+
+  console.log("    Created trial plan pricing tier (0-10 employees, free)");
+
+  // Seed paid plans with pricing tiers
+  for (const planConfig of PAID_PLANS) {
     const [plan] = await db
       .insert(schema.subscriptionPlans)
       .values({
@@ -109,12 +170,11 @@ export async function seedPlans(): Promise<void> {
         name: planConfig.name,
         displayName: planConfig.displayName,
         description: planConfig.description,
-        priceMonthly: planConfig.prices[0], // Base price for plan listing
-        priceYearly: calculateYearlyPrice(planConfig.prices[0]),
         trialDays: planConfig.trialDays,
         limits: planConfig.limits,
         isActive: planConfig.isActive,
         isPublic: planConfig.isPublic,
+        isTrial: planConfig.isTrial,
         sortOrder: planConfig.sortOrder,
       })
       .onConflictDoUpdate({
@@ -122,12 +182,11 @@ export async function seedPlans(): Promise<void> {
         set: {
           displayName: planConfig.displayName,
           description: planConfig.description,
-          priceMonthly: planConfig.prices[0],
-          priceYearly: calculateYearlyPrice(planConfig.prices[0]),
           trialDays: planConfig.trialDays,
           limits: planConfig.limits,
           isActive: planConfig.isActive,
           isPublic: planConfig.isPublic,
+          isTrial: planConfig.isTrial,
           sortOrder: planConfig.sortOrder,
         },
       })
@@ -140,7 +199,11 @@ export async function seedPlans(): Promise<void> {
       const tier = EMPLOYEE_TIERS[i];
       const priceMonthly = planConfig.prices[i];
       const priceYearly = calculateYearlyPrice(priceMonthly);
-      const tierId = `tier-${planConfig.name}-${tier.min}-${tier.max}`;
+      const tierId = createTierId(
+        planConfig.name as PaidPlanName,
+        tier.min,
+        tier.max
+      );
 
       await db
         .insert(schema.planPricingTiers)

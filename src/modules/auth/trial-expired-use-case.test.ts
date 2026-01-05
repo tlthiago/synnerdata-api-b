@@ -11,9 +11,9 @@ import { db } from "@/db";
 import { schema } from "@/db/schema";
 import { env } from "@/env";
 import { SubscriptionService } from "@/modules/payments/subscription/subscription.service";
-import { starterPlan } from "@/test/fixtures/plans";
-import { createTestApp, type TestApp } from "@/test/helpers/app";
-import { waitForOTP } from "@/test/helpers/mailhog";
+import { PlanFactory } from "@/test/factories/payments/plan.factory";
+import { createTestApp, type TestApp } from "@/test/support/app";
+import { waitForOTP } from "@/test/support/mailhog";
 
 const BASE_URL = env.API_URL;
 
@@ -29,13 +29,8 @@ describe("Trial Expired Use Case: Usuário com Trial Expirado", () => {
     testEmail = `trial-expired-${crypto.randomUUID()}@example.com`;
     originalTime = new Date();
 
-    // Insert starter plan if it doesn't exist
-    if (starterPlan) {
-      await db
-        .insert(schema.subscriptionPlans)
-        .values(starterPlan)
-        .onConflictDoNothing();
-    }
+    // Create trial plan using factory
+    await PlanFactory.createTrial();
   });
 
   afterAll(async () => {
@@ -216,16 +211,25 @@ describe("Trial Expired Use Case: Usuário com Trial Expirado", () => {
   });
 
   describe("Fase 4: Verificação de Subscription Status no DB", () => {
-    test("subscription status should still be 'trial' in database", async () => {
-      // Note: The DB status remains 'trial' until explicitly expired
-      // The checkAccess method handles the expiration logic in real-time
+    test("subscription status should be 'active' in database (trial is determined by plan.isTrial)", async () => {
+      // Trial subscriptions have status "active" in the DB
+      // The "trial" or "trial_expired" state is computed by checkAccess based on plan.isTrial + trialEnd
       const [subscription] = await db
         .select()
         .from(schema.orgSubscriptions)
         .where(eq(schema.orgSubscriptions.organizationId, organizationId))
         .limit(1);
 
-      expect(subscription.status).toBe("trial");
+      expect(subscription.status).toBe("active");
+    });
+
+    test("checkAccess should return trial_expired before explicit expiration job runs", async () => {
+      // Before the expireTrial job runs, checkAccess computes the expired state
+      const access = await SubscriptionService.checkAccess(organizationId);
+
+      expect(access.hasAccess).toBe(false);
+      expect(access.status).toBe("trial_expired");
+      expect(access.requiresPayment).toBe(true);
     });
 
     test("should be able to explicitly expire trial via service", async () => {

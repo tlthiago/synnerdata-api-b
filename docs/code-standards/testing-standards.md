@@ -107,47 +107,259 @@ Consulte `docs/code-standards/module-implementation-guide.md` seção 3.4 para c
 ## Estrutura de Testes
 
 ```text
-src/modules/{domain}/{module-name}/
-└── __tests__/
-    └── {action}-{resource}.test.ts   # Ex: create-checkout.test.ts
+src/
+├── test/
+│   ├── setup.ts                          # Setup global (verifica conexão com banco)
+│   │
+│   ├── factories/                        # Classes que CRIAM registros no banco
+│   │   ├── plan.factory.ts               # PlanFactory - cria planos com tiers
+│   │   ├── subscription.factory.ts       # SubscriptionFactory - cria assinaturas
+│   │   ├── checkout.factory.ts           # CheckoutFactory - cria checkouts
+│   │   ├── billing-profile.factory.ts    # BillingProfileFactory - cria perfis
+│   │   ├── organization.factory.ts       # OrganizationFactory - cria orgs
+│   │   └── user.factory.ts               # UserFactory - cria usuários
+│   │
+│   ├── builders/                         # Classes para objetos em memória (fluent API)
+│   │   ├── webhook-payload.builder.ts    # WebhookPayloadBuilder - payloads Pagarme
+│   │   └── request.builder.ts            # RequestBuilder - requests HTTP
+│   │
+│   ├── support/                          # Utilitários puros (não criam dados)
+│   │   ├── app.ts                        # createTestApp()
+│   │   ├── faker.ts                      # Geradores BR (CPF, CNPJ, etc.)
+│   │   ├── auth.ts                       # Headers de autenticação
+│   │   └── wait.ts                       # Polling utilities
+│   │
+│   └── helpers/                          # [LEGADO] Helpers de domínio (migração pendente)
+│       ├── employee.ts                   # createTestEmployee
+│       ├── sector.ts                     # createTestSector
+│       └── ...                           # Outros helpers de domínio
+│
+└── modules/{domain}/{module-name}/
+    └── __tests__/
+        └── {action}-{resource}.test.ts   # Ex: create-checkout.test.ts
 ```
+
+### Diferença entre Factory, Builder e Support
+
+| Tipo | Persiste no DB? | Padrão | Quando Usar |
+|------|-----------------|--------|-------------|
+| **Factory** | ✅ Sim | `abstract class` + `static` | Criar entidades reais no banco |
+| **Builder** | ❌ Não | `class` + fluent API | Criar payloads, requests em memória |
+| **Support** | ❌ Não | Funções puras | Utilitários (faker, auth, wait) |
+
+> **Nota**: A pasta `helpers/` contém helpers de domínio legados que serão migrados para `factories/` gradualmente.
 
 ---
 
 ## Arquivo de Teste
 
 ```typescript
-import { afterAll, beforeAll, describe, expect, spyOn, test } from "bun:test";
-import { eq } from "drizzle-orm";
-import { db } from "@/db";
-import { schema } from "@/db/schema";
+import { beforeAll, describe, expect, test } from "bun:test";
 import { env } from "@/env";
-import { proPlan, testPlans } from "@/test/fixtures/plans";
-import { createTestApp, type TestApp } from "@/test/helpers/app";
-import { seedPlans } from "@/test/helpers/seed";
-import { createTestSubscription } from "@/test/helpers/subscription";
-import {
-  createTestUser,
-  createTestUserWithOrganization,
-} from "@/test/helpers/user";
+import { createTestApp, type TestApp } from "@/test/support/app";
+import { UserFactory } from "@/test/factories/user.factory";
+import { PlanFactory } from "@/test/factories/payments/plan.factory";
+import { PLAN_FEATURES } from "../plans.constants";
 
 const BASE_URL = env.API_URL;
 
+// Constantes do domínio para testes
+const GOLD_FEATURES = [...PLAN_FEATURES.gold];
+
 describe("POST /v1/{domain}/{resource}", () => {
   let app: TestApp;
+  let authHeaders: Record<string, string>;
 
   beforeAll(async () => {
     app = createTestApp();
-    await seedPlans();  // Se não houver await, remover async do beforeAll
+    const { headers } = await UserFactory.createAdmin({ emailVerified: true });
+    authHeaders = headers;
   });
 
-  afterAll(async () => {
-    // Cleanup se necessário
-  });
+  // Sem afterAll de cleanup - IDs dinâmicos não colidem
 
   // Testes aqui...
 });
 ```
+
+---
+
+## Factories para Dados de Teste
+
+Factories são classes abstratas com métodos estáticos que criam dados diretamente no banco.
+Seguem o padrão recomendado pelo Elysia para serviços não dependentes de request.
+
+**Localização:** `src/test/factories/`
+
+**Nomenclatura:** `{resource}.factory.ts` (ex: `plan.factory.ts`, `user.factory.ts`)
+
+**Exemplo - PlanFactory:**
+
+```typescript
+import { PlanFactory } from "@/test/factories/payments/plan.factory";
+
+// Criar plano pago com todos os tiers
+const { plan, tiers } = await PlanFactory.createPaid("gold");
+const tier = PlanFactory.getFirstTier({ plan, tiers });
+
+// Criar plano trial
+const { plan: trialPlan } = await PlanFactory.createTrial();
+
+// Criar com opções customizadas
+const { plan } = await PlanFactory.create({
+  type: "diamond",
+  displayName: "Custom Diamond",
+  isActive: false,
+});
+```
+
+**Exemplo - SubscriptionFactory:**
+
+```typescript
+import { SubscriptionFactory } from "@/test/factories/payments/subscription.factory";
+
+// Criar subscription trial
+const subId = await SubscriptionFactory.createTrial(orgId, trialPlanId);
+
+// Criar subscription ativa (paga)
+const subId = await SubscriptionFactory.createActive(orgId, paidPlanId, "sub_pagarme_123");
+
+// Criar com status específico
+const subId = await SubscriptionFactory.create(orgId, planId, {
+  status: "past_due",
+  billingCycle: "yearly",
+});
+```
+
+**Quando usar Factory vs API:**
+
+| Situação | Abordagem |
+|----------|-----------|
+| Testar criação de plano (POST /plans) | Criar via **API** (é o foco) |
+| Plano é dependência para checkout | Usar **Factory** |
+| Testar criação de employee | Criar via **API** |
+| Employee é dependência para absence | Usar **Factory** (ou helper legado) |
+
+---
+
+## Builders para Objetos em Memória
+
+Builders usam fluent API para criar objetos complexos em memória (não persistem no banco).
+Ideal para payloads de webhook, requests HTTP e outros objetos de teste.
+
+**Localização:** `src/test/builders/`
+
+**Nomenclatura:** `{resource}.builder.ts` (ex: `webhook-payload.builder.ts`)
+
+**Exemplo - WebhookPayloadBuilder:**
+
+```typescript
+import { WebhookPayloadBuilder } from "@/test/builders/webhook-payload.builder";
+
+// Criar payload de charge.paid
+const payload = new WebhookPayloadBuilder()
+  .chargePaid()
+  .withSubscriptionId("sub_123")
+  .withOrganizationId(orgId)
+  .build();
+
+// Criar payload de subscription.created (via checkout)
+const payload = new WebhookPayloadBuilder()
+  .subscriptionCreated()
+  .withPaymentLinkCode("pl_abc123")
+  .withCustomer({ name: "John Doe", email: "john@example.com" })
+  .build();
+
+// Criar payload de falha de pagamento
+const payload = new WebhookPayloadBuilder()
+  .chargePaymentFailed()
+  .withOrganizationId(orgId)
+  .withAmount(9900)
+  .build();
+```
+
+**Exemplo - RequestBuilder:**
+
+```typescript
+import { RequestBuilder } from "@/test/builders/request.builder";
+
+// Criar request GET autenticado
+const request = new RequestBuilder()
+  .get("/v1/plans")
+  .withAuth(sessionCookie)
+  .build();
+
+// Criar request POST com JSON
+const request = new RequestBuilder()
+  .post("/v1/payments/checkout")
+  .withAuth(sessionCookie)
+  .withJson({ planId: "plan-123", tierId: "tier-456" })
+  .build();
+
+// Criar request de webhook
+const request = new RequestBuilder()
+  .webhook("/v1/payments/webhook")
+  .withWebhookPayload(payload)
+  .build();
+```
+
+---
+
+## IDs Dinâmicos
+
+Sempre usar IDs únicos para evitar conflitos entre testes paralelos.
+
+```typescript
+// ✅ CORRETO: Helper para gerar nomes únicos
+function generateUniqueName(prefix: string): string {
+  return `${prefix}-${crypto.randomUUID().slice(0, 8)}`;
+}
+
+const planName = generateUniqueName("test-plan");  // test-plan-a1b2c3d4
+
+// ❌ ERRADO: ID hardcoded
+const planName = "test-plan-pro";  // Conflita entre execuções
+```
+
+**Benefícios:**
+
+- Testes podem rodar em paralelo (Bun executa arquivos em paralelo por padrão)
+- Não precisa de cleanup no `afterAll` (IDs nunca colidem)
+- Banco de teste não acumula conflitos
+
+**Quando cleanup ainda é necessário:**
+
+- Manipulação de tempo com `setSystemTime()` - restaurar no `afterAll`
+- Testes de use-case que criam fluxos completos (usuário → org → subscription)
+
+---
+
+## Constantes de Domínio
+
+Importar constantes reais do domínio em vez de criar valores fake.
+
+```typescript
+// ✅ CORRETO: Usar features reais do sistema
+import { PLAN_FEATURES } from "../plans.constants";
+
+const GOLD_FEATURES = [...PLAN_FEATURES.gold];
+const TRIAL_FEATURES = [...PLAN_FEATURES.trial];
+
+const planData = {
+  limits: { features: GOLD_FEATURES },
+};
+
+// ❌ ERRADO: Features inventadas que não existem no sistema
+const planData = {
+  limits: { features: ["basic", "advanced", "premium"] },
+};
+```
+
+**Por que usar constantes reais?**
+
+- Testes refletem comportamento real do sistema
+- Mudanças nas constantes são detectadas pelos testes
+- Evita falsos positivos com dados fake
 
 ---
 
@@ -234,6 +446,7 @@ test.each([
 ] as const)("should reject %s member from creating checkout", async (role) => {
   const { addMemberToOrganization } = await import("@/test/helpers/organization");
   const { organizationId } = await createTestUserWithOrganization({ emailVerified: true });
+  const { plan, tiers } = await createPaidPlan("gold");
 
   const memberResult = await createTestUser({ emailVerified: true });
   await addMemberToOrganization(memberResult, {
@@ -245,7 +458,11 @@ test.each([
     new Request(`${BASE_URL}/v1/payments/checkout`, {
       method: "POST",
       headers: { ...memberResult.headers, "Content-Type": "application/json" },
-      body: JSON.stringify({ planId: "test-plan-pro", successUrl: "https://example.com" }),
+      body: JSON.stringify({
+        planId: plan.id,
+        tierId: tiers[0].id,
+        successUrl: "https://example.com",
+      }),
     })
   );
 
@@ -263,8 +480,9 @@ test.each([
   "canceled",
 ] as const)("should allow checkout for org with %s subscription", async (status) => {
   const { headers, organizationId } = await createTestUserWithOrganization({ emailVerified: true });
+  const { plan } = await createPaidPlan("gold");
 
-  await createTestSubscription(organizationId, "test-plan-starter", status);
+  await createTestSubscription(organizationId, plan.id, { status });
 
   const response = await app.handle(/* ... */);
 
@@ -430,11 +648,12 @@ expect(planAfterSecond.pagarmePlanId).toBe(firstPagarmePlanId);
 ## Checklist Rápido
 
 **Novo arquivo de teste:**
-- [ ] Import de `bun:test` com `describe`, `expect`, `test`, `beforeAll`, `afterAll`
+- [ ] Import de `bun:test` com `describe`, `expect`, `test`, `beforeAll`
 - [ ] Import de `schema` de `@/db/schema`
+- [ ] Import de factories de `@/test/factories/`
 - [ ] Describe com formato `{METHOD} /v1/{path}`
-- [ ] Setup com `createTestApp()` e seeds necessários
-- [ ] Cleanup no `afterAll` se necessário
+- [ ] Setup com `createTestApp()` e factories para dados de teste
+- [ ] IDs dinâmicos (`crypto.randomUUID()`) para evitar conflitos
 
 **Cada teste:**
 - [ ] Nome com `should` + comportamento esperado
@@ -672,42 +891,26 @@ describe("Trial Expired Use Case", () => {
 
 ---
 
-## Cleanup Obrigatório
+## Cleanup (Quando Necessário)
 
-Testes de use-case criam dados reais que devem ser limpos:
+Com IDs dinâmicos, a maioria dos testes não precisa de cleanup. O cleanup é necessário apenas para:
+
+1. **Manipulação de tempo** - Restaurar `setSystemTime()`
+2. **Testes de fluxo completo** - Usuário → Organização → Subscription (dados relacionados)
 
 ```typescript
 afterAll(async () => {
   // 1. Restaurar tempo real (se manipulado)
   setSystemTime();
 
-  // 2. Limpar na ordem correta (respeitar foreign keys)
-  if (organizationId) {
-    await db.delete(schema.orgSubscriptions)
-      .where(eq(schema.orgSubscriptions.organizationId, organizationId));
-    await db.delete(schema.members)
-      .where(eq(schema.members.organizationId, organizationId));
-    await db.delete(schema.organizations)
-      .where(eq(schema.organizations.id, organizationId));
-  }
-
-  // 3. Limpar usuário e sessões
-  const [user] = await db.select().from(schema.users)
-    .where(eq(schema.users.email, testEmail)).limit(1);
-
-  if (user) {
-    await db.delete(schema.sessions)
-      .where(eq(schema.sessions.userId, user.id));
-    await db.delete(schema.users)
-      .where(eq(schema.users.id, user.id));
-  }
-
-  // 4. Limpar verificações (OTP, etc.)
-  const identifier = `sign-in-otp-${testEmail}`;
-  await db.delete(schema.verifications)
-    .where(eq(schema.verifications.identifier, identifier));
+  // 2. Cleanup para fluxos completos (se necessário)
+  // Com IDs dinâmicos, isso é opcional - os dados não conflitam
 });
 ```
+
+**Quando NÃO precisa de cleanup:**
+- Testes que usam `createTestPlan()`, `createPaidPlan()`, etc. com IDs dinâmicos
+- Dados criados com `crypto.randomUUID()` - nunca colidem com outros testes
 
 ---
 
@@ -718,10 +921,11 @@ afterAll(async () => {
 - [ ] Describe principal com formato `{Use Case}: {Descrição}`
 - [ ] Fases organizadas com `describe` aninhados
 - [ ] Estado compartilhado via variáveis `let`
+- [ ] IDs dinâmicos para dados criados
 
 **Setup/Cleanup:**
-- [ ] `beforeAll` com `createTestApp()` e seeds
-- [ ] `afterAll` com cleanup completo (ordem correta de deletes)
+- [ ] `beforeAll` com `createTestApp()` e factories
+- [ ] `afterAll` apenas se necessário (manipulação de tempo, fluxos completos)
 - [ ] `setSystemTime()` restaurado se tempo foi manipulado
 
 **Fases:**
@@ -773,20 +977,17 @@ import { eq } from "drizzle-orm";
 import { db } from "@/db";
 import { schema } from "@/db/schema";
 import { createTestOrganization } from "@/test/helpers/organization";
-import { seedPlans } from "@/test/helpers/seed";
+import { createPaidPlan, createTrialPlan } from "@/test/factories/payments/plan";
 import { createTestSubscription } from "@/test/helpers/subscription";
 import { SubscriptionService } from "../subscription.service";
 
 describe("SubscriptionService", () => {
-  beforeAll(async () => {
-    await seedPlans();
-  });
-
   describe("methodName", () => {
     test("should {comportamento esperado}", async () => {
       // Arrange
       const org = await createTestOrganization();
-      await createTestSubscription(org.id, "test-plan-pro", "trial");
+      const { plan } = await createPaidPlan("gold");
+      await createTestSubscription(org.id, plan.id, { status: "trial" });
 
       // Act
       const result = await SubscriptionService.methodName(org.id);
@@ -840,7 +1041,8 @@ describe("checkAccess", () => {
   test("should return active status with full access", async () => {
     // 1. Arrange - preparar dados
     const org = await createTestOrganization();
-    await createActiveSubscription(org.id, "test-plan-pro");
+    const { plan } = await createPaidPlan("gold");
+    await createTestSubscription(org.id, plan.id, { status: "active" });
 
     // 2. Act - executar método
     const result = await SubscriptionService.checkAccess(org.id);
@@ -853,7 +1055,8 @@ describe("checkAccess", () => {
 
   test("should return trial_expired when trial has ended", async () => {
     const org = await createTestOrganization();
-    await createTestSubscription(org.id, "test-plan-pro", {
+    const { plan } = await createTrialPlan();
+    await createTestSubscription(org.id, plan.id, {
       status: "trial",
       trialDays: -1, // Trial já expirado
     });
@@ -879,7 +1082,7 @@ describe("createTrial", () => {
     const org = await createTestOrganization();
 
     await expect(
-      SubscriptionService.createTrial(org.id, "non-existent-plan")
+      SubscriptionService.createTrial(org.id, "plan-non-existent-id")
     ).rejects.toBeInstanceOf(PlanNotFoundError);
   });
 });
@@ -887,7 +1090,8 @@ describe("createTrial", () => {
 describe("ensureNoPaidSubscription", () => {
   test("should throw SubscriptionAlreadyActiveError for active subscription", async () => {
     const org = await createTestOrganization();
-    await createActiveSubscription(org.id, "test-plan-pro");
+    const { plan } = await createPaidPlan("gold");
+    await createTestSubscription(org.id, plan.id, { status: "active" });
 
     await expect(
       SubscriptionService.ensureNoPaidSubscription(org.id)
@@ -896,7 +1100,8 @@ describe("ensureNoPaidSubscription", () => {
 
   test("should not throw for trial subscription", async () => {
     const org = await createTestOrganization();
-    await createTestSubscription(org.id, "test-plan-pro", "trial");
+    const { plan } = await createTrialPlan();
+    await createTestSubscription(org.id, plan.id, { status: "trial" });
 
     await expect(
       SubscriptionService.ensureNoPaidSubscription(org.id)
@@ -913,7 +1118,8 @@ describe("ensureNoPaidSubscription", () => {
 describe("activate", () => {
   test("should activate subscription with billing period", async () => {
     const org = await createTestOrganization();
-    await createTestSubscription(org.id, "test-plan-pro", "trial");
+    const { plan } = await createTrialPlan();
+    await createTestSubscription(org.id, plan.id, { status: "trial" });
 
     const periodStart = new Date();
     const periodEnd = new Date();
@@ -970,13 +1176,14 @@ Para cada método interno do service:
 - [ ] Arquivo `{module}.service.test.ts` no `__tests__/`
 - [ ] Describe principal com nome da classe
 - [ ] Describe aninhado para cada método
-- [ ] Seeds no `beforeAll`
+- [ ] Factories no setup dos testes (não seeds globais)
 
 **Cada método:**
 - [ ] Testar todos os cenários de retorno
 - [ ] Testar cenários de erro/throw
 - [ ] Validar efeitos no banco quando aplicável
 - [ ] **Acessar propriedades diretamente** (SEM `.success` ou `.data`)
+- [ ] Usar IDs dinâmicos para dados de teste
 
 **Organização:**
 - [ ] Agrupar métodos relacionados

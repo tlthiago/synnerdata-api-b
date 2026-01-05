@@ -30,6 +30,18 @@ const PAGARME_PAYMENTLINKS_URL = env.PAGARME_SECRET_KEY.startsWith("sk_test_")
 
 const REQUEST_TIMEOUT_MS = 30_000;
 
+/**
+ * Standardized retry configuration for Pagarme API calls.
+ * Use PAGARME_RETRY_READ for read operations (GET) and
+ * PAGARME_RETRY_WRITE for write operations (POST/PUT/PATCH).
+ */
+export const PAGARME_RETRY_CONFIG = {
+  /** For read operations (listing, fetching) - more retries, shorter delay */
+  READ: { maxAttempts: 3, delayMs: 500 },
+  /** For write operations (create, update) - fewer retries, longer delay */
+  WRITE: { maxAttempts: 3, delayMs: 1000 },
+} as const;
+
 export abstract class PagarmeClient {
   private static get headers() {
     return {

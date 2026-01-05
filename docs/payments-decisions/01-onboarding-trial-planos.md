@@ -157,7 +157,9 @@
 | `isTrial` | `true` |
 | `trialDays` | 14 |
 | `limits.features` | Todas as features (igual Platinum) |
-| `limits.maxEmployees` | `null` (sem limite) |
+| `maxEmployees` | 10 (via pricing tier 0-10) |
+
+> **Nota:** O limite de 10 funcionários no trial é intencional para incentivar upgrade.
 
 ---
 

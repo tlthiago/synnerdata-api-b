@@ -20,6 +20,7 @@ import {
   users,
   verifications,
 } from "./auth";
+import { billingProfileRelations, billingProfiles } from "./billing-profiles";
 import { branches, branchRelations } from "./branches";
 import { costCenterRelations, costCenters } from "./cost-centers";
 import { cpfAnalyses, cpfAnalysisRelations } from "./cpf-analyses";
@@ -80,6 +81,7 @@ export const schema = {
   subscriptions,
   apikeys,
   organizationProfiles,
+  billingProfiles,
   branches,
   sectors,
   costCenters,
@@ -121,6 +123,7 @@ export const fullSchema = {
   subscriptionRelations,
   apikeysRelations,
   organizationProfileRelations,
+  billingProfileRelations,
   branchRelations,
   sectorRelations,
   costCenterRelations,
@@ -156,6 +159,7 @@ export type { Accident, NewAccident } from "./accidents";
 export type { AuditLog, NewAuditLog } from "./audit";
 export type { Role, SystemRole } from "./auth";
 export { roleValues, systemRoleValues } from "./auth";
+export type { BillingProfile, NewBillingProfile } from "./billing-profiles";
 export type { Branch, NewBranch } from "./branches";
 export type { CostCenter, NewCostCenter } from "./cost-centers";
 export type { CpfAnalysis, NewCpfAnalysis } from "./cpf-analyses";
@@ -190,13 +194,6 @@ export type {
   PlanPricingTier,
   SubscriptionEvent,
   SubscriptionPlan,
-} from "./payments";
-export {
-  DEFAULT_TRIAL_EMPLOYEE_LIMIT,
-  FEATURE_DISPLAY_NAMES,
-  MAX_EMPLOYEES,
-  PLAN_FEATURES,
-  YEARLY_DISCOUNT,
 } from "./payments";
 export type { NewPpeDelivery, PpeDelivery } from "./ppe-deliveries";
 export type { NewPpeDeliveryItem, PpeDeliveryItem } from "./ppe-delivery-items";

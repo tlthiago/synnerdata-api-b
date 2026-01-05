@@ -69,6 +69,7 @@ Write code that is **accessible, performant, type-safe, and maintainable**. Focu
 - Use early returns to reduce nesting
 - Prefer simple conditionals over nested ternary operators
 - Group related code together and separate concerns
+- **Never use re-exports** - Import directly from the source module instead of re-exporting from intermediate files. This avoids circular dependencies, improves tree-shaking, and makes the codebase easier to navigate
 
 ### Security
 
@@ -116,7 +117,6 @@ Biome's linter will catch most issues automatically. Focus your attention on:
 3. **Architecture decisions** - Component structure, data flow, and API design
 4. **Edge cases** - Handle boundary conditions and error states
 5. **User experience** - Accessibility, performance, and usability considerations
-6. **Documentation** - Add comments for complex logic, but prefer self-documenting code
 
 ---
 

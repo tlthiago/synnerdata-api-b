@@ -3,14 +3,15 @@ import { expect, test } from "@playwright/test";
 import { eq } from "drizzle-orm";
 import { db } from "@/db";
 import { schema } from "@/db/schema";
-import { proPlan, starterPlan } from "@/test/fixtures/plans";
-import { createTestApp } from "@/test/helpers/app";
-import { seedPlans } from "@/test/helpers/seed";
+import { BillingProfileFactory } from "@/test/factories/payments/billing-profile.factory";
 import {
-  createTestSubscription,
-  waitForSubscriptionActive,
-} from "@/test/helpers/subscription";
-import { createTestUserWithOrganization } from "@/test/helpers/user";
+  type CreatePlanResult,
+  PlanFactory,
+} from "@/test/factories/payments/plan.factory";
+import { SubscriptionFactory } from "@/test/factories/payments/subscription.factory";
+import { UserFactory } from "@/test/factories/user.factory";
+import { createTestApp } from "@/test/support/app";
+import { waitForSubscriptionActive } from "@/test/support/wait";
 
 /**
  * E2E Test: Soft Cancel Subscription Flow
@@ -52,6 +53,9 @@ const TEST_CUSTOMER = {
   number: "100",
 };
 
+let goldPlanResult: CreatePlanResult;
+let trialPlanResult: CreatePlanResult;
+
 test.describe("Soft Cancel Subscription E2E: Active → Cancel → Restore → Cancel", () => {
   test.beforeAll(async () => {
     if (!TUNNEL_URL) {
@@ -60,7 +64,8 @@ test.describe("Soft Cancel Subscription E2E: Active → Cancel → Restore → C
       );
       return;
     }
-    await seedPlans();
+    goldPlanResult = await PlanFactory.createPaid("gold");
+    trialPlanResult = await PlanFactory.createTrial();
   });
 
   test("should complete soft cancel flow: Active → Cancel (flags only) → Restore → Cancel", async ({
@@ -80,28 +85,29 @@ test.describe("Soft Cancel Subscription E2E: Active → Cancel → Restore → C
 
     console.log("\n=== FASE 1: Setup - Criando Subscription Ativa ===");
 
-    if (!(proPlan && starterPlan)) {
-      throw new Error("Test plans not found in fixtures");
-    }
-
     const { user, session, organizationId } =
-      await createTestUserWithOrganization({
+      await UserFactory.createWithOrganization({
         emailVerified: true,
       });
 
-    if (!organizationId) {
-      throw new Error("Organization not created for test user");
-    }
-
     console.log(`  Organization ID: ${organizationId}`);
+
+    // Create billing profile
+    await BillingProfileFactory.create({ organizationId });
 
     // Create trial subscription
     await db
       .delete(schema.orgSubscriptions)
       .where(eq(schema.orgSubscriptions.organizationId, organizationId));
 
-    await createTestSubscription(organizationId, starterPlan.id, "trial");
+    await SubscriptionFactory.createTrial(
+      organizationId,
+      trialPlanResult.plan.id
+    );
     console.log("  Trial subscription created");
+
+    // Get first tier for checkout
+    const tier = goldPlanResult.tiers[0];
 
     // Create checkout and complete payment
     const app = createTestApp();
@@ -113,8 +119,8 @@ test.describe("Soft Cancel Subscription E2E: Active → Cancel → Restore → C
           Cookie: `better-auth.session_token=${session.token}`,
         },
         body: JSON.stringify({
-          planId: proPlan.id,
-          employeeCount: 10,
+          planId: goldPlanResult.plan.id,
+          tierId: tier.id,
           successUrl: `${TUNNEL_URL}/checkout/success`,
         }),
       })
@@ -377,8 +383,8 @@ test.describe("Soft Cancel Subscription E2E: Active → Cancel → Restore → C
           Cookie: `better-auth.session_token=${session.token}`,
         },
         body: JSON.stringify({
-          planId: proPlan.id,
-          employeeCount: 10,
+          planId: goldPlanResult.plan.id,
+          tierId: tier.id,
           successUrl: `${TUNNEL_URL}/checkout/success`,
         }),
       })
