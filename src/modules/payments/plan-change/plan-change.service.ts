@@ -522,7 +522,11 @@ export abstract class PlanChangeService {
    */
   private static async buildPreviewResponse(params: {
     subscription: typeof schema.orgSubscriptions.$inferSelect;
-    currentPlan: typeof schema.subscriptionPlans.$inferSelect;
+    currentPlan: {
+      id: string;
+      displayName: string;
+      limits: { features: string[] } | null;
+    };
     currentTier: {
       id: string;
       minEmployees: number;
@@ -530,7 +534,11 @@ export abstract class PlanChangeService {
       priceMonthly: number;
       priceYearly: number;
     } | null;
-    newPlan: typeof schema.subscriptionPlans.$inferSelect;
+    newPlan: {
+      id: string;
+      displayName: string;
+      limits: { features: string[] } | null;
+    };
     newTier: {
       id: string;
       minEmployees: number;

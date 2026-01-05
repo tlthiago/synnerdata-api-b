@@ -312,9 +312,9 @@ describe("Subscription Renewal: charge.paid Updates Period", () => {
         .where(eq(schema.orgSubscriptions.organizationId, org.id))
         .limit(1);
 
-      const lastPeriod = periods.at(-1);
+      const [lastPeriod] = periods.slice(-1);
       expect(subscription.currentPeriodEnd?.getTime()).toBeCloseTo(
-        lastPeriod.end.getTime(),
+        lastPeriod?.end.getTime() ?? 0,
         -3 // Allow 1 second difference due to timing
       );
     });

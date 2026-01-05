@@ -257,7 +257,10 @@ describe("POST /v1/payments/subscription/preview-change", () => {
 
       // Create 15 employees (more than first tier max of 10)
       for (let i = 0; i < 15; i++) {
-        await EmployeeFactory.create({ organizationId: result.organizationId });
+        await EmployeeFactory.create({
+          organizationId: result.organizationId,
+          userId: result.userId,
+        });
       }
 
       await BillingProfileFactory.create({
