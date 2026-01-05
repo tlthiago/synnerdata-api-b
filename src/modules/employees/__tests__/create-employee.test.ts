@@ -54,8 +54,11 @@ async function setupSubscription(organizationId: string) {
     "@/test/factories/payments/subscription.factory"
   );
 
-  const { plan } = await PlanFactory.createPaid("gold");
-  await SubscriptionFactory.createActive(organizationId, plan.id);
+  const { plan, tiers } = await PlanFactory.createPaid("gold");
+  const firstTier = PlanFactory.getFirstTier({ plan, tiers });
+  await SubscriptionFactory.createActive(organizationId, plan.id, {
+    pricingTierId: firstTier.id,
+  });
 }
 
 async function createTestDependencies(organizationId: string, userId: string) {

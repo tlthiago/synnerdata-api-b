@@ -201,8 +201,11 @@ async function ensureSubscriptionExists(organizationId: string) {
     .limit(1);
 
   if (!existing) {
-    const { plan } = await PlanFactory.createPaid("gold");
-    await SubscriptionFactory.createActive(organizationId, plan.id);
+    const { plan, tiers } = await PlanFactory.createPaid("gold");
+    const firstTier = PlanFactory.getFirstTier({ plan, tiers });
+    await SubscriptionFactory.createActive(organizationId, plan.id, {
+      pricingTierId: firstTier.id,
+    });
   }
 }
 
