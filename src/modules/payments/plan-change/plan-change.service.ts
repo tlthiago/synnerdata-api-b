@@ -1266,6 +1266,7 @@ export abstract class PlanChangeService {
       metadata: {
         organization_id: organizationId,
         plan_id: newPlan.id,
+        pricing_tier_id: newTier.id,
         billing_cycle: finalBillingCycle,
         is_upgrade: "true",
         previous_subscription_id: subscription.id,

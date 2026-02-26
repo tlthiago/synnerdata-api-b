@@ -148,6 +148,93 @@ describe("priceAtPurchase tracking", () => {
   });
 
   // ============================================================
+  // AC4: Plan change (upgrade) updates priceAtPurchase
+  // ============================================================
+
+  describe("upgrade activation updates priceAtPurchase", () => {
+    test("should set priceAtPurchase to new tier price after upgrade via metadata", async () => {
+      const org = await OrganizationFactory.create();
+      const goldTier = PlanFactory.getFirstTier(goldResult);
+      const diamondTier = PlanFactory.getFirstTier(diamondResult);
+
+      // Start with Gold subscription
+      await SubscriptionFactory.createActive(org.id, goldResult.plan.id, {
+        billingCycle: "monthly",
+        pricingTierId: goldTier.id,
+      });
+
+      // Set initial priceAtPurchase (Gold tier price)
+      await db
+        .update(schema.orgSubscriptions)
+        .set({
+          priceAtPurchase: goldTier.priceMonthly,
+          isCustomPrice: false,
+        })
+        .where(eq(schema.orgSubscriptions.organizationId, org.id));
+
+      // Simulate upgrade: subscription.created with Diamond metadata
+      const payload = new WebhookPayloadBuilder()
+        .subscriptionCreated()
+        .withOrganizationId(org.id)
+        .withPlanId(diamondResult.plan.id)
+        .withPricingTierId(diamondTier.id)
+        .withBillingCycle("monthly")
+        .build();
+
+      await WebhookService.process(
+        payload,
+        createValidAuthHeader(),
+        JSON.stringify(payload)
+      );
+
+      const [subscription] = await db
+        .select()
+        .from(schema.orgSubscriptions)
+        .where(eq(schema.orgSubscriptions.organizationId, org.id))
+        .limit(1);
+
+      expect(subscription.priceAtPurchase).toBe(diamondTier.priceMonthly);
+      expect(subscription.isCustomPrice).toBe(false);
+      expect(subscription.planId).toBe(diamondResult.plan.id);
+    });
+
+    test("should set yearly priceAtPurchase when upgrade changes to yearly billing", async () => {
+      const org = await OrganizationFactory.create();
+      const goldTier = PlanFactory.getFirstTier(goldResult);
+      const diamondTier = PlanFactory.getFirstTier(diamondResult);
+
+      await SubscriptionFactory.createActive(org.id, goldResult.plan.id, {
+        billingCycle: "monthly",
+        pricingTierId: goldTier.id,
+      });
+
+      // Simulate upgrade: subscription.created with Diamond yearly
+      const payload = new WebhookPayloadBuilder()
+        .subscriptionCreated()
+        .withOrganizationId(org.id)
+        .withPlanId(diamondResult.plan.id)
+        .withPricingTierId(diamondTier.id)
+        .withBillingCycle("yearly")
+        .build();
+
+      await WebhookService.process(
+        payload,
+        createValidAuthHeader(),
+        JSON.stringify(payload)
+      );
+
+      const [subscription] = await db
+        .select()
+        .from(schema.orgSubscriptions)
+        .where(eq(schema.orgSubscriptions.organizationId, org.id))
+        .limit(1);
+
+      expect(subscription.priceAtPurchase).toBe(diamondTier.priceYearly);
+      expect(subscription.isCustomPrice).toBe(false);
+    });
+  });
+
+  // ============================================================
   // AC4: Plan change (downgrade) updates priceAtPurchase
   // ============================================================
 
