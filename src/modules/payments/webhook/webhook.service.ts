@@ -601,7 +601,7 @@ export abstract class WebhookService {
       })
       .where(eq(schema.pendingCheckouts.id, checkout.id));
 
-    const isCustomPrice = checkout.customPriceMonthly != null;
+    const isCustomPrice = checkout.customPriceMonthly !== null;
     let priceAtPurchase: number | undefined;
 
     if (isCustomPrice) {
