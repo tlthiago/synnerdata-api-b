@@ -47,6 +47,8 @@ export class WebhookPayloadBuilder {
   private readonly chargeId: string;
   private organizationId?: string;
   private planId?: string;
+  private pricingTierId?: string;
+  private billingCycle?: string;
   private paymentLinkCode?: string;
   private customer?: CustomerData;
   private period: PeriodData;
@@ -159,6 +161,22 @@ export class WebhookPayloadBuilder {
    */
   withPlanId(id: string): this {
     this.planId = id;
+    return this;
+  }
+
+  /**
+   * Sets the pricing tier ID in metadata
+   */
+  withPricingTierId(id: string): this {
+    this.pricingTierId = id;
+    return this;
+  }
+
+  /**
+   * Sets the billing cycle in metadata
+   */
+  withBillingCycle(cycle: string): this {
+    this.billingCycle = cycle;
     return this;
   }
 
@@ -344,6 +362,20 @@ export class WebhookPayloadBuilder {
       payload.data.metadata = {
         ...payload.data.metadata,
         plan_id: this.planId,
+      };
+    }
+
+    if (this.pricingTierId) {
+      payload.data.metadata = {
+        ...payload.data.metadata,
+        pricing_tier_id: this.pricingTierId,
+      };
+    }
+
+    if (this.billingCycle) {
+      payload.data.metadata = {
+        ...payload.data.metadata,
+        billing_cycle: this.billingCycle,
       };
     }
 
