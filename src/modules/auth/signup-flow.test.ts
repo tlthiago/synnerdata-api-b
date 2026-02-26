@@ -5,9 +5,10 @@ import { schema } from "@/db/schema";
 import { env } from "@/env";
 import { PlanFactory } from "@/test/factories/payments/plan.factory";
 import { createTestApp, type TestApp } from "@/test/support/app";
-import { waitForOTP } from "@/test/support/mailhog";
+import { clearMailbox, waitForVerificationEmail } from "@/test/support/mailhog";
 
 const BASE_URL = env.API_URL;
+const TEST_PASSWORD = "TestPassword123!";
 
 describe("Signup Use Case: Novo Usuário até Trial Ativo", () => {
   let app: TestApp;
@@ -24,7 +25,6 @@ describe("Signup Use Case: Novo Usuário até Trial Ativo", () => {
     testEmail = `test-${crypto.randomUUID()}@example.com`;
     emailModule = await import("@/lib/email");
 
-    // Create trial plan for subscription creation
     await PlanFactory.createTrial();
   });
 
@@ -35,15 +35,16 @@ describe("Signup Use Case: Novo Usuário até Trial Ativo", () => {
     ).mockResolvedValue(undefined);
   });
 
-  describe("Fase 1: Autenticação Passwordless", () => {
-    test("should send OTP to new email", async () => {
+  describe("Fase 1: Autenticação com Email e Senha", () => {
+    test("should sign up with email and password", async () => {
       const response = await app.handle(
-        new Request(`${BASE_URL}/api/auth/email-otp/send-verification-otp`, {
+        new Request(`${BASE_URL}/api/auth/sign-up/email`, {
           method: "POST",
           headers: { "Content-Type": "application/json" },
           body: JSON.stringify({
             email: testEmail,
-            type: "sign-in",
+            password: TEST_PASSWORD,
+            name: "Test User",
           }),
         })
       );
@@ -51,31 +52,48 @@ describe("Signup Use Case: Novo Usuário até Trial Ativo", () => {
       expect(response.status).toBe(200);
     });
 
-    test("should reject invalid OTP", async () => {
+    test("should send verification email on sign up", async () => {
+      const emailData = await waitForVerificationEmail(testEmail);
+      expect(emailData.subject).toContain("Verifique seu email");
+      expect(emailData.verificationUrl).toBeTruthy();
+    });
+
+    test("should reject sign-in before email verification", async () => {
       const response = await app.handle(
-        new Request(`${BASE_URL}/api/auth/sign-in/email-otp`, {
+        new Request(`${BASE_URL}/api/auth/sign-in/email`, {
           method: "POST",
           headers: { "Content-Type": "application/json" },
           body: JSON.stringify({
             email: testEmail,
-            otp: "000000",
+            password: TEST_PASSWORD,
           }),
         })
       );
 
-      expect(response.status).toBe(400);
+      // Better Auth returns error when email not verified
+      expect(response.status).not.toBe(200);
     });
 
-    test("should sign in with valid OTP", async () => {
-      const otp = await waitForOTP(testEmail);
+    test("should verify email via verification URL", async () => {
+      const { verificationUrl } = await waitForVerificationEmail(testEmail);
 
+      // Better Auth verification URLs are GET requests
       const response = await app.handle(
-        new Request(`${BASE_URL}/api/auth/sign-in/email-otp`, {
+        new Request(verificationUrl, { method: "GET", redirect: "manual" })
+      );
+
+      // Verification endpoint typically redirects or returns 200
+      expect([200, 302]).toContain(response.status);
+    });
+
+    test("should sign in with verified email and password", async () => {
+      const response = await app.handle(
+        new Request(`${BASE_URL}/api/auth/sign-in/email`, {
           method: "POST",
           headers: { "Content-Type": "application/json" },
           body: JSON.stringify({
             email: testEmail,
-            otp,
+            password: TEST_PASSWORD,
           }),
         })
       );
@@ -87,7 +105,7 @@ describe("Signup Use Case: Novo Usuário até Trial Ativo", () => {
       sessionCookies = setCookieHeader ?? "";
     });
 
-    test("should create new user automatically", async () => {
+    test("should create new user with correct data", async () => {
       const [user] = await db
         .select()
         .from(schema.users)
@@ -95,29 +113,68 @@ describe("Signup Use Case: Novo Usuário até Trial Ativo", () => {
         .limit(1);
 
       expect(user).toBeDefined();
-      userId = user.id;
-    });
-
-    test("should set emailVerified to true", async () => {
-      const [user] = await db
-        .select()
-        .from(schema.users)
-        .where(eq(schema.users.id, userId))
-        .limit(1);
-
+      expect(user.name).toBe("Test User");
       expect(user.emailVerified).toBe(true);
+      userId = user.id;
     });
 
     test("should return session cookies", () => {
       expect(sessionCookies).toContain("better-auth.session_token");
     });
 
-    test("should send welcome email on first login", () => {
+    test("should send welcome email on sign up", () => {
       expect(sendWelcomeEmailSpy).toHaveBeenCalledTimes(1);
       expect(sendWelcomeEmailSpy).toHaveBeenCalledWith({
         to: testEmail,
-        userName: expect.any(String),
+        userName: "Test User",
       });
+    });
+
+    test("should reject sign up with short password", async () => {
+      const response = await app.handle(
+        new Request(`${BASE_URL}/api/auth/sign-up/email`, {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({
+            email: `short-pass-${crypto.randomUUID()}@example.com`,
+            password: "short",
+            name: "Short Pass User",
+          }),
+        })
+      );
+
+      expect(response.status).not.toBe(200);
+    });
+
+    test("should reject sign up with duplicate email", async () => {
+      const response = await app.handle(
+        new Request(`${BASE_URL}/api/auth/sign-up/email`, {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({
+            email: testEmail,
+            password: TEST_PASSWORD,
+            name: "Duplicate User",
+          }),
+        })
+      );
+
+      expect(response.status).not.toBe(200);
+    });
+
+    test("should reject sign in with wrong password", async () => {
+      const response = await app.handle(
+        new Request(`${BASE_URL}/api/auth/sign-in/email`, {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({
+            email: testEmail,
+            password: "WrongPassword123!",
+          }),
+        })
+      );
+
+      expect(response.status).not.toBe(200);
     });
 
     test("should not fail user creation if welcome email fails", async () => {
@@ -125,30 +182,19 @@ describe("Signup Use Case: Novo Usuário até Trial Ativo", () => {
 
       sendWelcomeEmailSpy.mockRejectedValueOnce(new Error("SMTP error"));
 
-      await app.handle(
-        new Request(`${BASE_URL}/api/auth/email-otp/send-verification-otp`, {
+      const signUpResponse = await app.handle(
+        new Request(`${BASE_URL}/api/auth/sign-up/email`, {
           method: "POST",
           headers: { "Content-Type": "application/json" },
           body: JSON.stringify({
             email: failEmail,
-            type: "sign-in",
+            password: TEST_PASSWORD,
+            name: "Fail Email User",
           }),
         })
       );
 
-      const otp = await waitForOTP(failEmail);
-      const signInResponse = await app.handle(
-        new Request(`${BASE_URL}/api/auth/sign-in/email-otp`, {
-          method: "POST",
-          headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({
-            email: failEmail,
-            otp,
-          }),
-        })
-      );
-
-      expect(signInResponse.status).toBe(200);
+      expect(signUpResponse.status).toBe(200);
 
       const [user] = await db
         .select()
@@ -162,36 +208,15 @@ describe("Signup Use Case: Novo Usuário até Trial Ativo", () => {
       await db
         .delete(schema.sessions)
         .where(eq(schema.sessions.userId, user.id));
+      await db
+        .delete(schema.accounts)
+        .where(eq(schema.accounts.userId, user.id));
       await db.delete(schema.users).where(eq(schema.users.id, user.id));
+      await clearMailbox(failEmail);
     });
   });
 
   describe("Fase 2: Onboarding", () => {
-    test("should allow updating user name", async () => {
-      const response = await app.handle(
-        new Request(`${BASE_URL}/api/auth/update-user`, {
-          method: "POST",
-          headers: {
-            "Content-Type": "application/json",
-            Cookie: sessionCookies,
-          },
-          body: JSON.stringify({
-            name: "Test User",
-          }),
-        })
-      );
-
-      expect(response.status).toBe(200);
-
-      const [user] = await db
-        .select()
-        .from(schema.users)
-        .where(eq(schema.users.id, userId))
-        .limit(1);
-
-      expect(user.name).toBe("Test User");
-    });
-
     test("should create organization", async () => {
       const response = await app.handle(
         new Request(`${BASE_URL}/api/auth/organization/create`, {
@@ -277,15 +302,13 @@ describe("Signup Use Case: Novo Usuário até Trial Ativo", () => {
       expect(daysDiff).toBe(14);
     });
 
-    test("should have status active (trial is determined by plan.isTrial, not status)", async () => {
+    test("should have status active", async () => {
       const [subscription] = await db
         .select()
         .from(schema.orgSubscriptions)
         .where(eq(schema.orgSubscriptions.organizationId, organizationId))
         .limit(1);
 
-      // Trial subscriptions have status "active" in the DB
-      // The "trial" state is derived from plan.isTrial + trialEnd date
       expect(subscription.status).toBe("active");
     });
 
@@ -344,31 +367,16 @@ describe("Signup Use Case: Novo Usuário até Trial Ativo", () => {
       expect(body.session.activeOrganizationId).toBe(organizationId);
     });
 
-    test("should allow re-login with same email", async () => {
+    test("should allow re-login with email and password", async () => {
       sendWelcomeEmailSpy.mockClear();
 
-      // Send new OTP
-      const sendResponse = await app.handle(
-        new Request(`${BASE_URL}/api/auth/email-otp/send-verification-otp`, {
-          method: "POST",
-          headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({
-            email: testEmail,
-            type: "sign-in",
-          }),
-        })
-      );
-      expect(sendResponse.status).toBe(200);
-
-      // Get OTP and sign in
-      const otp = await waitForOTP(testEmail);
       const signInResponse = await app.handle(
-        new Request(`${BASE_URL}/api/auth/sign-in/email-otp`, {
+        new Request(`${BASE_URL}/api/auth/sign-in/email`, {
           method: "POST",
           headers: { "Content-Type": "application/json" },
           body: JSON.stringify({
             email: testEmail,
-            otp,
+            password: TEST_PASSWORD,
           }),
         })
       );
@@ -380,7 +388,6 @@ describe("Signup Use Case: Novo Usuário até Trial Ativo", () => {
     });
 
     test("should NOT send welcome email on re-login", () => {
-      // This runs after the re-login test above
       expect(sendWelcomeEmailSpy).toHaveBeenCalledTimes(0);
     });
   });

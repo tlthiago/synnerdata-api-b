@@ -22,29 +22,89 @@ export async function sendEmail({ to, subject, html }: SendEmailParams) {
   });
 }
 
-type SendOTPEmailParams = {
+type SendVerificationEmailParams = {
   email: string;
-  otp: string;
-  type: "sign-in" | "email-verification" | "forget-password";
+  url: string;
 };
 
-export async function sendOTPEmail({ email, otp, type }: SendOTPEmailParams) {
-  const subjects: Record<typeof type, string> = {
-    "sign-in": "Seu código de acesso",
-    "email-verification": "Verifique seu email",
-    "forget-password": "Redefinir sua senha",
-  };
-
-  const messages: Record<typeof type, string> = {
-    "sign-in": "Use o código abaixo para acessar sua conta:",
-    "email-verification": "Use o código abaixo para verificar seu email:",
-    "forget-password": "Use o código abaixo para redefinir sua senha:",
-  };
-
+export async function sendVerificationEmail({
+  email,
+  url,
+}: SendVerificationEmailParams) {
   const html = `
     <div style="font-family: Arial, sans-serif; max-width: 600px; margin: 0 auto;">
-      <h2 style="color: #333;">${subjects[type]}</h2>
-      <p style="color: #666;">${messages[type]}</p>
+      <h2 style="color: #333;">Verifique seu email</h2>
+      <p style="color: #666;">Clique no botão abaixo para verificar seu endereço de email:</p>
+      <p>
+        <a href="${url}"
+           style="display: inline-block; background: #007bff; color: white; padding: 12px 24px; text-decoration: none; border-radius: 4px;">
+          Verificar Email
+        </a>
+      </p>
+      <p style="color: #999; font-size: 12px;">
+        Se o botão não funcionar, copie e cole este link: ${url}
+      </p>
+      <p style="color: #999; font-size: 12px;">
+        Se você não criou uma conta, ignore este email.
+      </p>
+    </div>
+  `;
+
+  await sendEmail({
+    to: email,
+    subject: "Verifique seu email - Synnerdata",
+    html,
+  });
+}
+
+type SendPasswordResetEmailParams = {
+  email: string;
+  url: string;
+};
+
+export async function sendPasswordResetEmail({
+  email,
+  url,
+}: SendPasswordResetEmailParams) {
+  const html = `
+    <div style="font-family: Arial, sans-serif; max-width: 600px; margin: 0 auto;">
+      <h2 style="color: #333;">Redefinir sua senha</h2>
+      <p style="color: #666;">Você solicitou a redefinição da sua senha. Clique no botão abaixo:</p>
+      <p>
+        <a href="${url}"
+           style="display: inline-block; background: #007bff; color: white; padding: 12px 24px; text-decoration: none; border-radius: 4px;">
+          Redefinir Senha
+        </a>
+      </p>
+      <p style="color: #999; font-size: 12px;">
+        Se o botão não funcionar, copie e cole este link: ${url}
+      </p>
+      <p style="color: #999; font-size: 12px;">
+        Este link expira em 1 hora. Se você não solicitou a redefinição, ignore este email.
+      </p>
+    </div>
+  `;
+
+  await sendEmail({
+    to: email,
+    subject: "Redefinir sua senha - Synnerdata",
+    html,
+  });
+}
+
+type SendTwoFactorOTPEmailParams = {
+  email: string;
+  otp: string;
+};
+
+export async function sendTwoFactorOTPEmail({
+  email,
+  otp,
+}: SendTwoFactorOTPEmailParams) {
+  const html = `
+    <div style="font-family: Arial, sans-serif; max-width: 600px; margin: 0 auto;">
+      <h2 style="color: #333;">Código de verificação</h2>
+      <p style="color: #666;">Use o código abaixo para completar seu login:</p>
       <div style="background: #f5f5f5; padding: 20px; border-radius: 8px; text-align: center; margin: 20px 0;">
         <span style="font-size: 32px; font-weight: bold; letter-spacing: 8px; color: #333;">
           ${otp}
@@ -58,7 +118,7 @@ export async function sendOTPEmail({ email, otp, type }: SendOTPEmailParams) {
 
   await sendEmail({
     to: email,
-    subject: subjects[type],
+    subject: "Código de verificação - Synnerdata",
     html,
   });
 }

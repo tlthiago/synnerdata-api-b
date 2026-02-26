@@ -13,9 +13,10 @@ import { env } from "@/env";
 import { SubscriptionService } from "@/modules/payments/subscription/subscription.service";
 import { PlanFactory } from "@/test/factories/payments/plan.factory";
 import { createTestApp, type TestApp } from "@/test/support/app";
-import { waitForOTP } from "@/test/support/mailhog";
+import { waitForVerificationEmail } from "@/test/support/mailhog";
 
 const BASE_URL = env.API_URL;
+const TEST_PASSWORD = "TestPassword123!";
 
 describe("Trial Expired Use Case: Usuário com Trial Expirado", () => {
   let app: TestApp;
@@ -50,12 +51,6 @@ describe("Trial Expired Use Case: Usuário com Trial Expirado", () => {
         .where(eq(schema.organizations.id, organizationId));
     }
 
-    // Clean up verifications
-    const identifier = `sign-in-otp-${testEmail}`;
-    await db
-      .delete(schema.verifications)
-      .where(eq(schema.verifications.identifier, identifier));
-
     // Clean up user and sessions
     const [user] = await db
       .select()
@@ -67,34 +62,43 @@ describe("Trial Expired Use Case: Usuário com Trial Expirado", () => {
       await db
         .delete(schema.sessions)
         .where(eq(schema.sessions.userId, user.id));
+      await db
+        .delete(schema.accounts)
+        .where(eq(schema.accounts.userId, user.id));
       await db.delete(schema.users).where(eq(schema.users.id, user.id));
     }
   });
 
   describe("Setup: Criar usuário com trial ativo", () => {
-    test("should create user via OTP sign-in", async () => {
-      // Send OTP
-      const sendResponse = await app.handle(
-        new Request(`${BASE_URL}/api/auth/email-otp/send-verification-otp`, {
+    test("should create user via email+password sign-up", async () => {
+      // Sign up
+      const signUpResponse = await app.handle(
+        new Request(`${BASE_URL}/api/auth/sign-up/email`, {
           method: "POST",
           headers: { "Content-Type": "application/json" },
           body: JSON.stringify({
             email: testEmail,
-            type: "sign-in",
+            password: TEST_PASSWORD,
+            name: "Trial User",
           }),
         })
       );
-      expect(sendResponse.status).toBe(200);
+      expect(signUpResponse.status).toBe(200);
 
-      // Get OTP and sign in
-      const otp = await waitForOTP(testEmail);
+      // Verify email
+      const { verificationUrl } = await waitForVerificationEmail(testEmail);
+      await app.handle(
+        new Request(verificationUrl, { method: "GET", redirect: "manual" })
+      );
+
+      // Sign in
       const signInResponse = await app.handle(
-        new Request(`${BASE_URL}/api/auth/sign-in/email-otp`, {
+        new Request(`${BASE_URL}/api/auth/sign-in/email`, {
           method: "POST",
           headers: { "Content-Type": "application/json" },
           body: JSON.stringify({
             email: testEmail,
-            otp,
+            password: TEST_PASSWORD,
           }),
         })
       );
@@ -172,7 +176,6 @@ describe("Trial Expired Use Case: Usuário com Trial Expirado", () => {
     test("should show warning that trial is ending soon", async () => {
       const access = await SubscriptionService.checkAccess(organizationId);
 
-      // Frontend pode usar isso para mostrar banner de aviso
       expect(access.daysRemaining).toBeLessThanOrEqual(3);
       expect(access.requiresPayment).toBe(false);
     });
@@ -212,8 +215,6 @@ describe("Trial Expired Use Case: Usuário com Trial Expirado", () => {
 
   describe("Fase 4: Verificação de Subscription Status no DB", () => {
     test("subscription status should be 'active' in database (trial is determined by plan.isTrial)", async () => {
-      // Trial subscriptions have status "active" in the DB
-      // The "trial" or "trial_expired" state is computed by checkAccess based on plan.isTrial + trialEnd
       const [subscription] = await db
         .select()
         .from(schema.orgSubscriptions)
@@ -224,7 +225,6 @@ describe("Trial Expired Use Case: Usuário com Trial Expirado", () => {
     });
 
     test("checkAccess should return trial_expired before explicit expiration job runs", async () => {
-      // Before the expireTrial job runs, checkAccess computes the expired state
       const access = await SubscriptionService.checkAccess(organizationId);
 
       expect(access.hasAccess).toBe(false);

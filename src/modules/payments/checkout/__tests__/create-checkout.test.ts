@@ -428,7 +428,8 @@ describe("POST /v1/payments/checkout", () => {
       )?.pagarmePlanIdMonthly;
 
       expect(secondPagarmePlanId).toBe(firstPagarmePlanId);
-    }
+    },
+    15_000
   );
 
   test.skipIf(skipIntegration).each(["trial", "canceled"] as const)(

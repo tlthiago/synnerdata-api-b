@@ -150,6 +150,197 @@ export async function waitForOTP(
 }
 
 // ============================================================
+// VERIFICATION EMAIL
+// ============================================================
+
+export type VerificationEmailData = {
+  subject: string;
+  verificationUrl: string;
+  body: string;
+};
+
+const VERIFICATION_SUBJECT_PATTERN = "Verifique seu email";
+const VERIFICATION_URL_REGEX = /href=["']([^"']*verify-email[^"']*)["']/i;
+const VERIFICATION_URL_FALLBACK_REGEX =
+  /href=["'](https?:\/\/[^"']+)["'][^>]*>[\s\S]*?Verificar Email/i;
+
+function isVerificationEmail(message: MailHogMessage): boolean {
+  const subject = message.Content.Headers.Subject?.[0] ?? "";
+  return subject.includes(VERIFICATION_SUBJECT_PATTERN);
+}
+
+function extractVerificationUrl(htmlBody: string): string | null {
+  const decodedBody = htmlBody.replace(/=3D/g, "=").replace(/=\r?\n/g, "");
+  const match =
+    decodedBody.match(VERIFICATION_URL_REGEX) ??
+    decodedBody.match(VERIFICATION_URL_FALLBACK_REGEX);
+  return match?.[1] ?? null;
+}
+
+async function tryGetVerificationEmail(
+  email: string
+): Promise<VerificationEmailData | null> {
+  const messages = await searchEmailsByRecipient(email);
+  const verificationEmail = messages.find(isVerificationEmail);
+
+  if (!verificationEmail) {
+    return null;
+  }
+
+  const subject = verificationEmail.Content.Headers.Subject?.[0] ?? "";
+  const body = verificationEmail.Content.Body;
+  const verificationUrl = extractVerificationUrl(body);
+
+  if (!verificationUrl) {
+    throw new Error(
+      `Found verification email for ${email} but could not extract URL from body.`
+    );
+  }
+
+  return { subject, verificationUrl, body };
+}
+
+export async function waitForVerificationEmail(
+  email: string,
+  maxRetries = DEFAULT_MAX_RETRIES,
+  delayMs = DEFAULT_RETRY_DELAY_MS
+): Promise<VerificationEmailData> {
+  for (let attempt = 1; attempt <= maxRetries; attempt++) {
+    try {
+      const emailData = await tryGetVerificationEmail(email);
+
+      if (emailData) {
+        return emailData;
+      }
+
+      if (attempt >= maxRetries) {
+        throw new Error(
+          `No verification email found for ${email} after ${maxRetries} attempts.`
+        );
+      }
+
+      await delay(delayMs);
+    } catch (error) {
+      if (error instanceof TypeError && error.message.includes("fetch")) {
+        throwMailHogUnavailableError();
+      }
+
+      if (attempt >= maxRetries) {
+        throw error;
+      }
+
+      await delay(delayMs);
+    }
+  }
+
+  throw new Error(
+    `Verification email not found for ${email} after ${maxRetries} retries`
+  );
+}
+
+// ============================================================
+// PASSWORD RESET EMAIL
+// ============================================================
+
+export type PasswordResetEmailData = {
+  subject: string;
+  resetUrl: string;
+  body: string;
+};
+
+const RESET_SUBJECT_PATTERN = "Redefinir sua senha";
+const RESET_URL_REGEX = /href=["']([^"']*reset-password[^"']*)["']/i;
+const RESET_URL_FALLBACK_REGEX =
+  /href=["'](https?:\/\/[^"']+)["'][^>]*>[\s\S]*?Redefinir Senha/i;
+
+function isPasswordResetEmail(message: MailHogMessage): boolean {
+  const subject = message.Content.Headers.Subject?.[0] ?? "";
+  return subject.includes(RESET_SUBJECT_PATTERN);
+}
+
+function extractResetUrl(htmlBody: string): string | null {
+  const decodedBody = htmlBody.replace(/=3D/g, "=").replace(/=\r?\n/g, "");
+  const match =
+    decodedBody.match(RESET_URL_REGEX) ??
+    decodedBody.match(RESET_URL_FALLBACK_REGEX);
+  return match?.[1] ?? null;
+}
+
+async function tryGetPasswordResetEmail(
+  email: string
+): Promise<PasswordResetEmailData | null> {
+  const messages = await searchEmailsByRecipient(email);
+  const resetEmail = messages.find(isPasswordResetEmail);
+
+  if (!resetEmail) {
+    return null;
+  }
+
+  const subject = resetEmail.Content.Headers.Subject?.[0] ?? "";
+  const body = resetEmail.Content.Body;
+  const resetUrl = extractResetUrl(body);
+
+  if (!resetUrl) {
+    throw new Error(
+      `Found password reset email for ${email} but could not extract URL from body.`
+    );
+  }
+
+  return { subject, resetUrl, body };
+}
+
+export async function waitForPasswordResetEmail(
+  email: string,
+  maxRetries = DEFAULT_MAX_RETRIES,
+  delayMs = DEFAULT_RETRY_DELAY_MS
+): Promise<PasswordResetEmailData> {
+  for (let attempt = 1; attempt <= maxRetries; attempt++) {
+    try {
+      const emailData = await tryGetPasswordResetEmail(email);
+
+      if (emailData) {
+        return emailData;
+      }
+
+      if (attempt >= maxRetries) {
+        throw new Error(
+          `No password reset email found for ${email} after ${maxRetries} attempts.`
+        );
+      }
+
+      await delay(delayMs);
+    } catch (error) {
+      if (error instanceof TypeError && error.message.includes("fetch")) {
+        throwMailHogUnavailableError();
+      }
+
+      if (attempt >= maxRetries) {
+        throw error;
+      }
+
+      await delay(delayMs);
+    }
+  }
+
+  throw new Error(
+    `Password reset email not found for ${email} after ${maxRetries} retries`
+  );
+}
+
+// ============================================================
+// CLEAR MAILBOX
+// ============================================================
+
+export async function clearMailbox(email: string): Promise<void> {
+  const messages = await searchEmailsByRecipient(email);
+  for (const message of messages) {
+    await fetch(`${MAILHOG_API_URL}/api/v1/messages/${message.ID}`, {
+      method: "DELETE",
+    });
+  }
+}
+
+// ============================================================
 // CHECKOUT EMAIL
 // ============================================================
 

@@ -5,9 +5,9 @@ import type { Invitation, Member, Organization } from "better-auth/plugins";
 import {
   admin,
   apiKey,
-  emailOTP,
   openAPI,
   organization,
+  twoFactor,
 } from "better-auth/plugins";
 import type { Session, User } from "better-auth/types";
 import { eq } from "drizzle-orm";
@@ -20,7 +20,9 @@ import { AuditService } from "@/modules/audit/audit.service";
 import { SubscriptionService } from "@/modules/payments/subscription/subscription.service";
 import {
   sendOrganizationInvitationEmail,
-  sendOTPEmail,
+  sendPasswordResetEmail,
+  sendTwoFactorOTPEmail,
+  sendVerificationEmail as sendVerificationEmailFn,
   sendWelcomeEmail,
 } from "./email";
 import { orgAc, orgRoles, systemAc, systemRoles } from "./permissions";
@@ -202,6 +204,22 @@ export const auth = betterAuth({
     usePlural: true,
     schema: fullSchema,
   }),
+  emailAndPassword: {
+    enabled: true,
+    requireEmailVerification: true,
+    minPasswordLength: 8,
+    maxPasswordLength: 128,
+    async sendResetPassword({ user, url }) {
+      await sendPasswordResetEmail({ email: user.email, url });
+    },
+    revokeSessionsOnPasswordReset: true,
+  },
+  emailVerification: {
+    async sendVerificationEmail({ user, url }) {
+      await sendVerificationEmailFn({ email: user.email, url });
+    },
+    sendOnSignUp: true,
+  },
   user: {
     additionalFields: {
       role: {
@@ -227,7 +245,6 @@ export const auth = betterAuth({
       "/sign-up/*": { window: 60, max: 3 },
       "/two-factor/*": { window: 60, max: 3 },
       "/forgot-password/*": { window: 300, max: 3 },
-      "/email-otp/*": { window: 60, max: 5 },
       "/get-session": false,
     },
   },
@@ -413,12 +430,20 @@ export const auth = betterAuth({
         },
       },
     }),
-    emailOTP({
-      otpLength: 6,
-      expiresIn: 300,
-      disableSignUp: false,
-      async sendVerificationOTP({ email, otp, type }) {
-        await sendOTPEmail({ email, otp, type });
+    twoFactor({
+      otpOptions: {
+        async sendOTP({ user, otp }) {
+          await sendTwoFactorOTPEmail({ email: user.email, otp });
+        },
+        period: 5,
+        digits: 6,
+        allowedAttempts: 5,
+        storeOTP: "encrypted",
+      },
+      backupCodeOptions: {
+        amount: 10,
+        length: 10,
+        storeBackupCodes: "encrypted",
       },
     }),
     apiKey({
