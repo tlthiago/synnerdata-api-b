@@ -244,6 +244,7 @@ export abstract class PlanChangeService {
   /**
    * Executes a scheduled plan change. Called by the daily job.
    * Uses transaction to prevent race conditions with user cancellation.
+   * Creates a new Pagar.me subscription for the downgraded plan.
    */
   static async executeScheduledChange(subscriptionId: string): Promise<void> {
     // 1. First read to check if we need to cancel Pagarme subscription
@@ -265,7 +266,15 @@ export abstract class PlanChangeService {
       return;
     }
 
-    // 2. Cancel current Pagarme subscription OUTSIDE transaction (can fail)
+    // 2. Fetch card info from old subscription before canceling
+    let oldSubscriptionCardId: string | null = null;
+    if (initialSubscription.pagarmeSubscriptionId) {
+      oldSubscriptionCardId = await PlanChangeService.fetchCardFromSubscription(
+        initialSubscription.pagarmeSubscriptionId
+      );
+    }
+
+    // 3. Cancel current Pagarme subscription OUTSIDE transaction (can fail)
     if (initialSubscription.pagarmeSubscriptionId) {
       const pagarmeSubId = initialSubscription.pagarmeSubscriptionId;
       try {
@@ -283,18 +292,26 @@ export abstract class PlanChangeService {
       }
     }
 
-    // 3. Execute plan change inside transaction
+    // 4. Create new Pagarme subscription for the downgraded plan
+    const newPagarmeSubscriptionId =
+      await PlanChangeService.createDowngradeSubscription({
+        subscription: initialSubscription,
+        cardId: oldSubscriptionCardId,
+      });
+
+    // 5. Execute plan change inside transaction
     const result = await db.transaction(async (tx) => {
       const transactionResult =
         await PlanChangeService.executeScheduledChangeTransaction(
           tx,
           subscriptionId,
-          currentPlan.displayName
+          currentPlan.displayName,
+          newPagarmeSubscriptionId
         );
       return transactionResult;
     });
 
-    // 4. Emit event and send email OUTSIDE transaction
+    // 6. Emit event and send email OUTSIDE transaction
     if (result?.subscription) {
       PaymentHooks.emit("planChange.executed", {
         subscription: result.subscription,
@@ -821,7 +838,8 @@ export abstract class PlanChangeService {
   private static async executeScheduledChangeTransaction(
     tx: Parameters<Parameters<typeof db.transaction>[0]>[0],
     subscriptionId: string,
-    currentPlanDisplayName: string
+    currentPlanDisplayName: string,
+    newPagarmeSubscriptionId: string | null
   ): Promise<{
     subscription: typeof schema.orgSubscriptions.$inferSelect;
     previousPlanId: string;
@@ -921,7 +939,7 @@ export abstract class PlanChangeService {
         pendingBillingCycle: null,
         pendingPricingTierId: null,
         planChangeAt: null,
-        pagarmeSubscriptionId: null,
+        pagarmeSubscriptionId: newPagarmeSubscriptionId,
         priceAtPurchase: newPrice,
         isCustomPrice: false,
         currentPeriodStart: new Date(),
@@ -941,6 +959,114 @@ export abstract class PlanChangeService {
       newPlanName: newPlan.displayName,
       organizationId: subscription.organizationId,
     };
+  }
+
+  /**
+   * Fetches the card ID from an existing Pagar.me subscription.
+   * Returns null if the subscription cannot be fetched or has no card.
+   */
+  private static async fetchCardFromSubscription(
+    pagarmeSubscriptionId: string
+  ): Promise<string | null> {
+    try {
+      const pagarmeSubscription = await Retry.withRetry(
+        () => PagarmeClient.getSubscription(pagarmeSubscriptionId),
+        PAGARME_RETRY_CONFIG.READ
+      );
+      return pagarmeSubscription.card?.id ?? null;
+    } catch {
+      const { logger } = await import("@/lib/logger");
+      logger.warn({
+        type: "plan-change:execute:fetch-card-failed",
+        pagarmeSubscriptionId,
+      });
+      return null;
+    }
+  }
+
+  /**
+   * Creates a new Pagar.me subscription for a downgrade using the customer's stored card.
+   * Returns the new subscription ID, or null if creation fails.
+   */
+  private static async createDowngradeSubscription(params: {
+    subscription: typeof schema.orgSubscriptions.$inferSelect;
+    cardId: string | null;
+  }): Promise<string | null> {
+    const { subscription, cardId } = params;
+
+    if (!cardId) {
+      const { logger } = await import("@/lib/logger");
+      logger.warn({
+        type: "plan-change:execute:no-card-for-downgrade",
+        subscriptionId: subscription.id,
+        organizationId: subscription.organizationId,
+      });
+      return null;
+    }
+
+    const newPricingTierId =
+      subscription.pendingPricingTierId ?? subscription.pricingTierId;
+    const newBillingCycle = (subscription.pendingBillingCycle ??
+      subscription.billingCycle ??
+      "monthly") as "monthly" | "yearly";
+    const newPlanId = subscription.pendingPlanId ?? subscription.planId;
+
+    if (!newPricingTierId) {
+      return null;
+    }
+
+    try {
+      const pagarmePlanId = await PagarmePlanService.ensurePlan(
+        newPricingTierId,
+        newBillingCycle
+      );
+
+      const pagarmeCustomerId = await CustomerService.getCustomerId(
+        subscription.organizationId
+      );
+
+      if (!pagarmeCustomerId) {
+        const { logger } = await import("@/lib/logger");
+        logger.warn({
+          type: "plan-change:execute:no-customer-for-downgrade",
+          subscriptionId: subscription.id,
+          organizationId: subscription.organizationId,
+        });
+        return null;
+      }
+
+      const newSubscription = await Retry.withRetry(
+        () =>
+          PagarmeClient.createSubscription(
+            {
+              customer_id: pagarmeCustomerId,
+              plan_id: pagarmePlanId,
+              payment_method: "credit_card",
+              card_id: cardId,
+              metadata: {
+                organization_id: subscription.organizationId,
+                plan_id: newPlanId,
+                billing_cycle: newBillingCycle,
+                pricing_tier_id: newPricingTierId,
+                is_downgrade: "true",
+              },
+            },
+            `create-downgrade-sub-${subscription.id}-${Date.now()}`
+          ),
+        PAGARME_RETRY_CONFIG.WRITE
+      );
+
+      return newSubscription.id;
+    } catch (error) {
+      const { logger } = await import("@/lib/logger");
+      logger.error({
+        type: "plan-change:execute:create-subscription-failed",
+        subscriptionId: subscription.id,
+        organizationId: subscription.organizationId,
+        error: error instanceof Error ? error.message : String(error),
+      });
+      return null;
+    }
   }
 
   /**
