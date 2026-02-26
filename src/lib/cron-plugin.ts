@@ -55,4 +55,18 @@ export const cronPlugin = new Elysia({ name: "cron-jobs" })
         });
       },
     })
+  )
+  .use(
+    cron({
+      name: "process-scheduled-plan-changes",
+      pattern: "0 12 * * *", // 12:00 UTC = 09:00 BRT
+      async run() {
+        const result = await JobsService.processScheduledPlanChanges();
+        logger.info({
+          type: "cron:process-scheduled-plan-changes",
+          executed: result.executed.length,
+          failed: result.failed.length,
+        });
+      },
+    })
   );
