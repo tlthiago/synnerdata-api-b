@@ -109,6 +109,8 @@ export const orgSubscriptions = pgTable(
     ),
     planChangeAt: timestamp("plan_change_at", { withTimezone: true }),
     seats: integer("seats").default(1).notNull(),
+    priceAtPurchase: integer("price_at_purchase"),
+    isCustomPrice: boolean("is_custom_price").default(false).notNull(),
     createdAt: timestamp("created_at", { withTimezone: true })
       .defaultNow()
       .notNull(),
@@ -222,6 +224,11 @@ export const pendingCheckouts = pgTable(
     status: pendingCheckoutStatusEnum("status").default("pending").notNull(),
     expiresAt: timestamp("expires_at", { withTimezone: true }).notNull(),
     completedAt: timestamp("completed_at", { withTimezone: true }),
+    customPriceMonthly: integer("custom_price_monthly"),
+    customPriceYearly: integer("custom_price_yearly"),
+    createdByAdminId: text("created_by_admin_id"),
+    notes: text("notes"),
+    pagarmePlanId: text("pagarme_plan_id"),
     createdAt: timestamp("created_at", { withTimezone: true })
       .defaultNow()
       .notNull(),
