@@ -39,6 +39,7 @@ export const absenceController = new Elysia({
       auth: {
         permissions: { absence: ["create"] },
         requireOrganization: true,
+        requireFeature: "absences",
       },
       body: createAbsenceSchema,
       response: {
@@ -63,6 +64,7 @@ export const absenceController = new Elysia({
       auth: {
         permissions: { absence: ["read"] },
         requireOrganization: true,
+        requireFeature: "absences",
       },
       response: {
         200: listAbsencesResponseSchema,
@@ -88,6 +90,7 @@ export const absenceController = new Elysia({
       auth: {
         permissions: { absence: ["read"] },
         requireOrganization: true,
+        requireFeature: "absences",
       },
       params: idParamSchema,
       response: {
@@ -119,6 +122,7 @@ export const absenceController = new Elysia({
       auth: {
         permissions: { absence: ["update"] },
         requireOrganization: true,
+        requireFeature: "absences",
       },
       params: idParamSchema,
       body: updateAbsenceSchema,
@@ -149,6 +153,7 @@ export const absenceController = new Elysia({
       auth: {
         permissions: { absence: ["delete"] },
         requireOrganization: true,
+        requireFeature: "absences",
       },
       params: idParamSchema,
       response: {

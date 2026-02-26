@@ -29,8 +29,8 @@ type MailHogSearchResponse = {
 };
 
 const MAILHOG_API_URL = "http://localhost:8025";
-const DEFAULT_MAX_RETRIES = 10;
-const DEFAULT_RETRY_DELAY_MS = 100;
+const DEFAULT_MAX_RETRIES = 30;
+const DEFAULT_RETRY_DELAY_MS = 300;
 
 const OTP_STYLED_SPAN_REGEX =
   /<span[^>]*font-size:\s*32px[^>]*>[\s\n]*(\d{6})[\s\n]*<\/span>/i;

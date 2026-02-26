@@ -45,6 +45,7 @@ export const ppeDeliveryController = new Elysia({
       auth: {
         permissions: { ppeDelivery: ["create"] },
         requireOrganization: true,
+        requireFeature: "ppe",
       },
       body: createPpeDeliverySchema,
       response: {
@@ -74,6 +75,7 @@ export const ppeDeliveryController = new Elysia({
       auth: {
         permissions: { ppeDelivery: ["read"] },
         requireOrganization: true,
+        requireFeature: "ppe",
       },
       query: listPpeDeliveriesQuerySchema,
       response: {
@@ -101,6 +103,7 @@ export const ppeDeliveryController = new Elysia({
       auth: {
         permissions: { ppeDelivery: ["read"] },
         requireOrganization: true,
+        requireFeature: "ppe",
       },
       params: idParamSchema,
       response: {
@@ -132,6 +135,7 @@ export const ppeDeliveryController = new Elysia({
       auth: {
         permissions: { ppeDelivery: ["update"] },
         requireOrganization: true,
+        requireFeature: "ppe",
       },
       params: idParamSchema,
       body: updatePpeDeliverySchema,
@@ -162,6 +166,7 @@ export const ppeDeliveryController = new Elysia({
       auth: {
         permissions: { ppeDelivery: ["delete"] },
         requireOrganization: true,
+        requireFeature: "ppe",
       },
       params: idParamSchema,
       response: {
@@ -192,6 +197,7 @@ export const ppeDeliveryController = new Elysia({
       auth: {
         permissions: { ppeDelivery: ["update"] },
         requireOrganization: true,
+        requireFeature: "ppe",
       },
       params: idParamSchema,
       body: addPpeItemSchema,
@@ -222,6 +228,7 @@ export const ppeDeliveryController = new Elysia({
       auth: {
         permissions: { ppeDelivery: ["read"] },
         requireOrganization: true,
+        requireFeature: "ppe",
       },
       params: idParamSchema,
       response: {
@@ -251,6 +258,7 @@ export const ppeDeliveryController = new Elysia({
       auth: {
         permissions: { ppeDelivery: ["update"] },
         requireOrganization: true,
+        requireFeature: "ppe",
       },
       params: ppeItemIdParamsSchema,
       response: {

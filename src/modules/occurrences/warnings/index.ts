@@ -39,6 +39,7 @@ export const warningController = new Elysia({
       auth: {
         permissions: { warning: ["create"] },
         requireOrganization: true,
+        requireFeature: "warnings",
       },
       body: createWarningSchema,
       response: {
@@ -63,6 +64,7 @@ export const warningController = new Elysia({
       auth: {
         permissions: { warning: ["read"] },
         requireOrganization: true,
+        requireFeature: "warnings",
       },
       response: {
         200: listWarningsResponseSchema,
@@ -88,6 +90,7 @@ export const warningController = new Elysia({
       auth: {
         permissions: { warning: ["read"] },
         requireOrganization: true,
+        requireFeature: "warnings",
       },
       params: idParamSchema,
       response: {
@@ -119,6 +122,7 @@ export const warningController = new Elysia({
       auth: {
         permissions: { warning: ["update"] },
         requireOrganization: true,
+        requireFeature: "warnings",
       },
       params: idParamSchema,
       body: updateWarningSchema,
@@ -149,6 +153,7 @@ export const warningController = new Elysia({
       auth: {
         permissions: { warning: ["delete"] },
         requireOrganization: true,
+        requireFeature: "warnings",
       },
       params: idParamSchema,
       response: {

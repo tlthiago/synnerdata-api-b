@@ -156,6 +156,7 @@ export const employeeController = new Elysia({
       auth: {
         permissions: { employee: ["update"] },
         requireOrganization: true,
+        requireFeature: "employee_status",
       },
       params: idParamSchema,
       body: updateEmployeeStatusSchema,
