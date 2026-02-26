@@ -67,13 +67,11 @@ export abstract class UserFactory {
       );
     }
 
-    // Step 2: Set email verification in DB (avoids MailHog overhead for test helpers)
-    if (emailVerified) {
-      await db
-        .update(schema.users)
-        .set({ emailVerified: true })
-        .where(eq(schema.users.email, email));
-    }
+    // Step 2: Always verify email in DB so sign-in works (requireEmailVerification is enabled)
+    await db
+      .update(schema.users)
+      .set({ emailVerified: true })
+      .where(eq(schema.users.email, email));
 
     // Step 3: Sign in with email and password
     const signInResponse = await app.handle(
@@ -106,6 +104,14 @@ export abstract class UserFactory {
 
     if (!dbUser) {
       throw new Error("User not found in database after sign-in");
+    }
+
+    // Set emailVerified back to false if requested (after sign-in succeeded)
+    if (!emailVerified) {
+      await db
+        .update(schema.users)
+        .set({ emailVerified: false })
+        .where(eq(schema.users.id, dbUser.id));
     }
 
     return {

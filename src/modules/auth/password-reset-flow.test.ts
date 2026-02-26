@@ -2,6 +2,7 @@ import { beforeAll, describe, expect, test } from "bun:test";
 import { env } from "@/env";
 import { createTestApp, type TestApp } from "@/test/support/app";
 import {
+  clearMailbox,
   waitForPasswordResetEmail,
   waitForVerificationEmail,
 } from "@/test/support/mailhog";
@@ -13,6 +14,7 @@ const NEW_PASSWORD = "NewPassword456!";
 describe("Password Reset Flow", () => {
   let app: TestApp;
   let testEmail: string;
+  let resetToken: string;
 
   beforeAll(async () => {
     app = createTestApp();
@@ -35,11 +37,13 @@ describe("Password Reset Flow", () => {
     await app.handle(
       new Request(verificationUrl, { method: "GET", redirect: "manual" })
     );
+
+    await clearMailbox(testEmail);
   });
 
   test("should request password reset", async () => {
     const response = await app.handle(
-      new Request(`${BASE_URL}/api/auth/forget-password`, {
+      new Request(`${BASE_URL}/api/auth/request-password-reset`, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
@@ -61,10 +65,19 @@ describe("Password Reset Flow", () => {
   test("should reset password with valid token", async () => {
     const { resetUrl } = await waitForPasswordResetEmail(testEmail);
 
-    // Extract token from URL
-    const url = new URL(resetUrl);
-    const token = url.searchParams.get("token");
-    expect(token).toBeTruthy();
+    // Follow the reset callback URL to get the redirect with token
+    const callbackResponse = await app.handle(
+      new Request(resetUrl, { method: "GET", redirect: "manual" })
+    );
+
+    expect(callbackResponse.status).toBe(302);
+
+    const location = callbackResponse.headers.get("location");
+    expect(location).toBeTruthy();
+
+    const redirectUrl = new URL(location ?? "");
+    resetToken = redirectUrl.searchParams.get("token") ?? "";
+    expect(resetToken).toBeTruthy();
 
     const response = await app.handle(
       new Request(`${BASE_URL}/api/auth/reset-password`, {
@@ -72,7 +85,7 @@ describe("Password Reset Flow", () => {
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
           newPassword: NEW_PASSWORD,
-          token,
+          token: resetToken,
         }),
       })
     );
@@ -115,7 +128,7 @@ describe("Password Reset Flow", () => {
 
   test("should return consistent message for non-existent email", async () => {
     const response = await app.handle(
-      new Request(`${BASE_URL}/api/auth/forget-password`, {
+      new Request(`${BASE_URL}/api/auth/request-password-reset`, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
@@ -125,7 +138,7 @@ describe("Password Reset Flow", () => {
       })
     );
 
-    // Should still return 200 to prevent email enumeration
+    // Better Auth returns 200 even for non-existent email to prevent enumeration
     expect(response.status).toBe(200);
   });
 });
