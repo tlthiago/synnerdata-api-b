@@ -19,7 +19,7 @@ Recebe e processa eventos de pagamento do Pagar.me.
 | `charge.paid` | `markActive()`, atualiza período, salva pagarmeSubscriptionId |
 | `charge.payment_failed` | Status → `past_due`, grace period 15 dias |
 | `invoice.payment_failed` | Mesmo que charge.payment_failed |
-| `subscription.created` | Ativa subscription com metadata do checkout |
+| `subscription.created` | Ativa subscription com metadata do checkout. Propaga `priceAtPurchase` e `isCustomPrice` para checkouts customizados (via metadata ou pending_checkouts) |
 | `subscription.canceled` | `cancelByWebhook()`, status → `canceled` |
 | `charge.refunded` | Log + evento `charge.refunded` |
 | `subscription.updated` | Atualiza info do cartão se presente |
