@@ -49,6 +49,8 @@ type CheckoutInfo = {
   planId?: string;
   billingCycle: string;
   pricingTierId?: string;
+  priceAtPurchase?: number;
+  isCustomPrice?: boolean;
 };
 
 type SubscriptionUpdatedData = {
@@ -459,8 +461,6 @@ export abstract class WebhookService {
     const { periodStart, periodEnd } =
       WebhookService.calculatePeriodDates(data);
 
-    // Activate subscription (emits subscription.activated event and sends email via listener)
-    // Note: pagarmeCustomerId is stored in billing_profiles during checkout, not here
     await SubscriptionService.activate({
       organizationId,
       planId,
@@ -469,6 +469,8 @@ export abstract class WebhookService {
       pagarmeSubscriptionId: data.id,
       periodStart,
       periodEnd,
+      priceAtPurchase: checkoutInfo.priceAtPurchase,
+      isCustomPrice: checkoutInfo.isCustomPrice,
     });
   }
 
@@ -503,11 +505,24 @@ export abstract class WebhookService {
   private static extractMetadataInfo(
     data: SubscriptionCreatedData
   ): Partial<CheckoutInfo> {
+    const isCustomPrice = data.metadata?.is_custom_price === "true";
+    let priceAtPurchase: number | undefined;
+
+    if (isCustomPrice && data.metadata) {
+      const billingCycle = data.metadata.billing_cycle ?? "monthly";
+      priceAtPurchase =
+        billingCycle === "yearly"
+          ? Number(data.metadata.custom_price_yearly)
+          : Number(data.metadata.custom_price_monthly);
+    }
+
     return {
       organizationId: data.metadata?.organization_id,
       planId: data.metadata?.plan_id,
       billingCycle: data.metadata?.billing_cycle ?? "monthly",
       pricingTierId: data.metadata?.pricing_tier_id,
+      priceAtPurchase,
+      isCustomPrice: isCustomPrice || undefined,
     };
   }
 
@@ -532,6 +547,8 @@ export abstract class WebhookService {
         pricingTierId: schema.pendingCheckouts.pricingTierId,
         id: schema.pendingCheckouts.id,
         paymentLinkId: schema.pendingCheckouts.paymentLinkId,
+        customPriceMonthly: schema.pendingCheckouts.customPriceMonthly,
+        customPriceYearly: schema.pendingCheckouts.customPriceYearly,
       })
       .from(schema.pendingCheckouts)
       .where(
@@ -584,11 +601,24 @@ export abstract class WebhookService {
       })
       .where(eq(schema.pendingCheckouts.id, checkout.id));
 
+    const isCustomPrice = checkout.customPriceMonthly != null;
+    let priceAtPurchase: number | undefined;
+
+    if (isCustomPrice) {
+      const cycle = checkout.billingCycle ?? "monthly";
+      priceAtPurchase =
+        cycle === "yearly"
+          ? (checkout.customPriceYearly ?? undefined)
+          : (checkout.customPriceMonthly ?? undefined);
+    }
+
     return {
       organizationId: checkout.organizationId,
       planId: checkout.planId,
       billingCycle: checkout.billingCycle ?? "monthly",
       pricingTierId: checkout.pricingTierId ?? undefined,
+      priceAtPurchase,
+      isCustomPrice: isCustomPrice || undefined,
     };
   }
 
