@@ -479,24 +479,48 @@ export abstract class WebhookService {
   ): Promise<CheckoutInfo | null> {
     const metadataInfo = WebhookService.extractMetadataInfo(data);
 
+    let checkoutInfo: CheckoutInfo | null = null;
+
     if (metadataInfo.organizationId) {
-      return metadataInfo as CheckoutInfo;
+      checkoutInfo = metadataInfo as CheckoutInfo;
+    } else {
+      checkoutInfo = await WebhookService.findCheckoutByPaymentLink(
+        data.code,
+        data.id
+      );
+
+      if (!checkoutInfo) {
+        logger.warn({
+          type: "webhook:subscription-created:checkout-not-found",
+          subscriptionId: data.id,
+          subscriptionCode: data.code,
+          hasMetadata: !!data.metadata,
+          metadataKeys: data.metadata ? Object.keys(data.metadata) : [],
+          customerEmail: data.customer?.email,
+        });
+        return null;
+      }
     }
 
-    const checkoutInfo = await WebhookService.findCheckoutByPaymentLink(
-      data.code,
-      data.id
-    );
+    // Resolve price from tier catalog for non-custom checkouts
+    if (
+      checkoutInfo.priceAtPurchase === undefined &&
+      checkoutInfo.pricingTierId
+    ) {
+      const [tier] = await db
+        .select({
+          priceMonthly: schema.planPricingTiers.priceMonthly,
+          priceYearly: schema.planPricingTiers.priceYearly,
+        })
+        .from(schema.planPricingTiers)
+        .where(eq(schema.planPricingTiers.id, checkoutInfo.pricingTierId));
 
-    if (!checkoutInfo) {
-      logger.warn({
-        type: "webhook:subscription-created:checkout-not-found",
-        subscriptionId: data.id,
-        subscriptionCode: data.code,
-        hasMetadata: !!data.metadata,
-        metadataKeys: data.metadata ? Object.keys(data.metadata) : [],
-        customerEmail: data.customer?.email,
-      });
+      if (tier) {
+        const cycle = checkoutInfo.billingCycle ?? "monthly";
+        checkoutInfo.priceAtPurchase =
+          cycle === "yearly" ? tier.priceYearly : tier.priceMonthly;
+        checkoutInfo.isCustomPrice = false;
+      }
     }
 
     return checkoutInfo;

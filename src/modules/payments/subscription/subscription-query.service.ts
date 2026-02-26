@@ -78,6 +78,8 @@ export abstract class SubscriptionQueryService {
             priceYearly: pricingTier.priceYearly,
           }
         : null,
+      priceAtPurchase: subscription.priceAtPurchase ?? null,
+      isCustomPrice: subscription.isCustomPrice,
     };
   }
 

@@ -81,6 +81,14 @@ const subscriptionDataSchema = z.object({
   pricingTier: pricingTierSchema
     .nullable()
     .describe("Current pricing tier (null for trials without tier)"),
+  priceAtPurchase: z
+    .number()
+    .int()
+    .nullable()
+    .describe("Locked-in price at purchase time in centavos (null for trials)"),
+  isCustomPrice: z
+    .boolean()
+    .describe("Whether the price was set via admin custom checkout"),
 });
 
 const cancelSubscriptionDataSchema = z.object({

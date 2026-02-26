@@ -891,6 +891,8 @@ export abstract class PlanChangeService {
       .select({
         minEmployees: schema.planPricingTiers.minEmployees,
         maxEmployees: schema.planPricingTiers.maxEmployees,
+        priceMonthly: schema.planPricingTiers.priceMonthly,
+        priceYearly: schema.planPricingTiers.priceYearly,
       })
       .from(schema.planPricingTiers)
       .where(eq(schema.planPricingTiers.id, newPricingTierId));
@@ -917,6 +919,15 @@ export abstract class PlanChangeService {
       throw new PlanNotFoundError(newPlanId);
     }
 
+    // Resolve new price from tier catalog
+    let newPrice: number | null = null;
+    if (tierInfo) {
+      newPrice =
+        newBillingCycle === "yearly"
+          ? tierInfo.priceYearly
+          : tierInfo.priceMonthly;
+    }
+
     // Update inside transaction
     const [updated] = await tx
       .update(schema.orgSubscriptions)
@@ -929,6 +940,8 @@ export abstract class PlanChangeService {
         pendingPricingTierId: null,
         planChangeAt: null,
         pagarmeSubscriptionId: newPagarmeSubscriptionId,
+        priceAtPurchase: newPrice,
+        isCustomPrice: false,
         currentPeriodStart: new Date(),
         currentPeriodEnd: ProrationService.calculatePeriodEnd(
           new Date(),
