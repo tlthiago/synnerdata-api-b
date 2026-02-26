@@ -196,10 +196,11 @@ export abstract class SubscriptionMutationService {
     pagarmeSubscriptionId: string;
     periodStart: Date;
     periodEnd: Date;
-    // Optional checkout-related fields
     planId?: string;
     pricingTierId?: string;
     billingCycle?: string;
+    priceAtPurchase?: number;
+    isCustomPrice?: boolean;
   }): Promise<Subscription | null> {
     const {
       organizationId,
@@ -209,6 +210,8 @@ export abstract class SubscriptionMutationService {
       planId,
       pricingTierId,
       billingCycle,
+      priceAtPurchase,
+      isCustomPrice,
     } = input;
 
     const updateData: Record<string, unknown> = {
@@ -230,6 +233,12 @@ export abstract class SubscriptionMutationService {
     }
     if (billingCycle) {
       updateData.billingCycle = billingCycle;
+    }
+    if (priceAtPurchase !== undefined) {
+      updateData.priceAtPurchase = priceAtPurchase;
+    }
+    if (isCustomPrice !== undefined) {
+      updateData.isCustomPrice = isCustomPrice;
     }
 
     const subscription = await findByOrganizationId(organizationId);
