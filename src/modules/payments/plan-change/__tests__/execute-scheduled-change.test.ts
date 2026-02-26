@@ -2,6 +2,7 @@ import { describe, expect, spyOn, test } from "bun:test";
 import { eq } from "drizzle-orm";
 import { db } from "@/db";
 import { schema } from "@/db/schema";
+import { BillingProfileFactory } from "@/test/factories/payments/billing-profile.factory";
 import { PlanFactory } from "@/test/factories/payments/plan.factory";
 import { SubscriptionFactory } from "@/test/factories/payments/subscription.factory";
 import { UserFactory } from "@/test/factories/user.factory";
@@ -149,7 +150,7 @@ describe("PlanChangeService.executeScheduledChange", () => {
   // which covers the validation logic. The executeScheduledChange re-validates
   // using the same logic, so we trust the unit tests for that edge case.
 
-  test("should cancel Pagarme subscription before executing change", async () => {
+  test("should cancel old and create new Pagarme subscription on downgrade", async () => {
     const { organizationId } = await UserFactory.createWithOrganization({
       emailVerified: true,
     });
@@ -164,7 +165,16 @@ describe("PlanChangeService.executeScheduledChange", () => {
       currentPlan.id
     );
 
+    // Create billing profile with Pagarme customer ID
+    const pagarmeCustomerId = `cus_${crypto.randomUUID().replace(/-/g, "").slice(0, 16)}`;
+    await BillingProfileFactory.create({
+      organizationId,
+      pagarmeCustomerId,
+    });
+
     const pagarmeSubId = `sub_${crypto.randomUUID().replace(/-/g, "").slice(0, 16)}`;
+    const cardId = `card_${crypto.randomUUID().replace(/-/g, "").slice(0, 16)}`;
+    const newPagarmeSubId = `sub_${crypto.randomUUID().replace(/-/g, "").slice(0, 16)}`;
 
     // Set up subscription with Pagarme ID and pending change
     const scheduledAt = new Date();
@@ -182,21 +192,65 @@ describe("PlanChangeService.executeScheduledChange", () => {
       })
       .where(eq(schema.orgSubscriptions.id, subscriptionId));
 
-    // Mock Pagarme cancel
+    // Mock Pagarme operations
     const { PagarmeClient } = await import("@/modules/payments/pagarme/client");
+    const { PagarmePlanService } = await import(
+      "@/modules/payments/pagarme/pagarme-plan.service"
+    );
+
+    const getSpy = spyOn(PagarmeClient, "getSubscription").mockResolvedValue({
+      id: pagarmeSubId,
+      card: {
+        id: cardId,
+        last_four_digits: "1234",
+        brand: "visa",
+        exp_month: 12,
+        exp_year: 2030,
+      },
+    } as never);
+
     const cancelSpy = spyOn(
       PagarmeClient,
       "cancelSubscription"
     ).mockResolvedValue({} as never);
 
+    const ensurePlanSpy = spyOn(
+      PagarmePlanService,
+      "ensurePlan"
+    ).mockResolvedValue("pagarme_plan_123");
+
+    const createSubSpy = spyOn(
+      PagarmeClient,
+      "createSubscription"
+    ).mockResolvedValue({ id: newPagarmeSubId } as never);
+
     // Execute the scheduled change
     await PlanChangeService.executeScheduledChange(subscriptionId);
 
-    // Verify Pagarme cancel was called
+    // Verify old subscription was fetched for card info
+    expect(getSpy).toHaveBeenCalledTimes(1);
+    expect(getSpy.mock.calls[0][0]).toBe(pagarmeSubId);
+
+    // Verify old subscription was canceled
     expect(cancelSpy).toHaveBeenCalledTimes(1);
     expect(cancelSpy.mock.calls[0][0]).toBe(pagarmeSubId);
 
-    // Verify subscription was updated and pagarmeSubscriptionId cleared
+    // Verify Pagarme plan was ensured for new tier
+    expect(ensurePlanSpy).toHaveBeenCalledTimes(1);
+    expect(ensurePlanSpy.mock.calls[0][0]).toBe(newTiers[0].id);
+    expect(ensurePlanSpy.mock.calls[0][1]).toBe("monthly");
+
+    // Verify new subscription was created with correct parameters
+    expect(createSubSpy).toHaveBeenCalledTimes(1);
+    const createArgs = createSubSpy.mock.calls[0][0];
+    expect(createArgs.customer_id).toBe(pagarmeCustomerId);
+    expect(createArgs.plan_id).toBe("pagarme_plan_123");
+    expect(createArgs.payment_method).toBe("credit_card");
+    expect(createArgs.card_id).toBe(cardId);
+    expect(createArgs.metadata?.organization_id).toBe(organizationId);
+    expect(createArgs.metadata?.is_downgrade).toBe("true");
+
+    // Verify subscription was updated with new Pagarme subscription ID
     const [subscription] = await db
       .select()
       .from(schema.orgSubscriptions)
@@ -204,9 +258,164 @@ describe("PlanChangeService.executeScheduledChange", () => {
       .limit(1);
 
     expect(subscription.planId).toBe(newPlan.id);
-    expect(subscription.pagarmeSubscriptionId).toBeNull();
+    expect(subscription.pagarmeSubscriptionId).toBe(newPagarmeSubId);
 
+    getSpy.mockRestore();
     cancelSpy.mockRestore();
+    ensurePlanSpy.mockRestore();
+    createSubSpy.mockRestore();
+  });
+
+  test("should proceed with null pagarmeSubscriptionId when card fetch fails", async () => {
+    const { organizationId } = await UserFactory.createWithOrganization({
+      emailVerified: true,
+    });
+
+    const { plan: currentPlan, tiers: currentTiers } =
+      await PlanFactory.createPaid("diamond");
+    const { plan: newPlan, tiers: newTiers } =
+      await PlanFactory.createPaid("gold");
+
+    const subscriptionId = await SubscriptionFactory.createActive(
+      organizationId,
+      currentPlan.id
+    );
+
+    const pagarmeSubId = `sub_${crypto.randomUUID().replace(/-/g, "").slice(0, 16)}`;
+
+    const scheduledAt = new Date();
+    scheduledAt.setDate(scheduledAt.getDate() - 1);
+
+    await db
+      .update(schema.orgSubscriptions)
+      .set({
+        pagarmeSubscriptionId: pagarmeSubId,
+        pendingPlanId: newPlan.id,
+        pendingBillingCycle: "monthly",
+        pendingPricingTierId: newTiers[0].id,
+        pricingTierId: currentTiers[0].id,
+        planChangeAt: scheduledAt,
+      })
+      .where(eq(schema.orgSubscriptions.id, subscriptionId));
+
+    const { PagarmeClient } = await import("@/modules/payments/pagarme/client");
+
+    // getSubscription fails - can't get card
+    const getSpy = spyOn(PagarmeClient, "getSubscription").mockRejectedValue(
+      new Error("Pagarme API error")
+    );
+    const cancelSpy = spyOn(
+      PagarmeClient,
+      "cancelSubscription"
+    ).mockResolvedValue({} as never);
+
+    await PlanChangeService.executeScheduledChange(subscriptionId);
+
+    // Change should still complete, but without new Pagarme subscription
+    const [subscription] = await db
+      .select()
+      .from(schema.orgSubscriptions)
+      .where(eq(schema.orgSubscriptions.id, subscriptionId))
+      .limit(1);
+
+    expect(subscription.planId).toBe(newPlan.id);
+    expect(subscription.pricingTierId).toBe(newTiers[0].id);
+    expect(subscription.pagarmeSubscriptionId).toBeNull();
+    expect(subscription.pendingPlanId).toBeNull();
+
+    getSpy.mockRestore();
+    cancelSpy.mockRestore();
+  });
+
+  test("should proceed with null pagarmeSubscriptionId when createSubscription fails", async () => {
+    const { organizationId } = await UserFactory.createWithOrganization({
+      emailVerified: true,
+    });
+
+    const { plan: currentPlan, tiers: currentTiers } =
+      await PlanFactory.createPaid("diamond");
+    const { plan: newPlan, tiers: newTiers } =
+      await PlanFactory.createPaid("gold");
+
+    const subscriptionId = await SubscriptionFactory.createActive(
+      organizationId,
+      currentPlan.id
+    );
+
+    const pagarmeCustomerId = `cus_${crypto.randomUUID().replace(/-/g, "").slice(0, 16)}`;
+    await BillingProfileFactory.create({
+      organizationId,
+      pagarmeCustomerId,
+    });
+
+    const pagarmeSubId = `sub_${crypto.randomUUID().replace(/-/g, "").slice(0, 16)}`;
+    const cardId = `card_${crypto.randomUUID().replace(/-/g, "").slice(0, 16)}`;
+
+    const scheduledAt = new Date();
+    scheduledAt.setDate(scheduledAt.getDate() - 1);
+
+    await db
+      .update(schema.orgSubscriptions)
+      .set({
+        pagarmeSubscriptionId: pagarmeSubId,
+        pendingPlanId: newPlan.id,
+        pendingBillingCycle: "monthly",
+        pendingPricingTierId: newTiers[0].id,
+        pricingTierId: currentTiers[0].id,
+        planChangeAt: scheduledAt,
+      })
+      .where(eq(schema.orgSubscriptions.id, subscriptionId));
+
+    const { PagarmeClient } = await import("@/modules/payments/pagarme/client");
+    const { PagarmePlanService } = await import(
+      "@/modules/payments/pagarme/pagarme-plan.service"
+    );
+
+    const getSpy = spyOn(PagarmeClient, "getSubscription").mockResolvedValue({
+      id: pagarmeSubId,
+      card: {
+        id: cardId,
+        last_four_digits: "1234",
+        brand: "visa",
+        exp_month: 12,
+        exp_year: 2030,
+      },
+    } as never);
+
+    const cancelSpy = spyOn(
+      PagarmeClient,
+      "cancelSubscription"
+    ).mockResolvedValue({} as never);
+
+    const ensurePlanSpy = spyOn(
+      PagarmePlanService,
+      "ensurePlan"
+    ).mockResolvedValue("pagarme_plan_123");
+
+    // createSubscription fails
+    const createSubSpy = spyOn(
+      PagarmeClient,
+      "createSubscription"
+    ).mockRejectedValue(new Error("Pagarme API error"));
+
+    await PlanChangeService.executeScheduledChange(subscriptionId);
+
+    // Change should still complete, but without new Pagarme subscription
+    const [subscription] = await db
+      .select()
+      .from(schema.orgSubscriptions)
+      .where(eq(schema.orgSubscriptions.id, subscriptionId))
+      .limit(1);
+
+    expect(subscription.planId).toBe(newPlan.id);
+    expect(subscription.pricingTierId).toBe(newTiers[0].id);
+    expect(subscription.pagarmeSubscriptionId).toBeNull();
+    expect(subscription.pendingPlanId).toBeNull();
+
+    getSpy.mockRestore();
+    cancelSpy.mockRestore();
+    ensurePlanSpy.mockRestore();
+    createSubSpy.mockRestore();
   });
 
   test("should handle concurrent cancellation gracefully", async () => {
