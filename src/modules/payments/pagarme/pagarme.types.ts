@@ -129,6 +129,13 @@ export type PagarmeSubscription = {
   updated_at: string;
   customer: PagarmeCustomer;
   plan: PagarmePlan;
+  card?: {
+    id: string;
+    last_four_digits: string;
+    brand: string;
+    exp_month: number;
+    exp_year: number;
+  };
   metadata?: Record<string, string>;
 };
 
