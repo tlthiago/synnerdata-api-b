@@ -1,3 +1,29 @@
+# Project Architecture
+
+## Stack
+
+- **Runtime**: Bun | **Framework**: Elysia | **ORM**: Drizzle + PostgreSQL
+- **Validation**: Zod v4 (NOT TypeBox/t.\*) | **Auth**: Better Auth | **Email**: Nodemailer
+
+## Architectural Decisions
+
+- **Zod for all validation** — never use Elysia's `t.*` types. Zod schemas serve as single source of truth for request/response validation and OpenAPI docs
+- **AppError hierarchy for errors** — throw typed errors (`NotFoundError`, `ForbiddenError`, etc.) from `src/lib/errors/`. Never use Elysia's `status()` function for error responses
+- **Response envelope** — all responses use `{ success, data }` or `{ success, error }` via `wrapSuccess()` / `wrapSuccessWithMessage()` from `src/lib/responses/envelope.ts`
+- **Response schemas** — use `successResponseSchema()` and `paginatedResponseSchema()` from `src/lib/responses/response.types.ts` for typed OpenAPI responses
+- **Error schemas** — reuse `unauthorizedErrorSchema`, `forbiddenErrorSchema`, `validationErrorSchema`, etc. from `src/lib/responses/response.types.ts`
+- **No re-exports or barrel files** — import directly from source modules. The only allowed barrel file is `src/db/schema/index.ts` (Drizzle schema aggregation)
+- **Typed env config** — all environment variables are parsed via Zod in `src/env.ts`. Import `env` from there, never use `process.env` directly
+- **Domain-prefixed IDs** — entity IDs follow `<domain>-<uuid>` format (e.g., `absence-${crypto.randomUUID()}`). Always use `crypto.randomUUID()` with the appropriate prefix
+- **Soft deletes** — entities use `deletedAt`/`deletedBy` fields instead of hard delete. Always filter with `isNull(schema.<table>.deletedAt)` in queries to exclude deleted records
+- **Timestamps convention** — all tables include `createdAt` (defaultNow), `updatedAt` ($onUpdate), `createdBy`, `updatedBy`. Populate `createdBy`/`updatedBy` with the user ID from session
+
+## Maintaining CLAUDE.md Files
+
+When modifying business rules, enums, status lifecycles, relationships, or module patterns, update the corresponding CLAUDE.md file in the affected module directory. If a change impacts architectural decisions, update this file as well.
+
+---
+
 # Ultracite Code Standards
 
 This project uses **Ultracite**, a zero-config Biome preset that enforces strict code quality standards through automated formatting and linting.
