@@ -1,7 +1,6 @@
 import { eq } from "drizzle-orm";
 import { db } from "@/db";
 import { schema } from "@/db/schema";
-import { waitForOTP } from "../support/mailhog";
 import { createTestApp } from "./app";
 
 export type TestUser = {
@@ -29,9 +28,10 @@ type CreateTestUserOptions = {
 };
 
 const SESSION_TOKEN_REGEX = /better-auth\.session_token=([^;]+)/;
+const TEST_PASSWORD = "TestPassword123!";
 
 /**
- * Creates a test user using Better Auth emailOTP flow.
+ * Creates a test user using Better Auth email+password flow.
  * This creates ONLY the user with a valid session - no organization.
  */
 export async function createTestUser(
@@ -45,38 +45,43 @@ export async function createTestUser(
 
   const app = createTestApp();
 
-  // Step 1: Send OTP to email
-  const sendOtpResponse = await app.handle(
-    new Request("http://localhost/api/auth/email-otp/send-verification-otp", {
+  // Step 1: Sign up with email and password
+  const signUpResponse = await app.handle(
+    new Request("http://localhost/api/auth/sign-up/email", {
       method: "POST",
       headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ email, type: "sign-in" }),
+      body: JSON.stringify({ email, password: TEST_PASSWORD, name }),
     })
   );
 
-  if (!sendOtpResponse.ok) {
-    const errorBody = await sendOtpResponse.text();
+  if (!signUpResponse.ok) {
+    const errorBody = await signUpResponse.text();
     throw new Error(
-      `Failed to send OTP (${sendOtpResponse.status}): ${errorBody || "No response body"}`
+      `Failed to sign up (${signUpResponse.status}): ${errorBody || "No response body"}`
     );
   }
 
-  // Step 2: Get OTP from database
-  const otp = await waitForOTP(email);
+  // Step 2: Set email verification in DB (avoids MailHog overhead for test helpers)
+  if (emailVerified) {
+    await db
+      .update(schema.users)
+      .set({ emailVerified: true })
+      .where(eq(schema.users.email, email));
+  }
 
-  // Step 3: Sign in with OTP
+  // Step 3: Sign in with email and password
   const signInResponse = await app.handle(
-    new Request("http://localhost/api/auth/sign-in/email-otp", {
+    new Request("http://localhost/api/auth/sign-in/email", {
       method: "POST",
       headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ email, otp }),
+      body: JSON.stringify({ email, password: TEST_PASSWORD }),
     })
   );
 
   if (!signInResponse.ok) {
     const errorBody = await signInResponse.text();
     throw new Error(
-      `Failed to sign in with OTP (${signInResponse.status}): ${errorBody || "No response body"}`
+      `Failed to sign in (${signInResponse.status}): ${errorBody || "No response body"}`
     );
   }
 
@@ -99,25 +104,9 @@ export async function createTestUser(
     throw new Error("User not found in database after sign-in");
   }
 
-  const userId = dbUser.id;
-
-  // Update user name (emailOTP creates user without name)
-  await db
-    .update(schema.users)
-    .set({ name })
-    .where(eq(schema.users.id, userId));
-
-  // Update email verification if needed
-  if (!emailVerified) {
-    await db
-      .update(schema.users)
-      .set({ emailVerified: false })
-      .where(eq(schema.users.id, userId));
-  }
-
   return {
     user: {
-      id: userId,
+      id: dbUser.id,
       email,
       name,
       emailVerified,
