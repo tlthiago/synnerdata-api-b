@@ -39,6 +39,7 @@ export const accidentController = new Elysia({
       auth: {
         permissions: { accident: ["create"] },
         requireOrganization: true,
+        requireFeature: "accidents",
       },
       body: createAccidentSchema,
       response: {
@@ -64,6 +65,7 @@ export const accidentController = new Elysia({
       auth: {
         permissions: { accident: ["read"] },
         requireOrganization: true,
+        requireFeature: "accidents",
       },
       response: {
         200: listAccidentsResponseSchema,
@@ -89,6 +91,7 @@ export const accidentController = new Elysia({
       auth: {
         permissions: { accident: ["read"] },
         requireOrganization: true,
+        requireFeature: "accidents",
       },
       params: idParamSchema,
       response: {
@@ -120,6 +123,7 @@ export const accidentController = new Elysia({
       auth: {
         permissions: { accident: ["update"] },
         requireOrganization: true,
+        requireFeature: "accidents",
       },
       params: idParamSchema,
       body: updateAccidentSchema,
@@ -150,6 +154,7 @@ export const accidentController = new Elysia({
       auth: {
         permissions: { accident: ["delete"] },
         requireOrganization: true,
+        requireFeature: "accidents",
       },
       params: idParamSchema,
       response: {
