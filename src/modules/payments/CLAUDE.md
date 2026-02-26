@@ -12,6 +12,7 @@ Assinaturas, checkout, billing e integração Pagar.me. Módulo mais crítico do
 - Employee count não pode exceder `tier.maxEmployees`
 - Webhooks são idempotentes (mesmo evento processado uma vez)
 - Customer ID e plan changes são atômicos (proteção contra race condition)
+- Preço customizado rastreado via `priceAtPurchase` e `isCustomPrice` em `org_subscriptions`
 
 ## Subscription Status Flow
 
@@ -53,6 +54,7 @@ CANCELED/EXPIRED → sem recuperação
 - `subscription:update` — checkout, cancelar, restaurar, trocar plano
 - `billing:read` — perfil, faturas, usage
 - `billing:update` — criar/atualizar perfil, atualizar cartão
+- `requireAdmin` — admin checkout com preço customizado
 
 ## Integration Points
 

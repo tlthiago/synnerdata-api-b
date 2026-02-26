@@ -3,7 +3,8 @@
 - **auth** — Signup, admin signup e lifecycle de trial
 - **payments** — Checkout, assinaturas, billing, planos e integração Pagar.me
   - `plans` — planos de assinatura com pricing tiers
-  - `checkout` — criação de sessões de pagamento via Pagar.me
+  - `checkout` — criação de sessões de pagamento via Pagar.me (self-service)
+  - `admin-checkout` — links de pagamento com preço customizado (admin only)
   - `subscription` — detalhes, cancelamento e restauração de assinaturas
   - `plan-change` — upgrades imediatos ou downgrades agendados com preview
   - `billing` — perfil de cobrança, cartões, faturas e uso vs. limites do plano

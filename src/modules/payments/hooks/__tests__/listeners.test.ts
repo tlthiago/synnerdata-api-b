@@ -105,6 +105,8 @@ describe("Payment Listeners", () => {
         pendingBillingCycle: null,
         pendingPricingTierId: null,
         planChangeAt: null,
+        priceAtPurchase: null,
+        isCustomPrice: false,
         createdAt: new Date(),
         updatedAt: new Date(),
       };

@@ -1,0 +1,47 @@
+name: Refactor / Technical Improvement
+description: Propose a code refactor or technical debt reduction
+labels: ["refactor"]
+body:
+  - type: textarea
+    id: motivation
+    attributes:
+      label: Motivation
+      description: What problem does this refactor solve? Why is the current implementation insufficient?
+    validations:
+      required: true
+
+  - type: textarea
+    id: current-behavior
+    attributes:
+      label: Current Behavior
+      description: How the code works today and why it's problematic.
+    validations:
+      required: true
+
+  - type: textarea
+    id: proposed-changes
+    attributes:
+      label: Proposed Changes
+      description: What should change and how. Include approach options if applicable.
+    validations:
+      required: true
+
+  - type: textarea
+    id: acceptance-criteria
+    attributes:
+      label: Acceptance Criteria
+      description: |
+        Verifiable scenarios that prove the refactor works correctly and doesn't break existing behavior.
+      placeholder: |
+        - [ ] Existing tests continue passing without modification
+        - [ ] Given a plan with 5 custom tiers, when listing plans, then all tiers are returned correctly
+    validations:
+      required: true
+
+  - type: textarea
+    id: risks
+    attributes:
+      label: Risks & Migration
+      description: Breaking changes, migration needs, rollback strategy.
+    validations:
+      required: false

@@ -17,14 +17,17 @@ describe("Trial Plan", () => {
   let app: TestApp;
   let organizationId: string;
   let trialPlanResult: CreatePlanResult;
+  let goldPlanResult: CreatePlanResult;
+  let diamondPlanResult: CreatePlanResult;
+  let platinumPlanResult: CreatePlanResult;
 
   beforeAll(async () => {
     app = createTestApp();
     trialPlanResult = await PlanFactory.createTrial();
     // Create paid plans for the public list test
-    await PlanFactory.createPaid("gold");
-    await PlanFactory.createPaid("diamond");
-    await PlanFactory.createPaid("platinum");
+    goldPlanResult = await PlanFactory.createPaid("gold");
+    diamondPlanResult = await PlanFactory.createPaid("diamond");
+    platinumPlanResult = await PlanFactory.createPaid("platinum");
   });
 
   afterAll(async () => {
@@ -33,6 +36,21 @@ describe("Trial Plan", () => {
       await db
         .delete(schema.orgSubscriptions)
         .where(eq(schema.orgSubscriptions.organizationId, organizationId));
+    }
+    // Cleanup plans and tiers
+    const planIds = [
+      trialPlanResult?.plan.id,
+      goldPlanResult?.plan.id,
+      diamondPlanResult?.plan.id,
+      platinumPlanResult?.plan.id,
+    ].filter(Boolean) as string[];
+    for (const planId of planIds) {
+      await db
+        .delete(schema.planPricingTiers)
+        .where(eq(schema.planPricingTiers.planId, planId));
+      await db
+        .delete(schema.subscriptionPlans)
+        .where(eq(schema.subscriptionPlans.id, planId));
     }
   });
 
@@ -108,11 +126,9 @@ describe("Trial Plan", () => {
       expect(response.status).toBe(200);
 
       const body = await response.json();
-      const trialInList = body.data.plans.find(
-        (p: { name: string }) => p.name === "trial"
-      );
+      const planIds = body.data.plans.map((p: { id: string }) => p.id);
 
-      expect(trialInList).toBeUndefined();
+      expect(planIds).not.toContain(trialPlanResult.plan.id);
     });
 
     test("paid plans should appear in public plan list", async () => {
@@ -129,12 +145,12 @@ describe("Trial Plan", () => {
       expect(response.status).toBe(200);
 
       const body = await response.json();
-      const planNames = body.data.plans.map((p: { name: string }) => p.name);
+      const planIds = body.data.plans.map((p: { id: string }) => p.id);
 
-      expect(planNames).toContain("gold");
-      expect(planNames).toContain("diamond");
-      expect(planNames).toContain("platinum");
-      expect(planNames).not.toContain("trial");
+      expect(planIds).toContain(goldPlanResult.plan.id);
+      expect(planIds).toContain(diamondPlanResult.plan.id);
+      expect(planIds).toContain(platinumPlanResult.plan.id);
+      expect(planIds).not.toContain(trialPlanResult.plan.id);
     });
   });
 });

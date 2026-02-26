@@ -1,0 +1,61 @@
+name: Feature Request
+description: Propose a new feature or enhancement
+labels: ["enhancement"]
+body:
+  - type: textarea
+    id: user-story
+    attributes:
+      label: User Story
+      description: "Format: As a [role], I want [action], so that [benefit]."
+      placeholder: "As an admin, I want to generate payment links with custom pricing, so that I can offer negotiated plans to specific organizations."
+    validations:
+      required: true
+
+  - type: textarea
+    id: context
+    attributes:
+      label: Context
+      description: Why is this change necessary? Include technical background, business motivation, or links to related issues.
+      placeholder: "Currently the checkout flow only supports catalog pricing. Sales team needs flexibility to negotiate special prices for enterprise clients."
+    validations:
+      required: true
+
+  - type: textarea
+    id: expected-behavior
+    attributes:
+      label: Expected Behavior
+      description: Describe the desired outcome — flows, business rules, edge cases.
+    validations:
+      required: true
+
+  - type: textarea
+    id: acceptance-criteria
+    attributes:
+      label: Acceptance Criteria
+      description: |
+        Checklist of verifiable scenarios that prove the feature works correctly.
+        Each criterion should be a concrete, testable scenario — not a vague statement.
+        Use the format: "Given [context], when [action], then [expected result]."
+      placeholder: |
+        - [ ] Given a valid plan and tier, when admin submits custom price of R$ 299, then a payment link is created with that price
+        - [ ] Given an organization with active subscription, when admin tries to create checkout, then returns 400
+        - [ ] Given a completed payment, when webhook fires, then subscription is activated with priceAtPurchase = custom price
+    validations:
+      required: true
+
+  - type: textarea
+    id: out-of-scope
+    attributes:
+      label: Out of Scope
+      description: What is explicitly NOT part of this issue (prevents scope creep).
+      placeholder: "Price adjustment for existing subscribers (covered in #26)"
+    validations:
+      required: false
+
+  - type: textarea
+    id: implementation-notes
+    attributes:
+      label: Implementation Notes
+      description: Optional technical guidance — files affected, approach suggestions, architectural decisions.
+    validations:
+      required: false

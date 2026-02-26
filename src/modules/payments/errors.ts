@@ -469,3 +469,15 @@ export class BillingProfileAlreadyExistsError extends PaymentError {
     );
   }
 }
+
+export class BillingProfileRequiredError extends PaymentError {
+  status = 400;
+
+  constructor(organizationId: string) {
+    super(
+      `Billing profile is required for checkout. Organization ${organizationId} has no billing profile and no billing data was provided.`,
+      "BILLING_PROFILE_REQUIRED",
+      { organizationId }
+    );
+  }
+}
