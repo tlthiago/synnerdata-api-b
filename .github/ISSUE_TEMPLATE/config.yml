@@ -1,0 +1,5 @@
+blank_issues_enabled: false
+contact_links:
+  - name: Epic / Umbrella Issue
+    url: https://github.com/tlthiago/synnerdata-api-b/issues/new
+    about: For epics, create a blank issue with the "epic" label and link sub-issues.

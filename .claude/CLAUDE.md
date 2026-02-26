@@ -18,6 +18,21 @@
 - **Soft deletes** — entities use `deletedAt`/`deletedBy` fields instead of hard delete. Always filter with `isNull(schema.<table>.deletedAt)` in queries to exclude deleted records
 - **Timestamps convention** — all tables include `createdAt` (defaultNow), `updatedAt` ($onUpdate), `createdBy`, `updatedBy`. Populate `createdBy`/`updatedBy` with the user ID from session
 
+## Git Workflow
+
+- Branches derivam sempre da `preview`
+- Use worktrees (`Trabalhe em um worktree.`) para trabalho que precisa de isolamento (implementação paralela, features independentes)
+- Convenção de branch: `feat/`, `fix/`, `refactor/` + nome descritivo (e.g., `feat/admin-custom-checkout`)
+- Não faça commit sem ser solicitado
+- Observações e decisões da implementação devem ser documentadas na **PR**, não na issue. A issue é a especificação; a PR é a entrega
+
+## Definition of Done (global — não repetir nas issues)
+
+- Testes de integração criados em `__tests__/` ao lado do módulo
+- Testes seguem os padrões do projeto: `createTestApp()`, factories, `app.handle(new Request())`
+- Todos os testes passam (`bun run test`)
+- Lint passa (`npx ultracite check`)
+
 ## Maintaining CLAUDE.md Files
 
 When modifying business rules, enums, status lifecycles, relationships, or module patterns, update the corresponding CLAUDE.md file in the affected module directory. If a change impacts architectural decisions, update this file as well.
