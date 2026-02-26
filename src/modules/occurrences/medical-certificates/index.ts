@@ -39,6 +39,7 @@ export const medicalCertificatesController = new Elysia({
       auth: {
         permissions: { medicalCertificate: ["create"] },
         requireOrganization: true,
+        requireFeature: "medical_certificates",
       },
       body: createMedicalCertificateSchema,
       response: {
@@ -67,6 +68,7 @@ export const medicalCertificatesController = new Elysia({
       auth: {
         permissions: { medicalCertificate: ["read"] },
         requireOrganization: true,
+        requireFeature: "medical_certificates",
       },
       response: {
         200: listMedicalCertificatesResponseSchema,
@@ -93,6 +95,7 @@ export const medicalCertificatesController = new Elysia({
       auth: {
         permissions: { medicalCertificate: ["read"] },
         requireOrganization: true,
+        requireFeature: "medical_certificates",
       },
       params: idParamSchema,
       response: {
@@ -124,6 +127,7 @@ export const medicalCertificatesController = new Elysia({
       auth: {
         permissions: { medicalCertificate: ["update"] },
         requireOrganization: true,
+        requireFeature: "medical_certificates",
       },
       params: idParamSchema,
       body: updateMedicalCertificateSchema,
@@ -154,6 +158,7 @@ export const medicalCertificatesController = new Elysia({
       auth: {
         permissions: { medicalCertificate: ["delete"] },
         requireOrganization: true,
+        requireFeature: "medical_certificates",
       },
       params: idParamSchema,
       response: {
