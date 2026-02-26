@@ -15,6 +15,7 @@ import {
   calculateYearlyPrice,
   EMPLOYEE_TIERS,
   EMPLOYEE_TIERS_COUNT,
+  TRIAL_TIER,
 } from "./plans.constants";
 import type {
   CreatePlanData,
@@ -280,17 +281,15 @@ export abstract class PlansService {
     }
 
     const tier = tiers[0];
-    const expectedMin = 0;
-    const expectedMax = 10;
 
     if (
-      tier.minEmployees !== expectedMin ||
-      tier.maxEmployees !== expectedMax
+      tier.minEmployees !== TRIAL_TIER.min ||
+      tier.maxEmployees !== TRIAL_TIER.max
     ) {
       throw new InvalidTierRangeError(
         0,
         { min: tier.minEmployees, max: tier.maxEmployees },
-        { min: expectedMin, max: expectedMax }
+        { min: TRIAL_TIER.min, max: TRIAL_TIER.max }
       );
     }
   }
