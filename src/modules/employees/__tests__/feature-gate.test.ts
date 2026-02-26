@@ -40,6 +40,7 @@ describe("Employees — feature gate", () => {
     test("should return 403 FEATURE_NOT_AVAILABLE without subscription", async () => {
       const { headers } = await createTestUserWithOrganization({
         emailVerified: true,
+        skipTrialCreation: true,
       });
       const fakeId = `emp-${crypto.randomUUID()}`;
 

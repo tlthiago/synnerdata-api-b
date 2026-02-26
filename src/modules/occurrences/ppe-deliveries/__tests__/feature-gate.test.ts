@@ -45,6 +45,7 @@ describe("GET /v1/ppe-deliveries — feature gate", () => {
   test("should return 403 FEATURE_NOT_AVAILABLE without subscription", async () => {
     const { headers } = await createTestUserWithOrganization({
       emailVerified: true,
+      skipTrialCreation: true,
     });
 
     const response = await app.handle(
@@ -59,6 +60,7 @@ describe("GET /v1/ppe-deliveries — feature gate", () => {
   test("should return 403 FEATURE_NOT_AVAILABLE with Gold plan (ppe is a Diamond feature)", async () => {
     const { headers, organizationId } = await createTestUserWithOrganization({
       emailVerified: true,
+      skipTrialCreation: true,
     });
     await SubscriptionFactory.createActive(organizationId, goldPlan.plan.id);
 
@@ -74,6 +76,7 @@ describe("GET /v1/ppe-deliveries — feature gate", () => {
   test("should return 200 with Diamond plan (ppe is a Diamond feature)", async () => {
     const { headers, organizationId } = await createTestUserWithOrganization({
       emailVerified: true,
+      skipTrialCreation: true,
     });
     await SubscriptionFactory.createActive(organizationId, diamondPlan.plan.id);
 

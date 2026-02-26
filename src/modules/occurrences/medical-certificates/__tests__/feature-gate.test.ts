@@ -39,6 +39,7 @@ describe("GET /v1/medical-certificates — feature gate", () => {
   test("should return 403 FEATURE_NOT_AVAILABLE without subscription", async () => {
     const { headers } = await createTestUserWithOrganization({
       emailVerified: true,
+      skipTrialCreation: true,
     });
 
     const response = await app.handle(

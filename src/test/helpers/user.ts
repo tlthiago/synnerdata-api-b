@@ -1,7 +1,21 @@
 import { eq } from "drizzle-orm";
 import { db } from "@/db";
 import { schema } from "@/db/schema";
+import {
+  type CreatePlanResult,
+  PlanFactory,
+} from "@/test/factories/payments/plan.factory";
+import { SubscriptionFactory } from "@/test/factories/payments/subscription.factory";
 import { createTestApp } from "./app";
+
+let cachedTrialPlan: CreatePlanResult | null = null;
+
+async function getOrCreateTrialPlan(): Promise<CreatePlanResult> {
+  if (!cachedTrialPlan) {
+    cachedTrialPlan = await PlanFactory.createTrial();
+  }
+  return cachedTrialPlan;
+}
 
 export type TestUser = {
   id: string;
@@ -206,7 +220,7 @@ export async function createTestUserWithOrganization(
     createTestOrganization,
   } = require("./organization");
 
-  const { orgName, skipTrialCreation: _, ...userOptions } = options;
+  const { orgName, skipTrialCreation, ...userOptions } = options;
 
   const userResult = await createTestUser(userOptions);
 
@@ -215,6 +229,15 @@ export async function createTestUserWithOrganization(
     organizationId: organization.id,
     role: "owner",
   });
+
+  if (!skipTrialCreation) {
+    const trialPlan = await getOrCreateTrialPlan();
+    const tier = PlanFactory.getFirstTier(trialPlan);
+    await SubscriptionFactory.create(organization.id, trialPlan.plan.id, {
+      status: "active",
+      pricingTierId: tier.id,
+    });
+  }
 
   return {
     ...userResult,
