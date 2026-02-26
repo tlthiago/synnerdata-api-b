@@ -64,6 +64,60 @@ export abstract class PagarmePlanService {
     return pagarmePlan.id;
   }
 
+  /**
+   * Creates a one-off Pagarme plan with a custom price.
+   * Unlike ensurePlan(), this does NOT cache the plan in the tier —
+   * each custom checkout gets its own dedicated plan.
+   */
+  static async createCustomPlan(input: {
+    plan: { id: string; name: string; displayName: string };
+    tier: { id: string; minEmployees: number; maxEmployees: number };
+    billingCycle: BillingCycle;
+    price: number;
+  }): Promise<string> {
+    const { plan, tier, billingCycle, price } = input;
+    const interval = billingCycle === "monthly" ? "month" : "year";
+    const tierRange = `${tier.minEmployees}-${tier.maxEmployees}`;
+    const timestamp = Date.now();
+
+    const pagarmePlan = await Retry.withRetry(
+      () =>
+        PagarmeClient.createPlan(
+          {
+            name: `custom-${plan.name}-${tierRange}-${timestamp}`,
+            description: `Custom: ${plan.displayName} (${tierRange} funcionários)`,
+            currency: "BRL",
+            interval,
+            interval_count: 1,
+            billing_type: "prepaid",
+            payment_methods: ["credit_card"],
+            items: [
+              {
+                name: plan.displayName,
+                quantity: 1,
+                pricing_scheme: {
+                  price,
+                  scheme_type: "unit",
+                },
+              },
+            ],
+            metadata: {
+              type: "custom",
+              local_plan_id: plan.id,
+              local_tier_id: tier.id,
+              billing_cycle: billingCycle,
+              min_employees: String(tier.minEmployees),
+              max_employees: String(tier.maxEmployees),
+            },
+          },
+          `create-custom-plan-${plan.id}-${tier.id}-${timestamp}`
+        ),
+      PAGARME_RETRY_CONFIG.WRITE
+    );
+
+    return pagarmePlan.id;
+  }
+
   private static createPlanInPagarme(
     tier: {
       id: string;
