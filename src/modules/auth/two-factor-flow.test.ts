@@ -32,9 +32,14 @@ function base32Decode(encoded: string): Uint8Array {
 }
 
 function truncateHMAC(hmac: Uint8Array, digits: number): number {
+  // biome-ignore lint/style/useAtIndex: Uint8Array.at() requires ES2022 target
   // biome-ignore lint/suspicious/noBitwiseOperators: RFC 4226 offset extraction
-  const offset = (hmac.at(-1) ?? 0) & 0x0f;
-  const view = new DataView(hmac.buffer, hmac.byteOffset + offset, 4);
+  const offset = (hmac[hmac.length - 1] ?? 0) & 0x0f;
+  const view = new DataView(
+    hmac.buffer as ArrayBuffer,
+    hmac.byteOffset + offset,
+    4
+  );
   const raw = view.getUint32(0) % 2_147_483_648; // Clear MSB (equivalent to & 0x7FFFFFFF)
   return raw % 10 ** digits;
 }
@@ -52,13 +57,13 @@ async function generateTOTP(
 
   const cryptoKey = await crypto.subtle.importKey(
     "raw",
-    key,
+    key.buffer as ArrayBuffer,
     { name: "HMAC", hash: "SHA-1" },
     false,
     ["sign"]
   );
   const sig = await crypto.subtle.sign("HMAC", cryptoKey, counterBytes);
-  const hmac = new Uint8Array(sig);
+  const hmac = new Uint8Array(sig as ArrayBuffer);
   const code = truncateHMAC(hmac, digits);
   return String(code).padStart(digits, "0");
 }
