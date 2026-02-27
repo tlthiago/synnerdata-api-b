@@ -187,6 +187,11 @@ export type {
   NewMedicalCertificate,
 } from "./medical-certificates";
 export type {
+  NewOrganizationProfile,
+  OrganizationProfile,
+} from "./organization-profiles";
+export { organizationStatusEnum } from "./organization-profiles";
+export type {
   NewOrgSubscription,
   NewPendingCheckout,
   NewPlanPricingTier,

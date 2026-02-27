@@ -58,6 +58,10 @@ export const organizationProfiles = pgTable(
       .defaultNow()
       .$onUpdate(() => new Date())
       .notNull(),
+    createdBy: text("created_by"),
+    updatedBy: text("updated_by"),
+    deletedAt: timestamp("deleted_at", { withTimezone: true }),
+    deletedBy: text("deleted_by"),
   },
   (table) => [
     index("organization_profiles_organization_id_idx").on(table.organizationId),
@@ -66,6 +70,9 @@ export const organizationProfiles = pgTable(
     index("organization_profiles_industry_idx").on(table.industry),
   ]
 );
+
+export type OrganizationProfile = typeof organizationProfiles.$inferSelect;
+export type NewOrganizationProfile = typeof organizationProfiles.$inferInsert;
 
 export const organizationProfileRelations = relations(
   organizationProfiles,

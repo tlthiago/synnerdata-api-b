@@ -30,6 +30,10 @@ export const billingProfiles = pgTable(
       .defaultNow()
       .$onUpdate(() => new Date())
       .notNull(),
+    createdBy: text("created_by"),
+    updatedBy: text("updated_by"),
+    deletedAt: timestamp("deleted_at", { withTimezone: true }),
+    deletedBy: text("deleted_by"),
   },
   (table) => [
     index("billing_profiles_organization_id_idx").on(table.organizationId),

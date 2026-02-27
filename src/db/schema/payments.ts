@@ -18,9 +18,9 @@ export const subscriptionStatusEnum = pgEnum("subscription_status", [
   "expired",
 ]);
 
-export interface PlanLimits {
+export type PlanLimits = {
   features: string[];
-}
+};
 
 export const subscriptionPlans = pgTable("subscription_plans", {
   id: text("id").primaryKey(),
