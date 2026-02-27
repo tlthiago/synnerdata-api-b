@@ -11,6 +11,7 @@ import {
   PricingTierNotFoundError,
   TrialPlanNotFoundError,
 } from "@/modules/payments/errors";
+import { PagarmePlanHistoryService } from "@/modules/payments/pagarme/pagarme-plan-history.service";
 import {
   calculateYearlyPrice,
   EMPLOYEE_TIERS,
@@ -351,6 +352,15 @@ export abstract class PlansService {
     planId: string,
     tiers: TierPriceInput[]
   ): Promise<PricingTierData[]> {
+    const oldTiers = await tx
+      .select({ id: schema.planPricingTiers.id })
+      .from(schema.planPricingTiers)
+      .where(eq(schema.planPricingTiers.planId, planId));
+
+    for (const oldTier of oldTiers) {
+      await PagarmePlanHistoryService.deactivateByTierId(oldTier.id);
+    }
+
     await tx
       .delete(schema.planPricingTiers)
       .where(eq(schema.planPricingTiers.planId, planId));
