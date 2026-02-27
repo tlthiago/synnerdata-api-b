@@ -69,7 +69,7 @@ describe("POST /v1/cost-centers", () => {
     expect(response.status).toBe(422);
   });
 
-  test("should reject empty name", async () => {
+  test("should return PT-BR message for empty name", async () => {
     const { headers } = await createTestUserWithOrganization({
       emailVerified: true,
     });
@@ -86,6 +86,37 @@ describe("POST /v1/cost-centers", () => {
     );
 
     expect(response.status).toBe(422);
+    const body = await response.json();
+    expect(body.error.code).toBe("VALIDATION_ERROR");
+    const messages = body.error.details.map(
+      (d: { message: string }) => d.message
+    );
+    expect(messages).toContain("Nome é obrigatório");
+  });
+
+  test("should return PT-BR message for name exceeding max length", async () => {
+    const { headers } = await createTestUserWithOrganization({
+      emailVerified: true,
+    });
+
+    const response = await app.handle(
+      new Request(`${BASE_URL}/v1/cost-centers`, {
+        method: "POST",
+        headers: {
+          ...headers,
+          "Content-Type": "application/json",
+        },
+        body: JSON.stringify({ name: "x".repeat(101) }),
+      })
+    );
+
+    expect(response.status).toBe(422);
+    const body = await response.json();
+    expect(body.error.code).toBe("VALIDATION_ERROR");
+    const messages = body.error.details.map(
+      (d: { message: string }) => d.message
+    );
+    expect(messages).toContain("Nome deve ter no máximo 100 caracteres");
   });
 
   test("should create cost center successfully", async () => {

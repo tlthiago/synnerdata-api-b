@@ -54,6 +54,62 @@ describe("POST /v1/absences", () => {
     expect(body.error.code).toBe("NO_ACTIVE_ORGANIZATION");
   });
 
+  test("should return PT-BR messages for empty required fields", async () => {
+    const { headers } = await createTestUserWithOrganization({
+      emailVerified: true,
+    });
+
+    const response = await app.handle(
+      new Request(`${BASE_URL}/v1/absences`, {
+        method: "POST",
+        headers: { ...headers, "Content-Type": "application/json" },
+        body: JSON.stringify({
+          employeeId: "",
+          startDate: "",
+          endDate: "",
+          type: "justified",
+        }),
+      })
+    );
+
+    expect(response.status).toBe(422);
+    const body = await response.json();
+    expect(body.error.code).toBe("VALIDATION_ERROR");
+    const messages = body.error.details.map(
+      (d: { message: string }) => d.message
+    );
+    expect(messages).toContain("ID do funcionário é obrigatório");
+    expect(messages).toContain("Data de início é obrigatória");
+    expect(messages).toContain("Data de término é obrigatória");
+  });
+
+  test("should return PT-BR message for invalid absence type", async () => {
+    const { headers } = await createTestUserWithOrganization({
+      emailVerified: true,
+    });
+
+    const response = await app.handle(
+      new Request(`${BASE_URL}/v1/absences`, {
+        method: "POST",
+        headers: { ...headers, "Content-Type": "application/json" },
+        body: JSON.stringify({
+          employeeId: "employee-123",
+          startDate: "2024-01-01",
+          endDate: "2024-01-01",
+          type: "invalid-type",
+        }),
+      })
+    );
+
+    expect(response.status).toBe(422);
+    const body = await response.json();
+    expect(body.error.code).toBe("VALIDATION_ERROR");
+    const messages = body.error.details.map(
+      (d: { message: string }) => d.message
+    );
+    expect(messages).toContain("Tipo de ausência inválido");
+  });
+
   test("should reject invalid employee", async () => {
     const { headers } = await createTestUserWithOrganization({
       emailVerified: true,

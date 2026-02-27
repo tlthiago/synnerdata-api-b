@@ -73,6 +73,68 @@ describe("POST /v1/accidents", () => {
     expect(response.status).toBe(422);
   });
 
+  test("should return PT-BR messages for empty required fields", async () => {
+    const { headers } = await createTestUserWithOrganization({
+      emailVerified: true,
+    });
+
+    const response = await app.handle(
+      new Request(`${BASE_URL}/v1/accidents`, {
+        method: "POST",
+        headers: {
+          ...headers,
+          "Content-Type": "application/json",
+        },
+        body: JSON.stringify({
+          employeeId: "",
+          date: "not-a-date",
+          description: "",
+          nature: "",
+          measuresTaken: "",
+        }),
+      })
+    );
+
+    expect(response.status).toBe(422);
+    const body = await response.json();
+    expect(body.error.code).toBe("VALIDATION_ERROR");
+    const messages = body.error.details.map(
+      (d: { message: string }) => d.message
+    );
+    expect(messages).toContain("ID do funcionário é obrigatório");
+    expect(messages).toContain("Descrição é obrigatória");
+    expect(messages).toContain("Medidas tomadas são obrigatórias");
+  });
+
+  test("should return PT-BR message for invalid date", async () => {
+    const { headers } = await createTestUserWithOrganization({
+      emailVerified: true,
+    });
+
+    const response = await app.handle(
+      new Request(`${BASE_URL}/v1/accidents`, {
+        method: "POST",
+        headers: {
+          ...headers,
+          "Content-Type": "application/json",
+        },
+        body: JSON.stringify({
+          ...validAccidentData,
+          employeeId: "employee-123",
+          date: "not-a-date",
+        }),
+      })
+    );
+
+    expect(response.status).toBe(422);
+    const body = await response.json();
+    expect(body.error.code).toBe("VALIDATION_ERROR");
+    const messages = body.error.details.map(
+      (d: { message: string }) => d.message
+    );
+    expect(messages).toContain("Data inválida");
+  });
+
   test("should reject future date", async () => {
     const { headers, organizationId, user } =
       await createTestUserWithOrganization({
