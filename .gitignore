@@ -45,6 +45,9 @@ yarn-error.log*
 package-lock.json
 **/*.bun
 
+# docs
+/docs
+
 # worktrees
 .worktrees/
 .claude/worktrees/
