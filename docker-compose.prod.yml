@@ -1,0 +1,56 @@
+name: synnerdata-api
+
+services:
+  postgres:
+    image: postgres:17-alpine
+    environment:
+      POSTGRES_DB: ${POSTGRES_DB:-synnerdata}
+      POSTGRES_USER: ${POSTGRES_USER:-postgres}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:?Postgres password is required}
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U ${POSTGRES_USER:-postgres}"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+    restart: unless-stopped
+
+  api:
+    build: .
+    ports:
+      - "${PORT:-3333}:${PORT:-3333}"
+    environment:
+      - NODE_ENV=production
+      - PORT=${PORT:-3333}
+      - DATABASE_URL=postgresql://${POSTGRES_USER:-postgres}:${POSTGRES_PASSWORD}@postgres:5432/${POSTGRES_DB:-synnerdata}
+      - CORS_ORIGIN
+      - BETTER_AUTH_SECRET
+      - BETTER_AUTH_URL
+      - API_URL
+      - APP_URL
+      - PAGARME_BASE_URL
+      - PAGARME_SECRET_KEY
+      - PAGARME_PUBLIC_KEY
+      - PAGARME_WEBHOOK_USERNAME
+      - PAGARME_WEBHOOK_PASSWORD
+      - SMTP_HOST
+      - SMTP_PORT
+      - SMTP_FROM
+      - SUPER_ADMIN_EMAILS
+      - ADMIN_EMAILS
+      - INTERNAL_API_KEY
+      - PII_ENCRYPTION_KEY
+    depends_on:
+      postgres:
+        condition: service_healthy
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:${PORT:-3333}/health/live"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+      start_period: 30s
+    restart: unless-stopped
+
+volumes:
+  postgres_data:

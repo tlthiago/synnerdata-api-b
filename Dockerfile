@@ -34,11 +34,12 @@ RUN apt-get update && apt-get install -y --no-install-recommends \
 
 WORKDIR /app
 
-# Copia binário compilado
+# Copia binário compilado e arquivos de migração
 COPY --from=build /app/server server
+COPY --from=build /app/src/db/migrations ./migrations
 
 ENV NODE_ENV=production
 
-EXPOSE 3000
+EXPOSE 3333
 
 CMD ["./server"]

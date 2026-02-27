@@ -47,3 +47,4 @@ package-lock.json
 
 # worktrees
 .worktrees/
+.claude/worktrees/
