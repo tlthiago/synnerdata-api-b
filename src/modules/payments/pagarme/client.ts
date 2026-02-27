@@ -13,6 +13,7 @@ import type {
   CreateSubscriptionRequest,
   ListCustomersResponse,
   ListInvoicesResponse,
+  ListSubscriptionsResponse,
   PagarmeApiErrorResponse,
   PagarmeCheckout,
   PagarmeCustomer,
@@ -163,6 +164,29 @@ export abstract class PagarmeClient {
     subscriptionId: string
   ): Promise<PagarmeSubscription> {
     return PagarmeClient.request("GET", `/subscriptions/${subscriptionId}`);
+  }
+
+  static async getSubscriptions(params: {
+    planId?: string;
+    status?: string;
+    page?: number;
+    size?: number;
+  }): Promise<ListSubscriptionsResponse> {
+    const searchParams = new URLSearchParams();
+
+    if (params.planId) {
+      searchParams.set("plan_id", params.planId);
+    }
+    if (params.status) {
+      searchParams.set("status", params.status);
+    }
+    searchParams.set("page", String(params.page ?? 1));
+    searchParams.set("size", String(params.size ?? 20));
+
+    return PagarmeClient.request(
+      "GET",
+      `/subscriptions?${searchParams.toString()}`
+    );
   }
 
   static async cancelSubscription(

@@ -139,6 +139,15 @@ export type PagarmeSubscription = {
   metadata?: Record<string, string>;
 };
 
+export type ListSubscriptionsResponse = {
+  data: PagarmeSubscription[];
+  paging: {
+    total: number;
+    previous?: string;
+    next?: string;
+  };
+};
+
 export type CreateOrderRequest = {
   customer_id: string;
   items: OrderItem[];
