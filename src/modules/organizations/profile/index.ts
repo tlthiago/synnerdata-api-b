@@ -11,6 +11,7 @@ import {
 import {
   billingStatusResponseSchema,
   getProfileResponseSchema,
+  powerBiUrlResponseSchema,
   updateProfileResponseSchema,
   updateProfileSchema,
 } from "./organization.model";
@@ -100,6 +101,31 @@ export const profileController = new Elysia({
         summary: "Get billing status",
         description:
           "Returns whether the organization profile is complete for billing",
+      },
+    }
+  )
+  .get(
+    "/power-bi-url",
+    async ({ session }) =>
+      wrapSuccess(
+        await OrganizationService.getPowerBiUrl(
+          session.activeOrganizationId as string
+        )
+      ),
+    {
+      auth: {
+        permissions: { organization: ["read"] },
+        requireOrganization: true,
+      },
+      response: {
+        200: powerBiUrlResponseSchema,
+        401: unauthorizedErrorSchema,
+        403: forbiddenErrorSchema,
+      },
+      detail: {
+        summary: "Get Power BI URL",
+        description:
+          "Returns the Power BI dashboard URL of the active organization, or null if not configured",
       },
     }
   );

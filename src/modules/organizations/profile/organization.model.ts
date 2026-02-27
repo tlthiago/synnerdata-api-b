@@ -129,6 +129,10 @@ const organizationProfileDataSchema = z.object({
   businessArea: z.string().nullable(),
   foundingDate: z.string().nullable(),
   revenue: z.string().nullable(),
+  maxUsers: z.number().nullable(),
+  maxEmployees: z.number().nullable(),
+  logoUrl: z.string().nullable(),
+  pbUrl: z.string().nullable(),
   pagarmeCustomerId: z.string().nullable(),
   status: z.string(),
   createdAt: z.coerce.date(),
@@ -140,6 +144,10 @@ const billingStatusDataSchema = z.object({
   missingFields: z.array(z.string()),
 });
 
+const powerBiUrlDataSchema = z.object({
+  url: z.string().nullable(),
+});
+
 export const getProfileResponseSchema = successResponseSchema(
   organizationProfileDataSchema
 );
@@ -149,6 +157,8 @@ export const updateProfileResponseSchema = successResponseSchema(
 export const billingStatusResponseSchema = successResponseSchema(
   billingStatusDataSchema
 );
+export const powerBiUrlResponseSchema =
+  successResponseSchema(powerBiUrlDataSchema);
 
 export type UpdateProfileInput = z.infer<typeof updateProfileSchema>;
 
@@ -157,6 +167,8 @@ export type OrganizationProfileData = z.infer<
 >;
 
 export type BillingStatusData = z.infer<typeof billingStatusDataSchema>;
+
+export type PowerBiUrlData = z.infer<typeof powerBiUrlDataSchema>;
 
 export type OrganizationData = {
   id: string;

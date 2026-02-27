@@ -169,6 +169,18 @@ export abstract class OrganizationService {
     };
   }
 
+  static async getPowerBiUrl(
+    organizationId: string
+  ): Promise<{ url: string | null }> {
+    const [profile] = await db
+      .select({ pbUrl: schema.organizationProfiles.pbUrl })
+      .from(schema.organizationProfiles)
+      .where(eq(schema.organizationProfiles.organizationId, organizationId))
+      .limit(1);
+
+    return { url: profile?.pbUrl ?? null };
+  }
+
   static async setCustomerId(
     organizationId: string,
     pagarmeCustomerId: string
