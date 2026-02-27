@@ -4,6 +4,7 @@ import { schema } from "@/db/schema";
 import {
   sendCancellationScheduledEmail,
   sendPaymentFailedEmail,
+  sendPriceAdjustmentEmail,
   sendSubscriptionCanceledEmail,
   sendTrialExpiredEmail,
   sendTrialExpiringEmail,
@@ -312,6 +313,42 @@ export function registerPaymentListeners() {
       logger.error({
         type: "payment:listener:error",
         event: "charge.failed",
+        error: error instanceof Error ? error.message : String(error),
+      });
+    }
+  });
+
+  // subscription.priceAdjusted → sendPriceAdjustmentEmail
+  PaymentHooks.on("subscription.priceAdjusted", async (payload) => {
+    try {
+      const { subscription, oldPrice, newPrice, reason } = payload;
+      const ownerEmail = await getOrganizationOwnerEmail(
+        subscription.organizationId
+      );
+      if (!ownerEmail) {
+        return;
+      }
+
+      const orgName = await getOrganizationName(subscription.organizationId);
+      const subData = await getSubscriptionWithPlanAndTier(
+        subscription.organizationId
+      );
+      if (!subData) {
+        return;
+      }
+
+      await sendPriceAdjustmentEmail({
+        to: ownerEmail,
+        organizationName: orgName ?? "Sua organização",
+        planName: subData.displayName,
+        oldPrice,
+        newPrice,
+        reason,
+      });
+    } catch (error) {
+      logger.error({
+        type: "payment:listener:error",
+        event: "subscription.priceAdjusted",
         error: error instanceof Error ? error.message : String(error),
       });
     }
