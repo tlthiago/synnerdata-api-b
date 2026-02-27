@@ -4,7 +4,11 @@ import { env } from "@/env";
 const transporter = createTransport({
   host: env.SMTP_HOST,
   port: env.SMTP_PORT,
-  secure: false,
+  secure: env.SMTP_PORT === 465,
+  auth:
+    env.SMTP_USER && env.SMTP_PASSWORD
+      ? { user: env.SMTP_USER, pass: env.SMTP_PASSWORD }
+      : undefined,
 });
 
 type SendEmailParams = {

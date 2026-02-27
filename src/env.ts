@@ -16,6 +16,8 @@ const envSchema = z.object({
   PAGARME_WEBHOOK_PASSWORD: z.string().min(1),
   SMTP_HOST: z.string().default("localhost"),
   SMTP_PORT: z.coerce.number().default(1025),
+  SMTP_USER: z.string().optional(),
+  SMTP_PASSWORD: z.string().optional(),
   SMTP_FROM: z.email().default("noreply@synnerdata.com"),
   // Admin emails - users with these emails will be assigned admin roles on signup
   SUPER_ADMIN_EMAILS: z.string().default(""),
