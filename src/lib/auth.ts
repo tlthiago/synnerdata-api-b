@@ -175,6 +175,26 @@ async function auditMemberRemove(
   });
 }
 
+async function auditMemberRoleUpdate(
+  member: { id: string; userId: string },
+  previousRole: string,
+  newRole: string,
+  organizationId: string,
+  updatedByUserId: string
+): Promise<void> {
+  await AuditService.log({
+    action: "update",
+    resource: "member",
+    resourceId: member.id,
+    userId: updatedByUserId,
+    organizationId,
+    changes: {
+      before: { role: previousRole },
+      after: { role: newRole },
+    },
+  });
+}
+
 async function auditInvitationAccept(
   invitation: { id: string; email: string; role: string },
   member: { id: string; userId: string },
@@ -409,6 +429,53 @@ export const auth = betterAuth({
             },
             { id: member.id, userId: member.userId },
             org.id
+          );
+        },
+        beforeRemoveMember: ({
+          member,
+        }: {
+          member: Member;
+        }) => {
+          if (member.role === "owner") {
+            throw new APIError("FORBIDDEN", {
+              message:
+                "O proprietário da organização não pode ser removido.",
+            });
+          }
+          return Promise.resolve();
+        },
+        beforeUpdateMemberRole: ({
+          member,
+          user,
+        }: {
+          member: Member;
+          user: User;
+        }) => {
+          if (member.userId === user.id) {
+            throw new APIError("FORBIDDEN", {
+              message:
+                "Você não pode alterar sua própria função.",
+            });
+          }
+          return Promise.resolve();
+        },
+        afterUpdateMemberRole: async ({
+          member,
+          previousRole,
+          user,
+          organization: org,
+        }: {
+          member: Member;
+          previousRole: string;
+          user: User;
+          organization: Organization;
+        }) => {
+          await auditMemberRoleUpdate(
+            { id: member.id, userId: member.userId },
+            previousRole,
+            member.role,
+            org.id,
+            user.id
           );
         },
         afterAddMember: async ({
