@@ -4,6 +4,7 @@ import { db } from "@/db";
 import { schema } from "@/db/schema";
 import { env } from "@/env";
 import { createTestApp, type TestApp } from "@/test/helpers/app";
+import { generateCnpj } from "@/test/helpers/faker";
 import {
   addMemberToOrganization,
   createTestOrganization,
@@ -14,10 +15,6 @@ import {
 } from "@/test/helpers/user";
 
 const BASE_URL = env.API_URL;
-
-function generateUniqueTaxId(): string {
-  return `${Date.now()}${Math.floor(Math.random() * 1_000_000)}`.slice(0, 14);
-}
 
 describe("GET /v1/organizations/profile", () => {
   let app: TestApp;
@@ -188,7 +185,7 @@ describe("PUT /v1/organizations/profile", () => {
   });
 
   test("should return 409 when taxId already exists", async () => {
-    const existingTaxId = generateUniqueTaxId();
+    const existingTaxId = generateCnpj();
     await createTestOrganization({ taxId: existingTaxId });
 
     const { headers } = await createTestUserWithOrganization({

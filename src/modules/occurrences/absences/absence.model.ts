@@ -15,10 +15,12 @@ const absenceFieldsSchema = z.object({
     .describe("ID do funcionário"),
   startDate: z
     .string()
+    .min(1, "Data de início é obrigatória")
     .date("Data de início deve ser uma data válida")
     .describe("Data de início (YYYY-MM-DD)"),
   endDate: z
     .string()
+    .min(1, "Data de término é obrigatória")
     .date("Data de término deve ser uma data válida")
     .describe("Data de término (YYYY-MM-DD)"),
   type: absenceTypeEnum.describe("Tipo da ausência"),

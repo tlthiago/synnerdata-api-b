@@ -45,6 +45,6 @@ Autenticação via Email OTP (passwordless) e lifecycle de usuários/organizaç�
 
 ## Emails
 
-- **Welcome**: enviado na criação do user (falha silenciosa)
+- **Welcome**: enviado após verificação de email via `afterEmailVerification` (falha silenciosa). Para admins (emailVerified=true no cadastro), enviado imediatamente no `create.after`
 - **OTP**: 6 dígitos, 300s expiração
 - **Convite**: template com inviter, org name, link (`{APP_URL}/convite/{invitationId}`), role

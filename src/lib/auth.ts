@@ -219,6 +219,10 @@ export const auth = betterAuth({
       await sendVerificationEmailFn({ email: user.email, url });
     },
     sendOnSignUp: true,
+    autoSignInAfterVerification: true,
+    async afterEmailVerification(user) {
+      await handleWelcomeEmail(user);
+    },
   },
   user: {
     additionalFields: {
@@ -277,7 +281,11 @@ export const auth = betterAuth({
           return Promise.resolve({ data: user });
         },
         after: async (user) => {
-          await Promise.all([handleWelcomeEmail(user), auditUserCreate(user)]);
+          const tasks: Promise<void>[] = [auditUserCreate(user)];
+          if (user.emailVerified) {
+            tasks.push(handleWelcomeEmail(user));
+          }
+          await Promise.all(tasks);
         },
       },
     },

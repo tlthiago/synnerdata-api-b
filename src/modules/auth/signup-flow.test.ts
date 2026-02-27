@@ -1,4 +1,4 @@
-import { beforeAll, beforeEach, describe, expect, spyOn, test } from "bun:test";
+import { beforeAll, describe, expect, spyOn, test } from "bun:test";
 import { eq } from "drizzle-orm";
 import { db } from "@/db";
 import { schema } from "@/db/schema";
@@ -24,15 +24,12 @@ describe("Signup Use Case: Novo Usuário até Trial Ativo", () => {
     app = createTestApp();
     testEmail = `test-${crypto.randomUUID()}@example.com`;
     emailModule = await import("@/lib/email");
-
-    await PlanFactory.createTrial();
-  });
-
-  beforeEach(() => {
     sendWelcomeEmailSpy = spyOn(
       emailModule,
       "sendWelcomeEmail"
     ).mockResolvedValue(undefined);
+
+    await PlanFactory.createTrial();
   });
 
   describe("Fase 1: Autenticação com Email e Senha", () => {
@@ -50,6 +47,10 @@ describe("Signup Use Case: Novo Usuário até Trial Ativo", () => {
       );
 
       expect(response.status).toBe(200);
+    });
+
+    test("should NOT send welcome email on sign up", () => {
+      expect(sendWelcomeEmailSpy).toHaveBeenCalledTimes(0);
     });
 
     test("should send verification email on sign up", async () => {
@@ -86,6 +87,14 @@ describe("Signup Use Case: Novo Usuário até Trial Ativo", () => {
       expect([200, 302]).toContain(response.status);
     });
 
+    test("should send welcome email after email verification", () => {
+      expect(sendWelcomeEmailSpy).toHaveBeenCalledTimes(1);
+      expect(sendWelcomeEmailSpy).toHaveBeenCalledWith({
+        to: testEmail,
+        userName: "Test User",
+      });
+    });
+
     test("should sign in with verified email and password", async () => {
       const response = await app.handle(
         new Request(`${BASE_URL}/api/auth/sign-in/email`, {
@@ -120,14 +129,6 @@ describe("Signup Use Case: Novo Usuário até Trial Ativo", () => {
 
     test("should return session cookies", () => {
       expect(sessionCookies).toContain("better-auth.session_token");
-    });
-
-    test("should send welcome email on sign up", () => {
-      expect(sendWelcomeEmailSpy).toHaveBeenCalledTimes(1);
-      expect(sendWelcomeEmailSpy).toHaveBeenCalledWith({
-        to: testEmail,
-        userName: "Test User",
-      });
     });
 
     test("should reject sign up with short password", async () => {
@@ -177,11 +178,10 @@ describe("Signup Use Case: Novo Usuário até Trial Ativo", () => {
       expect(response.status).not.toBe(200);
     });
 
-    test("should not fail user creation if welcome email fails", async () => {
+    test("should not fail email verification if welcome email fails", async () => {
       const failEmail = `fail-email-${crypto.randomUUID()}@example.com`;
 
-      sendWelcomeEmailSpy.mockRejectedValueOnce(new Error("SMTP error"));
-
+      // Sign up first
       const signUpResponse = await app.handle(
         new Request(`${BASE_URL}/api/auth/sign-up/email`, {
           method: "POST",
@@ -196,6 +196,18 @@ describe("Signup Use Case: Novo Usuário até Trial Ativo", () => {
 
       expect(signUpResponse.status).toBe(200);
 
+      // Mock welcome email to fail before verification triggers it
+      sendWelcomeEmailSpy.mockRejectedValueOnce(new Error("SMTP error"));
+
+      // Verify email — should succeed even though welcome email will fail
+      const { verificationUrl } = await waitForVerificationEmail(failEmail);
+      const verifyResponse = await app.handle(
+        new Request(verificationUrl, { method: "GET", redirect: "manual" })
+      );
+
+      expect([200, 302]).toContain(verifyResponse.status);
+
+      // User should still be verified
       const [user] = await db
         .select()
         .from(schema.users)
@@ -203,6 +215,7 @@ describe("Signup Use Case: Novo Usuário até Trial Ativo", () => {
         .limit(1);
 
       expect(user).toBeDefined();
+      expect(user.emailVerified).toBe(true);
 
       // Cleanup
       await db
