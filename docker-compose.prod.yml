@@ -17,7 +17,9 @@ services:
     restart: unless-stopped
 
   api:
-    build: .
+    build:
+      context: .
+      dockerfile: Dockerfile
     ports:
       - "${PORT:-3333}:${PORT:-3333}"
     environment:
