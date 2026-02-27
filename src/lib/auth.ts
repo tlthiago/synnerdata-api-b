@@ -175,6 +175,26 @@ async function auditMemberRemove(
   });
 }
 
+async function auditMemberRoleUpdate(params: {
+  member: { id: string; userId: string };
+  previousRole: string;
+  newRole: string;
+  organizationId: string;
+  updatedByUserId: string;
+}): Promise<void> {
+  await AuditService.log({
+    action: "update",
+    resource: "member",
+    resourceId: params.member.id,
+    userId: params.updatedByUserId,
+    organizationId: params.organizationId,
+    changes: {
+      before: { role: params.previousRole },
+      after: { role: params.newRole },
+    },
+  });
+}
+
 async function auditInvitationAccept(
   invitation: { id: string; email: string; role: string },
   member: { id: string; userId: string },
@@ -410,6 +430,33 @@ export const auth = betterAuth({
             { id: member.id, userId: member.userId },
             org.id
           );
+        },
+        beforeRemoveMember: ({ member }: { member: Member }) => {
+          if (member.role === "owner") {
+            throw new APIError("FORBIDDEN", {
+              message: "O proprietário da organização não pode ser removido.",
+            });
+          }
+          return Promise.resolve();
+        },
+        afterUpdateMemberRole: async ({
+          member,
+          previousRole,
+          user,
+          organization: org,
+        }: {
+          member: Member;
+          previousRole: string;
+          user: User;
+          organization: Organization;
+        }) => {
+          await auditMemberRoleUpdate({
+            member: { id: member.id, userId: member.userId },
+            previousRole,
+            newRole: member.role,
+            organizationId: org.id,
+            updatedByUserId: user.id,
+          });
         },
         afterAddMember: async ({
           member,
