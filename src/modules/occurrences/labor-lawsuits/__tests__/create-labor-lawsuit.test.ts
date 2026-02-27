@@ -76,6 +76,43 @@ describe("POST /v1/labor-lawsuits", () => {
     expect(response.status).toBe(422);
   });
 
+  test("should return PT-BR messages for empty required fields", async () => {
+    const { headers } = await createTestUserWithOrganization({
+      emailVerified: true,
+    });
+
+    const response = await app.handle(
+      new Request(`${BASE_URL}/v1/labor-lawsuits`, {
+        method: "POST",
+        headers: {
+          ...headers,
+          "Content-Type": "application/json",
+        },
+        body: JSON.stringify({
+          employeeId: "employee-123",
+          processNumber: "",
+          court: "",
+          filingDate: "2024-01-15",
+          knowledgeDate: "2024-01-10",
+          plaintiff: "",
+          defendant: "Empresa XYZ",
+          description: "",
+        }),
+      })
+    );
+
+    expect(response.status).toBe(422);
+    const body = await response.json();
+    expect(body.error.code).toBe("VALIDATION_ERROR");
+    const messages = body.error.details.map(
+      (d: { message: string }) => d.message
+    );
+    expect(messages).toContain("Número do processo é obrigatório");
+    expect(messages).toContain("Tribunal é obrigatório");
+    expect(messages).toContain("Reclamante é obrigatório");
+    expect(messages).toContain("Descrição é obrigatória");
+  });
+
   test("should reject invalid employee", async () => {
     const { headers } = await createTestUserWithOrganization({
       emailVerified: true,

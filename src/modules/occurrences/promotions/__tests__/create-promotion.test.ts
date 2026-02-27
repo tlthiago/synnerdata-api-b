@@ -75,6 +75,37 @@ describe("POST /v1/promotions", () => {
     expect(response.status).toBe(422);
   });
 
+  test("should return PT-BR messages for empty required fields", async () => {
+    const { headers } = await createTestUserWithOrganization({
+      emailVerified: true,
+    });
+
+    const response = await app.handle(
+      new Request(`${BASE_URL}/v1/promotions`, {
+        method: "POST",
+        headers: { ...headers, "Content-Type": "application/json" },
+        body: JSON.stringify({
+          employeeId: "",
+          previousJobPositionId: "",
+          newJobPositionId: "",
+          promotionDate: "2024-01-15",
+          previousSalary: "3000.00",
+          newSalary: "3600.00",
+        }),
+      })
+    );
+
+    expect(response.status).toBe(422);
+    const body = await response.json();
+    expect(body.error.code).toBe("VALIDATION_ERROR");
+    const messages = body.error.details.map(
+      (d: { message: string }) => d.message
+    );
+    expect(messages).toContain("ID do funcionário é obrigatório");
+    expect(messages).toContain("ID do cargo anterior é obrigatório");
+    expect(messages).toContain("ID do novo cargo é obrigatório");
+  });
+
   test("should reject when employee does not exist", async () => {
     const { headers, organizationId, user } =
       await createTestUserWithOrganization({ emailVerified: true });

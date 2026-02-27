@@ -58,6 +58,39 @@ describe("POST /v1/ppe-deliveries", () => {
     expect(body.error.code).toBe("NO_ACTIVE_ORGANIZATION");
   });
 
+  test("should return PT-BR messages for empty required fields", async () => {
+    const { headers } = await createTestUserWithOrganization({
+      emailVerified: true,
+    });
+
+    const response = await app.handle(
+      new Request(`${BASE_URL}/v1/ppe-deliveries`, {
+        method: "POST",
+        headers: {
+          ...headers,
+          "Content-Type": "application/json",
+        },
+        body: JSON.stringify({
+          employeeId: "",
+          deliveryDate: "",
+          reason: "",
+          deliveredBy: "",
+        }),
+      })
+    );
+
+    expect(response.status).toBe(422);
+    const body = await response.json();
+    expect(body.error.code).toBe("VALIDATION_ERROR");
+    const messages = body.error.details.map(
+      (d: { message: string }) => d.message
+    );
+    expect(messages).toContain("ID do funcionário é obrigatório");
+    expect(messages).toContain("Data de entrega é obrigatória");
+    expect(messages).toContain("Motivo é obrigatório");
+    expect(messages).toContain("Nome de quem entregou é obrigatório");
+  });
+
   test("should return 404 for non-existent employee", async () => {
     const { headers } = await createTestUserWithOrganization({
       emailVerified: true,

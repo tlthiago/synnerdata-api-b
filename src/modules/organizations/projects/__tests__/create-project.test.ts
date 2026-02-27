@@ -74,7 +74,39 @@ describe("POST /v1/projects", () => {
     expect(response.status).toBe(422);
   });
 
-  test("should reject invalid CNO length", async () => {
+  test("should return PT-BR messages for empty required fields", async () => {
+    const { headers } = await createTestUserWithOrganization({
+      emailVerified: true,
+    });
+
+    const response = await app.handle(
+      new Request(`${BASE_URL}/v1/projects`, {
+        method: "POST",
+        headers: {
+          ...headers,
+          "Content-Type": "application/json",
+        },
+        body: JSON.stringify({
+          name: "",
+          description: "",
+          startDate: "",
+          cno: "123456789012",
+        }),
+      })
+    );
+
+    expect(response.status).toBe(422);
+    const body = await response.json();
+    expect(body.error.code).toBe("VALIDATION_ERROR");
+    const messages = body.error.details.map(
+      (d: { message: string }) => d.message
+    );
+    expect(messages).toContain("Nome é obrigatório");
+    expect(messages).toContain("Descrição é obrigatória");
+    expect(messages).toContain("Data de início é obrigatória");
+  });
+
+  test("should return PT-BR message for invalid CNO length", async () => {
     const { headers } = await createTestUserWithOrganization({
       emailVerified: true,
     });
@@ -94,6 +126,12 @@ describe("POST /v1/projects", () => {
     );
 
     expect(response.status).toBe(422);
+    const body = await response.json();
+    expect(body.error.code).toBe("VALIDATION_ERROR");
+    const messages = body.error.details.map(
+      (d: { message: string }) => d.message
+    );
+    expect(messages).toContain("CNO deve ter exatamente 12 caracteres");
   });
 
   test("should create project successfully", async () => {

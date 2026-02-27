@@ -71,7 +71,7 @@ describe("POST /v1/ppe-items", () => {
     expect(response.status).toBe(422);
   });
 
-  test("should reject empty name", async () => {
+  test("should return PT-BR message for empty name", async () => {
     const { headers } = await createTestUserWithOrganization({
       emailVerified: true,
     });
@@ -92,9 +92,15 @@ describe("POST /v1/ppe-items", () => {
     );
 
     expect(response.status).toBe(422);
+    const body = await response.json();
+    expect(body.error.code).toBe("VALIDATION_ERROR");
+    const messages = body.error.details.map(
+      (d: { message: string }) => d.message
+    );
+    expect(messages).toContain("Nome é obrigatório");
   });
 
-  test("should reject missing description", async () => {
+  test("should return PT-BR message for empty description", async () => {
     const { headers } = await createTestUserWithOrganization({
       emailVerified: true,
     });
@@ -108,15 +114,22 @@ describe("POST /v1/ppe-items", () => {
         },
         body: JSON.stringify({
           name: "Capacete",
+          description: "",
           equipment: "Equipamento",
         }),
       })
     );
 
     expect(response.status).toBe(422);
+    const body = await response.json();
+    expect(body.error.code).toBe("VALIDATION_ERROR");
+    const messages = body.error.details.map(
+      (d: { message: string }) => d.message
+    );
+    expect(messages).toContain("Descrição é obrigatória");
   });
 
-  test("should reject missing equipment", async () => {
+  test("should return PT-BR message for empty equipment", async () => {
     const { headers } = await createTestUserWithOrganization({
       emailVerified: true,
     });
@@ -131,11 +144,18 @@ describe("POST /v1/ppe-items", () => {
         body: JSON.stringify({
           name: "Capacete",
           description: "Descrição",
+          equipment: "",
         }),
       })
     );
 
     expect(response.status).toBe(422);
+    const body = await response.json();
+    expect(body.error.code).toBe("VALIDATION_ERROR");
+    const messages = body.error.details.map(
+      (d: { message: string }) => d.message
+    );
+    expect(messages).toContain("Equipamento é obrigatório");
   });
 
   test("should create ppe item successfully", async () => {

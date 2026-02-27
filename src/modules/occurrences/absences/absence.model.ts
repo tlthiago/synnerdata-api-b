@@ -2,7 +2,9 @@ import { z } from "zod";
 import { successResponseSchema } from "@/lib/responses/response.types";
 import { entityReferenceSchema } from "@/lib/schemas/relationships";
 
-export const absenceTypeEnum = z.enum(["justified", "unjustified"]);
+export const absenceTypeEnum = z.enum(["justified", "unjustified"], {
+  error: "Tipo de ausência inválido",
+});
 
 export type AbsenceType = z.infer<typeof absenceTypeEnum>;
 
