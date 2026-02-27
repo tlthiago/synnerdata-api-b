@@ -36,7 +36,7 @@ export const employeeController = new Elysia({
         session.activeOrganizationId as string
       );
 
-      return new Response(buffer, {
+      return new Response(new Uint8Array(buffer), {
         headers: {
           "Content-Type":
             "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",

@@ -48,6 +48,7 @@ export abstract class ImportService {
 
     // 1. Load workbook
     const workbook = new ExcelJS.Workbook();
+    // @ts-expect-error — Bun's Buffer<ArrayBufferLike> vs Node's Buffer<ArrayBuffer>
     await workbook.xlsx.load(buffer);
 
     const sheet = workbook.getWorksheet(SHEET_NAME_EMPLOYEES);

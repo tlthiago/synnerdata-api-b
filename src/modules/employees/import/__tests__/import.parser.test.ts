@@ -545,7 +545,7 @@ describe("ImportParser.parseRow", () => {
       const result = parser.parseRow(rawRow, 22);
       expect(result.success).toBe(true);
       if (result.success) {
-        expect(result.data.gender).toBe(expected);
+        expect(result.data.gender).toBe(expected as typeof result.data.gender);
       }
     }
   });
@@ -563,7 +563,9 @@ describe("ImportParser.parseRow", () => {
       const result = parser.parseRow(rawRow, 23);
       expect(result.success).toBe(true);
       if (result.success) {
-        expect(result.data.workShift).toBe(expected);
+        expect(result.data.workShift).toBe(
+          expected as typeof result.data.workShift
+        );
       }
     }
   });

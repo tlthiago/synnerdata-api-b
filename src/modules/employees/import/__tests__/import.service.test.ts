@@ -77,6 +77,7 @@ async function buildWorkbookWithRows(
   rows: Record<string, unknown>[]
 ): Promise<Buffer> {
   const workbook = new ExcelJS.Workbook();
+  // @ts-expect-error — Bun's Buffer<ArrayBufferLike> vs Node's Buffer<ArrayBuffer>
   await workbook.xlsx.load(template);
   const sheet = workbook.getWorksheet(SHEET_NAME_EMPLOYEES);
   if (!sheet) {
@@ -94,7 +95,7 @@ async function buildWorkbookWithRows(
     excelRow.commit();
   }
 
-  return Buffer.from(await workbook.xlsx.writeBuffer());
+  return Buffer.from(await workbook.xlsx.writeBuffer()) as Buffer;
 }
 
 function validRow(overrides?: Record<string, unknown>) {

@@ -139,12 +139,14 @@ describe("BRAZILIAN_STATES", () => {
   });
 
   test("is sorted alphabetically", () => {
-    const sorted = [...BRAZILIAN_STATES].sort();
+    const sorted = [
+      ...BRAZILIAN_STATES,
+    ].sort() as unknown as typeof BRAZILIAN_STATES;
     expect(BRAZILIAN_STATES).toEqual(sorted);
   });
 
   test("includes all major states", () => {
-    const expected = ["SP", "RJ", "MG", "BA", "DF", "RS", "PR", "AM"];
+    const expected = ["SP", "RJ", "MG", "BA", "DF", "RS", "PR", "AM"] as const;
     for (const uf of expected) {
       expect(BRAZILIAN_STATES).toContain(uf);
     }
@@ -153,7 +155,7 @@ describe("BRAZILIAN_STATES", () => {
   test("all entries are 2-character strings", () => {
     for (const uf of BRAZILIAN_STATES) {
       expect(uf).toHaveLength(2);
-      expect(uf).toBe(uf.toUpperCase());
+      expect(uf).toBe(uf.toUpperCase() as typeof uf);
     }
   });
 });

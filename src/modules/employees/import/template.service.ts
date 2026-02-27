@@ -116,7 +116,7 @@ export abstract class TemplateService {
       costCenters,
     });
 
-    return Buffer.from(await workbook.xlsx.writeBuffer());
+    return Buffer.from(await workbook.xlsx.writeBuffer()) as Buffer;
   }
 
   // ── Sheet 1: Instrucoes ─────────────────────────────────────────────────
@@ -202,6 +202,7 @@ export abstract class TemplateService {
       const colLetter = TemplateService.columnLetter(i + 1);
 
       if (col.dropdown.type === "inline") {
+        // @ts-expect-error — dataValidations exists at runtime but is missing from @types/exceljs
         ws.dataValidations.add(`${colLetter}2:${colLetter}${lastDataRow}`, {
           type: "list",
           allowBlank: !col.required,
@@ -213,6 +214,7 @@ export abstract class TemplateService {
       } else if (col.dropdown.type === "reference") {
         // IMPORTANT: Use `!` separator for cross-sheet references, NOT `.`
         // ExcelJS has a bug that lowercases the column letter with dot notation
+        // @ts-expect-error — dataValidations exists at runtime but is missing from @types/exceljs
         ws.dataValidations.add(`${colLetter}2:${colLetter}${lastDataRow}`, {
           type: "list",
           allowBlank: !col.required,

@@ -95,6 +95,7 @@ async function fillTemplate(
   rows: Record<string, unknown>[]
 ): Promise<Buffer> {
   const workbook = new ExcelJS.Workbook();
+  // @ts-expect-error — Bun's Buffer<ArrayBufferLike> vs Node's Buffer<ArrayBuffer>
   await workbook.xlsx.load(templateBuffer);
   const sheet = workbook.getWorksheet(SHEET_NAME_EMPLOYEES);
   if (!sheet) {
@@ -112,7 +113,7 @@ async function fillTemplate(
     excelRow.commit();
   }
 
-  return Buffer.from(await workbook.xlsx.writeBuffer());
+  return Buffer.from(await workbook.xlsx.writeBuffer()) as Buffer;
 }
 
 // ---------------------------------------------------------------------------
@@ -209,7 +210,7 @@ describe("POST /v1/employees/import", () => {
     const formData = new FormData();
     formData.append(
       "file",
-      new Blob([fileBuffer], {
+      new Blob([fileBuffer as BlobPart], {
         type: "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
       }),
       "employees.xlsx"
@@ -255,7 +256,7 @@ describe("POST /v1/employees/import", () => {
     const formData = new FormData();
     formData.append(
       "file",
-      new Blob([fileBuffer], {
+      new Blob([fileBuffer as BlobPart], {
         type: "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
       }),
       "employees.xlsx"

@@ -19,6 +19,7 @@ import { TemplateService } from "../template.service";
 
 async function loadWorkbook(buffer: Buffer): Promise<ExcelJS.Workbook> {
   const wb = new ExcelJS.Workbook();
+  // @ts-expect-error — Bun's Buffer<ArrayBufferLike> vs Node's Buffer<ArrayBuffer>
   await wb.xlsx.load(buffer);
   return wb;
 }
@@ -122,7 +123,7 @@ describe("TemplateService.generate", () => {
     const views = ws.views;
     expect(views).toHaveLength(1);
     expect(views[0].state).toBe("frozen");
-    expect(views[0].ySplit).toBe(1);
+    expect((views[0] as Record<string, unknown>).ySplit).toBe(1);
   });
 
   test("data sheet contains organization reference data", async () => {
@@ -224,7 +225,13 @@ describe("TemplateService.generate", () => {
 
       // After round-trip, ExcelJS expands range validations into per-cell keys
       const sampleKey = `${colLetter}2`;
-      const validations = ws.dataValidations.model;
+      const validations = (
+        ws as unknown as {
+          dataValidations: {
+            model: Record<string, { type: string; formulae: string[] }>;
+          };
+        }
+      ).dataValidations.model;
       const validation = validations[sampleKey];
       expect(validation).toBeDefined();
       expect(validation.type).toBe("list");
@@ -264,7 +271,13 @@ describe("TemplateService.generate", () => {
 
       // After round-trip, ExcelJS expands range validations into per-cell keys
       const sampleKey = `${colLetter}2`;
-      const validations = ws.dataValidations.model;
+      const validations = (
+        ws as unknown as {
+          dataValidations: {
+            model: Record<string, { type: string; formulae: string[] }>;
+          };
+        }
+      ).dataValidations.model;
       const validation = validations[sampleKey];
       expect(validation).toBeDefined();
       expect(validation.type).toBe("list");
