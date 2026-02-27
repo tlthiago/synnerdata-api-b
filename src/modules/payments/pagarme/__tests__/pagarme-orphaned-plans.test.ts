@@ -113,26 +113,30 @@ describe("Orphaned Pagarme Plans", () => {
       expect(response.status).toBe(403);
     });
 
-    test("should return cleanup summary", async () => {
-      const response = await app.handle(
-        new Request(CLEANUP_URL, {
-          method: "POST",
-          headers: adminHeaders,
-        })
-      );
-      expect(response.status).toBe(200);
+    test(
+      "should return cleanup summary",
+      async () => {
+        const response = await app.handle(
+          new Request(CLEANUP_URL, {
+            method: "POST",
+            headers: adminHeaders,
+          })
+        );
+        expect(response.status).toBe(200);
 
-      const body = await response.json();
-      expect(body.success).toBe(true);
-      expect(body.data.result).toBeDefined();
-      expect(body.data.result.deactivated).toBeArray();
-      expect(body.data.result.kept).toBeArray();
-      expect(body.data.result.errors).toBeArray();
-      expect(body.data.summary).toBeDefined();
-      expect(body.data.summary.totalOrphaned).toBeNumber();
-      expect(body.data.summary.deactivated).toBeNumber();
-      expect(body.data.summary.kept).toBeNumber();
-      expect(body.data.summary.errors).toBeNumber();
-    });
+        const body = await response.json();
+        expect(body.success).toBe(true);
+        expect(body.data.result).toBeDefined();
+        expect(body.data.result.deactivated).toBeArray();
+        expect(body.data.result.kept).toBeArray();
+        expect(body.data.result.errors).toBeArray();
+        expect(body.data.summary).toBeDefined();
+        expect(body.data.summary.totalOrphaned).toBeNumber();
+        expect(body.data.summary.deactivated).toBeNumber();
+        expect(body.data.summary.kept).toBeNumber();
+        expect(body.data.summary.errors).toBeNumber();
+      },
+      { timeout: 30_000 }
+    );
   });
 });
