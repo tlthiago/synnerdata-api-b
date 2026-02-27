@@ -56,10 +56,20 @@ CANCELED/EXPIRED → sem recuperação
 - `billing:update` — criar/atualizar perfil, atualizar cartão
 - `requireAdmin` — admin checkout com preço customizado
 
+## Orphaned Plans
+
+Quando `replaceTiers()` substitui tiers, os planos Pagar.me associados ficam órfãos. A tabela `pagarme_plan_history` rastreia todos os planos criados na Pagar.me.
+
+- `PagarmePlanHistoryService.record()` — registra ao criar plano na Pagar.me
+- `PagarmePlanHistoryService.deactivateByTierId()` — marca como inativo ao substituir tiers
+- `GET /admin/pagarme/orphaned-plans` — lista planos órfãos (isActive=false)
+- `POST /admin/pagarme/orphaned-plans/cleanup` — desativa na Pagar.me planos sem subscriptions ativas
+
 ## Integration Points
 
 - **Auth Module** → cria trial na primeira org
 - **Employees Module** → `LimitsService.requireEmployeeLimit()`
 - **Pagar.me API** → planos, clientes, assinaturas, cobranças, faturas
+- **Orphaned Plans** → `pagarme_plan_history` rastreia criações; admin endpoints para cleanup
 - **Email** → notificações de subscription/payment
 - **Jobs/Cron** → tarefas diárias de expiração
