@@ -169,26 +169,22 @@ describe("POST /payments/plans", () => {
     expect(response.status).toBe(422);
   });
 
-  test("should reject invalid tier count for non-trial plan", async () => {
+  test("should reject paid plan with zero tiers", async () => {
     const response = await app.handle(
       new Request(`${BASE_URL}/v1/payments/plans`, {
         method: "POST",
         headers: { ...authHeaders, "Content-Type": "application/json" },
         body: JSON.stringify({
-          name: "wrong-tier-count",
-          displayName: "Wrong Tier Count Plan",
+          name: generateUniqueName("zero-tiers"),
+          displayName: "Zero Tiers Plan",
           limits: { features: GOLD_FEATURES },
           isTrial: false,
-          pricingTiers: [
-            { minEmployees: 0, maxEmployees: 10, priceMonthly: 1000 },
-          ],
+          pricingTiers: [],
         }),
       })
     );
+    // Zod min(1) on the schema rejects empty arrays with 422
     expect(response.status).toBe(422);
-
-    const errorBody = await response.json();
-    expect(errorBody.error.code).toBe("INVALID_TIER_COUNT");
   });
 
   test("should apply default values for optional fields", async () => {
@@ -297,5 +293,161 @@ describe("POST /payments/plans", () => {
       tierPrices[0].priceMonthly * 12 * 0.8
     );
     expect(body.data.pricingTiers[0].priceYearly).toBe(expectedYearlyFirst);
+  });
+
+  test("should create paid plan with 3 custom tiers", async () => {
+    const tierPrices = [
+      { minEmployees: 0, maxEmployees: 50, priceMonthly: 9900 },
+      { minEmployees: 51, maxEmployees: 100, priceMonthly: 14_900 },
+      { minEmployees: 101, maxEmployees: 500, priceMonthly: 24_900 },
+    ];
+
+    const response = await app.handle(
+      new Request(`${BASE_URL}/v1/payments/plans`, {
+        method: "POST",
+        headers: { ...authHeaders, "Content-Type": "application/json" },
+        body: JSON.stringify({
+          name: generateUniqueName("custom-3-tiers"),
+          displayName: "Custom 3 Tiers Plan",
+          limits: { features: GOLD_FEATURES },
+          pricingTiers: tierPrices,
+        }),
+      })
+    );
+    expect(response.status).toBe(200);
+
+    const body = await response.json();
+    expect(body.success).toBe(true);
+    expect(body.data.pricingTiers.length).toBe(3);
+    expect(body.data.pricingTiers[0].minEmployees).toBe(0);
+    expect(body.data.pricingTiers[2].maxEmployees).toBe(500);
+  });
+
+  test("should create paid plan with a single tier (0-1000)", async () => {
+    const response = await app.handle(
+      new Request(`${BASE_URL}/v1/payments/plans`, {
+        method: "POST",
+        headers: { ...authHeaders, "Content-Type": "application/json" },
+        body: JSON.stringify({
+          name: generateUniqueName("single-tier"),
+          displayName: "Single Tier Plan",
+          limits: { features: GOLD_FEATURES },
+          pricingTiers: [
+            { minEmployees: 0, maxEmployees: 1000, priceMonthly: 49_900 },
+          ],
+        }),
+      })
+    );
+    expect(response.status).toBe(200);
+
+    const body = await response.json();
+    expect(body.success).toBe(true);
+    expect(body.data.pricingTiers.length).toBe(1);
+    expect(body.data.pricingTiers[0].maxEmployees).toBe(1000);
+  });
+
+  test("should reject tiers with overlapping ranges", async () => {
+    const response = await app.handle(
+      new Request(`${BASE_URL}/v1/payments/plans`, {
+        method: "POST",
+        headers: { ...authHeaders, "Content-Type": "application/json" },
+        body: JSON.stringify({
+          name: generateUniqueName("overlap-tiers"),
+          displayName: "Overlap Tiers Plan",
+          limits: { features: GOLD_FEATURES },
+          pricingTiers: [
+            { minEmployees: 0, maxEmployees: 50, priceMonthly: 9900 },
+            { minEmployees: 40, maxEmployees: 100, priceMonthly: 14_900 },
+          ],
+        }),
+      })
+    );
+    expect(response.status).toBe(422);
+
+    const errorBody = await response.json();
+    expect(errorBody.error.code).toBe("TIER_OVERLAP");
+  });
+
+  test("should reject tiers with gaps", async () => {
+    const response = await app.handle(
+      new Request(`${BASE_URL}/v1/payments/plans`, {
+        method: "POST",
+        headers: { ...authHeaders, "Content-Type": "application/json" },
+        body: JSON.stringify({
+          name: generateUniqueName("gap-tiers"),
+          displayName: "Gap Tiers Plan",
+          limits: { features: GOLD_FEATURES },
+          pricingTiers: [
+            { minEmployees: 0, maxEmployees: 50, priceMonthly: 9900 },
+            { minEmployees: 61, maxEmployees: 100, priceMonthly: 14_900 },
+          ],
+        }),
+      })
+    );
+    expect(response.status).toBe(422);
+
+    const errorBody = await response.json();
+    expect(errorBody.error.code).toBe("TIER_GAP");
+  });
+
+  test("should reject tier with minEmployees > maxEmployees", async () => {
+    const response = await app.handle(
+      new Request(`${BASE_URL}/v1/payments/plans`, {
+        method: "POST",
+        headers: { ...authHeaders, "Content-Type": "application/json" },
+        body: JSON.stringify({
+          name: generateUniqueName("min-gt-max"),
+          displayName: "Min GT Max Plan",
+          limits: { features: GOLD_FEATURES },
+          pricingTiers: [
+            { minEmployees: 50, maxEmployees: 10, priceMonthly: 9900 },
+          ],
+        }),
+      })
+    );
+    expect(response.status).toBe(422);
+
+    const errorBody = await response.json();
+    expect(errorBody.error.code).toBe("TIER_MIN_EXCEEDS_MAX");
+  });
+
+  test("should reject tier with negative minEmployees", async () => {
+    const response = await app.handle(
+      new Request(`${BASE_URL}/v1/payments/plans`, {
+        method: "POST",
+        headers: { ...authHeaders, "Content-Type": "application/json" },
+        body: JSON.stringify({
+          name: generateUniqueName("negative-min"),
+          displayName: "Negative Min Plan",
+          limits: { features: GOLD_FEATURES },
+          pricingTiers: [
+            { minEmployees: -5, maxEmployees: 10, priceMonthly: 9900 },
+          ],
+        }),
+      })
+    );
+    expect(response.status).toBe(422);
+  });
+
+  test("should still accept standard 10 EMPLOYEE_TIERS", async () => {
+    const tierPrices = generateTierPrices(4900);
+
+    const response = await app.handle(
+      new Request(`${BASE_URL}/v1/payments/plans`, {
+        method: "POST",
+        headers: { ...authHeaders, "Content-Type": "application/json" },
+        body: JSON.stringify({
+          name: generateUniqueName("standard-10"),
+          displayName: "Standard 10 Tiers Plan",
+          limits: { features: GOLD_FEATURES },
+          pricingTiers: tierPrices,
+        }),
+      })
+    );
+    expect(response.status).toBe(200);
+
+    const body = await response.json();
+    expect(body.success).toBe(true);
+    expect(body.data.pricingTiers.length).toBe(10);
   });
 });
