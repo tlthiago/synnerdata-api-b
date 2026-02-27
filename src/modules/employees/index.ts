@@ -1,4 +1,4 @@
-import { Elysia } from "elysia";
+import { Elysia, t } from "elysia";
 import { betterAuthPlugin } from "@/lib/auth-plugin";
 import { wrapSuccess } from "@/lib/responses/envelope";
 import {
@@ -20,6 +20,7 @@ import {
   updateEmployeeStatusSchema,
 } from "./employee.model";
 import { EmployeeService } from "./employee.service";
+import { importResponseSchema } from "./import/import.model";
 
 export const employeeController = new Elysia({
   name: "employees",
@@ -27,6 +28,75 @@ export const employeeController = new Elysia({
   detail: { tags: ["Employees"] },
 })
   .use(betterAuthPlugin)
+  .get(
+    "/import/template",
+    async ({ session }) => {
+      const { TemplateService } = await import("./import/template.service");
+      const buffer = await TemplateService.generate(
+        session.activeOrganizationId as string
+      );
+
+      return new Response(buffer, {
+        headers: {
+          "Content-Type":
+            "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
+          "Content-Disposition":
+            'attachment; filename="template-funcionarios.xlsx"',
+        },
+      });
+    },
+    {
+      auth: {
+        permissions: { employee: ["create"] },
+        requireOrganization: true,
+      },
+      response: {
+        401: unauthorizedErrorSchema,
+        403: forbiddenErrorSchema,
+      },
+      detail: {
+        summary: "Download import template",
+        description:
+          "Downloads the .xlsx template for bulk employee import, populated with organization data",
+      },
+    }
+  )
+  .post(
+    "/import",
+    async ({ session, user, body }) => {
+      const { ImportService } = await import("./import/import.service");
+      const file = body.file;
+      const buffer = Buffer.from(await file.arrayBuffer());
+
+      const result = await ImportService.importFromFile({
+        buffer,
+        organizationId: session.activeOrganizationId as string,
+        userId: user.id,
+      });
+
+      return wrapSuccess(result);
+    },
+    {
+      auth: {
+        permissions: { employee: ["create"] },
+        requireOrganization: true,
+      },
+      body: t.Object({
+        file: t.File(),
+      }),
+      response: {
+        200: importResponseSchema,
+        401: unauthorizedErrorSchema,
+        403: forbiddenErrorSchema,
+        422: validationErrorSchema,
+      },
+      detail: {
+        summary: "Import employees from Excel",
+        description:
+          "Imports employees from a .xlsx file. Valid rows are imported, invalid rows are reported.",
+      },
+    }
+  )
   .post(
     "/",
     async ({ session, body, user }) =>
