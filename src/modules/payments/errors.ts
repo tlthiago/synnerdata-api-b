@@ -408,11 +408,11 @@ export class TrialPlanNotFoundError extends PaymentError {
 export class InvalidTierCountError extends PaymentError {
   status = 422;
 
-  constructor(provided: number, expected: number) {
+  constructor(provided: number, minimum: number) {
     super(
-      `Expected ${expected} pricing tiers, but received ${provided}.`,
+      `At least ${minimum} pricing tier(s) required, but received ${provided}.`,
       "INVALID_TIER_COUNT",
-      { provided, expected }
+      { provided, minimum }
     );
   }
 }
@@ -429,6 +429,54 @@ export class InvalidTierRangeError extends PaymentError {
       `Tier at index ${index} has invalid range. Expected ${expected.min}-${expected.max}, got ${provided.min}-${provided.max}.`,
       "INVALID_TIER_RANGE",
       { index, provided, expected }
+    );
+  }
+}
+
+export class TierNegativeMinError extends PaymentError {
+  status = 422;
+
+  constructor(index: number, minEmployees: number) {
+    super(
+      `Tier at index ${index} has negative minEmployees (${minEmployees}). Must be >= 0.`,
+      "TIER_NEGATIVE_MIN",
+      { index, minEmployees }
+    );
+  }
+}
+
+export class TierMinExceedsMaxError extends PaymentError {
+  status = 422;
+
+  constructor(index: number, min: number, max: number) {
+    super(
+      `Tier at index ${index} has minEmployees (${min}) > maxEmployees (${max}).`,
+      "TIER_MIN_EXCEEDS_MAX",
+      { index, min, max }
+    );
+  }
+}
+
+export class TierOverlapError extends PaymentError {
+  status = 422;
+
+  constructor(index: number, previousMax: number, currentMin: number) {
+    super(
+      `Tier at index ${index} overlaps with previous tier: previous max is ${previousMax}, current min is ${currentMin}.`,
+      "TIER_OVERLAP",
+      { index, previousMax, currentMin }
+    );
+  }
+}
+
+export class TierGapError extends PaymentError {
+  status = 422;
+
+  constructor(index: number, expectedMin: number, actualMin: number) {
+    super(
+      `Gap between tiers at index ${index - 1} and ${index}: expected min ${expectedMin}, got ${actualMin}.`,
+      "TIER_GAP",
+      { index, expectedMin, actualMin }
     );
   }
 }

@@ -11,10 +11,8 @@ export const EMPLOYEE_TIERS = [
   { min: 91, max: 180 },
 ] as const;
 
-export const EMPLOYEE_TIERS_COUNT = EMPLOYEE_TIERS.length;
 export const TRIAL_TIER = EMPLOYEE_TIERS[0];
 export const TRIAL_TIERS_COUNT = 1;
-export const MAX_EMPLOYEES = 180;
 export const YEARLY_DISCOUNT = 0.2;
 export const DEFAULT_TRIAL_DAYS = 14;
 export const DEFAULT_TRIAL_EMPLOYEE_LIMIT = 10;

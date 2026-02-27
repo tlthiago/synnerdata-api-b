@@ -8,7 +8,7 @@ Assinaturas, checkout, billing e integração Pagar.me. Módulo mais crítico do
 - Trial usado apenas uma vez
 - Apenas status `active` concede acesso a features
 - Pricing tiers imutáveis (ranges min/max)
-- Trial: exatamente 1 tier (0-10). Paid: exatamente 10 tiers
+- Trial: exatamente 1 tier (0-10). Paid: >= 1 tier, contíguos, sem gaps/overlaps, min >= 0, min <= max
 - Employee count não pode exceder `tier.maxEmployees`
 - Webhooks são idempotentes (mesmo evento processado uma vez)
 - Customer ID e plan changes são atômicos (proteção contra race condition)
