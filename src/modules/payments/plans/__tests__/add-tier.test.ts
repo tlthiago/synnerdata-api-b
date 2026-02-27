@@ -137,6 +137,48 @@ describe("POST /payments/plans/:planId/tiers", () => {
     expect(body.data.maxEmployees).toBe(20);
   });
 
+  test("should not affect existing tiers when adding a new one", async () => {
+    const plan = await createPlanWithoutTiers();
+
+    // Add first tier
+    const firstResponse = await app.handle(
+      new Request(`${BASE_URL}/v1/payments/plans/${plan.id}/tiers`, {
+        method: "POST",
+        headers: { ...authHeaders, "Content-Type": "application/json" },
+        body: JSON.stringify({
+          minEmployees: 0,
+          maxEmployees: 10,
+          priceMonthly: 39_900,
+        }),
+      })
+    );
+    const firstTier = (await firstResponse.json()).data;
+
+    // Add second tier
+    await app.handle(
+      new Request(`${BASE_URL}/v1/payments/plans/${plan.id}/tiers`, {
+        method: "POST",
+        headers: { ...authHeaders, "Content-Type": "application/json" },
+        body: JSON.stringify({
+          minEmployees: 11,
+          maxEmployees: 20,
+          priceMonthly: 49_900,
+        }),
+      })
+    );
+
+    // Verify first tier is unchanged
+    const [dbFirstTier] = await db
+      .select()
+      .from(schema.planPricingTiers)
+      .where(eq(schema.planPricingTiers.id, firstTier.id))
+      .limit(1);
+
+    expect(dbFirstTier.minEmployees).toBe(0);
+    expect(dbFirstTier.maxEmployees).toBe(10);
+    expect(dbFirstTier.priceMonthly).toBe(39_900);
+  });
+
   test("should reject overlapping tier range", async () => {
     const { plan } = await PlanFactory.createPaid("gold");
 

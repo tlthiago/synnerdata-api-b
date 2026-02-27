@@ -4,7 +4,9 @@ import { db } from "@/db";
 import { schema } from "@/db/schema";
 import { env } from "@/env";
 import { calculateYearlyPrice } from "@/modules/payments/plans/plans.constants";
+import { OrganizationFactory } from "@/test/factories/organization.factory";
 import { PlanFactory } from "@/test/factories/payments/plan.factory";
+import { SubscriptionFactory } from "@/test/factories/payments/subscription.factory";
 import { UserFactory } from "@/test/factories/user.factory";
 import { createTestApp, type TestApp } from "@/test/support/app";
 
@@ -164,5 +166,42 @@ describe("PATCH /payments/plans/:planId/tiers/:tierId", () => {
     expect(body.data.minEmployees).toBe(tier.minEmployees);
     expect(body.data.maxEmployees).toBe(tier.maxEmployees);
     expect(body.data.priceMonthly).toBe(99_999);
+  });
+
+  test("should not affect existing subscriptions when updating tier price", async () => {
+    const { plan, tiers } = await PlanFactory.createPaid("gold");
+    const tier = tiers[0];
+    const organization = await OrganizationFactory.create();
+
+    // Create subscription referencing this tier with a Pagar.me subscription ID
+    const subId = await SubscriptionFactory.createActive(
+      organization.id,
+      plan.id,
+      {
+        pricingTierId: tier.id,
+        pagarmeSubscriptionId: "sub_pagarme_original_123",
+      }
+    );
+
+    // Update the tier price
+    const response = await app.handle(
+      new Request(`${BASE_URL}/v1/payments/plans/${plan.id}/tiers/${tier.id}`, {
+        method: "PATCH",
+        headers: { ...authHeaders, "Content-Type": "application/json" },
+        body: JSON.stringify({ priceMonthly: 99_999 }),
+      })
+    );
+    expect(response.status).toBe(200);
+
+    // Verify subscription is untouched — still has same Pagar.me subscription ID
+    const [subscription] = await db
+      .select()
+      .from(schema.orgSubscriptions)
+      .where(eq(schema.orgSubscriptions.id, subId))
+      .limit(1);
+
+    expect(subscription.pagarmeSubscriptionId).toBe("sub_pagarme_original_123");
+    expect(subscription.pricingTierId).toBe(tier.id);
+    expect(subscription.status).toBe("active");
   });
 });
