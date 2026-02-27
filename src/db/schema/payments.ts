@@ -259,6 +259,39 @@ export const pendingCheckoutRelations = relations(
   })
 );
 
+export const pagarmePlanHistory = pgTable(
+  "pagarme_plan_history",
+  {
+    id: text("id").primaryKey(),
+    localPlanId: text("local_plan_id")
+      .notNull()
+      .references(() => subscriptionPlans.id, { onDelete: "cascade" }),
+    localTierId: text("local_tier_id").notNull(),
+    pagarmePlanId: text("pagarme_plan_id").notNull(),
+    billingCycle: text("billing_cycle").notNull(),
+    priceAtCreation: integer("price_at_creation").notNull(),
+    isActive: boolean("is_active").default(true).notNull(),
+    createdAt: timestamp("created_at", { withTimezone: true })
+      .defaultNow()
+      .notNull(),
+  },
+  (table) => [
+    index("pagarme_plan_history_is_active_idx").on(table.isActive),
+    index("pagarme_plan_history_pagarme_plan_id_idx").on(table.pagarmePlanId),
+    index("pagarme_plan_history_local_plan_id_idx").on(table.localPlanId),
+  ]
+);
+
+export const pagarmePlanHistoryRelations = relations(
+  pagarmePlanHistory,
+  ({ one }) => ({
+    plan: one(subscriptionPlans, {
+      fields: [pagarmePlanHistory.localPlanId],
+      references: [subscriptionPlans.id],
+    }),
+  })
+);
+
 export type OrgSubscription = typeof orgSubscriptions.$inferSelect;
 export type NewOrgSubscription = typeof orgSubscriptions.$inferInsert;
 export type SubscriptionPlan = typeof subscriptionPlans.$inferSelect;
@@ -269,3 +302,6 @@ export type SubscriptionEvent = typeof subscriptionEvents.$inferSelect;
 export type NewSubscriptionEvent = typeof subscriptionEvents.$inferInsert;
 export type PendingCheckout = typeof pendingCheckouts.$inferSelect;
 export type NewPendingCheckout = typeof pendingCheckouts.$inferInsert;
+export type PagarmePlanHistoryRecord = typeof pagarmePlanHistory.$inferSelect;
+export type NewPagarmePlanHistoryRecord =
+  typeof pagarmePlanHistory.$inferInsert;
