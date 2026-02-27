@@ -439,20 +439,6 @@ export const auth = betterAuth({
           }
           return Promise.resolve();
         },
-        beforeUpdateMemberRole: ({
-          member,
-          user,
-        }: {
-          member: Member;
-          user: User;
-        }) => {
-          if (member.userId === user.id) {
-            throw new APIError("FORBIDDEN", {
-              message: "Você não pode alterar sua própria função.",
-            });
-          }
-          return Promise.resolve();
-        },
         afterUpdateMemberRole: async ({
           member,
           previousRole,
