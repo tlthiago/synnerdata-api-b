@@ -10,6 +10,7 @@ import {
   twoFactor,
 } from "better-auth/plugins";
 import type { Session, User } from "better-auth/types";
+import { localization } from "better-auth-localization";
 import { eq } from "drizzle-orm";
 import { db } from "@/db";
 import { fullSchema, roleValues, schema } from "@/db/schema";
@@ -311,6 +312,10 @@ export const auth = betterAuth({
     },
   },
   plugins: [
+    localization({
+      defaultLocale: "pt-BR",
+      fallbackLocale: "default",
+    }),
     openAPI(),
     admin({
       ac: systemAc,

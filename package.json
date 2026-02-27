@@ -37,6 +37,7 @@
     "@elysiajs/cron": "^1.4.1",
     "@elysiajs/openapi": "^1.4.11",
     "better-auth": "^1.4.5",
+    "better-auth-localization": "^2.3.1",
     "dotenv": "^17.2.3",
     "drizzle-orm": "^0.45.0",
     "elysia": "latest",
