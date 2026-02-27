@@ -21,27 +21,29 @@ import { organizationController } from "./modules/organizations";
 import { paymentsController } from "./modules/payments";
 import { registerPaymentListeners } from "./modules/payments/hooks/listeners";
 
-// Run database migrations before starting the server
-try {
-  const start = performance.now();
-  await migrate(db, { migrationsFolder: "./src/db/migrations" });
-  const duration = Math.round(performance.now() - start);
-  logger.info({
-    type: "db:migrate",
-    message: `Database migrations completed in ${duration}ms`,
-  });
-} catch (error) {
-  logger.error({
-    type: "db:migrate",
-    message: "Failed to run database migrations — server will not start",
-    error,
-  });
-  process.exit(1);
+const isProduction = process.env.NODE_ENV === "production";
+
+// Run database migrations in production before starting the server
+if (isProduction) {
+  try {
+    const start = performance.now();
+    await migrate(db, { migrationsFolder: "./src/db/migrations" });
+    const duration = Math.round(performance.now() - start);
+    logger.info({
+      type: "db:migrate",
+      message: `Database migrations completed in ${duration}ms`,
+    });
+  } catch (error) {
+    logger.error({
+      type: "db:migrate",
+      message: "Failed to run database migrations — server will not start",
+      error,
+    });
+    process.exit(1);
+  }
 }
 
 const corsOrigins = parseOrigins(env.CORS_ORIGIN);
-
-const isProduction = process.env.NODE_ENV === "production";
 
 const RATE_LIMIT_SKIP_PATHS = ["/health", "/health/live", "/api/auth"];
 
