@@ -245,7 +245,7 @@ export const auth = betterAuth({
     max: 100,
     storage: "memory",
     customRules: {
-      "/sign-in/*": { window: 900, max: 5 },
+      "/sign-in/*": { window: 60, max: 5 },
       "/sign-up/*": { window: 60, max: 3 },
       "/two-factor/*": { window: 60, max: 3 },
       "/forgot-password/*": { window: 300, max: 3 },
