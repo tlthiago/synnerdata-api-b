@@ -175,22 +175,22 @@ async function auditMemberRemove(
   });
 }
 
-async function auditMemberRoleUpdate(
-  member: { id: string; userId: string },
-  previousRole: string,
-  newRole: string,
-  organizationId: string,
-  updatedByUserId: string
-): Promise<void> {
+async function auditMemberRoleUpdate(params: {
+  member: { id: string; userId: string };
+  previousRole: string;
+  newRole: string;
+  organizationId: string;
+  updatedByUserId: string;
+}): Promise<void> {
   await AuditService.log({
     action: "update",
     resource: "member",
-    resourceId: member.id,
-    userId: updatedByUserId,
-    organizationId,
+    resourceId: params.member.id,
+    userId: params.updatedByUserId,
+    organizationId: params.organizationId,
     changes: {
-      before: { role: previousRole },
-      after: { role: newRole },
+      before: { role: params.previousRole },
+      after: { role: params.newRole },
     },
   });
 }
@@ -431,15 +431,10 @@ export const auth = betterAuth({
             org.id
           );
         },
-        beforeRemoveMember: ({
-          member,
-        }: {
-          member: Member;
-        }) => {
+        beforeRemoveMember: ({ member }: { member: Member }) => {
           if (member.role === "owner") {
             throw new APIError("FORBIDDEN", {
-              message:
-                "O proprietário da organização não pode ser removido.",
+              message: "O proprietário da organização não pode ser removido.",
             });
           }
           return Promise.resolve();
@@ -453,8 +448,7 @@ export const auth = betterAuth({
         }) => {
           if (member.userId === user.id) {
             throw new APIError("FORBIDDEN", {
-              message:
-                "Você não pode alterar sua própria função.",
+              message: "Você não pode alterar sua própria função.",
             });
           }
           return Promise.resolve();
@@ -470,13 +464,13 @@ export const auth = betterAuth({
           user: User;
           organization: Organization;
         }) => {
-          await auditMemberRoleUpdate(
-            { id: member.id, userId: member.userId },
+          await auditMemberRoleUpdate({
+            member: { id: member.id, userId: member.userId },
             previousRole,
-            member.role,
-            org.id,
-            user.id
-          );
+            newRole: member.role,
+            organizationId: org.id,
+            updatedByUserId: user.id,
+          });
         },
         afterAddMember: async ({
           member,
