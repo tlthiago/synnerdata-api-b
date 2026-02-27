@@ -42,10 +42,7 @@ export abstract class OrphanedPlansService {
         }
 
         const plan = await Retry.withRetry(
-          () =>
-            PagarmeClient.updatePlan(orphan.pagarmePlanId, {
-              status: "inactive",
-            } as never),
+          () => PagarmeClient.deactivatePlan(orphan.pagarmePlanId),
           PAGARME_RETRY_CONFIG.WRITE
         );
 

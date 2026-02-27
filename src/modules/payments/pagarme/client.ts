@@ -317,6 +317,12 @@ export abstract class PagarmeClient {
     return PagarmeClient.request("PUT", `/plans/${planId}`, { body: data });
   }
 
+  static async deactivatePlan(planId: string): Promise<PagarmePlan> {
+    return PagarmeClient.request("PUT", `/plans/${planId}`, {
+      body: { status: "inactive" },
+    });
+  }
+
   static async createPaymentLink(
     data: CreatePaymentLinkRequest,
     idempotencyKey?: string

@@ -266,6 +266,8 @@ export const pagarmePlanHistory = pgTable(
     localPlanId: text("local_plan_id")
       .notNull()
       .references(() => subscriptionPlans.id, { onDelete: "cascade" }),
+    // No FK to planPricingTiers — tiers are deleted on replaceTiers(),
+    // but history records must survive to track orphaned Pagar.me plans
     localTierId: text("local_tier_id").notNull(),
     pagarmePlanId: text("pagarme_plan_id").notNull(),
     billingCycle: text("billing_cycle").notNull(),
