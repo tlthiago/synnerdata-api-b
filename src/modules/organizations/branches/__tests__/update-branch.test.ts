@@ -2,6 +2,7 @@ import { beforeAll, describe, expect, test } from "bun:test";
 import { env } from "@/env";
 import { createTestApp, type TestApp } from "@/test/helpers/app";
 import { createTestBranch } from "@/test/helpers/branch";
+import { generateCnpj } from "@/test/helpers/faker";
 import {
   createTestUser,
   createTestUserWithOrganization,
@@ -105,8 +106,8 @@ describe("PUT /v1/branches/:id", () => {
         emailVerified: true,
       });
 
-    const taxId1 = `${Date.now()}`.slice(-14).padStart(14, "0");
-    const taxId2 = `${Date.now() + 1}`.slice(-14).padStart(14, "0");
+    const taxId1 = generateCnpj();
+    const taxId2 = generateCnpj();
 
     await createTestBranch({
       organizationId,
@@ -179,7 +180,7 @@ describe("PUT /v1/branches/:id", () => {
       userId: user.id,
     });
 
-    const newTaxId = `${Date.now() + 5}`.slice(-14).padStart(14, "0");
+    const newTaxId = generateCnpj();
 
     const response = await app.handle(
       new Request(`${BASE_URL}/v1/branches/${branch.id}`, {
@@ -223,7 +224,7 @@ describe("PUT /v1/branches/:id", () => {
         emailVerified: true,
       });
 
-    const taxId = `${Date.now() + 6}`.slice(-14).padStart(14, "0");
+    const taxId = generateCnpj();
 
     const branch = await createTestBranch({
       organizationId,

@@ -1,6 +1,7 @@
 import { z } from "zod";
 import { successResponseSchema } from "@/lib/responses/response.types";
 import { entityReferenceSchema } from "@/lib/schemas/relationships";
+import { isValidCPF } from "@/lib/validation/documents";
 
 const isFutureDate = (dateStr: string) => {
   const date = new Date(dateStr);
@@ -105,6 +106,7 @@ export const createEmployeeSchema = z.object({
   cpf: z
     .string()
     .regex(/^\d{11}$/, "CPF deve ter 11 dígitos")
+    .refine((val) => isValidCPF(val), "CPF inválido")
     .describe("CPF (11 dígitos)"),
   identityCard: z
     .string()

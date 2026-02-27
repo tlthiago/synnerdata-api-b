@@ -9,7 +9,7 @@ const isFutureDate = (dateStr: string) => {
   return date > today;
 };
 
-export const createTerminationSchema = z.object({
+const terminationFieldsSchema = z.object({
   employeeId: z
     .string()
     .min(1, "ID do funcionário é obrigatório")
@@ -61,9 +61,31 @@ export const createTerminationSchema = z.object({
     .describe("Observações adicionais (opcional)"),
 });
 
-export const updateTerminationSchema = createTerminationSchema
+export const createTerminationSchema = terminationFieldsSchema.refine(
+  (data) => data.lastWorkingDay <= data.terminationDate,
+  {
+    message:
+      "Último dia trabalhado deve ser anterior ou igual à data de demissão",
+    path: ["lastWorkingDay"],
+  }
+);
+
+export const updateTerminationSchema = terminationFieldsSchema
   .omit({ employeeId: true })
-  .partial();
+  .partial()
+  .refine(
+    (data) => {
+      if (data.lastWorkingDay && data.terminationDate) {
+        return data.lastWorkingDay <= data.terminationDate;
+      }
+      return true;
+    },
+    {
+      message:
+        "Último dia trabalhado deve ser anterior ou igual à data de demissão",
+      path: ["lastWorkingDay"],
+    }
+  );
 
 export const idParamSchema = z.object({
   id: z.string().min(1).describe("ID da demissão"),

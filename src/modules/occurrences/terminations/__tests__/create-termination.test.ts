@@ -23,9 +23,9 @@ describe("POST /v1/terminations", () => {
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
           employeeId: "employee-123",
-          terminationDate: "2024-01-15",
+          terminationDate: "2024-01-30",
           type: "RESIGNATION",
-          lastWorkingDay: "2024-01-30",
+          lastWorkingDay: "2024-01-15",
         }),
       })
     );
@@ -42,9 +42,9 @@ describe("POST /v1/terminations", () => {
         headers: { ...headers, "Content-Type": "application/json" },
         body: JSON.stringify({
           employeeId: "employee-123",
-          terminationDate: "2024-01-15",
+          terminationDate: "2024-01-30",
           type: "RESIGNATION",
-          lastWorkingDay: "2024-01-30",
+          lastWorkingDay: "2024-01-15",
         }),
       })
     );
@@ -77,9 +77,9 @@ describe("POST /v1/terminations", () => {
         },
         body: JSON.stringify({
           employeeId: "employee-123",
-          terminationDate: "2024-01-15",
+          terminationDate: "2024-01-30",
           type: "RESIGNATION",
-          lastWorkingDay: "2024-01-30",
+          lastWorkingDay: "2024-01-15",
         }),
       })
     );
@@ -100,9 +100,9 @@ describe("POST /v1/terminations", () => {
         headers: { ...headers, "Content-Type": "application/json" },
         body: JSON.stringify({
           employeeId: "employee-nonexistent",
-          terminationDate: "2024-01-15",
+          terminationDate: "2024-01-30",
           type: "RESIGNATION",
-          lastWorkingDay: "2024-01-30",
+          lastWorkingDay: "2024-01-15",
         }),
       })
     );
@@ -131,9 +131,9 @@ describe("POST /v1/terminations", () => {
         headers: { ...headers, "Content-Type": "application/json" },
         body: JSON.stringify({
           employeeId: otherEmployee.id,
-          terminationDate: "2024-01-15",
+          terminationDate: "2024-01-30",
           type: "RESIGNATION",
-          lastWorkingDay: "2024-01-30",
+          lastWorkingDay: "2024-01-15",
         }),
       })
     );
@@ -210,7 +210,7 @@ describe("POST /v1/terminations", () => {
         headers: { ...headers, "Content-Type": "application/json" },
         body: JSON.stringify({
           employeeId: employee.id,
-          terminationDate: "2024-01-15",
+          terminationDate: "2024-02-15",
           type: "RESIGNATION",
           reason: "Pedido de demissão para nova oportunidade",
           noticePeriodDays: 30,
@@ -229,7 +229,7 @@ describe("POST /v1/terminations", () => {
     expect(body.data.employee.id).toBe(employee.id);
     expect(body.data.employee.name).toBeString();
     expect(body.data.organizationId).toBe(organizationId);
-    expect(body.data.terminationDate).toBe("2024-01-15");
+    expect(body.data.terminationDate).toBe("2024-02-15");
     expect(body.data.type).toBe("RESIGNATION");
     expect(body.data.reason).toBe("Pedido de demissão para nova oportunidade");
     expect(body.data.noticePeriodDays).toBe(30);
@@ -266,9 +266,9 @@ describe("POST /v1/terminations", () => {
         },
         body: JSON.stringify({
           employeeId: employee.id,
-          terminationDate: "2024-01-15",
+          terminationDate: "2024-01-30",
           type: "DISMISSAL_WITHOUT_CAUSE",
-          lastWorkingDay: "2024-01-30",
+          lastWorkingDay: "2024-01-15",
         }),
       })
     );
@@ -296,9 +296,9 @@ describe("POST /v1/terminations", () => {
         headers: { ...headers, "Content-Type": "application/json" },
         body: JSON.stringify({
           employeeId: employee.id,
-          terminationDate: "2024-01-15",
+          terminationDate: "2024-01-30",
           type: "MUTUAL_AGREEMENT",
-          lastWorkingDay: "2024-01-30",
+          lastWorkingDay: "2024-01-15",
         }),
       })
     );

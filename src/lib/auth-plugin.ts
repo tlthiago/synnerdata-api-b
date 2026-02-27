@@ -229,6 +229,67 @@ let _schema: ReturnType<typeof auth.api.generateOpenAPISchema>;
 // biome-ignore lint/suspicious/noAssignInExpressions: memoization pattern from better-auth docs
 const getSchema = async () => (_schema ??= auth.api.generateOpenAPISchema());
 
+/**
+ * Adds validation constraints to better-auth OpenAPI schemas.
+ * Better-auth generates schemas with bare `{ type: "string" }` properties.
+ * This overlay adds format, minLength, and maxLength constraints so
+ * Kubb can generate Zod schemas with proper validations on the frontend.
+ */
+// biome-ignore lint/suspicious/noExplicitAny: OpenAPI schema typing from better-auth
+function addAuthSchemaValidations(components: any): void {
+  const schemas = components?.schemas;
+  if (!schemas) {
+    return;
+  }
+
+  for (const schemaName of Object.keys(schemas)) {
+    const schema = schemas[schemaName];
+    const properties = schema?.properties;
+    if (!properties) {
+      continue;
+    }
+
+    if (properties.email) {
+      properties.email.format = "email";
+      properties.email.minLength = 1;
+      properties.email["x-error-messages"] = {
+        "string_format:email": "Email inválido",
+        min_length: "Email é obrigatório",
+      };
+    }
+
+    if (properties.password) {
+      properties.password.minLength = 8;
+      properties.password["x-error-messages"] = {
+        min_length: "Senha deve ter no mínimo 8 caracteres",
+      };
+    }
+
+    if (properties.newPassword) {
+      properties.newPassword.minLength = 8;
+      properties.newPassword["x-error-messages"] = {
+        min_length: "Nova senha deve ter no mínimo 8 caracteres",
+      };
+    }
+
+    if (properties.currentPassword) {
+      properties.currentPassword.minLength = 8;
+      properties.currentPassword["x-error-messages"] = {
+        min_length: "Senha atual deve ter no mínimo 8 caracteres",
+      };
+    }
+
+    if (properties.name) {
+      properties.name.minLength = 2;
+      properties.name.maxLength = 100;
+      properties.name["x-error-messages"] = {
+        min_length: "Nome deve ter no mínimo 2 caracteres",
+        max_length: "Nome deve ter no máximo 100 caracteres",
+      };
+    }
+  }
+}
+
 export const OpenAPI = {
   getPaths: (prefix = "/api/auth") =>
     getSchema().then(({ paths }) => {
@@ -249,6 +310,9 @@ export const OpenAPI = {
       return reference;
       // biome-ignore lint/suspicious/noExplicitAny: OpenAPI schema typing from better-auth
     }) as Promise<any>,
-  // biome-ignore lint/suspicious/noExplicitAny: OpenAPI schema typing from better-auth
-  components: getSchema().then(({ components }) => components) as Promise<any>,
+  components: getSchema().then(({ components }) => {
+    addAuthSchemaValidations(components);
+    return components;
+    // biome-ignore lint/suspicious/noExplicitAny: OpenAPI schema typing from better-auth
+  }) as Promise<any>,
 } as const;

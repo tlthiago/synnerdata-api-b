@@ -6,27 +6,47 @@ export const absenceTypeEnum = z.enum(["justified", "unjustified"]);
 
 export type AbsenceType = z.infer<typeof absenceTypeEnum>;
 
-export const createAbsenceSchema = z.object({
+const absenceFieldsSchema = z.object({
   employeeId: z
     .string()
     .min(1, "ID do funcionário é obrigatório")
     .describe("ID do funcionário"),
   startDate: z
     .string()
-    .min(1, "Data de início é obrigatória")
+    .date("Data de início deve ser uma data válida")
     .describe("Data de início (YYYY-MM-DD)"),
   endDate: z
     .string()
-    .min(1, "Data de término é obrigatória")
+    .date("Data de término deve ser uma data válida")
     .describe("Data de término (YYYY-MM-DD)"),
   type: absenceTypeEnum.describe("Tipo da ausência"),
   reason: z.string().optional().describe("Motivo da ausência"),
   notes: z.string().optional().describe("Observações adicionais"),
 });
 
-export const updateAbsenceSchema = createAbsenceSchema
+export const createAbsenceSchema = absenceFieldsSchema.refine(
+  (data) => data.startDate <= data.endDate,
+  {
+    message: "Data final deve ser igual ou posterior à data inicial",
+    path: ["endDate"],
+  }
+);
+
+export const updateAbsenceSchema = absenceFieldsSchema
   .partial()
-  .omit({ employeeId: true });
+  .omit({ employeeId: true })
+  .refine(
+    (data) => {
+      if (data.startDate && data.endDate) {
+        return data.startDate <= data.endDate;
+      }
+      return true;
+    },
+    {
+      message: "Data final deve ser igual ou posterior à data inicial",
+      path: ["endDate"],
+    }
+  );
 
 export const idParamSchema = z.object({
   id: z.string().min(1).describe("ID da ausência"),

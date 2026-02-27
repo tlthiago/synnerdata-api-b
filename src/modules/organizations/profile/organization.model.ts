@@ -1,41 +1,109 @@
 import { z } from "zod";
 import { successResponseSchema } from "@/lib/responses/response.types";
+import { isValidTaxId } from "@/lib/validation/documents";
 
 export const updateProfileSchema = z.object({
-  tradeName: z.string().min(1).max(200).optional(),
-  legalName: z.string().min(1).max(200).optional(),
-  email: z.string().email().optional(),
+  tradeName: z
+    .string()
+    .min(1, "Nome fantasia é obrigatório")
+    .max(200, "Nome fantasia deve ter no máximo 200 caracteres")
+    .optional()
+    .describe("Nome fantasia"),
+  legalName: z
+    .string()
+    .min(1, "Razão social é obrigatória")
+    .max(200, "Razão social deve ter no máximo 200 caracteres")
+    .optional()
+    .describe("Razão social"),
+  email: z
+    .string()
+    .email("Email inválido")
+    .optional()
+    .describe("Email da organização"),
   phone: z
     .string()
     .regex(/^\d{10,11}$/, "Telefone deve ter 10 ou 11 dígitos")
-    .optional(),
+    .optional()
+    .describe("Telefone"),
   taxId: z
     .string()
     .regex(
       /^(\d{11}|\d{14})$/,
       "CPF deve ter 11 dígitos ou CNPJ deve ter 14 dígitos"
     )
-    .optional(),
-  taxRegime: z.string().max(100).optional(),
-  stateRegistration: z.string().max(50).optional(),
-  mainActivityCode: z.string().max(20).optional(),
-  street: z.string().max(200).optional(),
-  number: z.string().max(20).optional(),
-  complement: z.string().max(100).optional(),
-  neighborhood: z.string().max(100).optional(),
-  city: z.string().max(100).optional(),
-  state: z.string().length(2, "Estado deve ter 2 caracteres").optional(),
+    .refine((val) => isValidTaxId(val), "CPF ou CNPJ inválido")
+    .optional()
+    .describe("CPF ou CNPJ"),
+  taxRegime: z
+    .string()
+    .max(100, "Regime tributário deve ter no máximo 100 caracteres")
+    .optional()
+    .describe("Regime tributário"),
+  stateRegistration: z
+    .string()
+    .max(50, "Inscrição estadual deve ter no máximo 50 caracteres")
+    .optional()
+    .describe("Inscrição estadual"),
+  mainActivityCode: z
+    .string()
+    .max(20, "CNAE deve ter no máximo 20 caracteres")
+    .optional()
+    .describe("CNAE principal"),
+  street: z
+    .string()
+    .max(200, "Rua deve ter no máximo 200 caracteres")
+    .optional()
+    .describe("Rua"),
+  number: z
+    .string()
+    .max(20, "Número deve ter no máximo 20 caracteres")
+    .optional()
+    .describe("Número"),
+  complement: z
+    .string()
+    .max(100, "Complemento deve ter no máximo 100 caracteres")
+    .optional()
+    .describe("Complemento"),
+  neighborhood: z
+    .string()
+    .max(100, "Bairro deve ter no máximo 100 caracteres")
+    .optional()
+    .describe("Bairro"),
+  city: z
+    .string()
+    .max(100, "Cidade deve ter no máximo 100 caracteres")
+    .optional()
+    .describe("Cidade"),
+  state: z
+    .string()
+    .length(2, "Estado deve ter 2 caracteres")
+    .optional()
+    .describe("UF"),
   zipCode: z
     .string()
     .regex(/^\d{8}$/, "CEP deve ter 8 dígitos")
-    .optional(),
-  industry: z.string().max(100).optional(),
-  businessArea: z.string().max(100).optional(),
-  foundingDate: z.string().date().optional(),
+    .optional()
+    .describe("CEP (8 dígitos)"),
+  industry: z
+    .string()
+    .max(100, "Ramo de atividade deve ter no máximo 100 caracteres")
+    .optional()
+    .describe("Ramo de atividade"),
+  businessArea: z
+    .string()
+    .max(100, "Área de atuação deve ter no máximo 100 caracteres")
+    .optional()
+    .describe("Área de atuação"),
+  foundingDate: z
+    .string()
+    .date("Data de fundação deve ser uma data válida")
+    .optional()
+    .describe("Data de fundação"),
   revenue: z
     .string()
     .regex(/^\d+(\.\d{1,2})?$/, "Receita deve ser um valor numérico")
-    .optional(),
+    .optional()
+    .describe("Receita"),
 });
 
 const organizationProfileDataSchema = z.object({

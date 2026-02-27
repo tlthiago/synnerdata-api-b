@@ -1,5 +1,6 @@
 import { z } from "zod";
 import { successResponseSchema } from "@/lib/responses/response.types";
+import { isValidCNPJ } from "@/lib/validation/documents";
 
 const isFutureDate = (dateStr: string) => {
   const date = new Date(dateStr);
@@ -17,6 +18,7 @@ export const createBranchSchema = z.object({
   taxId: z
     .string()
     .regex(/^\d{14}$/, "CNPJ deve ter 14 dígitos")
+    .refine((val) => isValidCNPJ(val), "CNPJ inválido")
     .describe("CNPJ da filial (14 dígitos)"),
   street: z
     .string()
