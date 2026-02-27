@@ -8,7 +8,7 @@ COPY package.json bun.lock ./
 RUN mkdir -p /temp/prod && \
     cp package.json bun.lock /temp/prod/ && \
     cd /temp/prod && \
-    bun install --frozen-lockfile --production
+    bun install --frozen-lockfile --production --ignore-scripts
 
 # Release stage
 FROM oven/bun:1-alpine
