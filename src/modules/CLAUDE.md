@@ -11,6 +11,7 @@
   - `webhook` — recebe eventos de pagamento do Pagar.me
   - `customer` — listagem de clientes do provedor de pagamento
   - `jobs` — jobs agendados (expiração de trial, cancelamentos, suspensões)
+  - `price-adjustment` — reajuste de preço individual ou em massa (admin only)
 - **organizations** — Multi-tenancy e estrutura organizacional
   - `profile` — metadata e configurações da organização
   - `branches` — filiais/unidades

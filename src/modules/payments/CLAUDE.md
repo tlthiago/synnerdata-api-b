@@ -54,12 +54,13 @@ CANCELED/EXPIRED → sem recuperação
 - `subscription:update` — checkout, cancelar, restaurar, trocar plano
 - `billing:read` — perfil, faturas, usage
 - `billing:update` — criar/atualizar perfil, atualizar cartão
-- `requireAdmin` — admin checkout com preço customizado
+- `requireAdmin` — admin checkout com preço customizado, reajuste de preços (individual e bulk)
 
 ## Integration Points
 
 - **Auth Module** → cria trial na primeira org
 - **Employees Module** → `LimitsService.requireEmployeeLimit()`
 - **Pagar.me API** → planos, clientes, assinaturas, cobranças, faturas
-- **Email** → notificações de subscription/payment
+- **Email** → notificações de subscription/payment/price-adjustment
 - **Jobs/Cron** → tarefas diárias de expiração
+- **price-adjustment** → reajuste de preço individual ou em massa (admin only)
