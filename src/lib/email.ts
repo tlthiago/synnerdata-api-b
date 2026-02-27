@@ -508,6 +508,99 @@ export async function sendSubscriptionCanceledEmail(
 }
 
 // ============================================================
+// PRICE ADJUSTMENT EMAIL
+// ============================================================
+
+type PriceAdjustmentEmailParams = {
+  to: string;
+  organizationName: string;
+  planName: string;
+  oldPrice: number; // em centavos
+  newPrice: number; // em centavos
+  reason: string;
+};
+
+export async function sendPriceAdjustmentEmail(
+  params: PriceAdjustmentEmailParams
+): Promise<void> {
+  const { to, organizationName, planName, oldPrice, newPrice, reason } = params;
+
+  const formatBRL = (cents: number) =>
+    new Intl.NumberFormat("pt-BR", {
+      style: "currency",
+      currency: "BRL",
+    }).format(cents / 100);
+
+  const formattedOldPrice = formatBRL(oldPrice);
+  const formattedNewPrice = formatBRL(newPrice);
+
+  const html = `
+    <div style="font-family: Arial, sans-serif; max-width: 600px; margin: 0 auto; padding: 20px;">
+      <h1 style="color: #333;">Reajuste no Valor da Assinatura</h1>
+
+      <p>Olá <strong>${organizationName}</strong>,</p>
+
+      <p>
+        Informamos que o valor da sua assinatura do plano <strong>${planName}</strong>
+        será reajustado.
+      </p>
+
+      <hr style="border: 1px solid #eee; margin: 20px 0;">
+
+      <h2 style="color: #333;">Detalhes do Reajuste</h2>
+
+      <table style="width: 100%; border-collapse: collapse;">
+        <tr>
+          <td style="padding: 8px 0;"><strong>Plano:</strong></td>
+          <td style="padding: 8px 0;">${planName}</td>
+        </tr>
+        <tr>
+          <td style="padding: 8px 0;"><strong>Valor atual:</strong></td>
+          <td style="padding: 8px 0;">${formattedOldPrice}/mês</td>
+        </tr>
+        <tr>
+          <td style="padding: 8px 0;"><strong>Novo valor:</strong></td>
+          <td style="padding: 8px 0;">${formattedNewPrice}/mês</td>
+        </tr>
+        <tr>
+          <td style="padding: 8px 0;"><strong>Motivo:</strong></td>
+          <td style="padding: 8px 0;">${reason}</td>
+        </tr>
+      </table>
+
+      <hr style="border: 1px solid #eee; margin: 20px 0;">
+
+      <div style="background: #fff8e6; border-left: 4px solid #f0ad4e; padding: 15px; margin: 20px 0;">
+        <p style="margin: 0; color: #8a6d3b;">
+          <strong>O novo valor será aplicado a partir do próximo ciclo de cobrança.</strong>
+        </p>
+      </div>
+
+      <p>
+        <a href="${env.APP_URL}/billing"
+           style="display: inline-block; background: #007bff; color: white; padding: 12px 24px; text-decoration: none; border-radius: 4px;">
+          Ver Assinatura
+        </a>
+      </p>
+
+      <p style="color: #666; font-size: 14px; margin-top: 30px;">
+        Precisa de ajuda? Responda este email.
+      </p>
+
+      <p style="color: #999; font-size: 12px;">
+        Equipe Synnerdata
+      </p>
+    </div>
+  `;
+
+  await sendEmail({
+    to,
+    subject: "Aviso de reajuste no valor da sua assinatura - Synnerdata",
+    html,
+  });
+}
+
+// ============================================================
 // PLAN CHANGE EMAILS
 // ============================================================
 

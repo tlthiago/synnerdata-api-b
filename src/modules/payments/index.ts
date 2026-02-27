@@ -7,6 +7,7 @@ import { jobsController } from "./jobs";
 import { orphanedPlansController } from "./pagarme/pagarme-orphaned-plans.controller";
 import { planChangeController } from "./plan-change";
 import { plansProtectedController, plansPublicController } from "./plans";
+import { priceAdjustmentController } from "./price-adjustment";
 import { subscriptionController } from "./subscription";
 import { webhookController } from "./webhook";
 
@@ -23,6 +24,7 @@ export const paymentsController = new Elysia({
   .use(orphanedPlansController)
   .use(subscriptionController)
   .use(planChangeController)
+  .use(priceAdjustmentController)
   .use(billingController)
   .use(customerController)
   .use(jobsController);

@@ -200,6 +200,42 @@ export const planPricingTiersRelations = relations(
   })
 );
 
+export const adjustmentTypeEnum = pgEnum("adjustment_type", [
+  "individual",
+  "bulk",
+]);
+
+export const priceAdjustments = pgTable(
+  "price_adjustments",
+  {
+    id: text("id").primaryKey(),
+    subscriptionId: text("subscription_id")
+      .notNull()
+      .references(() => orgSubscriptions.id, { onDelete: "cascade" }),
+    organizationId: text("organization_id")
+      .notNull()
+      .references(() => organizations.id, { onDelete: "cascade" }),
+    oldPrice: integer("old_price").notNull(),
+    newPrice: integer("new_price").notNull(),
+    reason: text("reason").notNull(),
+    adjustmentType: adjustmentTypeEnum("adjustment_type").notNull(),
+    billingCycle: text("billing_cycle").notNull(),
+    pricingTierId: text("pricing_tier_id").references(
+      () => planPricingTiers.id
+    ),
+    adminId: text("admin_id").notNull(),
+    createdAt: timestamp("created_at", { withTimezone: true })
+      .defaultNow()
+      .notNull(),
+  },
+  (table) => [
+    index("price_adjustments_subscription_id_idx").on(table.subscriptionId),
+    index("price_adjustments_organization_id_idx").on(table.organizationId),
+    index("price_adjustments_admin_id_idx").on(table.adminId),
+    index("price_adjustments_created_at_idx").on(table.createdAt),
+  ]
+);
+
 export const pendingCheckoutStatusEnum = pgEnum("pending_checkout_status", [
   "pending",
   "completed",
@@ -294,6 +330,24 @@ export const pagarmePlanHistoryRelations = relations(
   })
 );
 
+export const priceAdjustmentRelations = relations(
+  priceAdjustments,
+  ({ one }) => ({
+    subscription: one(orgSubscriptions, {
+      fields: [priceAdjustments.subscriptionId],
+      references: [orgSubscriptions.id],
+    }),
+    organization: one(organizations, {
+      fields: [priceAdjustments.organizationId],
+      references: [organizations.id],
+    }),
+    pricingTier: one(planPricingTiers, {
+      fields: [priceAdjustments.pricingTierId],
+      references: [planPricingTiers.id],
+    }),
+  })
+);
+
 export type OrgSubscription = typeof orgSubscriptions.$inferSelect;
 export type NewOrgSubscription = typeof orgSubscriptions.$inferInsert;
 export type SubscriptionPlan = typeof subscriptionPlans.$inferSelect;
@@ -307,3 +361,5 @@ export type NewPendingCheckout = typeof pendingCheckouts.$inferInsert;
 export type PagarmePlanHistoryRecord = typeof pagarmePlanHistory.$inferSelect;
 export type NewPagarmePlanHistoryRecord =
   typeof pagarmePlanHistory.$inferInsert;
+export type PriceAdjustment = typeof priceAdjustments.$inferSelect;
+export type NewPriceAdjustment = typeof priceAdjustments.$inferInsert;

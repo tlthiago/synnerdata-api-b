@@ -12,6 +12,7 @@
   - `customer` — listagem de clientes do provedor de pagamento
   - `jobs` — jobs agendados (expiração de trial, cancelamentos, suspensões)
   - `pagarme/orphaned-plans` — rastreamento e limpeza de planos Pagar.me órfãos (admin only)
+  - `price-adjustment` — reajuste de preço individual ou em massa (admin only)
 - **organizations** — Multi-tenancy e estrutura organizacional
   - `profile` — metadata e configurações da organização
   - `branches` — filiais/unidades

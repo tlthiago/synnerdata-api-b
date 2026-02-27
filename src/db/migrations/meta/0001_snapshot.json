@@ -1,5 +1,5 @@
 {
-  "id": "560c29e1-960f-46d6-b880-9eb245239d8d",
+  "id": "069186bb-040a-4966-a591-e05be20bcf06",
   "prevId": "42bda542-05e3-4f20-a4f2-975afdec4c95",
   "version": "7",
   "dialect": "postgresql",
@@ -4091,129 +4091,6 @@
       "checkConstraints": {},
       "isRLSEnabled": false
     },
-    "public.pagarme_plan_history": {
-      "name": "pagarme_plan_history",
-      "schema": "",
-      "columns": {
-        "id": {
-          "name": "id",
-          "type": "text",
-          "primaryKey": true,
-          "notNull": true
-        },
-        "local_plan_id": {
-          "name": "local_plan_id",
-          "type": "text",
-          "primaryKey": false,
-          "notNull": true
-        },
-        "local_tier_id": {
-          "name": "local_tier_id",
-          "type": "text",
-          "primaryKey": false,
-          "notNull": true
-        },
-        "pagarme_plan_id": {
-          "name": "pagarme_plan_id",
-          "type": "text",
-          "primaryKey": false,
-          "notNull": true
-        },
-        "billing_cycle": {
-          "name": "billing_cycle",
-          "type": "text",
-          "primaryKey": false,
-          "notNull": true
-        },
-        "price_at_creation": {
-          "name": "price_at_creation",
-          "type": "integer",
-          "primaryKey": false,
-          "notNull": true
-        },
-        "is_active": {
-          "name": "is_active",
-          "type": "boolean",
-          "primaryKey": false,
-          "notNull": true,
-          "default": true
-        },
-        "created_at": {
-          "name": "created_at",
-          "type": "timestamp with time zone",
-          "primaryKey": false,
-          "notNull": true,
-          "default": "now()"
-        }
-      },
-      "indexes": {
-        "pagarme_plan_history_is_active_idx": {
-          "name": "pagarme_plan_history_is_active_idx",
-          "columns": [
-            {
-              "expression": "is_active",
-              "isExpression": false,
-              "asc": true,
-              "nulls": "last"
-            }
-          ],
-          "isUnique": false,
-          "concurrently": false,
-          "method": "btree",
-          "with": {}
-        },
-        "pagarme_plan_history_pagarme_plan_id_idx": {
-          "name": "pagarme_plan_history_pagarme_plan_id_idx",
-          "columns": [
-            {
-              "expression": "pagarme_plan_id",
-              "isExpression": false,
-              "asc": true,
-              "nulls": "last"
-            }
-          ],
-          "isUnique": false,
-          "concurrently": false,
-          "method": "btree",
-          "with": {}
-        },
-        "pagarme_plan_history_local_plan_id_idx": {
-          "name": "pagarme_plan_history_local_plan_id_idx",
-          "columns": [
-            {
-              "expression": "local_plan_id",
-              "isExpression": false,
-              "asc": true,
-              "nulls": "last"
-            }
-          ],
-          "isUnique": false,
-          "concurrently": false,
-          "method": "btree",
-          "with": {}
-        }
-      },
-      "foreignKeys": {
-        "pagarme_plan_history_local_plan_id_subscription_plans_id_fk": {
-          "name": "pagarme_plan_history_local_plan_id_subscription_plans_id_fk",
-          "tableFrom": "pagarme_plan_history",
-          "tableTo": "subscription_plans",
-          "columnsFrom": [
-            "local_plan_id"
-          ],
-          "columnsTo": [
-            "id"
-          ],
-          "onDelete": "cascade",
-          "onUpdate": "no action"
-        }
-      },
-      "compositePrimaryKeys": {},
-      "uniqueConstraints": {},
-      "policies": {},
-      "checkConstraints": {},
-      "isRLSEnabled": false
-    },
     "public.pending_checkouts": {
       "name": "pending_checkouts",
       "schema": "",
@@ -4539,6 +4416,188 @@
             "id"
           ],
           "onDelete": "cascade",
+          "onUpdate": "no action"
+        }
+      },
+      "compositePrimaryKeys": {},
+      "uniqueConstraints": {},
+      "policies": {},
+      "checkConstraints": {},
+      "isRLSEnabled": false
+    },
+    "public.price_adjustments": {
+      "name": "price_adjustments",
+      "schema": "",
+      "columns": {
+        "id": {
+          "name": "id",
+          "type": "text",
+          "primaryKey": true,
+          "notNull": true
+        },
+        "subscription_id": {
+          "name": "subscription_id",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "organization_id": {
+          "name": "organization_id",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "old_price": {
+          "name": "old_price",
+          "type": "integer",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "new_price": {
+          "name": "new_price",
+          "type": "integer",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "reason": {
+          "name": "reason",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "adjustment_type": {
+          "name": "adjustment_type",
+          "type": "adjustment_type",
+          "typeSchema": "public",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "billing_cycle": {
+          "name": "billing_cycle",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "pricing_tier_id": {
+          "name": "pricing_tier_id",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": false
+        },
+        "admin_id": {
+          "name": "admin_id",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "created_at": {
+          "name": "created_at",
+          "type": "timestamp with time zone",
+          "primaryKey": false,
+          "notNull": true,
+          "default": "now()"
+        }
+      },
+      "indexes": {
+        "price_adjustments_subscription_id_idx": {
+          "name": "price_adjustments_subscription_id_idx",
+          "columns": [
+            {
+              "expression": "subscription_id",
+              "isExpression": false,
+              "asc": true,
+              "nulls": "last"
+            }
+          ],
+          "isUnique": false,
+          "concurrently": false,
+          "method": "btree",
+          "with": {}
+        },
+        "price_adjustments_organization_id_idx": {
+          "name": "price_adjustments_organization_id_idx",
+          "columns": [
+            {
+              "expression": "organization_id",
+              "isExpression": false,
+              "asc": true,
+              "nulls": "last"
+            }
+          ],
+          "isUnique": false,
+          "concurrently": false,
+          "method": "btree",
+          "with": {}
+        },
+        "price_adjustments_admin_id_idx": {
+          "name": "price_adjustments_admin_id_idx",
+          "columns": [
+            {
+              "expression": "admin_id",
+              "isExpression": false,
+              "asc": true,
+              "nulls": "last"
+            }
+          ],
+          "isUnique": false,
+          "concurrently": false,
+          "method": "btree",
+          "with": {}
+        },
+        "price_adjustments_created_at_idx": {
+          "name": "price_adjustments_created_at_idx",
+          "columns": [
+            {
+              "expression": "created_at",
+              "isExpression": false,
+              "asc": true,
+              "nulls": "last"
+            }
+          ],
+          "isUnique": false,
+          "concurrently": false,
+          "method": "btree",
+          "with": {}
+        }
+      },
+      "foreignKeys": {
+        "price_adjustments_subscription_id_org_subscriptions_id_fk": {
+          "name": "price_adjustments_subscription_id_org_subscriptions_id_fk",
+          "tableFrom": "price_adjustments",
+          "tableTo": "org_subscriptions",
+          "columnsFrom": [
+            "subscription_id"
+          ],
+          "columnsTo": [
+            "id"
+          ],
+          "onDelete": "cascade",
+          "onUpdate": "no action"
+        },
+        "price_adjustments_organization_id_organizations_id_fk": {
+          "name": "price_adjustments_organization_id_organizations_id_fk",
+          "tableFrom": "price_adjustments",
+          "tableTo": "organizations",
+          "columnsFrom": [
+            "organization_id"
+          ],
+          "columnsTo": [
+            "id"
+          ],
+          "onDelete": "cascade",
+          "onUpdate": "no action"
+        },
+        "price_adjustments_pricing_tier_id_plan_pricing_tiers_id_fk": {
+          "name": "price_adjustments_pricing_tier_id_plan_pricing_tiers_id_fk",
+          "tableFrom": "price_adjustments",
+          "tableTo": "plan_pricing_tiers",
+          "columnsFrom": [
+            "pricing_tier_id"
+          ],
+          "columnsTo": [
+            "id"
+          ],
+          "onDelete": "no action",
           "onUpdate": "no action"
         }
       },
@@ -6885,6 +6944,14 @@
         "verbal",
         "written",
         "suspension"
+      ]
+    },
+    "public.adjustment_type": {
+      "name": "adjustment_type",
+      "schema": "public",
+      "values": [
+        "individual",
+        "bulk"
       ]
     },
     "public.pending_checkout_status": {
