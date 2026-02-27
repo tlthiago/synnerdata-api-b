@@ -4,10 +4,30 @@ import { db } from "@/db";
 import { schema } from "@/db/schema";
 import {
   IMPORT_COLUMNS,
+  type ImportColumnDropdown,
   MAX_IMPORT_ROWS,
   SHEET_NAME_DATA,
   SHEET_NAME_EMPLOYEES,
 } from "./import.constants";
+
+// ── Named range mapping for reference dropdowns ─────────────────────────────
+// Maps refColumn letter to { named range name, data array key }
+const REFERENCE_COLUMNS: {
+  refColumn: string;
+  rangeName: string;
+  dataKey:
+    | "sectors"
+    | "jobPositions"
+    | "jobClassifications"
+    | "branches"
+    | "costCenters";
+}[] = [
+  { refColumn: "A", rangeName: "Setores", dataKey: "sectors" },
+  { refColumn: "B", rangeName: "Funcoes", dataKey: "jobPositions" },
+  { refColumn: "C", rangeName: "CBOs", dataKey: "jobClassifications" },
+  { refColumn: "D", rangeName: "Filiais", dataKey: "branches" },
+  { refColumn: "E", rangeName: "CentrosDeCusto", dataKey: "costCenters" },
+];
 
 // ── Style constants ─────────────────────────────────────────────────────────
 
@@ -106,15 +126,18 @@ export abstract class TemplateService {
 
     const workbook = new ExcelJS.Workbook();
 
-    TemplateService.buildInstructionsSheet(workbook);
-    TemplateService.buildEmployeesSheet(workbook);
-    TemplateService.buildDataSheet(workbook, {
+    const entityData = {
       sectors,
       jobPositions,
       jobClassifications,
       branches,
       costCenters,
-    });
+    };
+
+    TemplateService.buildInstructionsSheet(workbook);
+    // Data sheet must be built before Employees sheet so named ranges exist
+    TemplateService.buildDataSheet(workbook, entityData);
+    TemplateService.buildEmployeesSheet(workbook);
 
     return Buffer.from(await workbook.xlsx.writeBuffer()) as Buffer;
   }
@@ -191,6 +214,12 @@ export abstract class TemplateService {
     ws.views = [{ state: "frozen", xSplit: 0, ySplit: 1 }];
 
     // Apply data validations to rows 2 through MAX_IMPORT_ROWS + 1
+    TemplateService.applyDataValidations(ws);
+  }
+
+  // ── Data validations for Employees sheet ────────────────────────────────
+
+  private static applyDataValidations(ws: ExcelJS.Worksheet): void {
     const lastDataRow = MAX_IMPORT_ROWS + 1;
 
     for (let i = 0; i < IMPORT_COLUMNS.length; i++) {
@@ -212,19 +241,18 @@ export abstract class TemplateService {
           error: `Selecione um valor valido para "${col.header}".`,
         });
       } else if (col.dropdown.type === "reference") {
-        // IMPORTANT: Use `!` separator for cross-sheet references, NOT `.`
-        // ExcelJS has a bug that lowercases the column letter with dot notation
-        // @ts-expect-error — dataValidations exists at runtime but is missing from @types/exceljs
-        ws.dataValidations.add(`${colLetter}2:${colLetter}${lastDataRow}`, {
-          type: "list",
-          allowBlank: !col.required,
-          formulae: [
-            `${SHEET_NAME_DATA}!$${col.dropdown.refColumn}$2:$${col.dropdown.refColumn}$500`,
-          ],
-          showErrorMessage: true,
-          errorTitle: "Valor invalido",
-          error: `Selecione um valor valido para "${col.header}".`,
-        });
+        const rangeName = TemplateService.getRangeName(col.dropdown);
+        if (rangeName) {
+          // @ts-expect-error — dataValidations exists at runtime but is missing from @types/exceljs
+          ws.dataValidations.add(`${colLetter}2:${colLetter}${lastDataRow}`, {
+            type: "list",
+            allowBlank: !col.required,
+            formulae: [`${rangeName}`],
+            showErrorMessage: true,
+            errorTitle: "Valor invalido",
+            error: `Selecione um valor valido para "${col.header}".`,
+          });
+        }
       }
     }
   }
@@ -273,9 +301,35 @@ export abstract class TemplateService {
       }
       ws.addRow(rowValues);
     }
+
+    // Register named ranges for each reference column
+    // This avoids the ExcelJS bug with cross-sheet formula references (#2898)
+    for (const ref of REFERENCE_COLUMNS) {
+      const entityCount = data[ref.dataKey].length;
+      if (entityCount > 0) {
+        const lastRow = entityCount + 1; // +1 because row 1 is header
+        workbook.definedNames.add(
+          `'${SHEET_NAME_DATA}'!$${ref.refColumn}$2:$${ref.refColumn}$${lastRow}`,
+          ref.rangeName
+        );
+      }
+    }
   }
 
   // ── Helpers ─────────────────────────────────────────────────────────────
+
+  /**
+   * Resolves a reference dropdown to its named range name.
+   */
+  private static getRangeName(dropdown: ImportColumnDropdown): string | null {
+    if (dropdown.type !== "reference") {
+      return null;
+    }
+    const ref = REFERENCE_COLUMNS.find(
+      (r) => r.refColumn === dropdown.refColumn
+    );
+    return ref?.rangeName ?? null;
+  }
 
   /**
    * Converts a 1-based column number to an Excel column letter (e.g. 1 -> "A", 27 -> "AA").

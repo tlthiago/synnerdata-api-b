@@ -68,8 +68,9 @@ describe("TemplateService.generate", () => {
 
     expect(wb.worksheets).toHaveLength(3);
     expect(wb.worksheets[0].name).toBe("Instrucoes");
-    expect(wb.worksheets[1].name).toBe(SHEET_NAME_EMPLOYEES);
-    expect(wb.worksheets[2].name).toBe(SHEET_NAME_DATA);
+    // Data sheet is built before Employees sheet so named ranges exist for dropdowns
+    expect(wb.worksheets[1].name).toBe(SHEET_NAME_DATA);
+    expect(wb.worksheets[2].name).toBe(SHEET_NAME_EMPLOYEES);
   });
 
   test("main sheet has correct headers matching IMPORT_COLUMNS with * suffix for required", async () => {
@@ -242,7 +243,7 @@ describe("TemplateService.generate", () => {
     }
   });
 
-  test("reference dropdowns point to Dados sheet", async () => {
+  test("reference dropdowns use named ranges pointing to Dados sheet", async () => {
     const { organizationId, userId } = await createTestUserWithOrganization();
 
     await createTestSector({ organizationId, userId, name: "Setor F" });
@@ -283,8 +284,17 @@ describe("TemplateService.generate", () => {
       expect(validation.type).toBe("list");
 
       if (col.dropdown?.type === "reference") {
-        const expectedFormula = `${SHEET_NAME_DATA}!$${col.dropdown.refColumn}$2:$${col.dropdown.refColumn}$500`;
-        expect(validation.formulae).toEqual([expectedFormula]);
+        // Named ranges are used instead of cross-sheet formulas (ExcelJS bug #2898)
+        const rangeNameMap: Record<string, string> = {
+          A: "Setores",
+          B: "Funcoes",
+          C: "CBOs",
+          D: "Filiais",
+          E: "CentrosDeCusto",
+        };
+        const expectedRangeName = rangeNameMap[col.dropdown.refColumn];
+        expect(expectedRangeName).toBeDefined();
+        expect(validation.formulae).toEqual([expectedRangeName]);
       }
     }
   });
