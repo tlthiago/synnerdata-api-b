@@ -4,6 +4,7 @@ import { billingController } from "./billing";
 import { checkoutController } from "./checkout";
 import { customerController } from "./customer";
 import { jobsController } from "./jobs";
+import { orphanedPlansController } from "./pagarme/pagarme-orphaned-plans.controller";
 import { planChangeController } from "./plan-change";
 import { plansProtectedController, plansPublicController } from "./plans";
 import { subscriptionController } from "./subscription";
@@ -19,6 +20,7 @@ export const paymentsController = new Elysia({
   .use(plansProtectedController)
   .use(checkoutController)
   .use(adminCheckoutController)
+  .use(orphanedPlansController)
   .use(subscriptionController)
   .use(planChangeController)
   .use(billingController)
