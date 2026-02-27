@@ -7,6 +7,7 @@ import {
   PricingTierNotFoundError,
 } from "@/modules/payments/errors";
 import { PAGARME_RETRY_CONFIG, PagarmeClient } from "./client";
+import { PagarmePlanHistoryService } from "./pagarme-plan-history.service";
 
 type BillingCycle = "monthly" | "yearly";
 
@@ -61,6 +62,15 @@ export abstract class PagarmePlanService {
       billingCycle
     );
 
+    await PagarmePlanHistoryService.record({
+      localPlanId: plan.id,
+      localTierId: tierId,
+      pagarmePlanId: pagarmePlan.id,
+      billingCycle,
+      priceAtCreation:
+        billingCycle === "monthly" ? tier.priceMonthly : tier.priceYearly,
+    });
+
     return pagarmePlan.id;
   }
 
@@ -114,6 +124,14 @@ export abstract class PagarmePlanService {
         ),
       PAGARME_RETRY_CONFIG.WRITE
     );
+
+    await PagarmePlanHistoryService.record({
+      localPlanId: plan.id,
+      localTierId: tier.id,
+      pagarmePlanId: pagarmePlan.id,
+      billingCycle,
+      priceAtCreation: price,
+    });
 
     return pagarmePlan.id;
   }
