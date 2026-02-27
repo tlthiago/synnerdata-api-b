@@ -48,6 +48,8 @@ import {
   pendingCheckouts,
   planPricingTiers,
   planPricingTiersRelations,
+  priceAdjustmentRelations,
+  priceAdjustments,
   subscriptionEventRelations,
   subscriptionEvents,
   subscriptionPlanRelations,
@@ -112,6 +114,7 @@ export const schema = {
   subscriptionPlans,
   planPricingTiers,
   pendingCheckouts,
+  priceAdjustments,
   auditLogs,
 };
 
@@ -155,6 +158,7 @@ export const fullSchema = {
   subscriptionPlanRelations,
   planPricingTiersRelations,
   pendingCheckoutRelations,
+  priceAdjustmentRelations,
   auditLogRelations,
 };
 
@@ -195,12 +199,14 @@ export type {
   NewOrgSubscription,
   NewPendingCheckout,
   NewPlanPricingTier,
+  NewPriceAdjustment,
   NewSubscriptionEvent,
   NewSubscriptionPlan,
   OrgSubscription,
   PendingCheckout,
   PlanLimits,
   PlanPricingTier,
+  PriceAdjustment,
   SubscriptionEvent,
   SubscriptionPlan,
 } from "./payments";
