@@ -2,6 +2,7 @@ import { beforeAll, describe, expect, test } from "bun:test";
 import { env } from "@/env";
 import { createTestApp, type TestApp } from "@/test/helpers/app";
 import { createTestBranch } from "@/test/helpers/branch";
+import { generateCnpj } from "@/test/helpers/faker";
 import {
   createTestUser,
   createTestUserWithOrganization,
@@ -263,7 +264,7 @@ describe("DELETE /v1/branches/:id", () => {
         emailVerified: true,
       });
 
-    const taxId = `${Date.now()}`.slice(-14).padStart(14, "0");
+    const taxId = generateCnpj();
 
     const branch = await createTestBranch({
       organizationId,

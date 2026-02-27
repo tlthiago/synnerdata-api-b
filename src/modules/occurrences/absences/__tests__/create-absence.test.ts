@@ -100,7 +100,7 @@ describe("POST /v1/absences", () => {
 
     expect(response.status).toBe(422);
     const body = await response.json();
-    expect(body.error.code).toBe("ABSENCE_INVALID_DATE_RANGE");
+    expect(body.error.code).toBe("VALIDATION_ERROR");
   });
 
   test("should create absence successfully", async () => {

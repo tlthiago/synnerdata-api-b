@@ -1,6 +1,7 @@
 import { beforeAll, describe, expect, test } from "bun:test";
 import { env } from "@/env";
 import { createTestApp, type TestApp } from "@/test/helpers/app";
+import { generateCpf } from "@/test/helpers/faker";
 import { createTestJobClassification } from "@/test/helpers/job-classification";
 import { createTestJobPosition } from "@/test/helpers/job-position";
 import { createTestSector } from "@/test/helpers/sector";
@@ -21,7 +22,7 @@ const createValidEmployeeData = (overrides?: Record<string, unknown>) => ({
   birthplace: "São Paulo",
   nationality: "Brasileiro",
   motherName: "Maria da Silva",
-  cpf: "12345678901",
+  cpf: generateCpf(),
   identityCard: "123456789",
   pis: "12345678901",
   workPermitNumber: "1234567",
@@ -202,8 +203,9 @@ describe("POST /v1/employees", () => {
 
     const deps = await createTestDependencies(organizationId, user.id);
 
+    const sharedCpf = generateCpf();
     const employeeData = createValidEmployeeData({
-      cpf: "98765432101",
+      cpf: sharedCpf,
       ...deps,
     });
 
@@ -341,7 +343,7 @@ describe("POST /v1/employees", () => {
         },
         body: JSON.stringify(
           createValidEmployeeData({
-            cpf: "11122233344",
+            cpf: generateCpf(),
             ...deps,
           })
         ),

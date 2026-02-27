@@ -4,12 +4,15 @@ import { entityReferenceSchema } from "@/lib/schemas/relationships";
 
 export const warningTypeEnum = z.enum(["verbal", "written", "suspension"]);
 
-export const createWarningSchema = z.object({
+const warningFieldsSchema = z.object({
   employeeId: z
     .string()
     .min(1, "ID do funcionário é obrigatório")
     .describe("ID do funcionário"),
-  date: z.string().date("Data inválida").describe("Data da advertência"),
+  date: z
+    .string()
+    .date("Data da advertência deve ser uma data válida")
+    .describe("Data da advertência"),
   type: warningTypeEnum.describe("Tipo da advertência"),
   reason: z
     .string()
@@ -18,11 +21,34 @@ export const createWarningSchema = z.object({
   description: z.string().optional().describe("Descrição detalhada"),
   witnessName: z.string().optional().describe("Nome da testemunha"),
   acknowledged: z.boolean().default(false).describe("Funcionário ciente"),
-  acknowledgedAt: z.string().datetime().optional().describe("Data do ciente"),
+  acknowledgedAt: z
+    .string()
+    .datetime("Data do ciente deve ser uma data/hora válida")
+    .optional()
+    .describe("Data do ciente"),
   notes: z.string().optional().describe("Observações"),
 });
 
-export const updateWarningSchema = createWarningSchema.partial();
+export const createWarningSchema = warningFieldsSchema.refine(
+  (data) => !data.acknowledged || data.acknowledgedAt,
+  {
+    message: "Data de ciência é obrigatória quando o funcionário deu ciência",
+    path: ["acknowledgedAt"],
+  }
+);
+
+export const updateWarningSchema = warningFieldsSchema.partial().refine(
+  (data) => {
+    if (data.acknowledged === true) {
+      return !!data.acknowledgedAt;
+    }
+    return true;
+  },
+  {
+    message: "Data de ciência é obrigatória quando o funcionário deu ciência",
+    path: ["acknowledgedAt"],
+  }
+);
 
 export const idParamSchema = z.object({
   id: z.string().min(1).describe("ID da advertência"),

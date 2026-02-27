@@ -2,6 +2,7 @@ import { beforeAll, describe, expect, test } from "bun:test";
 import { env } from "@/env";
 import { createTestApp, type TestApp } from "@/test/helpers/app";
 import { createTestEmployee } from "@/test/helpers/employee";
+import { generateCpf } from "@/test/helpers/faker";
 import {
   createTestUser,
   createTestUserWithOrganization,
@@ -104,17 +105,20 @@ describe("PUT /v1/employees/:id", () => {
         emailVerified: true,
       });
 
+    const cpf1 = generateCpf();
+    const cpf2 = generateCpf();
+
     const { dependencies } = await createTestEmployee({
       organizationId,
       userId: user.id,
-      cpf: "20202020202",
+      cpf: cpf1,
     });
 
     const { employee: employee2 } = await createTestEmployee({
       organizationId,
       userId: user.id,
       dependencies,
-      cpf: "30303030303",
+      cpf: cpf2,
     });
 
     const response = await app.handle(
@@ -124,7 +128,7 @@ describe("PUT /v1/employees/:id", () => {
           ...headers,
           "Content-Type": "application/json",
         },
-        body: JSON.stringify({ cpf: "20202020202" }),
+        body: JSON.stringify({ cpf: cpf1 }),
       })
     );
 

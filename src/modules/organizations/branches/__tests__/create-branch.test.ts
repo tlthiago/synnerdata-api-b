@@ -1,6 +1,7 @@
 import { beforeAll, describe, expect, test } from "bun:test";
 import { env } from "@/env";
 import { createTestApp, type TestApp } from "@/test/helpers/app";
+import { generateCnpj } from "@/test/helpers/faker";
 import {
   createTestUser,
   createTestUserWithOrganization,
@@ -10,7 +11,7 @@ const BASE_URL = env.API_URL;
 
 const validBranchData = {
   name: "Filial Centro",
-  taxId: "12345678000195",
+  taxId: generateCnpj(),
   street: "Rua das Flores",
   number: "123",
   complement: "Sala 101",
@@ -66,8 +67,7 @@ describe("POST /v1/branches", () => {
       emailVerified: true,
     });
 
-    // Use unique taxId for this test
-    const uniqueTaxId = `${Date.now()}`.slice(-14).padStart(14, "0");
+    const uniqueTaxId = generateCnpj();
 
     // Create first branch
     const firstResponse = await app.handle(
@@ -115,7 +115,7 @@ describe("POST /v1/branches", () => {
     );
 
     // Create organization with a valid 14-digit taxId
-    const orgTaxId = `${Date.now()}`.slice(-14).padStart(14, "0");
+    const orgTaxId = generateCnpj();
     const organization = await createTestOrganization({ taxId: orgTaxId });
 
     const userResult = await createTestUser({ emailVerified: true });
@@ -201,7 +201,7 @@ describe("POST /v1/branches", () => {
         },
         body: JSON.stringify({
           ...validBranchData,
-          taxId: "98765432000199",
+          taxId: generateCnpj(),
           foundedAt: futureDate.toISOString().split("T")[0],
         }),
       })
@@ -215,7 +215,7 @@ describe("POST /v1/branches", () => {
       emailVerified: true,
     });
 
-    const uniqueTaxId = `${Date.now()}`.slice(-14).padStart(14, "0");
+    const uniqueTaxId = generateCnpj();
 
     const response = await app.handle(
       new Request(`${BASE_URL}/v1/branches`, {
@@ -250,7 +250,7 @@ describe("POST /v1/branches", () => {
       emailVerified: true,
     });
 
-    const uniqueTaxId = `${Date.now() + 1}`.slice(-14).padStart(14, "0");
+    const uniqueTaxId = generateCnpj();
     const {
       complement: _,
       phone: __,
@@ -308,7 +308,7 @@ describe("POST /v1/branches", () => {
         },
         body: JSON.stringify({
           ...validBranchData,
-          taxId: `${Date.now() + 2}`.slice(-14).padStart(14, "0"),
+          taxId: generateCnpj(),
         }),
       })
     );
@@ -333,7 +333,7 @@ describe("POST /v1/branches", () => {
       role: "manager",
     });
 
-    const uniqueTaxId = `${Date.now() + 3}`.slice(-14).padStart(14, "0");
+    const uniqueTaxId = generateCnpj();
 
     const response = await app.handle(
       new Request(`${BASE_URL}/v1/branches`, {
