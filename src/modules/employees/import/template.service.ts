@@ -248,7 +248,7 @@ export abstract class TemplateService {
     // Column headers (row 1)
     const dataHeaders = [
       "Setores",
-      "Cargos",
+      "Funções",
       "CBOs",
       "Filiais",
       "Centros de custo",

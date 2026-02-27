@@ -161,7 +161,7 @@ describe("TemplateService.generate", () => {
 
     // Row 1 = headers
     expect(ws.getRow(1).getCell(1).value).toBe("Setores");
-    expect(ws.getRow(1).getCell(2).value).toBe("Cargos");
+    expect(ws.getRow(1).getCell(2).value).toBe("Funções");
     expect(ws.getRow(1).getCell(3).value).toBe("CBOs");
     expect(ws.getRow(1).getCell(4).value).toBe("Filiais");
     expect(ws.getRow(1).getCell(5).value).toBe("Centros de custo");

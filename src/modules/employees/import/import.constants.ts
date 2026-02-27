@@ -387,7 +387,7 @@ export const IMPORT_COLUMNS: ImportColumn[] = [
   },
   {
     key: "jobPositionId",
-    header: "Cargo",
+    header: "Função",
     width: 25,
     required: true,
     section: "employment",

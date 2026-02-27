@@ -105,7 +105,7 @@ const NUMBER_FIELDS = [
 
 const FK_FIELDS: { key: string; label: string; required: boolean }[] = [
   { key: "sectorId", label: "Setor", required: true },
-  { key: "jobPositionId", label: "Cargo", required: true },
+  { key: "jobPositionId", label: "Função", required: true },
   { key: "jobClassificationId", label: "CBO", required: true },
   { key: "branchId", label: "Filial", required: false },
   { key: "costCenterId", label: "Centro de custo", required: false },
