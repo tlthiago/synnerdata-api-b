@@ -26,6 +26,41 @@ type ValidRow = {
   data: CreateEmployee;
 };
 
+// ── Helpers ──────────────────────────────────────────────────────────────────
+
+/**
+ * Extracts the primitive value from an ExcelJS cell value.
+ * Excel auto-converts emails/URLs to hyperlink objects like:
+ *   { text: "email@example.com", hyperlink: "mailto:email@example.com" }
+ * and rich text to: { richText: [{ text: "..." }, ...] }
+ * This function unwraps those to plain strings.
+ */
+function unwrapCellValue(value: ExcelJS.CellValue): ExcelJS.CellValue {
+  if (value === null || value === undefined) {
+    return value;
+  }
+
+  if (typeof value === "object" && !(value instanceof Date)) {
+    // Hyperlink: { text: string, hyperlink: string }
+    if ("text" in value && "hyperlink" in value) {
+      return (value as { text: string }).text;
+    }
+
+    // Rich text: { richText: [{ text: string }, ...] }
+    if ("richText" in value) {
+      const parts = (value as { richText: { text: string }[] }).richText;
+      return parts.map((p) => p.text).join("");
+    }
+
+    // Formula result: { result: value, formula: string }
+    if ("result" in value) {
+      return (value as { result: ExcelJS.CellValue }).result;
+    }
+  }
+
+  return value;
+}
+
 // ── Service ─────────────────────────────────────────────────────────────────
 
 export abstract class ImportService {
@@ -67,7 +102,7 @@ export abstract class ImportService {
       const rowData: Record<string, unknown> = {};
       for (const [i, col] of IMPORT_COLUMNS.entries()) {
         const cell = row.getCell(i + 1);
-        rowData[col.key] = cell.value;
+        rowData[col.key] = unwrapCellValue(cell.value);
       }
       rows.push({ rowNumber, data: rowData });
     });
