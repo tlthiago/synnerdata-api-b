@@ -24,7 +24,7 @@ import { registerPaymentListeners } from "./modules/payments/hooks/listeners";
 // Run database migrations before starting the server
 try {
   const start = performance.now();
-  await migrate(db, { migrationsFolder: "./migrations" });
+  await migrate(db, { migrationsFolder: "./src/db/migrations" });
   const duration = Math.round(performance.now() - start);
   logger.info({
     type: "db:migrate",
