@@ -349,6 +349,15 @@ export type PagarmePaymentLink = {
   updated_at: string;
 };
 
+export type UpdateSubscriptionItemRequest = {
+  description?: string;
+  quantity?: number;
+  pricing_scheme?: {
+    price: number;
+    scheme_type: "unit";
+  };
+};
+
 export type PagarmeApiErrorResponse = {
   message?: string;
   errors?: Record<string, string[]>;

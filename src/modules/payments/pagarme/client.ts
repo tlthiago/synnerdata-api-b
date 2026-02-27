@@ -21,6 +21,7 @@ import type {
   PagarmePaymentLink,
   PagarmePlan,
   PagarmeSubscription,
+  UpdateSubscriptionItemRequest,
 } from "./pagarme.types";
 
 const PAGARME_BASE_URL = env.PAGARME_BASE_URL;
@@ -185,6 +186,19 @@ export abstract class PagarmeClient {
       "PATCH",
       `/subscriptions/${subscriptionId}/card`,
       { body: { card_id: cardId }, idempotencyKey }
+    );
+  }
+
+  static async updateSubscriptionItem(
+    subscriptionId: string,
+    itemId: string,
+    data: UpdateSubscriptionItemRequest,
+    idempotencyKey?: string
+  ): Promise<PagarmeSubscription> {
+    return PagarmeClient.request(
+      "PUT",
+      `/subscriptions/${subscriptionId}/items/${itemId}`,
+      { body: data, idempotencyKey }
     );
   }
 
