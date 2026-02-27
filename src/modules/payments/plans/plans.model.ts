@@ -53,7 +53,7 @@ export const createPlanSchema = z.object({
     .min(1)
     .optional()
     .describe(
-      "Pricing tiers: 1 tier (0-10) for trial, 10 tiers for paid plans"
+      "Pricing tiers: 1 tier (0-10) for trial, at least 1 contiguous tier for paid plans"
     ),
 });
 

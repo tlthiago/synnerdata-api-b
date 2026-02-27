@@ -9,15 +9,14 @@ import {
   PlanNotAvailableError,
   PlanNotFoundError,
   PricingTierNotFoundError,
+  TierGapError,
+  TierMinExceedsMaxError,
+  TierNegativeMinError,
+  TierOverlapError,
   TrialPlanNotFoundError,
 } from "@/modules/payments/errors";
 import { PagarmePlanHistoryService } from "@/modules/payments/pagarme/pagarme-plan-history.service";
-import {
-  calculateYearlyPrice,
-  EMPLOYEE_TIERS,
-  EMPLOYEE_TIERS_COUNT,
-  TRIAL_TIER,
-} from "./plans.constants";
+import { calculateYearlyPrice, TRIAL_TIER } from "./plans.constants";
 import type {
   CreatePlanData,
   CreatePlanInput,
@@ -296,24 +295,43 @@ export abstract class PlansService {
   }
 
   private static validatePaidPlanTiers(tiers: TierPriceInput[]): void {
-    if (tiers.length !== EMPLOYEE_TIERS_COUNT) {
-      throw new InvalidTierCountError(tiers.length, EMPLOYEE_TIERS_COUNT);
+    if (tiers.length < 1) {
+      throw new InvalidTierCountError(tiers.length, 1);
     }
 
-    for (let i = 0; i < tiers.length; i++) {
-      const expected = EMPLOYEE_TIERS[i];
-      const provided = tiers[i];
+    const sorted = [...tiers].sort((a, b) => a.minEmployees - b.minEmployees);
 
-      if (
-        provided.minEmployees !== expected.min ||
-        provided.maxEmployees !== expected.max
-      ) {
-        throw new InvalidTierRangeError(
+    for (let i = 0; i < sorted.length; i++) {
+      const tier = sorted[i];
+
+      if (tier.minEmployees < 0) {
+        throw new TierNegativeMinError(i, tier.minEmployees);
+      }
+
+      if (tier.minEmployees > tier.maxEmployees) {
+        throw new TierMinExceedsMaxError(
           i,
-          { min: provided.minEmployees, max: provided.maxEmployees },
-          { min: expected.min, max: expected.max }
+          tier.minEmployees,
+          tier.maxEmployees
         );
       }
+
+      if (i > 0) {
+        const prev = sorted[i - 1];
+        const expectedMin = prev.maxEmployees + 1;
+
+        if (tier.minEmployees < expectedMin) {
+          throw new TierOverlapError(i, prev.maxEmployees, tier.minEmployees);
+        }
+
+        if (tier.minEmployees > expectedMin) {
+          throw new TierGapError(i, expectedMin, tier.minEmployees);
+        }
+      }
+    }
+
+    if (sorted[0].minEmployees !== 0) {
+      throw new TierGapError(0, 0, sorted[0].minEmployees);
     }
   }
 
