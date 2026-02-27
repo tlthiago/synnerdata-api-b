@@ -5,7 +5,10 @@ import { PaymentHooks } from "@/modules/payments/hooks";
 import { PagarmeClient } from "@/modules/payments/pagarme/client";
 import { PagarmePlanService } from "@/modules/payments/pagarme/pagarme-plan.service";
 import { calculateYearlyPrice } from "@/modules/payments/plans/plans.constants";
-import { SubscriptionNotAdjustableError } from "./errors";
+import {
+  SubscriptionNotAdjustableError,
+  TierNotFoundForAdjustmentError,
+} from "./errors";
 import type {
   AdjustBulkInput,
   AdjustIndividualInput,
@@ -210,10 +213,7 @@ export abstract class PriceAdjustmentService {
       .limit(1);
 
     if (!tier) {
-      throw new SubscriptionNotAdjustableError(
-        pricingTierId,
-        `Pricing tier not found or does not belong to plan ${planId}`
-      );
+      throw new TierNotFoundForAdjustmentError(pricingTierId, planId);
     }
 
     // 2. Calculate effective price

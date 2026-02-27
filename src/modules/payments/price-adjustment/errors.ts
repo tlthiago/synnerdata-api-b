@@ -26,6 +26,18 @@ export class SubscriptionNotAdjustableError extends PriceAdjustmentError {
   }
 }
 
+export class TierNotFoundForAdjustmentError extends PriceAdjustmentError {
+  status = 404;
+
+  constructor(pricingTierId: string, planId: string) {
+    super(
+      `Pricing tier ${pricingTierId} not found or does not belong to plan ${planId}`,
+      "TIER_NOT_FOUND_FOR_ADJUSTMENT",
+      { pricingTierId, planId }
+    );
+  }
+}
+
 export class PriceAdjustmentNotFoundError extends PriceAdjustmentError {
   status = 404;
 
