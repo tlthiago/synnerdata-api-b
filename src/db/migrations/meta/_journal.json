@@ -71,6 +71,13 @@
       "when": 1766718969686,
       "tag": "0009_legal_shiver_man",
       "breakpoints": true
+    },
+    {
+      "idx": 10,
+      "version": "7",
+      "when": 1772165565507,
+      "tag": "0010_keen_magma",
+      "breakpoints": true
     }
   ]
 }
