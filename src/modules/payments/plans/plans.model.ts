@@ -76,33 +76,6 @@ export const planIdParamsSchema = z.object({
   id: z.string().min(1).describe("Plan ID"),
 });
 
-export const tierParamsSchema = z.object({
-  id: z.string().min(1).describe("Plan ID"),
-  tierId: z.string().min(1).describe("Tier ID"),
-});
-
-export const planTiersParamsSchema = z.object({
-  id: z.string().min(1).describe("Plan ID"),
-});
-
-export const addTierSchema = z.object({
-  minEmployees: z
-    .number()
-    .int()
-    .min(0)
-    .describe("Minimum employees in this tier"),
-  maxEmployees: z
-    .number()
-    .int()
-    .min(1)
-    .describe("Maximum employees in this tier"),
-  priceMonthly: z.number().int().min(0).describe("Monthly price in cents"),
-});
-
-export const updateTierPriceSchema = z.object({
-  priceMonthly: z.number().int().min(0).describe("New monthly price in cents"),
-});
-
 const planDataSchema = z.object({
   id: z.string().describe("Plan ID"),
   name: z.string().describe("Plan internal name"),
@@ -147,40 +120,12 @@ export const updatePlanResponseSchema =
 export const deletePlanResponseSchema =
   successResponseSchema(deletePlanDataSchema);
 
-const tierWithPagarmeSchema = pricingTierSchema.extend({
-  pagarmePlanIdMonthly: z
-    .string()
-    .nullable()
-    .describe("Pagar.me plan ID for monthly billing"),
-  pagarmePlanIdYearly: z
-    .string()
-    .nullable()
-    .describe("Pagar.me plan ID for yearly billing"),
-});
-
-export const listTiersResponseSchema = successResponseSchema(
-  z.object({ tiers: z.array(tierWithPagarmeSchema) })
-);
-export const addTierResponseSchema = successResponseSchema(
-  tierWithPagarmeSchema
-);
-export const updateTierResponseSchema = successResponseSchema(
-  tierWithPagarmeSchema
-);
-export const deleteTierResponseSchema =
-  successResponseSchema(deletePlanDataSchema);
-
 export type PlanLimits = z.infer<typeof planLimitsSchema>;
 export type TierPriceInput = z.infer<typeof tierPriceInputSchema>;
 export type PricingTierData = z.infer<typeof pricingTierSchema>;
-export type TierWithPagarmeData = z.infer<typeof tierWithPagarmeSchema>;
 export type CreatePlanInput = z.infer<typeof createPlanSchema>;
 export type UpdatePlanInput = z.infer<typeof updatePlanSchema>;
 export type PlanIdParams = z.infer<typeof planIdParamsSchema>;
-export type TierParams = z.infer<typeof tierParamsSchema>;
-export type PlanTiersParams = z.infer<typeof planTiersParamsSchema>;
-export type AddTierInput = z.infer<typeof addTierSchema>;
-export type UpdateTierPriceInput = z.infer<typeof updateTierPriceSchema>;
 export type PlanData = z.infer<typeof planDataSchema>;
 export type PlanWithTiersData = z.infer<typeof planWithTiersSchema>;
 
@@ -189,17 +134,9 @@ export type ListPlansResponse = z.infer<typeof listPlansResponseSchema>;
 export type CreatePlanResponse = z.infer<typeof createPlanResponseSchema>;
 export type UpdatePlanResponse = z.infer<typeof updatePlanResponseSchema>;
 export type DeletePlanResponse = z.infer<typeof deletePlanResponseSchema>;
-export type ListTiersResponse = z.infer<typeof listTiersResponseSchema>;
-export type AddTierResponse = z.infer<typeof addTierResponseSchema>;
-export type UpdateTierResponse = z.infer<typeof updateTierResponseSchema>;
-export type DeleteTierResponse = z.infer<typeof deleteTierResponseSchema>;
 
 export type ListPlansData = { plans: PlanWithTiersData[] };
 export type GetPlanData = PlanWithTiersData;
 export type CreatePlanData = PlanWithTiersData;
 export type UpdatePlanData = PlanWithTiersData;
 export type DeletePlanData = z.infer<typeof deletePlanDataSchema>;
-export type ListTiersData = { tiers: TierWithPagarmeData[] };
-export type AddTierData = TierWithPagarmeData;
-export type UpdateTierData = TierWithPagarmeData;
-export type DeleteTierData = z.infer<typeof deletePlanDataSchema>;

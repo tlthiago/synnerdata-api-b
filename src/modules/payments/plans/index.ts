@@ -2,29 +2,20 @@ import { Elysia } from "elysia";
 import { betterAuthPlugin } from "@/lib/auth-plugin";
 import { wrapSuccess } from "@/lib/responses/envelope";
 import {
-  errorResponseSchema,
   forbiddenErrorSchema,
   notFoundErrorSchema,
   unauthorizedErrorSchema,
   validationErrorSchema,
 } from "@/lib/responses/response.types";
 import {
-  addTierResponseSchema,
-  addTierSchema,
   createPlanResponseSchema,
   createPlanSchema,
   deletePlanResponseSchema,
-  deleteTierResponseSchema,
   getPlanResponseSchema,
   listPlansResponseSchema,
-  listTiersResponseSchema,
   planIdParamsSchema,
-  planTiersParamsSchema,
-  tierParamsSchema,
   updatePlanResponseSchema,
   updatePlanSchema,
-  updateTierPriceSchema,
-  updateTierResponseSchema,
 } from "./plans.model";
 import { PlansService } from "./plans.service";
 
@@ -137,94 +128,6 @@ export const plansProtectedController = new Elysia({
         summary: "Delete a plan",
         description:
           "Deletes a subscription plan and its pricing tiers. Cannot delete plans with active subscriptions. Requires admin privileges.",
-      },
-    }
-  )
-  .get(
-    "/:id/tiers",
-    async ({ params }) => wrapSuccess(await PlansService.listTiers(params.id)),
-    {
-      auth: { requireAdmin: true },
-      params: planTiersParamsSchema,
-      response: {
-        200: listTiersResponseSchema,
-        422: validationErrorSchema,
-        401: unauthorizedErrorSchema,
-        403: forbiddenErrorSchema,
-        404: notFoundErrorSchema,
-      },
-      detail: {
-        summary: "List plan tiers",
-        description:
-          "Returns all pricing tiers for a plan with their prices and Pagar.me plan IDs. Requires admin privileges.",
-      },
-    }
-  )
-  .post(
-    "/:id/tiers",
-    async ({ params, body }) =>
-      wrapSuccess(await PlansService.addTier(params.id, body)),
-    {
-      auth: { requireAdmin: true },
-      params: planTiersParamsSchema,
-      body: addTierSchema,
-      response: {
-        200: addTierResponseSchema,
-        422: validationErrorSchema,
-        401: unauthorizedErrorSchema,
-        403: forbiddenErrorSchema,
-        404: notFoundErrorSchema,
-      },
-      detail: {
-        summary: "Add tier to plan",
-        description:
-          "Adds a new pricing tier to a plan. Validates range against existing tiers for overlap and contiguity.",
-      },
-    }
-  )
-  .patch(
-    "/:id/tiers/:tierId",
-    async ({ params, body }) =>
-      wrapSuccess(
-        await PlansService.updateTierPrice(params.id, params.tierId, body)
-      ),
-    {
-      auth: { requireAdmin: true },
-      params: tierParamsSchema,
-      body: updateTierPriceSchema,
-      response: {
-        200: updateTierResponseSchema,
-        422: validationErrorSchema,
-        401: unauthorizedErrorSchema,
-        403: forbiddenErrorSchema,
-        404: notFoundErrorSchema,
-      },
-      detail: {
-        summary: "Update tier price",
-        description:
-          "Updates the monthly price of a tier. Recalculates yearly price and invalidates Pagar.me plan cache. Existing subscriptions are not affected.",
-      },
-    }
-  )
-  .delete(
-    "/:id/tiers/:tierId",
-    async ({ params }) =>
-      wrapSuccess(await PlansService.removeTier(params.id, params.tierId)),
-    {
-      auth: { requireAdmin: true },
-      params: tierParamsSchema,
-      response: {
-        200: deleteTierResponseSchema,
-        422: validationErrorSchema,
-        400: errorResponseSchema,
-        401: unauthorizedErrorSchema,
-        403: forbiddenErrorSchema,
-        404: notFoundErrorSchema,
-      },
-      detail: {
-        summary: "Delete tier from plan",
-        description:
-          "Removes a pricing tier from a plan. Cannot delete tiers with active subscriptions.",
       },
     }
   );

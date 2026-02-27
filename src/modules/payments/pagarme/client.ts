@@ -13,6 +13,7 @@ import type {
   CreateSubscriptionRequest,
   ListCustomersResponse,
   ListInvoicesResponse,
+  ListSubscriptionsResponse,
   PagarmeApiErrorResponse,
   PagarmeCheckout,
   PagarmeCustomer,
@@ -166,6 +167,29 @@ export abstract class PagarmeClient {
     return PagarmeClient.request("GET", `/subscriptions/${subscriptionId}`);
   }
 
+  static async getSubscriptions(params: {
+    planId?: string;
+    status?: string;
+    page?: number;
+    size?: number;
+  }): Promise<ListSubscriptionsResponse> {
+    const searchParams = new URLSearchParams();
+
+    if (params.planId) {
+      searchParams.set("plan_id", params.planId);
+    }
+    if (params.status) {
+      searchParams.set("status", params.status);
+    }
+    searchParams.set("page", String(params.page ?? 1));
+    searchParams.set("size", String(params.size ?? 20));
+
+    return PagarmeClient.request(
+      "GET",
+      `/subscriptions?${searchParams.toString()}`
+    );
+  }
+
   static async cancelSubscription(
     subscriptionId: string,
     cancelPendingInvoices = true,
@@ -305,6 +329,12 @@ export abstract class PagarmeClient {
     data: Partial<CreatePlanRequest>
   ): Promise<PagarmePlan> {
     return PagarmeClient.request("PUT", `/plans/${planId}`, { body: data });
+  }
+
+  static async deactivatePlan(planId: string): Promise<PagarmePlan> {
+    return PagarmeClient.request("PUT", `/plans/${planId}`, {
+      body: { status: "inactive" },
+    });
   }
 
   static async createPaymentLink(

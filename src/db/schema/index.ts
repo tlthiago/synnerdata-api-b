@@ -44,6 +44,8 @@ import {
 import {
   orgSubscriptionRelations,
   orgSubscriptions,
+  pagarmePlanHistory,
+  pagarmePlanHistoryRelations,
   pendingCheckoutRelations,
   pendingCheckouts,
   planPricingTiers,
@@ -114,6 +116,7 @@ export const schema = {
   subscriptionPlans,
   planPricingTiers,
   pendingCheckouts,
+  pagarmePlanHistory,
   priceAdjustments,
   auditLogs,
 };
@@ -158,6 +161,7 @@ export const fullSchema = {
   subscriptionPlanRelations,
   planPricingTiersRelations,
   pendingCheckoutRelations,
+  pagarmePlanHistoryRelations,
   priceAdjustmentRelations,
   auditLogRelations,
 };
@@ -197,12 +201,14 @@ export type {
 export { organizationStatusEnum } from "./organization-profiles";
 export type {
   NewOrgSubscription,
+  NewPagarmePlanHistoryRecord,
   NewPendingCheckout,
   NewPlanPricingTier,
   NewPriceAdjustment,
   NewSubscriptionEvent,
   NewSubscriptionPlan,
   OrgSubscription,
+  PagarmePlanHistoryRecord,
   PendingCheckout,
   PlanLimits,
   PlanPricingTier,

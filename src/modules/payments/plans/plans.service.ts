@@ -10,31 +10,25 @@ import {
   PlanNotFoundError,
   PricingTierNotFoundError,
   TierGapError,
-  TierHasActiveSubscriptionsError,
   TierMinExceedsMaxError,
   TierNegativeMinError,
-  TierNotFoundError,
   TierOverlapError,
   TrialPlanNotFoundError,
 } from "@/modules/payments/errors";
+import { PagarmePlanHistoryService } from "@/modules/payments/pagarme/pagarme-plan-history.service";
+
 import { calculateYearlyPrice, TRIAL_TIER } from "./plans.constants";
 import type {
-  AddTierData,
-  AddTierInput,
   CreatePlanData,
   CreatePlanInput,
   DeletePlanData,
-  DeleteTierData,
   GetPlanData,
   ListPlansData,
-  ListTiersData,
   PlanWithTiersData,
   PricingTierData,
   TierPriceInput,
   UpdatePlanData,
   UpdatePlanInput,
-  UpdateTierData,
-  UpdateTierPriceInput,
 } from "./plans.model";
 
 export abstract class PlansService {
@@ -377,6 +371,15 @@ export abstract class PlansService {
     planId: string,
     tiers: TierPriceInput[]
   ): Promise<PricingTierData[]> {
+    const oldTiers = await tx
+      .select({ id: schema.planPricingTiers.id })
+      .from(schema.planPricingTiers)
+      .where(eq(schema.planPricingTiers.planId, planId));
+
+    for (const oldTier of oldTiers) {
+      await PagarmePlanHistoryService.deactivateByTierId(oldTier.id);
+    }
+
     await tx
       .delete(schema.planPricingTiers)
       .where(eq(schema.planPricingTiers.planId, planId));
@@ -486,198 +489,6 @@ export abstract class PlansService {
       startingPriceYearly,
       pricingTiers: tiers,
     };
-  }
-
-  static async listTiers(planId: string): Promise<ListTiersData> {
-    const [plan] = await db
-      .select({ id: schema.subscriptionPlans.id })
-      .from(schema.subscriptionPlans)
-      .where(eq(schema.subscriptionPlans.id, planId))
-      .limit(1);
-
-    if (!plan) {
-      throw new PlanNotFoundError(planId);
-    }
-
-    const tiers = await db
-      .select()
-      .from(schema.planPricingTiers)
-      .where(eq(schema.planPricingTiers.planId, planId))
-      .orderBy(schema.planPricingTiers.minEmployees);
-
-    return {
-      tiers: tiers.map((t) => ({
-        id: t.id,
-        minEmployees: t.minEmployees,
-        maxEmployees: t.maxEmployees,
-        priceMonthly: t.priceMonthly,
-        priceYearly: t.priceYearly,
-        pagarmePlanIdMonthly: t.pagarmePlanIdMonthly,
-        pagarmePlanIdYearly: t.pagarmePlanIdYearly,
-      })),
-    };
-  }
-
-  static async addTier(
-    planId: string,
-    data: AddTierInput
-  ): Promise<AddTierData> {
-    const [plan] = await db
-      .select({ id: schema.subscriptionPlans.id })
-      .from(schema.subscriptionPlans)
-      .where(eq(schema.subscriptionPlans.id, planId))
-      .limit(1);
-
-    if (!plan) {
-      throw new PlanNotFoundError(planId);
-    }
-
-    const existingTiers = await db
-      .select()
-      .from(schema.planPricingTiers)
-      .where(eq(schema.planPricingTiers.planId, planId))
-      .orderBy(schema.planPricingTiers.minEmployees);
-
-    PlansService.validateNewTierRange(data, existingTiers);
-
-    const tierId = `tier-${crypto.randomUUID()}`;
-    const priceYearly = calculateYearlyPrice(data.priceMonthly);
-
-    const [tier] = await db
-      .insert(schema.planPricingTiers)
-      .values({
-        id: tierId,
-        planId,
-        minEmployees: data.minEmployees,
-        maxEmployees: data.maxEmployees,
-        priceMonthly: data.priceMonthly,
-        priceYearly,
-      })
-      .returning();
-
-    return {
-      id: tier.id,
-      minEmployees: tier.minEmployees,
-      maxEmployees: tier.maxEmployees,
-      priceMonthly: tier.priceMonthly,
-      priceYearly: tier.priceYearly,
-      pagarmePlanIdMonthly: tier.pagarmePlanIdMonthly,
-      pagarmePlanIdYearly: tier.pagarmePlanIdYearly,
-    };
-  }
-
-  static async updateTierPrice(
-    planId: string,
-    tierId: string,
-    data: UpdateTierPriceInput
-  ): Promise<UpdateTierData> {
-    const [tier] = await db
-      .select()
-      .from(schema.planPricingTiers)
-      .where(
-        and(
-          eq(schema.planPricingTiers.id, tierId),
-          eq(schema.planPricingTiers.planId, planId)
-        )
-      )
-      .limit(1);
-
-    if (!tier) {
-      throw new TierNotFoundError(tierId, planId);
-    }
-
-    const priceYearly = calculateYearlyPrice(data.priceMonthly);
-
-    const [updated] = await db
-      .update(schema.planPricingTiers)
-      .set({
-        priceMonthly: data.priceMonthly,
-        priceYearly,
-        pagarmePlanIdMonthly: null,
-        pagarmePlanIdYearly: null,
-        updatedAt: new Date(),
-      })
-      .where(eq(schema.planPricingTiers.id, tierId))
-      .returning();
-
-    return {
-      id: updated.id,
-      minEmployees: updated.minEmployees,
-      maxEmployees: updated.maxEmployees,
-      priceMonthly: updated.priceMonthly,
-      priceYearly: updated.priceYearly,
-      pagarmePlanIdMonthly: updated.pagarmePlanIdMonthly,
-      pagarmePlanIdYearly: updated.pagarmePlanIdYearly,
-    };
-  }
-
-  static async removeTier(
-    planId: string,
-    tierId: string
-  ): Promise<DeleteTierData> {
-    const [tier] = await db
-      .select()
-      .from(schema.planPricingTiers)
-      .where(
-        and(
-          eq(schema.planPricingTiers.id, tierId),
-          eq(schema.planPricingTiers.planId, planId)
-        )
-      )
-      .limit(1);
-
-    if (!tier) {
-      throw new TierNotFoundError(tierId, planId);
-    }
-
-    const [activeSubscription] = await db
-      .select({ id: schema.orgSubscriptions.id })
-      .from(schema.orgSubscriptions)
-      .where(
-        and(
-          eq(schema.orgSubscriptions.pricingTierId, tierId),
-          ne(schema.orgSubscriptions.status, "canceled"),
-          ne(schema.orgSubscriptions.status, "expired")
-        )
-      )
-      .limit(1);
-
-    if (activeSubscription) {
-      throw new TierHasActiveSubscriptionsError(tierId);
-    }
-
-    await db
-      .delete(schema.planPricingTiers)
-      .where(eq(schema.planPricingTiers.id, tierId));
-
-    return { deleted: true };
-  }
-
-  private static validateNewTierRange(
-    newTier: { minEmployees: number; maxEmployees: number },
-    existingTiers: { minEmployees: number; maxEmployees: number }[]
-  ): void {
-    const allTiers = [
-      ...existingTiers.map((t) => ({
-        min: t.minEmployees,
-        max: t.maxEmployees,
-      })),
-      { min: newTier.minEmployees, max: newTier.maxEmployees },
-    ].sort((a, b) => a.min - b.min);
-
-    for (let i = 0; i < allTiers.length; i++) {
-      if (i > 0) {
-        const prev = allTiers[i - 1];
-        const curr = allTiers[i];
-        const expectedMin = prev.max + 1;
-        if (curr.min < expectedMin) {
-          throw new TierOverlapError(i, prev.max, curr.min);
-        }
-        if (curr.min > expectedMin) {
-          throw new TierGapError(i, expectedMin, curr.min);
-        }
-      }
-    }
   }
 
   static async getTierById(tierId: string): Promise<PricingTierData> {

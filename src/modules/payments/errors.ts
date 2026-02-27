@@ -492,18 +492,6 @@ export class TierNotFoundError extends PaymentError {
   }
 }
 
-export class TierHasActiveSubscriptionsError extends PaymentError {
-  status = 400;
-
-  constructor(tierId: string) {
-    super(
-      `Cannot delete tier "${tierId}": it has active subscriptions.`,
-      "TIER_HAS_ACTIVE_SUBSCRIPTIONS",
-      { tierId }
-    );
-  }
-}
-
 // Billing Profile Errors
 
 export class BillingProfileNotFoundError extends PaymentError {
