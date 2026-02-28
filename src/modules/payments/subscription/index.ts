@@ -11,6 +11,7 @@ import {
 import { capabilitiesResponseSchema } from "@/modules/payments/limits/limits.model";
 import { LimitsService } from "@/modules/payments/limits/limits.service";
 import {
+  cancelSubscriptionBodySchema,
   cancelSubscriptionResponseSchema,
   getSubscriptionResponseSchema,
   restoreSubscriptionResponseSchema,
@@ -78,11 +79,13 @@ export const subscriptionController = new Elysia({
   )
   .post(
     "/cancel",
-    async ({ user, session }) =>
+    async ({ user, session, body }) =>
       wrapSuccess(
         await SubscriptionService.cancel({
           userId: user.id,
           organizationId: session.activeOrganizationId as string,
+          reason: body?.reason,
+          comment: body?.comment,
         })
       ),
     {
@@ -90,6 +93,7 @@ export const subscriptionController = new Elysia({
         permissions: { subscription: ["update"] },
         requireOrganization: true,
       },
+      body: cancelSubscriptionBodySchema,
       response: {
         200: cancelSubscriptionResponseSchema,
         400: badRequestErrorSchema,
@@ -101,7 +105,7 @@ export const subscriptionController = new Elysia({
       detail: {
         summary: "Cancel subscription at period end",
         description:
-          "Schedules the subscription to be canceled at the end of the current billing period. The subscription remains active until then. Trial subscriptions cannot be canceled.",
+          "Schedules the subscription to be canceled at the end of the current billing period. The subscription remains active until then. Trial subscriptions cannot be canceled. Optionally accepts a reason and comment for the cancellation.",
       },
     }
   )
