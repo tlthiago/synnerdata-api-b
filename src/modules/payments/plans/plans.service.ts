@@ -1,4 +1,4 @@
-import { and, eq, isNull, ne } from "drizzle-orm";
+import { and, count, eq, isNull, ne } from "drizzle-orm";
 import { db } from "@/db";
 import { schema } from "@/db/schema";
 import {
@@ -19,6 +19,7 @@ import { PagarmePlanHistoryService } from "@/modules/payments/pagarme/pagarme-pl
 
 import { calculateYearlyPrice, TRIAL_TIER } from "./plans.constants";
 import type {
+  ArchivedTierData,
   CreatePlanData,
   CreatePlanInput,
   DeletePlanData,
@@ -276,6 +277,65 @@ export abstract class PlansService {
     return { deleted: true };
   }
 
+  static async listArchivedTiers(planId: string): Promise<ArchivedTierData[]> {
+    const { isNotNull } = await import("drizzle-orm");
+
+    const [plan] = await db
+      .select({ id: schema.subscriptionPlans.id })
+      .from(schema.subscriptionPlans)
+      .where(eq(schema.subscriptionPlans.id, planId))
+      .limit(1);
+
+    if (!plan) {
+      throw new PlanNotFoundError(planId);
+    }
+
+    const tiers = await db
+      .select({
+        id: schema.planPricingTiers.id,
+        minEmployees: schema.planPricingTiers.minEmployees,
+        maxEmployees: schema.planPricingTiers.maxEmployees,
+        priceMonthly: schema.planPricingTiers.priceMonthly,
+        priceYearly: schema.planPricingTiers.priceYearly,
+        archivedAt: schema.planPricingTiers.archivedAt,
+      })
+      .from(schema.planPricingTiers)
+      .where(
+        and(
+          eq(schema.planPricingTiers.planId, planId),
+          isNotNull(schema.planPricingTiers.archivedAt)
+        )
+      )
+      .orderBy(schema.planPricingTiers.archivedAt);
+
+    const tiersWithCounts = await Promise.all(
+      tiers.map(async (tier) => {
+        const [countResult] = await db
+          .select({ value: count() })
+          .from(schema.orgSubscriptions)
+          .where(
+            and(
+              eq(schema.orgSubscriptions.pricingTierId, tier.id),
+              ne(schema.orgSubscriptions.status, "canceled"),
+              ne(schema.orgSubscriptions.status, "expired")
+            )
+          );
+
+        return {
+          id: tier.id,
+          minEmployees: tier.minEmployees,
+          maxEmployees: tier.maxEmployees,
+          priceMonthly: tier.priceMonthly,
+          priceYearly: tier.priceYearly,
+          archivedAt: (tier.archivedAt as Date).toISOString(),
+          activeSubscriptionCount: countResult?.value ?? 0,
+        };
+      })
+    );
+
+    return tiersWithCounts;
+  }
+
   private static validateTierRanges(
     tiers: TierPriceInput[],
     isTrial: boolean
@@ -459,7 +519,9 @@ export abstract class PlansService {
       )
       .limit(1);
 
-    if (subRef) return true;
+    if (subRef) {
+      return true;
+    }
 
     const [pendingRef] = await tx
       .select({ id: schema.orgSubscriptions.id })
@@ -467,7 +529,9 @@ export abstract class PlansService {
       .where(eq(schema.orgSubscriptions.pendingPricingTierId, tierId))
       .limit(1);
 
-    if (pendingRef) return true;
+    if (pendingRef) {
+      return true;
+    }
 
     const [checkoutRef] = await tx
       .select({ id: schema.pendingCheckouts.id })
