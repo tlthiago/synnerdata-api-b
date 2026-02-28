@@ -208,6 +208,53 @@ export function registerPaymentListeners() {
     }
   });
 
+  // subscription.activated → provision: activate pending_payment provisions
+  PaymentHooks.on("subscription.activated", async (payload) => {
+    try {
+      const { subscription } = payload;
+      const provision = await db.query.adminOrgProvisions.findFirst({
+        where: and(
+          eq(
+            schema.adminOrgProvisions.organizationId,
+            subscription.organizationId
+          ),
+          eq(schema.adminOrgProvisions.status, "pending_payment")
+        ),
+      });
+
+      if (!provision) {
+        return;
+      }
+
+      // Unblock login
+      await db
+        .update(schema.users)
+        .set({ emailVerified: true })
+        .where(eq(schema.users.id, provision.userId));
+
+      // Transition status
+      await db
+        .update(schema.adminOrgProvisions)
+        .set({ status: "pending_activation" })
+        .where(eq(schema.adminOrgProvisions.id, provision.id));
+
+      // Trigger activation email via forgetPassword
+      const user = await db.query.users.findFirst({
+        where: eq(schema.users.id, provision.userId),
+      });
+      if (user) {
+        const { auth } = await import("@/lib/auth");
+        await auth.api.requestPasswordReset({ body: { email: user.email } });
+      }
+    } catch (error) {
+      logger.error({
+        type: "payment:listener:error",
+        event: "subscription.activated:provision",
+        error: error instanceof Error ? error.message : String(error),
+      });
+    }
+  });
+
   // subscription.cancelScheduled → sendCancellationScheduledEmail
   PaymentHooks.on("subscription.cancelScheduled", async (payload) => {
     try {

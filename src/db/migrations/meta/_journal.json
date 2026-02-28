@@ -43,6 +43,27 @@
       "when": 1772290889342,
       "tag": "0005_dry_namora",
       "breakpoints": true
+    },
+    {
+      "idx": 6,
+      "version": "7",
+      "when": 1772311689170,
+      "tag": "0006_panoramic_annihilus",
+      "breakpoints": true
+    },
+    {
+      "idx": 7,
+      "version": "7",
+      "when": 1772313017169,
+      "tag": "0007_white_gamma_corps",
+      "breakpoints": true
+    },
+    {
+      "idx": 8,
+      "version": "7",
+      "when": 1772313050852,
+      "tag": "0008_boring_ironclad",
+      "breakpoints": true
     }
   ]
 }
