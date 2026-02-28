@@ -23,6 +23,8 @@ function createMockSubscription(
     pagarmeSubscriptionId: null,
     pagarmeUpdatedAt: null,
     canceledAt: null,
+    cancelReason: null,
+    cancelComment: null,
     pastDueSince: null,
     gracePeriodEnds: null,
     pendingPlanId: null,
