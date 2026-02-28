@@ -75,6 +75,19 @@ export abstract class AdminCheckoutService {
     const effectivePrice =
       billingCycle === "monthly" ? customPriceMonthly : customPriceYearly;
 
+    const matchingTier = basePlan.pricingTiers.find(
+      (tier) =>
+        tier.minEmployees === minEmployees && tier.maxEmployees === maxEmployees
+    );
+    const catalogPriceMonthly = matchingTier?.priceMonthly ?? 0;
+    const discountPercentage =
+      catalogPriceMonthly > 0
+        ? Math.round(
+            ((catalogPriceMonthly - customPriceMonthly) / catalogPriceMonthly) *
+              100
+          )
+        : 0;
+
     // 7. Create private plan + tier in transaction
     const privatePlanId = `plan-${crypto.randomUUID()}`;
     const privateTierId = `tier-${crypto.randomUUID()}`;
@@ -191,6 +204,8 @@ export abstract class AdminCheckoutService {
       privateTierId,
       customPriceMonthly,
       customPriceYearly,
+      catalogPriceMonthly,
+      discountPercentage,
       basePlanDisplayName: basePlan.displayName,
       minEmployees,
       maxEmployees,

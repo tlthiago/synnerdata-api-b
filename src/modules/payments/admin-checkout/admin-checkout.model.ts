@@ -77,6 +77,13 @@ const adminCheckoutDataSchema = z.object({
     .number()
     .int()
     .describe("Custom yearly price (centavos)"),
+  catalogPriceMonthly: z
+    .number()
+    .int()
+    .describe("Catalog monthly price for the matching tier (centavos)"),
+  discountPercentage: z
+    .number()
+    .describe("Discount percentage from catalog price"),
   basePlanDisplayName: z.string().describe("Base plan display name"),
   minEmployees: z.number().int().describe("Custom tier min employees"),
   maxEmployees: z.number().int().describe("Custom tier max employees"),

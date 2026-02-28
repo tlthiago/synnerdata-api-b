@@ -82,7 +82,7 @@ export const employeeController = new Elysia({
         requireOrganization: true,
       },
       body: t.Object({
-        file: t.File(),
+        file: t.File({ default: undefined }),
       }),
       response: {
         200: importResponseSchema,
