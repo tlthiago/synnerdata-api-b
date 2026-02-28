@@ -56,6 +56,7 @@ export const planPricingTiers = pgTable(
     priceYearly: integer("price_yearly").notNull(),
     pagarmePlanIdMonthly: text("pagarme_plan_id_monthly"),
     pagarmePlanIdYearly: text("pagarme_plan_id_yearly"),
+    archivedAt: timestamp("archived_at", { withTimezone: true }),
     createdAt: timestamp("created_at", { withTimezone: true })
       .defaultNow()
       .notNull(),
@@ -84,7 +85,8 @@ export const orgSubscriptions = pgTable(
       .notNull()
       .references(() => subscriptionPlans.id),
     pricingTierId: text("pricing_tier_id").references(
-      () => planPricingTiers.id
+      () => planPricingTiers.id,
+      { onDelete: "restrict" }
     ),
     status: subscriptionStatusEnum("status").default("active").notNull(),
     pagarmeSubscriptionId: text("pagarme_subscription_id"),
@@ -106,7 +108,8 @@ export const orgSubscriptions = pgTable(
     ),
     pendingBillingCycle: text("pending_billing_cycle"),
     pendingPricingTierId: text("pending_pricing_tier_id").references(
-      () => planPricingTiers.id
+      () => planPricingTiers.id,
+      { onDelete: "restrict" }
     ),
     planChangeAt: timestamp("plan_change_at", { withTimezone: true }),
     seats: integer("seats").default(1).notNull(),
@@ -224,7 +227,8 @@ export const priceAdjustments = pgTable(
     adjustmentType: adjustmentTypeEnum("adjustment_type").notNull(),
     billingCycle: text("billing_cycle").notNull(),
     pricingTierId: text("pricing_tier_id").references(
-      () => planPricingTiers.id
+      () => planPricingTiers.id,
+      { onDelete: "set null" }
     ),
     adminId: text("admin_id").notNull(),
     createdAt: timestamp("created_at", { withTimezone: true })
@@ -256,7 +260,8 @@ export const pendingCheckouts = pgTable(
       .notNull()
       .references(() => subscriptionPlans.id),
     pricingTierId: text("pricing_tier_id").references(
-      () => planPricingTiers.id
+      () => planPricingTiers.id,
+      { onDelete: "restrict" }
     ),
     billingCycle: text("billing_cycle").default("monthly"),
     paymentLinkId: text("payment_link_id").notNull(),
