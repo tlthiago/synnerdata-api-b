@@ -2,6 +2,7 @@ import { Elysia } from "elysia";
 import { betterAuthPlugin } from "@/lib/auth-plugin";
 import { wrapSuccess } from "@/lib/responses/envelope";
 import {
+  badRequestErrorSchema,
   forbiddenErrorSchema,
   notFoundErrorSchema,
   unauthorizedErrorSchema,
@@ -91,15 +92,16 @@ export const subscriptionController = new Elysia({
       },
       response: {
         200: cancelSubscriptionResponseSchema,
-        422: validationErrorSchema,
+        400: badRequestErrorSchema,
         401: unauthorizedErrorSchema,
         403: forbiddenErrorSchema,
         404: notFoundErrorSchema,
+        422: validationErrorSchema,
       },
       detail: {
         summary: "Cancel subscription at period end",
         description:
-          "Schedules the subscription to be canceled at the end of the current billing period. The subscription remains active until then.",
+          "Schedules the subscription to be canceled at the end of the current billing period. The subscription remains active until then. Trial subscriptions cannot be canceled.",
       },
     }
   )

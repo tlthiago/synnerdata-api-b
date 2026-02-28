@@ -428,6 +428,30 @@ export class TrialPlanMisconfiguredError extends PaymentError {
   }
 }
 
+export class TrialNotCancellableError extends PaymentError {
+  status = 400;
+
+  constructor(organizationId: string) {
+    super(
+      "Trial subscriptions cannot be canceled. The trial expires naturally.",
+      "TRIAL_NOT_CANCELLABLE",
+      { organizationId }
+    );
+  }
+}
+
+export class BillingNotAvailableForTrialError extends PaymentError {
+  status = 400;
+
+  constructor(organizationId: string) {
+    super(
+      "Billing operations are not available for trial subscriptions",
+      "BILLING_NOT_AVAILABLE_FOR_TRIAL",
+      { organizationId }
+    );
+  }
+}
+
 export class InvalidTierCountError extends PaymentError {
   status = 422;
 

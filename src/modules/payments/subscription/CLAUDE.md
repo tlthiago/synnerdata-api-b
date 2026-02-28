@@ -25,9 +25,11 @@ Lifecycle completo de assinaturas: trial, ativação, cancelamento, restauraçã
 
 ## Cancel/Restore
 
-- Cancel: `cancelAtPeriodEnd=true`, acesso mantido até fim do período
+- **Trial NÃO é cancelável** — trial expira naturalmente em 14 dias; retorna `TRIAL_NOT_CANCELLABLE` (400)
+- Cancel: `cancelAtPeriodEnd=true`, acesso mantido até fim do período (apenas assinaturas pagas)
 - Restore: desfaz cancel agendado, deve estar com cancelamento pendente
 - Sem recuperação após status `canceled` ou `expired`
+- Operações de billing (invoices, update-card) retornam `BILLING_NOT_AVAILABLE_FOR_TRIAL` (400) para trial
 
 ## Endpoints
 

@@ -4,6 +4,7 @@ import { type BillingProfile, type PlanLimits, schema } from "@/db/schema";
 import { billingProfiles } from "@/db/schema/billing-profiles";
 import { Retry } from "@/lib/utils/retry";
 import {
+  BillingNotAvailableForTrialError,
   BillingProfileAlreadyExistsError,
   BillingProfileNotFoundError,
   InvoiceNotFoundError,
@@ -175,12 +176,7 @@ export abstract class BillingService {
     }
 
     if (!subscription.pagarmeSubscriptionId) {
-      return {
-        invoices: [],
-        total: 0,
-        page,
-        limit,
-      };
+      throw new BillingNotAvailableForTrialError(organizationId);
     }
 
     const pagarmeSubId = subscription.pagarmeSubscriptionId;
@@ -243,8 +239,12 @@ export abstract class BillingService {
     const subscription =
       await SubscriptionService.findByOrganizationId(organizationId);
 
-    if (!subscription?.pagarmeSubscriptionId) {
+    if (!subscription) {
       throw new SubscriptionNotFoundError(organizationId);
+    }
+
+    if (!subscription.pagarmeSubscriptionId) {
+      throw new BillingNotAvailableForTrialError(organizationId);
     }
 
     const pagarmeSubId = subscription.pagarmeSubscriptionId;

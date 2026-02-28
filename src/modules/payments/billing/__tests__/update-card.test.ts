@@ -63,7 +63,7 @@ describe("POST /v1/payments/billing/update-card", () => {
     expect(body.error.code).toBe("SUBSCRIPTION_NOT_FOUND");
   });
 
-  test("should return 404 for subscription without pagarmeSubscriptionId", async () => {
+  test("should return 400 for trial subscription without pagarmeSubscriptionId", async () => {
     const userResult = await UserFactory.createWithOrganization();
 
     await SubscriptionFactory.createTrial(
@@ -79,9 +79,9 @@ describe("POST /v1/payments/billing/update-card", () => {
       })
     );
 
-    expect(response.status).toBe(404);
+    expect(response.status).toBe(400);
     const body = await response.json();
-    expect(body.error.code).toBe("SUBSCRIPTION_NOT_FOUND");
+    expect(body.error.code).toBe("BILLING_NOT_AVAILABLE_FOR_TRIAL");
   });
 
   test("should reject empty cardId", async () => {

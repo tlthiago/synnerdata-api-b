@@ -2,6 +2,7 @@ import { Elysia } from "elysia";
 import { betterAuthPlugin } from "@/lib/auth-plugin";
 import { wrapSuccess } from "@/lib/responses/envelope";
 import {
+  badRequestErrorSchema,
   conflictErrorSchema,
   forbiddenErrorSchema,
   notFoundErrorSchema,
@@ -127,15 +128,16 @@ export const billingController = new Elysia({
       query: listInvoicesQuerySchema,
       response: {
         200: listInvoicesResponseSchema,
-        422: validationErrorSchema,
+        400: badRequestErrorSchema,
         401: unauthorizedErrorSchema,
         403: forbiddenErrorSchema,
         404: notFoundErrorSchema,
+        422: validationErrorSchema,
       },
       detail: {
         summary: "List invoices",
         description:
-          "Lists all invoices for the organization's subscription. Returns paginated results.",
+          "Lists all invoices for the organization's subscription. Returns paginated results. Returns 400 for trial subscriptions.",
       },
     }
   )
@@ -184,15 +186,16 @@ export const billingController = new Elysia({
       body: updateCardSchema,
       response: {
         200: updateCardResponseSchema,
-        422: validationErrorSchema,
+        400: badRequestErrorSchema,
         401: unauthorizedErrorSchema,
         403: forbiddenErrorSchema,
         404: notFoundErrorSchema,
+        422: validationErrorSchema,
       },
       detail: {
         summary: "Update payment card",
         description:
-          "Updates the credit card for the organization's subscription. The cardId should be obtained from Pagarme.js tokenization on the frontend.",
+          "Updates the credit card for the organization's subscription. The cardId should be obtained from Pagarme.js tokenization on the frontend. Returns 400 for trial subscriptions.",
       },
     }
   )

@@ -122,3 +122,13 @@ export const conflictErrorSchema = z.object({
     details: z.unknown().optional(),
   }),
 });
+
+/** Schema para erro de requisição inválida (400) */
+export const badRequestErrorSchema = z.object({
+  success: z.literal(false),
+  error: z.object({
+    code: z.string(),
+    message: z.string(),
+    details: z.unknown().optional(),
+  }),
+});
