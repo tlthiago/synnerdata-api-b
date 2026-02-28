@@ -47,6 +47,7 @@ export abstract class PlansService {
     const tiers = await db
       .select()
       .from(schema.planPricingTiers)
+      .where(isNull(schema.planPricingTiers.archivedAt))
       .orderBy(schema.planPricingTiers.minEmployees);
 
     const tiersByPlan = PlansService.groupTiersByPlan(tiers);
@@ -67,6 +68,7 @@ export abstract class PlansService {
     const tiers = await db
       .select()
       .from(schema.planPricingTiers)
+      .where(isNull(schema.planPricingTiers.archivedAt))
       .orderBy(schema.planPricingTiers.minEmployees);
 
     const tiersByPlan = PlansService.groupTiersByPlan(tiers);
@@ -92,7 +94,12 @@ export abstract class PlansService {
     const tiers = await db
       .select()
       .from(schema.planPricingTiers)
-      .where(eq(schema.planPricingTiers.planId, planId))
+      .where(
+        and(
+          eq(schema.planPricingTiers.planId, planId),
+          isNull(schema.planPricingTiers.archivedAt)
+        )
+      )
       .orderBy(schema.planPricingTiers.minEmployees);
 
     return PlansService.mapPlanWithTiers(plan, tiers);
@@ -124,7 +131,12 @@ export abstract class PlansService {
     const tiers = await db
       .select()
       .from(schema.planPricingTiers)
-      .where(eq(schema.planPricingTiers.planId, plan.id))
+      .where(
+        and(
+          eq(schema.planPricingTiers.planId, plan.id),
+          isNull(schema.planPricingTiers.archivedAt)
+        )
+      )
       .orderBy(schema.planPricingTiers.minEmployees);
 
     return PlansService.mapPlanWithTiers(plan, tiers);
@@ -478,7 +490,12 @@ export abstract class PlansService {
     const tiers = await tx
       .select()
       .from(schema.planPricingTiers)
-      .where(eq(schema.planPricingTiers.planId, planId))
+      .where(
+        and(
+          eq(schema.planPricingTiers.planId, planId),
+          isNull(schema.planPricingTiers.archivedAt)
+        )
+      )
       .orderBy(schema.planPricingTiers.minEmployees);
 
     return tiers.map((t) => ({
@@ -559,7 +576,12 @@ export abstract class PlansService {
     const [tier] = await db
       .select()
       .from(schema.planPricingTiers)
-      .where(eq(schema.planPricingTiers.id, tierId))
+      .where(
+        and(
+          eq(schema.planPricingTiers.id, tierId),
+          isNull(schema.planPricingTiers.archivedAt)
+        )
+      )
       .limit(1);
 
     if (!tier) {
