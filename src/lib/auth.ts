@@ -222,6 +222,11 @@ async function validateUniqueRole(
   role: string,
   organizationId: string
 ): Promise<void> {
+  const validRoles: readonly string[] = roleValues;
+  if (!validRoles.includes(role)) {
+    return;
+  }
+
   const typedRole = role as Role;
 
   const existingMember = await db.query.members.findFirst({
@@ -390,8 +395,7 @@ export const auth = betterAuth({
     organization({
       organizationLimit: 1,
       membershipLimit: 4,
-      allowUserToCreateOrganization: (user) =>
-        (user as { role?: string }).role === "user",
+      allowUserToCreateOrganization: (user) => user.role === "user",
       ac: orgAc,
       roles: orgRoles,
       async sendInvitationEmail(data: {
