@@ -50,6 +50,12 @@ Cria um **plano privado dedicado** (`isPublic=false`) com faixa de funcionários
 
 O webhook `subscription.created` resolve via metadata (`plan_id`, `pricing_tier_id`) que apontam para registros reais no banco (plano privado + tier). A resolução funciona identicamente ao checkout normal.
 
+## Rastreabilidade
+
+- `organizationId` no plano privado: org dona do plano
+- `basePlanId` no plano privado: plano público de origem (herança de features)
+- `archivedAt`: preenchido automaticamente quando subscription migra para outro plano
+
 ## Endpoint
 
 - `POST /admin/checkout` — `requireAdmin: true`

@@ -8,6 +8,7 @@ import {
 import { Retry } from "@/lib/utils/retry";
 import { CustomerService } from "@/modules/payments/customer/customer.service";
 import {
+  CannotChangeToPrivatePlanError,
   EmployeeCountExceedsNewPlanLimitError,
   NoChangeRequestedError,
   NoScheduledChangeError,
@@ -87,6 +88,11 @@ export abstract class PlanChangeService {
       resolved.finalPlanId !== subscription.planId
         ? await PlansService.getAvailableById(resolved.finalPlanId)
         : currentPlan;
+
+    // Block self-service change to private (custom) plans
+    if (!newPlan.isPublic) {
+      throw new CannotChangeToPrivatePlanError(newPlan.id);
+    }
 
     if (!resolved.finalTierId) {
       throw new SubscriptionNotFoundError(organizationId);
@@ -481,6 +487,10 @@ export abstract class PlanChangeService {
       resolved.finalPlanId !== subscription.planId
         ? await PlansService.getAvailableById(resolved.finalPlanId)
         : currentPlan;
+
+    if (!newPlan.isPublic) {
+      throw new CannotChangeToPrivatePlanError(newPlan.id);
+    }
 
     if (!resolved.finalTierId) {
       throw new SubscriptionNotFoundError(subscription.organizationId);
@@ -951,6 +961,11 @@ export abstract class PlanChangeService {
       .where(eq(schema.orgSubscriptions.id, subscription.id))
       .returning();
 
+    // Archive previous private plan if it was a custom plan
+    if (previousPlanId !== newPlanId) {
+      await PlanChangeService.archivePrivatePlan(tx, previousPlanId);
+    }
+
     return {
       subscription: updated,
       previousPlanId,
@@ -959,6 +974,30 @@ export abstract class PlanChangeService {
       newPlanName: newPlan.displayName,
       organizationId: subscription.organizationId,
     };
+  }
+
+  /**
+   * Archives a private (custom) plan by setting archivedAt.
+   * Public plans are left untouched.
+   */
+  private static async archivePrivatePlan(
+    tx: Parameters<Parameters<typeof db.transaction>[0]>[0],
+    planId: string
+  ): Promise<void> {
+    const [plan] = await tx
+      .select({
+        id: schema.subscriptionPlans.id,
+        isPublic: schema.subscriptionPlans.isPublic,
+      })
+      .from(schema.subscriptionPlans)
+      .where(eq(schema.subscriptionPlans.id, planId));
+
+    if (plan && !plan.isPublic) {
+      await tx
+        .update(schema.subscriptionPlans)
+        .set({ archivedAt: new Date() })
+        .where(eq(schema.subscriptionPlans.id, plan.id));
+    }
   }
 
   /**

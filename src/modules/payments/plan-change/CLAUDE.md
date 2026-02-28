@@ -29,6 +29,14 @@ Upgrades imediatos e downgrades agendados com proration.
 - User mantém plano atual até fim do período
 - Job executa no fim do período: cancela Pagar.me atual, ativa novo plano
 
+## Custom Plan Transitions
+
+- Custom → Catálogo (upgrade/downgrade): permitido via self-service
+- Catálogo → Custom: bloqueado — apenas via admin-checkout (erro `CANNOT_CHANGE_TO_PRIVATE_PLAN`)
+- Custom → Custom: bloqueado — apenas via admin-checkout
+- Plano destino deve ter `isPublic=true`
+- Plano privado anterior é arquivado (`archivedAt`) automaticamente após migração
+
 ## Endpoints
 
 - `POST /subscription/change` — executar mudança
