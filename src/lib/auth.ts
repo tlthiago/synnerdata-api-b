@@ -395,7 +395,8 @@ export const auth = betterAuth({
     organization({
       organizationLimit: 1,
       membershipLimit: 4,
-      allowUserToCreateOrganization: (user) => user.role === "user",
+      allowUserToCreateOrganization: (user: User & Record<string, unknown>) =>
+        user.role === "user",
       ac: orgAc,
       roles: orgRoles,
       async sendInvitationEmail(data: {
