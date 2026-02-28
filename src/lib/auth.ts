@@ -440,10 +440,16 @@ export const auth = betterAuth({
           organization: Organization;
           member: { userId: string };
         }) => {
-          await Promise.all([
-            SubscriptionService.createTrial(org.id),
-            auditOrganizationCreate(org, member.userId),
-          ]);
+          await SubscriptionService.createTrial(org.id);
+
+          auditOrganizationCreate(org, member.userId).catch((error) => {
+            logger.error({
+              type: "audit:organization-create:failed",
+              organizationId: org.id,
+              userId: member.userId,
+              error: error instanceof Error ? error.message : String(error),
+            });
+          });
         },
         afterUpdateOrganization: async ({
           organization: org,

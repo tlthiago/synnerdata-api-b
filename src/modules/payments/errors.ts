@@ -405,6 +405,17 @@ export class TrialPlanNotFoundError extends PaymentError {
   }
 }
 
+export class TrialPlanMisconfiguredError extends PaymentError {
+  status = 500;
+
+  constructor() {
+    super(
+      "Trial plan has no pricing tiers. Please verify the database seed.",
+      "TRIAL_PLAN_MISCONFIGURED"
+    );
+  }
+}
+
 export class InvalidTierCountError extends PaymentError {
   status = 422;
 
