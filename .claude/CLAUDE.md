@@ -30,8 +30,27 @@
 
 - Testes de integração criados em `__tests__/` ao lado do módulo
 - Testes seguem os padrões do projeto: `createTestApp()`, factories, `app.handle(new Request())`
-- Todos os testes passam (`bun run test`)
+- Testes afetados passam (ver seção "Execução de Testes" abaixo)
 - Lint passa (`npx ultracite check`)
+
+## Execução de Testes
+
+A suite completa (`bun run test`) leva mais de 10 minutos. **Nunca execute todos os testes durante o desenvolvimento.** Em vez disso, analise o escopo da alteração e execute apenas os testes que podem ser afetados:
+
+1. **Identifique os módulos impactados** — quais services, controllers ou helpers foram alterados
+2. **Execute os testes diretamente relacionados** — os `__tests__/` dos módulos modificados
+3. **Considere dependências transversais** — se alterou um erro compartilhado (`errors.ts`), schema do DB, ou helper reutilizado, inclua os testes dos módulos que consomem esses artefatos
+4. **Comando**: `NODE_ENV=test bun test --env-file .env.test <paths dos testes>`
+
+Exemplo: alterou `billing.service.ts` e `subscription-mutation.service.ts` → execute:
+```bash
+NODE_ENV=test bun test --env-file .env.test \
+  src/modules/payments/subscription/__tests__/cancel-subscription.test.ts \
+  src/modules/payments/billing/__tests__/list-invoices.test.ts \
+  src/modules/payments/billing/__tests__/update-card.test.ts
+```
+
+A suite completa é responsabilidade do CI na PR.
 
 ## Maintaining CLAUDE.md Files
 
