@@ -2,7 +2,7 @@ import { describe, expect, test } from "bun:test";
 import { eq } from "drizzle-orm";
 import { db } from "@/db";
 import { schema } from "@/db/schema";
-import { PricingTierNotFoundError } from "@/modules/payments/errors";
+import { TierNotFoundError } from "@/modules/payments/errors";
 import { PagarmePlanService } from "@/modules/payments/pagarme/pagarme-plan.service";
 import { PlanFactory } from "@/test/factories/payments/plan.factory";
 import { skipIntegration } from "@/test/support/skip-integration";
@@ -83,16 +83,16 @@ describe("PagarmePlanService", () => {
   });
 
   describe("ensurePlan - validation errors", () => {
-    test("should throw PricingTierNotFoundError for non-existent tier", async () => {
+    test("should throw TierNotFoundError for non-existent tier", async () => {
       await expect(
         PagarmePlanService.ensurePlan("tier-non-existent-id", "monthly")
-      ).rejects.toBeInstanceOf(PricingTierNotFoundError);
+      ).rejects.toBeInstanceOf(TierNotFoundError);
     });
 
-    test("should throw PricingTierNotFoundError for invalid tier id format", async () => {
+    test("should throw TierNotFoundError for invalid tier id format", async () => {
       await expect(
         PagarmePlanService.ensurePlan("invalid-id", "yearly")
-      ).rejects.toBeInstanceOf(PricingTierNotFoundError);
+      ).rejects.toBeInstanceOf(TierNotFoundError);
     });
 
     // Note: PlanNotFoundError test removed because FK constraint with cascade delete

@@ -5,6 +5,7 @@ import { schema } from "@/db/schema";
 import {
   PlanNotAvailableError,
   PlanNotFoundError,
+  TierNotFoundError,
 } from "@/modules/payments/errors";
 import { PlansService } from "@/modules/payments/plans/plans.service";
 import { PlanFactory } from "@/test/factories/payments/plan.factory";
@@ -75,8 +76,10 @@ describe("PlansService", () => {
       expect(result.priceYearly).toBe(expectedTier.priceYearly);
     });
 
-    test("should throw PricingTierNotFoundError for non-existent tier", () => {
-      expect(() => PlansService.getTierById("tier-non-existent-id")).toThrow();
+    test("should throw TierNotFoundError for non-existent tier", async () => {
+      await expect(() =>
+        PlansService.getTierById("tier-non-existent-id")
+      ).toThrow(TierNotFoundError);
     });
 
     test("should throw for archived tier", async () => {

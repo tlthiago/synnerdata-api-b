@@ -8,10 +8,10 @@ import {
   PlanNameAlreadyExistsError,
   PlanNotAvailableError,
   PlanNotFoundError,
-  PricingTierNotFoundError,
   TierGapError,
   TierMinExceedsMaxError,
   TierNegativeMinError,
+  TierNotFoundError,
   TierOverlapError,
   TrialPlanNotFoundError,
 } from "@/modules/payments/errors";
@@ -652,7 +652,7 @@ export abstract class PlansService {
       .limit(1);
 
     if (!tier) {
-      throw new PricingTierNotFoundError("unknown", tierId);
+      throw new TierNotFoundError(tierId);
     }
 
     return {

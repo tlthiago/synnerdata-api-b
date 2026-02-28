@@ -4,7 +4,7 @@ import { schema } from "@/db/schema";
 import { Retry } from "@/lib/utils/retry";
 import {
   PlanNotFoundError,
-  PricingTierNotFoundError,
+  TierNotFoundError,
 } from "@/modules/payments/errors";
 import { PAGARME_RETRY_CONFIG, PagarmeClient } from "./client";
 import { PagarmePlanHistoryService } from "./pagarme-plan-history.service";
@@ -28,7 +28,7 @@ export abstract class PagarmePlanService {
       .limit(1);
 
     if (!tier) {
-      throw new PricingTierNotFoundError("unknown", tierId);
+      throw new TierNotFoundError(tierId);
     }
 
     const existingPlanId =
