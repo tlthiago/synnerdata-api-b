@@ -472,6 +472,132 @@ describe("PlanChangeService.executeScheduledChange", () => {
     expect(subscription.planId).toBe(currentPlan.id);
     expect(subscription.pendingPlanId).toBeNull();
   });
+
+  test("should archive private plan after executing scheduled change", async () => {
+    const { organizationId } = await UserFactory.createWithOrganization({
+      emailVerified: true,
+    });
+
+    // Create a PRIVATE plan (custom plan for the org)
+    const { plan: privatePlan, tiers: privateTiers } =
+      await PlanFactory.createPaid("diamond", { isPublic: false });
+
+    // Create a PUBLIC catalog plan to downgrade to
+    const { plan: publicPlan, tiers: publicTiers } =
+      await PlanFactory.createPaid("gold");
+
+    const subscriptionId = await SubscriptionFactory.createActive(
+      organizationId,
+      privatePlan.id
+    );
+
+    // Schedule a downgrade to the public plan
+    const scheduledAt = new Date();
+    scheduledAt.setDate(scheduledAt.getDate() - 1);
+
+    await db
+      .update(schema.orgSubscriptions)
+      .set({
+        pendingPlanId: publicPlan.id,
+        pendingBillingCycle: "monthly",
+        pendingPricingTierId: publicTiers[0].id,
+        pricingTierId: privateTiers[0].id,
+        planChangeAt: scheduledAt,
+      })
+      .where(eq(schema.orgSubscriptions.id, subscriptionId));
+
+    // Mock Pagarme cancel
+    const { PagarmeClient } = await import("@/modules/payments/pagarme/client");
+    const cancelSpy = spyOn(
+      PagarmeClient,
+      "cancelSubscription"
+    ).mockResolvedValue({} as never);
+
+    // Execute the scheduled change
+    await PlanChangeService.executeScheduledChange(subscriptionId);
+
+    // Verify subscription was updated to public plan
+    const [subscription] = await db
+      .select()
+      .from(schema.orgSubscriptions)
+      .where(eq(schema.orgSubscriptions.id, subscriptionId))
+      .limit(1);
+
+    expect(subscription.planId).toBe(publicPlan.id);
+
+    // Verify the private plan was archived
+    const [archivedPlan] = await db
+      .select()
+      .from(schema.subscriptionPlans)
+      .where(eq(schema.subscriptionPlans.id, privatePlan.id))
+      .limit(1);
+
+    expect(archivedPlan.archivedAt).toBeInstanceOf(Date);
+
+    cancelSpy.mockRestore();
+  });
+
+  test("should NOT archive public plan after executing scheduled change", async () => {
+    const { organizationId } = await UserFactory.createWithOrganization({
+      emailVerified: true,
+    });
+
+    // Create two PUBLIC plans
+    const { plan: diamondPlan, tiers: diamondTiers } =
+      await PlanFactory.createPaid("diamond");
+    const { plan: goldPlan, tiers: goldTiers } =
+      await PlanFactory.createPaid("gold");
+
+    const subscriptionId = await SubscriptionFactory.createActive(
+      organizationId,
+      diamondPlan.id
+    );
+
+    // Schedule a downgrade
+    const scheduledAt = new Date();
+    scheduledAt.setDate(scheduledAt.getDate() - 1);
+
+    await db
+      .update(schema.orgSubscriptions)
+      .set({
+        pendingPlanId: goldPlan.id,
+        pendingBillingCycle: "monthly",
+        pendingPricingTierId: goldTiers[0].id,
+        pricingTierId: diamondTiers[0].id,
+        planChangeAt: scheduledAt,
+      })
+      .where(eq(schema.orgSubscriptions.id, subscriptionId));
+
+    // Mock Pagarme cancel
+    const { PagarmeClient } = await import("@/modules/payments/pagarme/client");
+    const cancelSpy = spyOn(
+      PagarmeClient,
+      "cancelSubscription"
+    ).mockResolvedValue({} as never);
+
+    // Execute the scheduled change
+    await PlanChangeService.executeScheduledChange(subscriptionId);
+
+    // Verify subscription was updated
+    const [subscription] = await db
+      .select()
+      .from(schema.orgSubscriptions)
+      .where(eq(schema.orgSubscriptions.id, subscriptionId))
+      .limit(1);
+
+    expect(subscription.planId).toBe(goldPlan.id);
+
+    // Verify the public diamond plan was NOT archived
+    const [diamondPlanAfter] = await db
+      .select()
+      .from(schema.subscriptionPlans)
+      .where(eq(schema.subscriptionPlans.id, diamondPlan.id))
+      .limit(1);
+
+    expect(diamondPlanAfter.archivedAt).toBeNull();
+
+    cancelSpy.mockRestore();
+  });
 });
 
 describe("PlanChangeService.getScheduledChangesForExecution", () => {

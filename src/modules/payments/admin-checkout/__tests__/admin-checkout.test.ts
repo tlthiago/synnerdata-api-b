@@ -371,6 +371,8 @@ describe("POST /v1/payments/admin/checkout", () => {
       expect(privatePlan.isPublic).toBe(false);
       expect(privatePlan.isTrial).toBe(false);
       expect(privatePlan.isActive).toBe(true);
+      expect(privatePlan.organizationId).toBe(org.id);
+      expect(privatePlan.basePlanId).toBe(goldPlanResult.plan.id);
 
       // Verify private tier was created in DB
       const [privateTier] = await db

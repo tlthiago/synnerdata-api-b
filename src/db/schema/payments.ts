@@ -23,25 +23,36 @@ export type PlanLimits = {
   features: string[];
 };
 
-export const subscriptionPlans = pgTable("subscription_plans", {
-  id: text("id").primaryKey(),
-  name: text("name").notNull().unique(),
-  displayName: text("display_name").notNull(),
-  description: text("description"),
-  trialDays: integer("trial_days").default(0).notNull(),
-  limits: jsonb("limits").$type<PlanLimits>(),
-  isActive: boolean("is_active").default(true).notNull(),
-  isPublic: boolean("is_public").default(true).notNull(),
-  isTrial: boolean("is_trial").default(false).notNull(),
-  sortOrder: integer("sort_order").default(0).notNull(),
-  createdAt: timestamp("created_at", { withTimezone: true })
-    .defaultNow()
-    .notNull(),
-  updatedAt: timestamp("updated_at", { withTimezone: true })
-    .defaultNow()
-    .$onUpdate(() => new Date())
-    .notNull(),
-});
+export const subscriptionPlans = pgTable(
+  "subscription_plans",
+  {
+    id: text("id").primaryKey(),
+    name: text("name").notNull().unique(),
+    displayName: text("display_name").notNull(),
+    description: text("description"),
+    trialDays: integer("trial_days").default(0).notNull(),
+    limits: jsonb("limits").$type<PlanLimits>(),
+    isActive: boolean("is_active").default(true).notNull(),
+    isPublic: boolean("is_public").default(true).notNull(),
+    isTrial: boolean("is_trial").default(false).notNull(),
+    sortOrder: integer("sort_order").default(0).notNull(),
+    createdAt: timestamp("created_at", { withTimezone: true })
+      .defaultNow()
+      .notNull(),
+    updatedAt: timestamp("updated_at", { withTimezone: true })
+      .defaultNow()
+      .$onUpdate(() => new Date())
+      .notNull(),
+    organizationId: text("organization_id").references(() => organizations.id),
+    basePlanId: text("base_plan_id"),
+    archivedAt: timestamp("archived_at", { withTimezone: true }),
+  },
+  (table) => [
+    index("subscription_plans_organization_id_idx").on(table.organizationId),
+    index("subscription_plans_base_plan_id_idx").on(table.basePlanId),
+    index("subscription_plans_archived_at_idx").on(table.archivedAt),
+  ]
+);
 
 export const planPricingTiers = pgTable(
   "plan_pricing_tiers",
@@ -49,7 +60,7 @@ export const planPricingTiers = pgTable(
     id: text("id").primaryKey(),
     planId: text("plan_id")
       .notNull()
-      .references(() => subscriptionPlans.id, { onDelete: "cascade" }),
+      .references(() => subscriptionPlans.id, { onDelete: "restrict" }),
     minEmployees: integer("min_employees").notNull(),
     maxEmployees: integer("max_employees").notNull(),
     priceMonthly: integer("price_monthly").notNull(),
@@ -189,9 +200,18 @@ export const subscriptionEventRelations = relations(
 
 export const subscriptionPlanRelations = relations(
   subscriptionPlans,
-  ({ many }) => ({
+  ({ one, many }) => ({
     subscriptions: many(orgSubscriptions),
     pricingTiers: many(planPricingTiers),
+    organization: one(organizations, {
+      fields: [subscriptionPlans.organizationId],
+      references: [organizations.id],
+    }),
+    basePlan: one(subscriptionPlans, {
+      fields: [subscriptionPlans.basePlanId],
+      references: [subscriptionPlans.id],
+      relationName: "basePlan",
+    }),
   })
 );
 
@@ -309,7 +329,7 @@ export const pagarmePlanHistory = pgTable(
     id: text("id").primaryKey(),
     localPlanId: text("local_plan_id")
       .notNull()
-      .references(() => subscriptionPlans.id, { onDelete: "cascade" }),
+      .references(() => subscriptionPlans.id, { onDelete: "restrict" }),
     // No FK to planPricingTiers — tiers are archived (soft delete) on replaceTiers().
     // No FK needed: history records track all Pagar.me plans independently of tier lifecycle.
     localTierId: text("local_tier_id").notNull(),

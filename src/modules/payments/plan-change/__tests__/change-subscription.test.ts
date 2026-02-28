@@ -365,6 +365,47 @@ describe("POST /v1/payments/subscription/change", () => {
       const body = await response.json();
       expect(body.error.code).toBe("PLAN_NOT_FOUND");
     });
+
+    test("should return CANNOT_CHANGE_TO_PRIVATE_PLAN when target plan is private", async () => {
+      const result = await UserFactory.createWithOrganization({
+        emailVerified: true,
+      });
+
+      const { plan: goldPlan, tiers: goldTiers } =
+        await PlanFactory.createPaid("gold");
+
+      await SubscriptionFactory.create(result.organizationId, goldPlan.id, {
+        pricingTierId: goldTiers[0].id,
+      });
+
+      await BillingProfileFactory.create({
+        organizationId: result.organizationId,
+      });
+
+      // Create a private plan as target
+      const { plan: privatePlan } = await PlanFactory.create({
+        type: "diamond",
+        isPublic: false,
+      });
+
+      const response = await app.handle(
+        new Request(ENDPOINT, {
+          method: "POST",
+          headers: {
+            ...result.headers,
+            "Content-Type": "application/json",
+          },
+          body: JSON.stringify({
+            newPlanId: privatePlan.id,
+            successUrl: "https://example.com/success",
+          }),
+        })
+      );
+
+      expect(response.status).toBe(400);
+      const body = await response.json();
+      expect(body.error.code).toBe("CANNOT_CHANGE_TO_PRIVATE_PLAN");
+    });
   });
 
   describe("Upgrade Flow", () => {
@@ -627,6 +668,205 @@ describe("POST /v1/payments/subscription/change", () => {
       expect(body.data.newTierId).toBe(higherTier.id);
 
       createPaymentLinkSpy.mockRestore();
+    });
+  });
+
+  describe("Custom Plan Transitions", () => {
+    test("should allow upgrade from custom (private) plan to catalog (public) plan", async () => {
+      const result = await UserFactory.createWithOrganization({
+        emailVerified: true,
+      });
+
+      // Create a PRIVATE plan (custom gold) with low price
+      const { plan: customGoldPlan, tiers: customGoldTiers } =
+        await PlanFactory.create({
+          type: "gold",
+          isPublic: false,
+          name: `custom-gold-${crypto.randomUUID().slice(0, 8)}`,
+        });
+
+      const customGoldTier = customGoldTiers[0];
+
+      // Set custom gold tier to a low price
+      await db
+        .update(schema.planPricingTiers)
+        .set({ priceMonthly: 3000 })
+        .where(eq(schema.planPricingTiers.id, customGoldTier.id));
+
+      // Create a PUBLIC catalog plan (diamond) with higher price
+      const { plan: catalogDiamondPlan, tiers: catalogDiamondTiers } =
+        await PlanFactory.createPaid("diamond");
+
+      const catalogDiamondTier = catalogDiamondTiers[0];
+
+      // Set catalog diamond tier to a higher price
+      await db
+        .update(schema.planPricingTiers)
+        .set({ priceMonthly: 10_000 })
+        .where(eq(schema.planPricingTiers.id, catalogDiamondTier.id));
+
+      // Create subscription on the private plan
+      await SubscriptionFactory.create(
+        result.organizationId,
+        customGoldPlan.id,
+        {
+          pricingTierId: customGoldTier.id,
+        }
+      );
+
+      await BillingProfileFactory.create({
+        organizationId: result.organizationId,
+      });
+
+      // Pre-configure catalog diamond tier with mock Pagarme plan ID
+      const mockPagarmePlanId = `plan_mock_${crypto.randomUUID().replace(/-/g, "").slice(0, 16)}`;
+      await db
+        .update(schema.planPricingTiers)
+        .set({ pagarmePlanIdMonthly: mockPagarmePlanId })
+        .where(eq(schema.planPricingTiers.id, catalogDiamondTier.id));
+
+      // Mock Pagarme API
+      const mockPaymentLinkId = `pl_mock_${crypto.randomUUID().replace(/-/g, "").slice(0, 16)}`;
+      const mockCheckoutUrl = `https://pagar.me/checkout/${mockPaymentLinkId}`;
+
+      const { PagarmeClient } = await import(
+        "@/modules/payments/pagarme/client"
+      );
+
+      const createPaymentLinkSpy = spyOn(
+        PagarmeClient,
+        "createPaymentLink"
+      ).mockResolvedValue({
+        id: mockPaymentLinkId,
+        url: mockCheckoutUrl,
+        short_url: mockCheckoutUrl,
+        status: "active",
+        type: "subscription",
+        name: "Upgrade from Custom Plan",
+        success_url: "https://example.com/success",
+        created_at: new Date().toISOString(),
+        updated_at: new Date().toISOString(),
+      });
+
+      const response = await app.handle(
+        new Request(ENDPOINT, {
+          method: "POST",
+          headers: {
+            ...result.headers,
+            "Content-Type": "application/json",
+          },
+          body: JSON.stringify({
+            newPlanId: catalogDiamondPlan.id,
+            newTierId: catalogDiamondTier.id,
+            successUrl: "https://example.com/success",
+          }),
+        })
+      );
+
+      expect(response.status).toBe(200);
+
+      const body = await response.json();
+      expect(body.success).toBe(true);
+      expect(body.data.changeType).toBe("upgrade");
+      expect(body.data.checkoutUrl).toBe(mockCheckoutUrl);
+      expect(body.data.newPlan.id).toBe(catalogDiamondPlan.id);
+
+      createPaymentLinkSpy.mockRestore();
+    });
+
+    test("should allow downgrade from custom (private) plan to catalog (public) plan", async () => {
+      const result = await UserFactory.createWithOrganization({
+        emailVerified: true,
+      });
+
+      // Create a PRIVATE plan (custom diamond) with HIGH price
+      const { plan: customDiamondPlan, tiers: customDiamondTiers } =
+        await PlanFactory.create({
+          type: "diamond",
+          isPublic: false,
+          name: `custom-diamond-${crypto.randomUUID().slice(0, 8)}`,
+        });
+
+      const customDiamondTier = customDiamondTiers[0];
+
+      // Set custom diamond tier to a high price
+      await db
+        .update(schema.planPricingTiers)
+        .set({ priceMonthly: 15_000 })
+        .where(eq(schema.planPricingTiers.id, customDiamondTier.id));
+
+      // Create a PUBLIC catalog plan (gold) with lower price
+      const { plan: catalogGoldPlan, tiers: catalogGoldTiers } =
+        await PlanFactory.createPaid("gold");
+
+      const catalogGoldTier = catalogGoldTiers[0];
+
+      // Set catalog gold tier to a lower price
+      await db
+        .update(schema.planPricingTiers)
+        .set({ priceMonthly: 5000 })
+        .where(eq(schema.planPricingTiers.id, catalogGoldTier.id));
+
+      const currentPeriodEnd = new Date();
+      currentPeriodEnd.setDate(currentPeriodEnd.getDate() + 30);
+
+      // Create subscription on the private plan
+      await SubscriptionFactory.create(
+        result.organizationId,
+        customDiamondPlan.id,
+        {
+          pricingTierId: customDiamondTier.id,
+        }
+      );
+
+      // Set current period end for scheduling
+      await db
+        .update(schema.orgSubscriptions)
+        .set({ currentPeriodEnd })
+        .where(
+          eq(schema.orgSubscriptions.organizationId, result.organizationId)
+        );
+
+      await BillingProfileFactory.create({
+        organizationId: result.organizationId,
+      });
+
+      const response = await app.handle(
+        new Request(ENDPOINT, {
+          method: "POST",
+          headers: {
+            ...result.headers,
+            "Content-Type": "application/json",
+          },
+          body: JSON.stringify({
+            newPlanId: catalogGoldPlan.id,
+            newTierId: catalogGoldTier.id,
+            successUrl: "https://example.com/success",
+          }),
+        })
+      );
+
+      expect(response.status).toBe(200);
+
+      const body = await response.json();
+      expect(body.success).toBe(true);
+      expect(body.data.changeType).toBe("downgrade");
+      expect(body.data.scheduledAt).toBeDefined();
+      expect(body.data.checkoutUrl).toBeUndefined();
+      expect(body.data.newPlan.id).toBe(catalogGoldPlan.id);
+
+      // Verify DB has pending change
+      const [subscription] = await db
+        .select()
+        .from(schema.orgSubscriptions)
+        .where(
+          eq(schema.orgSubscriptions.organizationId, result.organizationId)
+        )
+        .limit(1);
+
+      expect(subscription.pendingPlanId).toBe(catalogGoldPlan.id);
+      expect(subscription.pendingPricingTierId).toBe(catalogGoldTier.id);
+      expect(subscription.planChangeAt).toBeInstanceOf(Date);
     });
   });
 

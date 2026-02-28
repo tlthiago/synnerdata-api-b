@@ -14,6 +14,8 @@ Assinaturas, checkout, billing e integração Pagar.me. Módulo mais crítico do
 - Webhooks são idempotentes (mesmo evento processado uma vez)
 - Customer ID e plan changes são atômicos (proteção contra race condition)
 - Preço customizado rastreado via `priceAtPurchase` e `isCustomPrice` em `org_subscriptions`
+- Planos privados (`isPublic=false`) não são acessíveis via self-service plan-change
+- Planos privados são arquivados (`archivedAt`) automaticamente quando subscription migra para outro plano
 
 ## Subscription Status Flow
 

@@ -587,6 +587,88 @@ describe("SubscriptionService", () => {
     });
   });
 
+  describe("activate — archive private plan", () => {
+    test("should archive private plan when subscription changes to a different plan", async () => {
+      const org = await OrganizationFactory.create();
+
+      // Create a private (custom) plan
+      const privatePlanResult = await PlanFactory.create({
+        type: "gold",
+        isPublic: false,
+        name: `custom-private-${crypto.randomUUID().slice(0, 8)}`,
+      });
+
+      // Create subscription on the private plan
+      await SubscriptionFactory.create(org.id, privatePlanResult.plan.id, {
+        status: "active",
+      });
+
+      // Create a public catalog plan to switch to
+      const catalogPlanResult = await PlanFactory.createPaid("diamond");
+
+      const periodStart = new Date();
+      const periodEnd = new Date();
+      periodEnd.setDate(periodEnd.getDate() + 30);
+
+      // Activate with the new (different) plan
+      await SubscriptionService.activate({
+        organizationId: org.id,
+        pagarmeSubscriptionId: `sub_archive_${crypto.randomUUID().slice(0, 8)}`,
+        periodStart,
+        periodEnd,
+        planId: catalogPlanResult.plan.id,
+        pricingTierId: catalogPlanResult.tiers[0].id,
+      });
+
+      // Verify the private plan was archived
+      const [archivedPlan] = await db
+        .select({ archivedAt: schema.subscriptionPlans.archivedAt })
+        .from(schema.subscriptionPlans)
+        .where(eq(schema.subscriptionPlans.id, privatePlanResult.plan.id))
+        .limit(1);
+
+      expect(archivedPlan.archivedAt).toBeInstanceOf(Date);
+    });
+
+    test("should NOT archive public plan when subscription changes plan", async () => {
+      const org = await OrganizationFactory.create();
+
+      // Create a public gold plan
+      const goldPlanResult = await PlanFactory.createPaid("gold");
+
+      // Create subscription on the public gold plan
+      await SubscriptionFactory.create(org.id, goldPlanResult.plan.id, {
+        status: "active",
+      });
+
+      // Create a public diamond plan to switch to
+      const newDiamondPlanResult = await PlanFactory.createPaid("diamond");
+
+      const periodStart = new Date();
+      const periodEnd = new Date();
+      periodEnd.setDate(periodEnd.getDate() + 30);
+
+      // Activate with the new plan
+      await SubscriptionService.activate({
+        organizationId: org.id,
+        pagarmeSubscriptionId: `sub_no_archive_${crypto.randomUUID().slice(0, 8)}`,
+        periodStart,
+        periodEnd,
+        planId: newDiamondPlanResult.plan.id,
+        pricingTierId: newDiamondPlanResult.tiers[0].id,
+      });
+
+      // Verify the public gold plan was NOT archived
+      const [publicPlan] = await db
+        .select({ archivedAt: schema.subscriptionPlans.archivedAt })
+        .from(schema.subscriptionPlans)
+        .where(eq(schema.subscriptionPlans.id, goldPlanResult.plan.id))
+        .limit(1);
+
+      expect(publicPlan.archivedAt).toBeNull();
+    });
+  });
+
   describe("markActive", () => {
     test("should mark subscription as active with period data", async () => {
       const org = await OrganizationFactory.create();

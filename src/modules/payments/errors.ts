@@ -390,6 +390,19 @@ export class NoChangeRequestedError extends PaymentError {
   }
 }
 
+// 2.3b - Cannot change to a private (custom) plan via self-service
+export class CannotChangeToPrivatePlanError extends PaymentError {
+  status = 400;
+
+  constructor(planId: string) {
+    super(
+      "Planos privados não estão disponíveis para mudança self-service. Entre em contato com o suporte.",
+      "CANNOT_CHANGE_TO_PRIVATE_PLAN",
+      { planId }
+    );
+  }
+}
+
 // 2.4 - Employee count exceeds new plan limit on downgrade
 export class EmployeeCountExceedsNewPlanLimitError extends PaymentError {
   status = 400;

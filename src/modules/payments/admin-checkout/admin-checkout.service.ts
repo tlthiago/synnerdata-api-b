@@ -93,6 +93,8 @@ export abstract class AdminCheckoutService {
         isPublic: false,
         isTrial: false,
         sortOrder: basePlan.sortOrder,
+        organizationId,
+        basePlanId,
       });
 
       await tx.insert(schema.planPricingTiers).values({

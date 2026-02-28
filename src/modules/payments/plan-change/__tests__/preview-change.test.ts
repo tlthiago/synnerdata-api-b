@@ -286,6 +286,46 @@ describe("POST /v1/payments/subscription/preview-change", () => {
       const body = await response.json();
       expect(body.error.code).toBe("EMPLOYEE_COUNT_EXCEEDS_NEW_PLAN_LIMIT");
     });
+
+    test("should return CANNOT_CHANGE_TO_PRIVATE_PLAN when target plan is private", async () => {
+      const result = await UserFactory.createWithOrganization({
+        emailVerified: true,
+      });
+
+      const { plan: goldPlan, tiers: goldTiers } =
+        await PlanFactory.createPaid("gold");
+
+      await SubscriptionFactory.create(result.organizationId, goldPlan.id, {
+        pricingTierId: goldTiers[0].id,
+      });
+
+      await BillingProfileFactory.create({
+        organizationId: result.organizationId,
+      });
+
+      // Create a private plan as target
+      const { plan: privatePlan } = await PlanFactory.create({
+        type: "diamond",
+        isPublic: false,
+      });
+
+      const response = await app.handle(
+        new Request(ENDPOINT, {
+          method: "POST",
+          headers: {
+            ...result.headers,
+            "Content-Type": "application/json",
+          },
+          body: JSON.stringify({
+            newPlanId: privatePlan.id,
+          }),
+        })
+      );
+
+      expect(response.status).toBe(400);
+      const body = await response.json();
+      expect(body.error.code).toBe("CANNOT_CHANGE_TO_PRIVATE_PLAN");
+    });
   });
 
   describe("Preview Upgrade", () => {
@@ -413,6 +453,78 @@ describe("POST /v1/payments/subscription/preview-change", () => {
       expect(body.data.newTier.id).toBe(tiers[1].id);
       expect(body.data.newTier.minEmployees).toBe(11);
       expect(body.data.newTier.maxEmployees).toBe(20);
+    });
+  });
+
+  describe("Custom Plan Transitions", () => {
+    test("should preview upgrade from custom (private) plan to catalog (public) plan", async () => {
+      const result = await UserFactory.createWithOrganization({
+        emailVerified: true,
+      });
+
+      // Create a PRIVATE plan (custom gold) with low price
+      const { plan: customGoldPlan, tiers: customGoldTiers } =
+        await PlanFactory.create({
+          type: "gold",
+          isPublic: false,
+          name: `custom-gold-${crypto.randomUUID().slice(0, 8)}`,
+        });
+
+      const customGoldTier = customGoldTiers[0];
+
+      // Set custom gold tier to a low price
+      await db
+        .update(schema.planPricingTiers)
+        .set({ priceMonthly: 3000 })
+        .where(eq(schema.planPricingTiers.id, customGoldTier.id));
+
+      // Create a PUBLIC catalog plan (diamond) with higher price
+      const { plan: catalogDiamondPlan, tiers: catalogDiamondTiers } =
+        await PlanFactory.createPaid("diamond");
+
+      const catalogDiamondTier = catalogDiamondTiers[0];
+
+      // Set catalog diamond tier to a higher price
+      await db
+        .update(schema.planPricingTiers)
+        .set({ priceMonthly: 10_000 })
+        .where(eq(schema.planPricingTiers.id, catalogDiamondTier.id));
+
+      // Create subscription on the private plan
+      await SubscriptionFactory.create(
+        result.organizationId,
+        customGoldPlan.id,
+        {
+          pricingTierId: customGoldTier.id,
+        }
+      );
+
+      await BillingProfileFactory.create({
+        organizationId: result.organizationId,
+      });
+
+      const response = await app.handle(
+        new Request(ENDPOINT, {
+          method: "POST",
+          headers: {
+            ...result.headers,
+            "Content-Type": "application/json",
+          },
+          body: JSON.stringify({
+            newPlanId: catalogDiamondPlan.id,
+            newTierId: catalogDiamondTier.id,
+          }),
+        })
+      );
+
+      expect(response.status).toBe(200);
+      const body = await response.json();
+
+      expect(body.data.changeType).toBe("upgrade");
+      expect(body.data.immediate).toBe(true);
+      expect(body.data.currentPlan.id).toBe(customGoldPlan.id);
+      expect(body.data.newPlan.id).toBe(catalogDiamondPlan.id);
+      expect(body.data.scheduledAt).toBeUndefined();
     });
   });
 
