@@ -1,6 +1,6 @@
 import { beforeAll, describe, expect, test } from "bun:test";
 import { env } from "@/env";
-import { ApiKeyService } from "@/modules/api-keys/api-key.service";
+import { ApiKeyService } from "@/modules/admin/api-keys/api-key.service";
 import { createTestApp, type TestApp } from "@/test/helpers/app";
 import {
   createTestAdminUser,

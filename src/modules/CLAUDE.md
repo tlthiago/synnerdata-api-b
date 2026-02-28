@@ -34,8 +34,10 @@
   - `labor-lawsuits` — processos trabalhistas
   - `promotions` — promoções
   - `cpf-analyses` — análises de CPF
+- **admin** — Recursos exclusivos para administradores da plataforma (composite controller, prefix `/v1/admin`)
+  - `organizations` — listagem, detalhes e configuração de orgs (Power BI URL)
+  - `api-keys` — chaves de API para integrações externas
 - **audit** — Log de ações para compliance
-- **api-keys** — Chaves de API para integrações externas (admin-only)
 
 ---
 

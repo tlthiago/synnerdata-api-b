@@ -19,8 +19,8 @@ import { AdminOrganizationService } from "./admin-organization.service";
 
 export const adminOrganizationsController = new Elysia({
   name: "admin-organizations",
-  prefix: "/v1/admin/organizations",
-  detail: { tags: ["Organizations (Admin)"] },
+  prefix: "/organizations",
+  detail: { tags: ["Admin - Organizations"] },
 })
   .use(betterAuthPlugin)
   .get(

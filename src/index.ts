@@ -13,8 +13,7 @@ import { errorPlugin } from "./lib/errors/error-plugin";
 import { healthPlugin } from "./lib/health";
 import { logger, loggerPlugin } from "./lib/logger";
 import { setupGracefulShutdown } from "./lib/shutdown/shutdown";
-import { adminOrganizationsController } from "./modules/admin-organizations";
-import { apiKeysController } from "./modules/api-keys";
+import { adminController } from "./modules/admin";
 import { auditController } from "./modules/audit";
 import { employeeController } from "./modules/employees";
 import { occurrencesController } from "./modules/occurrences";
@@ -159,8 +158,7 @@ const app = new Elysia({
   .use(occurrencesController)
   .use(paymentsController)
   .use(auditController)
-  .use(apiKeysController)
-  .use(adminOrganizationsController)
+  .use(adminController)
   .get("/", ({ redirect }) => redirect("/health"))
   .listen(env.PORT, ({ hostname, port }) => {
     // Application initialization
