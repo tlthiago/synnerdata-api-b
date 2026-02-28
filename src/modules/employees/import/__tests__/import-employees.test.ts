@@ -137,7 +137,10 @@ describe("GET /v1/employees/import/template", () => {
 
   test("should return xlsx template", async () => {
     const { headers, organizationId, user } =
-      await createTestUserWithOrganization({ emailVerified: true });
+      await createTestUserWithOrganization({
+        emailVerified: true,
+        skipTrialCreation: true,
+      });
 
     await createTestDependencies(organizationId, user.id);
 
@@ -189,7 +192,10 @@ describe("POST /v1/employees/import", () => {
 
   test("should import valid employees", async () => {
     const { headers, organizationId, user } =
-      await createTestUserWithOrganization({ emailVerified: true });
+      await createTestUserWithOrganization({
+        emailVerified: true,
+        skipTrialCreation: true,
+      });
 
     const deps = await createTestDependencies(organizationId, user.id);
 
@@ -235,7 +241,10 @@ describe("POST /v1/employees/import", () => {
 
   test("should report errors for invalid rows", async () => {
     const { headers, organizationId, user } =
-      await createTestUserWithOrganization({ emailVerified: true });
+      await createTestUserWithOrganization({
+        emailVerified: true,
+        skipTrialCreation: true,
+      });
 
     const deps = await createTestDependencies(organizationId, user.id);
 

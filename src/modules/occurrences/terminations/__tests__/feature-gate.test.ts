@@ -54,6 +54,7 @@ describe("GET /v1/terminations — feature gate", () => {
   test("should return 200 with Gold plan (terminated_employees is a Gold feature)", async () => {
     const { headers, organizationId } = await createTestUserWithOrganization({
       emailVerified: true,
+      skipTrialCreation: true,
     });
     await SubscriptionFactory.createActive(organizationId, goldPlan.plan.id);
 
