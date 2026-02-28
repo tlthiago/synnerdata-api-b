@@ -1,5 +1,6 @@
 import { relations, sql } from "drizzle-orm";
 import {
+  type AnyPgColumn,
   boolean,
   index,
   integer,
@@ -44,7 +45,9 @@ export const subscriptionPlans = pgTable(
       .$onUpdate(() => new Date())
       .notNull(),
     organizationId: text("organization_id").references(() => organizations.id),
-    basePlanId: text("base_plan_id"),
+    basePlanId: text("base_plan_id").references(
+      (): AnyPgColumn => subscriptionPlans.id
+    ),
     archivedAt: timestamp("archived_at", { withTimezone: true }),
   },
   (table) => [

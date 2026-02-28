@@ -13,6 +13,7 @@
     "db:push": "bun --env-file .env --bun drizzle-kit push",
     "db:studio": "bun --env-file .env --bun drizzle-kit studio",
     "db:studio:test": "bun --env-file .env.test --bun drizzle-kit studio --port 4984",
+    "db:test:reset": "docker exec synnerdata-api-b psql -U postgres -c 'DROP DATABASE IF EXISTS \"synnerdata-api-b-test\";'",
     "db:generate": "bun --env-file .env --bun drizzle-kit generate",
     "db:migrate": "bun --env-file .env --bun drizzle-kit migrate",
     "db:seed": "bun --env-file .env src/db/seeds/plans.ts",
