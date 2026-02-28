@@ -136,6 +136,79 @@ describe("PagarmePlanHistoryService", () => {
     expect(recordB.isActive).toBe(true);
   });
 
+  test("deactivateByTierId() should rollback when transaction fails", async () => {
+    const tierId = `tier-${crypto.randomUUID()}`;
+    const pagarmePlanId = `plan_pagarme_${crypto.randomUUID().slice(0, 8)}`;
+
+    await PagarmePlanHistoryService.record({
+      localPlanId: testPlanId,
+      localTierId: tierId,
+      pagarmePlanId,
+      billingCycle: "monthly",
+      priceAtCreation: 4900,
+    });
+
+    // Run deactivateByTierId inside a transaction that rolls back
+    try {
+      await db.transaction(async (tx) => {
+        await PagarmePlanHistoryService.deactivateByTierId(tierId, tx);
+
+        // Verify deactivation is visible inside the transaction
+        const [insideTx] = await tx
+          .select()
+          .from(schema.pagarmePlanHistory)
+          .where(eq(schema.pagarmePlanHistory.pagarmePlanId, pagarmePlanId));
+        expect(insideTx.isActive).toBe(false);
+
+        // Force rollback
+        throw new Error("forced rollback");
+      });
+    } catch (err) {
+      if (!(err instanceof Error) || err.message !== "forced rollback") {
+        throw err;
+      }
+    }
+
+    // After rollback, the record should still be active
+    const [record] = await db
+      .select()
+      .from(schema.pagarmePlanHistory)
+      .where(eq(schema.pagarmePlanHistory.pagarmePlanId, pagarmePlanId));
+    expect(record.isActive).toBe(true);
+  });
+
+  test("record() should rollback when transaction fails", async () => {
+    const pagarmePlanId = `plan_pagarme_${crypto.randomUUID().slice(0, 8)}`;
+
+    try {
+      await db.transaction(async (tx) => {
+        await PagarmePlanHistoryService.record(
+          {
+            localPlanId: testPlanId,
+            localTierId: `tier-${crypto.randomUUID()}`,
+            pagarmePlanId,
+            billingCycle: "monthly",
+            priceAtCreation: 4900,
+          },
+          tx
+        );
+
+        throw new Error("forced rollback");
+      });
+    } catch (err) {
+      if (!(err instanceof Error) || err.message !== "forced rollback") {
+        throw err;
+      }
+    }
+
+    // After rollback, the record should not exist
+    const records = await db
+      .select()
+      .from(schema.pagarmePlanHistory)
+      .where(eq(schema.pagarmePlanHistory.pagarmePlanId, pagarmePlanId));
+    expect(records.length).toBe(0);
+  });
+
   test("listOrphaned() should return only inactive records", async () => {
     const activeTierId = `tier-${crypto.randomUUID()}`;
     const inactiveTierId = `tier-${crypto.randomUUID()}`;
