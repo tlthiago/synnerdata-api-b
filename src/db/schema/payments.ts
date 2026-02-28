@@ -1,4 +1,4 @@
-import { relations } from "drizzle-orm";
+import { relations, sql } from "drizzle-orm";
 import {
   boolean,
   index,
@@ -8,6 +8,7 @@ import {
   pgTable,
   text,
   timestamp,
+  uniqueIndex,
 } from "drizzle-orm/pg-core";
 import { organizations } from "./auth";
 
@@ -120,7 +121,9 @@ export const orgSubscriptions = pgTable(
       .notNull(),
   },
   (table) => [
-    index("org_subscriptions_organization_id_idx").on(table.organizationId),
+    uniqueIndex("org_subscriptions_organization_id_active_unique_idx")
+      .on(table.organizationId)
+      .where(sql`status NOT IN ('canceled', 'expired')`),
     index("org_subscriptions_status_idx").on(table.status),
     index("org_subscriptions_pagarme_subscription_id_idx").on(
       table.pagarmeSubscriptionId
