@@ -310,6 +310,69 @@ describe("PUT /payments/plans/:id", () => {
     expect(body.data.pricingTiers[0].priceMonthly).toBe(8000);
   });
 
+  test("should not deactivate Pagar.me plans for tiers with active subscriptions", async () => {
+    const { plan, tiers } = await PlanFactory.createPaid("gold");
+    createdPlanIds.push(plan.id);
+
+    // Create a Pagar.me plan history record for the first tier
+    await db.insert(schema.pagarmePlanHistory).values({
+      id: `pmh-${crypto.randomUUID()}`,
+      localPlanId: plan.id,
+      localTierId: tiers[0].id,
+      pagarmePlanId: `pagarme-plan-${crypto.randomUUID()}`,
+      billingCycle: "monthly",
+      priceAtCreation: tiers[0].priceMonthly,
+      isActive: true,
+    });
+
+    // Create a Pagar.me plan history record for the second tier (no subscription)
+    await db.insert(schema.pagarmePlanHistory).values({
+      id: `pmh-${crypto.randomUUID()}`,
+      localPlanId: plan.id,
+      localTierId: tiers[1].id,
+      pagarmePlanId: `pagarme-plan-${crypto.randomUUID()}`,
+      billingCycle: "monthly",
+      priceAtCreation: tiers[1].priceMonthly,
+      isActive: true,
+    });
+
+    // Create active subscription referencing first tier
+    const { organizationId } = await UserFactory.createWithOrganization({
+      emailVerified: true,
+    });
+    await SubscriptionFactory.create(organizationId, plan.id, {
+      status: "active",
+      pricingTierId: tiers[0].id,
+    });
+
+    // Replace tiers
+    const newTiers = generateTierPrices(11_000);
+    const response = await app.handle(
+      new Request(`${BASE_URL}/v1/payments/plans/${plan.id}`, {
+        method: "PUT",
+        headers: { ...authHeaders, "Content-Type": "application/json" },
+        body: JSON.stringify({ pricingTiers: newTiers }),
+      })
+    );
+    expect(response.status).toBe(200);
+
+    // First tier has active subscription — its Pagar.me plan should still be active
+    const [tier0History] = await db
+      .select()
+      .from(schema.pagarmePlanHistory)
+      .where(eq(schema.pagarmePlanHistory.localTierId, tiers[0].id));
+
+    expect(tier0History.isActive).toBe(true);
+
+    // Second tier has no active subscription — its Pagar.me plan should be deactivated
+    const [tier1History] = await db
+      .select()
+      .from(schema.pagarmePlanHistory)
+      .where(eq(schema.pagarmePlanHistory.localTierId, tiers[1].id));
+
+    expect(tier1History.isActive).toBe(false);
+  });
+
   test("should allow replaceTiers when only canceled subscriptions reference tier", async () => {
     const { plan, tiers } = await PlanFactory.createPaid("gold");
     createdPlanIds.push(plan.id);
