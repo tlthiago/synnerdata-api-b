@@ -22,7 +22,10 @@ let jobClassificationName: string;
 let templateBuffer: Buffer;
 
 beforeAll(async () => {
-  const result = await createTestUserWithOrganization({ emailVerified: true });
+  const result = await createTestUserWithOrganization({
+    emailVerified: true,
+    skipTrialCreation: true,
+  });
   organizationId = result.organizationId;
   userId = result.user.id;
 

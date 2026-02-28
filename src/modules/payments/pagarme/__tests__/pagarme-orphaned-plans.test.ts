@@ -4,6 +4,7 @@ import { schema } from "@/db/schema";
 import { env } from "@/env";
 import { UserFactory } from "@/test/factories/user.factory";
 import { createTestApp, type TestApp } from "@/test/support/app";
+import { skipIntegration } from "@/test/support/skip-integration";
 
 const BASE_URL = env.API_URL;
 const LIST_URL = `${BASE_URL}/v1/payments/admin/pagarme/orphaned-plans`;
@@ -113,7 +114,7 @@ describe("Orphaned Pagarme Plans", () => {
       expect(response.status).toBe(403);
     });
 
-    test(
+    test.skipIf(skipIntegration)(
       "should return cleanup summary",
       async () => {
         const response = await app.handle(
