@@ -478,7 +478,7 @@ export abstract class PlansService {
         oldTier.id
       );
       if (!hasActiveReferences) {
-        await PagarmePlanHistoryService.deactivateByTierId(oldTier.id);
+        await PagarmePlanHistoryService.deactivateByTierId(oldTier.id, tx);
       }
     }
 
