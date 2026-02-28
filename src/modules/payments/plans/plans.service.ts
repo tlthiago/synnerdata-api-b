@@ -1,4 +1,4 @@
-import { and, count, eq, isNull, ne } from "drizzle-orm";
+import { and, count, desc, eq, isNotNull, isNull, ne } from "drizzle-orm";
 import { db } from "@/db";
 import { schema } from "@/db/schema";
 import {
@@ -117,7 +117,6 @@ export abstract class PlansService {
   }
 
   static async getTrialPlan(): Promise<PlanWithTiersData> {
-    const { desc } = await import("drizzle-orm");
     const [plan] = await db
       .select()
       .from(schema.subscriptionPlans)
@@ -278,8 +277,6 @@ export abstract class PlansService {
   }
 
   static async listArchivedTiers(planId: string): Promise<ArchivedTierData[]> {
-    const { isNotNull } = await import("drizzle-orm");
-
     const [plan] = await db
       .select({ id: schema.subscriptionPlans.id })
       .from(schema.subscriptionPlans)
