@@ -22,6 +22,15 @@ Planos com pricing tiers por faixa de funcionários.
 - **Diamond**: Gold + birthdays, ppe, employee_record
 - **Platinum**: Diamond + payroll
 
+## Tier Versioning
+
+- Tiers são imutáveis: `replaceTiers()` arquiva (soft delete) tiers antigos em vez de deletar
+- Subscriptions ativas continuam referenciando tiers arquivados
+- Queries públicas filtram `WHERE archived_at IS NULL`
+- Admin endpoint `GET /plans/:id/archived-tiers` mostra tiers arquivados com contagem de subscriptions
+- FK constraints `ON DELETE RESTRICT` impedem hard delete acidental
+- Planos Pagar.me de tiers arquivados permanecem ativos enquanto houver subscriptions referenciando
+
 ## Endpoints
 
 - `GET /plans` — planos ativos e públicos (sem auth)

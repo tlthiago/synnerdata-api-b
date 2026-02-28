@@ -7,7 +7,8 @@ Assinaturas, checkout, billing e integração Pagar.me. Módulo mais crítico do
 - Uma subscription por organização
 - Trial usado apenas uma vez
 - Apenas status `active` concede acesso a features
-- Pricing tiers imutáveis (ranges min/max)
+- Pricing tiers são imutáveis — nunca deletados, apenas arquivados (`archivedAt`)
+- Subscriptions ativas referenciam tiers arquivados normalmente (grandfathering)
 - Trial: exatamente 1 tier (0-10). Paid: >= 1 tier, contíguos, sem gaps/overlaps, min >= 0, min <= max
 - Employee count não pode exceder `tier.maxEmployees`
 - Webhooks são idempotentes (mesmo evento processado uma vez)
@@ -58,7 +59,7 @@ CANCELED/EXPIRED → sem recuperação
 
 ## Orphaned Plans
 
-Quando `replaceTiers()` substitui tiers, os planos Pagar.me associados ficam órfãos. A tabela `pagarme_plan_history` rastreia todos os planos criados na Pagar.me.
+Quando `replaceTiers()` substitui tiers, os tiers antigos são arquivados (soft delete). Planos Pagar.me de tiers arquivados permanecem ativos enquanto houver subscriptions referenciando o tier. Apenas tiers sem referências ativas têm seus planos Pagar.me desativados. A tabela `pagarme_plan_history` rastreia todos os planos criados na Pagar.me.
 
 - `PagarmePlanHistoryService.record()` — registra ao criar plano na Pagar.me
 - `PagarmePlanHistoryService.deactivateByTierId()` — marca como inativo ao substituir tiers
