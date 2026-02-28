@@ -140,6 +140,7 @@ describe("POST /v1/employees", () => {
     const { headers, organizationId, user } =
       await createTestUserWithOrganization({
         emailVerified: true,
+        skipTrialCreation: true,
       });
 
     const deps = await createTestDependencies(organizationId, user.id);
@@ -167,6 +168,7 @@ describe("POST /v1/employees", () => {
     const { headers, organizationId, user } =
       await createTestUserWithOrganization({
         emailVerified: true,
+        skipTrialCreation: true,
       });
 
     const deps = await createTestDependencies(organizationId, user.id);
@@ -199,6 +201,7 @@ describe("POST /v1/employees", () => {
     const { headers, organizationId, user } =
       await createTestUserWithOrganization({
         emailVerified: true,
+        skipTrialCreation: true,
       });
 
     const deps = await createTestDependencies(organizationId, user.id);
@@ -246,6 +249,7 @@ describe("POST /v1/employees", () => {
     const { headers, organizationId, user } =
       await createTestUserWithOrganization({
         emailVerified: true,
+        skipTrialCreation: true,
       });
 
     await setupSubscription(organizationId);
@@ -291,6 +295,7 @@ describe("POST /v1/employees", () => {
 
     const { organizationId, user } = await createTestUserWithOrganization({
       emailVerified: true,
+      skipTrialCreation: true,
     });
 
     const deps = await createTestDependencies(organizationId, user.id);
@@ -324,6 +329,7 @@ describe("POST /v1/employees", () => {
 
     const { organizationId, user } = await createTestUserWithOrganization({
       emailVerified: true,
+      skipTrialCreation: true,
     });
 
     const deps = await createTestDependencies(organizationId, user.id);

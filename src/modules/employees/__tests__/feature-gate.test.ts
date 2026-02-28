@@ -60,6 +60,7 @@ describe("Employees — feature gate", () => {
     test("should pass feature gate with Gold plan (employee_status is a Gold feature)", async () => {
       const { headers, organizationId } = await createTestUserWithOrganization({
         emailVerified: true,
+        skipTrialCreation: true,
       });
       await SubscriptionFactory.createActive(organizationId, goldPlan.plan.id);
       const fakeId = `emp-${crypto.randomUUID()}`;
