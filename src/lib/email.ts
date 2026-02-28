@@ -702,9 +702,9 @@ export async function sendWelcomeEmail(
       </ul>
 
       <p>
-        <a href="${env.APP_URL}/dashboard"
+        <a href="${env.APP_URL}/relatorios"
            style="display: inline-block; background: #007bff; color: white; padding: 12px 24px; text-decoration: none; border-radius: 4px;">
-          Acessar Dashboard
+          Acessar Relatórios
         </a>
       </p>
 

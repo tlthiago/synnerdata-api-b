@@ -351,11 +351,7 @@ export const auth = betterAuth({
           return Promise.resolve({ data: user });
         },
         after: async (user) => {
-          const tasks: Promise<void>[] = [auditUserCreate(user)];
-          if (user.emailVerified && user.role === "user") {
-            tasks.push(handleWelcomeEmail(user));
-          }
-          await Promise.all(tasks);
+          await auditUserCreate(user);
         },
       },
     },

@@ -168,11 +168,6 @@ export const orgRoles: Record<Role, ReturnType<typeof orgAc.newRole>> = {
   }),
 };
 
-export const ac = orgAc;
-export const roles = orgRoles;
-export const statements = orgStatements;
-export type Permissions = OrgPermissions;
-
 export const apiKeyStatements = {
   employees: ["read"],
   occurrences: ["read"],
