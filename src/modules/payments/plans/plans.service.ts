@@ -1,4 +1,4 @@
-import { and, eq, ne } from "drizzle-orm";
+import { and, eq, isNull, ne } from "drizzle-orm";
 import { db } from "@/db";
 import { schema } from "@/db/schema";
 import {
@@ -371,19 +371,43 @@ export abstract class PlansService {
     planId: string,
     tiers: TierPriceInput[]
   ): Promise<PricingTierData[]> {
+    const now = new Date();
+
+    // 1. Archive old tiers (soft delete) instead of hard delete
     const oldTiers = await tx
       .select({ id: schema.planPricingTiers.id })
       .from(schema.planPricingTiers)
-      .where(eq(schema.planPricingTiers.planId, planId));
+      .where(
+        and(
+          eq(schema.planPricingTiers.planId, planId),
+          isNull(schema.planPricingTiers.archivedAt)
+        )
+      );
 
-    for (const oldTier of oldTiers) {
-      await PagarmePlanHistoryService.deactivateByTierId(oldTier.id);
+    if (oldTiers.length > 0) {
+      await tx
+        .update(schema.planPricingTiers)
+        .set({ archivedAt: now })
+        .where(
+          and(
+            eq(schema.planPricingTiers.planId, planId),
+            isNull(schema.planPricingTiers.archivedAt)
+          )
+        );
     }
 
-    await tx
-      .delete(schema.planPricingTiers)
-      .where(eq(schema.planPricingTiers.planId, planId));
+    // 2. Deactivate Pagar.me plans only for tiers without active subscriptions
+    for (const oldTier of oldTiers) {
+      const hasActiveReferences = await PlansService.tierHasActiveReferences(
+        tx,
+        oldTier.id
+      );
+      if (!hasActiveReferences) {
+        await PagarmePlanHistoryService.deactivateByTierId(oldTier.id);
+      }
+    }
 
+    // 3. Create new tier records
     const tierRecords = tiers.map((tier) => ({
       id: `tier-${crypto.randomUUID()}`,
       planId,
@@ -405,6 +429,46 @@ export abstract class PlansService {
       priceMonthly: t.priceMonthly,
       priceYearly: t.priceYearly,
     }));
+  }
+
+  private static async tierHasActiveReferences(
+    tx: Parameters<Parameters<typeof db.transaction>[0]>[0],
+    tierId: string
+  ): Promise<boolean> {
+    const [subRef] = await tx
+      .select({ id: schema.orgSubscriptions.id })
+      .from(schema.orgSubscriptions)
+      .where(
+        and(
+          eq(schema.orgSubscriptions.pricingTierId, tierId),
+          ne(schema.orgSubscriptions.status, "canceled"),
+          ne(schema.orgSubscriptions.status, "expired")
+        )
+      )
+      .limit(1);
+
+    if (subRef) return true;
+
+    const [pendingRef] = await tx
+      .select({ id: schema.orgSubscriptions.id })
+      .from(schema.orgSubscriptions)
+      .where(eq(schema.orgSubscriptions.pendingPricingTierId, tierId))
+      .limit(1);
+
+    if (pendingRef) return true;
+
+    const [checkoutRef] = await tx
+      .select({ id: schema.pendingCheckouts.id })
+      .from(schema.pendingCheckouts)
+      .where(
+        and(
+          eq(schema.pendingCheckouts.pricingTierId, tierId),
+          eq(schema.pendingCheckouts.status, "pending")
+        )
+      )
+      .limit(1);
+
+    return !!checkoutRef;
   }
 
   private static async getExistingTiers(
