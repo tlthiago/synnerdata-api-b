@@ -19,7 +19,7 @@ Autenticação via Email/Password e lifecycle de usuários/organizações.
 ## Organization & Trial Lifecycle
 
 1. Sign-up → user criado, email de verificação enviado
-2. Verificação de email → welcome email enviado (apenas para `role === "user"`)
+2. Verificação de email → welcome email enviado. Na prática apenas `role === "user"` passa por esse fluxo, pois admin/super_admin já nascem com `emailVerified: true`
 3. Primeira organização → user vira owner, trial de **14 dias** criado via `SubscriptionService.createTrial()`
 4. Trial state derivado dinamicamente: `isTrial && trialEnd > now` → "trial"; `trialEnd <= now` → "trial_expired"
 5. `hasAccess: false` + `requiresPayment: true` após expiração
@@ -64,7 +64,7 @@ Autenticação via Email/Password e lifecycle de usuários/organizações.
 ## Emails
 
 - **Verificação**: enviado no sign-up para todos os usuários
-- **Welcome**: enviado após verificação de email, apenas para usuários de organização (`role === "user"`). Admins/super_admins NÃO recebem
+- **Welcome**: enviado após verificação de email (`afterEmailVerification`), sem guard de role. Admin/super_admin não recebem na prática porque já nascem com `emailVerified: true` e nunca passam pelo fluxo de verificação
 - **OTP (2FA)**: 6 dígitos, 5 min expiração, armazenamento encrypted
 - **Convite**: template com inviter, org name, link (`{APP_URL}/convite/{invitationId}`), role
 - **Password reset**: link com expiração, revoga todas as sessions
