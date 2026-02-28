@@ -153,32 +153,56 @@ export abstract class SubscriptionMutationService {
    * Trial uses a dedicated trial plan with isTrial=true that gives access
    * to all features. Employee limit comes from the trial plan's tier.
    *
+   * Idempotent: if a subscription already exists for the organization,
+   * logs a warning and returns without error. Uses onConflictDoNothing
+   * as an extra defense against race conditions.
+   *
    * @param organizationId - The organization ID to create trial for
    */
   static async createTrial(organizationId: string): Promise<void> {
+    const existing = await findByOrganizationId(organizationId);
+    if (existing) {
+      const { logger } = await import("@/lib/logger");
+      logger.warn({
+        type: "create-trial:already-exists",
+        organizationId,
+        subscriptionId: existing.id,
+      });
+      return;
+    }
+
     // getTrialPlan throws TrialPlanNotFoundError if not configured
     const trialPlan = await PlansService.getTrialPlan();
+
+    if (trialPlan.pricingTiers.length === 0) {
+      const { TrialPlanMisconfiguredError } = await import(
+        "@/modules/payments/errors"
+      );
+      throw new TrialPlanMisconfiguredError();
+    }
 
     const trialStart = new Date();
     const trialEnd = new Date();
     trialEnd.setDate(trialEnd.getDate() + trialPlan.trialDays);
 
-    await db.insert(schema.orgSubscriptions).values({
-      id: `subscription-${crypto.randomUUID()}`,
-      organizationId,
-      planId: trialPlan.id,
-      pricingTierId: trialPlan.pricingTiers[0].id,
-      status: "active",
-      trialStart,
-      trialEnd,
-      trialUsed: true,
-      seats: 1,
-    });
+    const [inserted] = await db
+      .insert(schema.orgSubscriptions)
+      .values({
+        id: `subscription-${crypto.randomUUID()}`,
+        organizationId,
+        planId: trialPlan.id,
+        pricingTierId: trialPlan.pricingTiers[0].id,
+        status: "active",
+        trialStart,
+        trialEnd,
+        trialUsed: true,
+        seats: 1,
+      })
+      .onConflictDoNothing()
+      .returning();
 
-    const subscription = await findByOrganizationId(organizationId);
-
-    if (subscription) {
-      PaymentHooks.emit("trial.started", { subscription });
+    if (inserted) {
+      PaymentHooks.emit("trial.started", { subscription: inserted });
     }
   }
 
