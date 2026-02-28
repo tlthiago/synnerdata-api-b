@@ -1,19 +1,20 @@
 import { betterAuth } from "better-auth";
 import { drizzleAdapter } from "better-auth/adapters/drizzle";
 import { APIError } from "better-auth/api";
-import type { Invitation, Member, Organization } from "better-auth/plugins";
+import { apiKey, openAPI } from "better-auth/plugins";
+import { admin } from "better-auth/plugins/admin";
 import {
-  admin,
-  apiKey,
-  openAPI,
+  type Invitation,
+  type Member,
+  type Organization,
   organization,
-  twoFactor,
-} from "better-auth/plugins";
+} from "better-auth/plugins/organization";
+import { twoFactor } from "better-auth/plugins/two-factor";
 import type { Session, User } from "better-auth/types";
 import { localization } from "better-auth-localization";
-import { eq } from "drizzle-orm";
+import { and, eq } from "drizzle-orm";
 import { db } from "@/db";
-import { fullSchema, roleValues, schema } from "@/db/schema";
+import { fullSchema, type Role, roleValues, schema } from "@/db/schema";
 import { env } from "@/env";
 import { parseOrigins } from "@/lib/cors";
 import { logger } from "@/lib/logger";
@@ -217,7 +218,49 @@ async function auditInvitationAccept(
   });
 }
 
+async function validateUniqueRole(
+  role: string,
+  organizationId: string
+): Promise<void> {
+  const validRoles: readonly string[] = roleValues;
+  if (!validRoles.includes(role)) {
+    return;
+  }
+
+  const typedRole = role as Role;
+
+  const existingMember = await db.query.members.findFirst({
+    where: and(
+      eq(schema.members.organizationId, organizationId),
+      eq(schema.members.role, typedRole)
+    ),
+  });
+
+  if (existingMember) {
+    throw new APIError("BAD_REQUEST", {
+      code: "ROLE_ALREADY_ASSIGNED",
+      message: `A role "${role}" já está atribuída a um membro desta organização.`,
+    });
+  }
+
+  const pendingInvitation = await db.query.invitations.findFirst({
+    where: and(
+      eq(schema.invitations.organizationId, organizationId),
+      eq(schema.invitations.role, typedRole),
+      eq(schema.invitations.status, "pending")
+    ),
+  });
+
+  if (pendingInvitation) {
+    throw new APIError("BAD_REQUEST", {
+      code: "ROLE_INVITATION_PENDING",
+      message: `Já existe um convite pendente para a role "${role}" nesta organização.`,
+    });
+  }
+}
+
 export const auth = betterAuth({
+  appName: "Synnerdata",
   basePath: "/api/auth",
   trustedOrigins,
   database: drizzleAdapter(db, {
@@ -258,6 +301,12 @@ export const auth = betterAuth({
     cookieCache: {
       enabled: true,
       maxAge: 5 * 60,
+    },
+  },
+  advanced: {
+    useSecureCookies: !isTest,
+    ipAddress: {
+      ipAddressHeaders: ["x-forwarded-for", "x-real-ip"],
     },
   },
   rateLimit: {
@@ -303,7 +352,7 @@ export const auth = betterAuth({
         },
         after: async (user) => {
           const tasks: Promise<void>[] = [auditUserCreate(user)];
-          if (user.emailVerified) {
+          if (user.emailVerified && user.role === "user") {
             tasks.push(handleWelcomeEmail(user));
           }
           await Promise.all(tasks);
@@ -344,6 +393,9 @@ export const auth = betterAuth({
       adminRoles: ["super_admin", "admin"],
     }),
     organization({
+      organizationLimit: 1,
+      membershipLimit: 4,
+      allowUserToCreateOrganization: (user) => user.role === "user",
       ac: orgAc,
       roles: orgRoles,
       async sendInvitationEmail(data: {
@@ -364,10 +416,12 @@ export const auth = betterAuth({
         });
       },
       organizationHooks: {
-        beforeCreateInvitation: ({
+        beforeCreateInvitation: async ({
           invitation,
+          organization: org,
         }: {
           invitation: { role: string };
+          organization: Organization;
         }) => {
           const validRoles = roleValues as readonly string[];
           if (!validRoles.includes(invitation.role)) {
@@ -376,7 +430,8 @@ export const auth = betterAuth({
               message: `Role inválida: "${invitation.role}". Roles válidas: ${roleValues.join(", ")}`,
             });
           }
-          return Promise.resolve();
+
+          await validateUniqueRole(invitation.role, org.id);
         },
         afterCreateOrganization: async ({
           organization: org,
@@ -399,6 +454,36 @@ export const auth = betterAuth({
         }) => {
           if (org) {
             await auditOrganizationUpdate(org, user.id);
+          }
+        },
+        beforeDeleteOrganization: async ({
+          organization: org,
+        }: {
+          organization: Organization;
+          user: User;
+        }) => {
+          const activeMembers = await db.query.members.findMany({
+            where: eq(schema.members.organizationId, org.id),
+          });
+
+          const nonOwnerMembers = activeMembers.filter(
+            (m) => m.role !== "owner"
+          );
+
+          if (nonOwnerMembers.length > 0) {
+            throw new APIError("BAD_REQUEST", {
+              code: "ORGANIZATION_HAS_ACTIVE_MEMBERS",
+              message: `Não é possível excluir a organização. Existem ${nonOwnerMembers.length} membro(s) ativo(s) que devem ser removidos primeiro.`,
+            });
+          }
+
+          const access = await SubscriptionService.checkAccess(org.id);
+          if (access.hasAccess && access.status !== "trial_expired") {
+            throw new APIError("BAD_REQUEST", {
+              code: "ORGANIZATION_HAS_ACTIVE_SUBSCRIPTION",
+              message:
+                "Não é possível excluir a organização com assinatura ativa. Cancele a assinatura primeiro.",
+            });
           }
         },
         afterDeleteOrganization: async ({
@@ -457,6 +542,15 @@ export const auth = betterAuth({
             organizationId: org.id,
             updatedByUserId: user.id,
           });
+        },
+        beforeAddMember: async ({
+          member,
+          organization: org,
+        }: {
+          member: { role: string };
+          organization: Organization;
+        }) => {
+          await validateUniqueRole(member.role, org.id);
         },
         afterAddMember: async ({
           member,
