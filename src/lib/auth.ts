@@ -14,7 +14,7 @@ import type { Session, User } from "better-auth/types";
 import { localization } from "better-auth-localization";
 import { and, eq } from "drizzle-orm";
 import { db } from "@/db";
-import { fullSchema, roleValues, schema } from "@/db/schema";
+import { fullSchema, type Role, roleValues, schema } from "@/db/schema";
 import { env } from "@/env";
 import { parseOrigins } from "@/lib/cors";
 import { logger } from "@/lib/logger";
@@ -222,10 +222,12 @@ async function validateUniqueRole(
   role: string,
   organizationId: string
 ): Promise<void> {
+  const typedRole = role as Role;
+
   const existingMember = await db.query.members.findFirst({
     where: and(
       eq(schema.members.organizationId, organizationId),
-      eq(schema.members.role, role)
+      eq(schema.members.role, typedRole)
     ),
   });
 
@@ -239,7 +241,7 @@ async function validateUniqueRole(
   const pendingInvitation = await db.query.invitations.findFirst({
     where: and(
       eq(schema.invitations.organizationId, organizationId),
-      eq(schema.invitations.role, role),
+      eq(schema.invitations.role, typedRole),
       eq(schema.invitations.status, "pending")
     ),
   });
@@ -388,8 +390,8 @@ export const auth = betterAuth({
     organization({
       organizationLimit: 1,
       membershipLimit: 4,
-      allowUserToCreateOrganization: (user: { role?: string }) =>
-        user.role === "user",
+      allowUserToCreateOrganization: (user) =>
+        (user as { role?: string }).role === "user",
       ac: orgAc,
       roles: orgRoles,
       async sendInvitationEmail(data: {
