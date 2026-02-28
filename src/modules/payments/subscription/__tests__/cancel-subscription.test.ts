@@ -230,6 +230,71 @@ describe("POST /v1/payments/subscription/cancel", () => {
     expect(body.error.code).toBe("TRIAL_NOT_CANCELLABLE");
   });
 
+  test("should not modify subscription in database when rejecting trial cancel", async () => {
+    const { headers, organizationId } =
+      await UserFactory.createWithOrganization({
+        emailVerified: true,
+      });
+
+    await SubscriptionFactory.createTrial(
+      organizationId,
+      trialPlanResult.plan.id
+    );
+
+    const [before] = await db
+      .select()
+      .from(schema.orgSubscriptions)
+      .where(eq(schema.orgSubscriptions.organizationId, organizationId))
+      .limit(1);
+
+    const response = await app.handle(
+      new Request(`${BASE_URL}/v1/payments/subscription/cancel`, {
+        method: "POST",
+        headers,
+      })
+    );
+
+    expect(response.status).toBe(400);
+
+    const [after] = await db
+      .select()
+      .from(schema.orgSubscriptions)
+      .where(eq(schema.orgSubscriptions.organizationId, organizationId))
+      .limit(1);
+
+    expect(after.cancelAtPeriodEnd).toBe(before.cancelAtPeriodEnd);
+    expect(after.canceledAt).toBe(before.canceledAt);
+    expect(after.status).toBe(before.status);
+  });
+
+  test("should not emit events when rejecting trial cancel", async () => {
+    const { PaymentHooks } = await import("../../hooks");
+
+    const { headers, organizationId } =
+      await UserFactory.createWithOrganization({
+        emailVerified: true,
+      });
+
+    await SubscriptionFactory.createTrial(
+      organizationId,
+      trialPlanResult.plan.id
+    );
+
+    const emitSpy = spyOn(PaymentHooks, "emit");
+
+    const response = await app.handle(
+      new Request(`${BASE_URL}/v1/payments/subscription/cancel`, {
+        method: "POST",
+        headers,
+      })
+    );
+
+    expect(response.status).toBe(400);
+    expect(emitSpy).not.toHaveBeenCalled();
+
+    emitSpy.mockRestore();
+  });
+
   test("should not call Pagarme immediately (soft cancel)", async () => {
     const { PagarmeClient } = await import("../../pagarme/client");
 
