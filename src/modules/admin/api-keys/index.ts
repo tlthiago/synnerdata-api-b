@@ -21,8 +21,8 @@ import { ApiKeyService } from "./api-key.service";
 
 export const apiKeysController = new Elysia({
   name: "api-keys",
-  prefix: "/v1/admin/api-keys",
-  detail: { tags: ["API Keys (Admin)"] },
+  prefix: "/api-keys",
+  detail: { tags: ["Admin - API Keys"] },
 })
   .use(betterAuthPlugin)
   .post(
