@@ -50,7 +50,7 @@ export abstract class SubscriptionMutationService {
   static async cancel(
     input: CancelSubscriptionInput
   ): Promise<CancelSubscriptionData> {
-    const { organizationId } = input;
+    const { organizationId, userId, reason, comment } = input;
 
     const result = await findWithPlan(organizationId);
 
@@ -77,6 +77,24 @@ export abstract class SubscriptionMutationService {
     if (updatedSubscription) {
       PaymentHooks.emit("subscription.cancelScheduled", {
         subscription: updatedSubscription,
+      });
+    }
+
+    // Log cancellation reason to audit trail
+    if (reason || comment) {
+      const { AuditService } = await import("@/modules/audit/audit.service");
+      await AuditService.log({
+        action: "update",
+        resource: "subscription",
+        resourceId: subscription.id,
+        userId,
+        organizationId,
+        changes: {
+          after: {
+            cancelReason: reason,
+            cancelComment: comment,
+          },
+        },
       });
     }
 

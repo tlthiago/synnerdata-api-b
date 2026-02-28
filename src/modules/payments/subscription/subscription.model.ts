@@ -91,6 +91,28 @@ const subscriptionDataSchema = z.object({
     .describe("Whether the price was set via admin custom checkout"),
 });
 
+export const cancelReasonSchema = z.enum([
+  "too_expensive",
+  "not_using_enough",
+  "missing_features",
+  "switching_to_competitor",
+  "company_closing",
+  "temporary_pause",
+  "bad_experience",
+  "other",
+]);
+
+const cancelCommentSchema = z.string().max(500);
+
+export const cancelSubscriptionBodySchema = z
+  .object({
+    reason: cancelReasonSchema.optional().describe("Cancellation reason"),
+    comment: cancelCommentSchema
+      .optional()
+      .describe("Additional cancellation comment (max 500 chars)"),
+  })
+  .optional();
+
 const cancelSubscriptionDataSchema = z.object({
   cancelAtPeriodEnd: z
     .boolean()
@@ -129,6 +151,8 @@ export type GetSubscriptionInput = {
 export type CancelSubscriptionInput = {
   userId: string;
   organizationId: string;
+  reason?: string;
+  comment?: string;
 };
 
 export type RestoreSubscriptionInput = {

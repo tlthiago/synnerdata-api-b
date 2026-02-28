@@ -327,6 +327,93 @@ describe("POST /v1/payments/subscription/cancel", () => {
     cancelSubscriptionSpy.mockRestore();
   });
 
+  test("should store reason and comment in audit log when provided", async () => {
+    const { headers, organizationId } =
+      await UserFactory.createWithOrganization({
+        emailVerified: true,
+      });
+
+    await SubscriptionFactory.createActive(
+      organizationId,
+      diamondPlanResult.plan.id
+    );
+
+    const response = await app.handle(
+      new Request(`${BASE_URL}/v1/payments/subscription/cancel`, {
+        method: "POST",
+        headers: {
+          ...headers,
+          "content-type": "application/json",
+        },
+        body: JSON.stringify({
+          reason: "too_expensive",
+          comment: "O plano ficou caro para o porte da empresa",
+        }),
+      })
+    );
+
+    expect(response.status).toBe(200);
+
+    const body = await response.json();
+    expect(body.success).toBe(true);
+    expect(body.data.cancelAtPeriodEnd).toBe(true);
+
+    // Verify audit log was created with reason and comment
+    const auditLogs = await db
+      .select()
+      .from(schema.auditLogs)
+      .where(eq(schema.auditLogs.organizationId, organizationId));
+
+    const cancelAudit = auditLogs.find(
+      (log) => log.resource === "subscription" && log.action === "update"
+    );
+
+    expect(cancelAudit).toBeDefined();
+    expect(cancelAudit?.changes).toEqual({
+      after: {
+        cancelReason: "too_expensive",
+        cancelComment: "O plano ficou caro para o porte da empresa",
+      },
+    });
+  });
+
+  test("should cancel without reason/comment (backward compatible)", async () => {
+    const { headers, organizationId } =
+      await UserFactory.createWithOrganization({
+        emailVerified: true,
+      });
+
+    await SubscriptionFactory.createActive(
+      organizationId,
+      diamondPlanResult.plan.id
+    );
+
+    const response = await app.handle(
+      new Request(`${BASE_URL}/v1/payments/subscription/cancel`, {
+        method: "POST",
+        headers,
+      })
+    );
+
+    expect(response.status).toBe(200);
+
+    const body = await response.json();
+    expect(body.success).toBe(true);
+    expect(body.data.cancelAtPeriodEnd).toBe(true);
+
+    // No audit log should be created when reason/comment are not provided
+    const auditLogs = await db
+      .select()
+      .from(schema.auditLogs)
+      .where(eq(schema.auditLogs.organizationId, organizationId));
+
+    const cancelAudit = auditLogs.find(
+      (log) => log.resource === "subscription" && log.action === "update"
+    );
+
+    expect(cancelAudit).toBeUndefined();
+  });
+
   test.each([
     "viewer",
     "manager",
