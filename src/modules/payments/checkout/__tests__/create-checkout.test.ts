@@ -169,7 +169,7 @@ describe("POST /v1/payments/checkout", () => {
 
     expect(response.status).toBe(404);
     const body = await response.json();
-    expect(body.error.code).toBe("PRICING_TIER_NOT_FOUND");
+    expect(body.error.code).toBe("TIER_NOT_FOUND");
   });
 
   test("should reject for inactive plan", async () => {
