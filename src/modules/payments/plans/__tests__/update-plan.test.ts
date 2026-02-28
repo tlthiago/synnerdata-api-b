@@ -1,9 +1,11 @@
 import { afterAll, beforeAll, describe, expect, test } from "bun:test";
-import { inArray } from "drizzle-orm";
+import { and, eq, inArray, isNotNull } from "drizzle-orm";
 import { db } from "@/db";
 import { schema } from "@/db/schema";
 import { env } from "@/env";
+import { LimitsService } from "@/modules/payments/limits/limits.service";
 import { PlanFactory } from "@/test/factories/payments/plan.factory";
+import { SubscriptionFactory } from "@/test/factories/payments/subscription.factory";
 import { UserFactory } from "@/test/factories/user.factory";
 import { createTestApp, type TestApp } from "@/test/support/app";
 import { EMPLOYEE_TIERS, PLAN_FEATURES } from "../plans.constants";
@@ -34,8 +36,12 @@ describe("PUT /payments/plans/:id", () => {
   });
 
   afterAll(async () => {
-    // Cleanup: delete pricing tiers and plans created during tests
+    // Cleanup: delete subscriptions, pricing tiers, and plans created during tests
     if (createdPlanIds.length > 0) {
+      // Delete subscriptions first (FK restrict on pricingTierId)
+      await db
+        .delete(schema.orgSubscriptions)
+        .where(inArray(schema.orgSubscriptions.planId, createdPlanIds));
       await db
         .delete(schema.planPricingTiers)
         .where(inArray(schema.planPricingTiers.planId, createdPlanIds));
@@ -213,5 +219,117 @@ describe("PUT /payments/plans/:id", () => {
     expect(body.success).toBe(true);
     expect(body.data.pricingTiers[0].priceMonthly).toBe(5000);
     expect(body.data.startingPriceMonthly).toBe(5000);
+  });
+
+  test("should archive old tiers when updating pricing tiers", async () => {
+    const { plan, tiers: oldTiers } = await PlanFactory.createPaid("gold");
+    createdPlanIds.push(plan.id);
+    const newTiers = generateTierPrices(5000);
+
+    const response = await app.handle(
+      new Request(`${BASE_URL}/v1/payments/plans/${plan.id}`, {
+        method: "PUT",
+        headers: { ...authHeaders, "Content-Type": "application/json" },
+        body: JSON.stringify({ pricingTiers: newTiers }),
+      })
+    );
+    expect(response.status).toBe(200);
+
+    // Verify old tiers still exist in DB but are archived
+    const archivedTiers = await db
+      .select()
+      .from(schema.planPricingTiers)
+      .where(
+        and(
+          eq(schema.planPricingTiers.planId, plan.id),
+          isNotNull(schema.planPricingTiers.archivedAt)
+        )
+      );
+
+    expect(archivedTiers.length).toBe(oldTiers.length);
+
+    for (const tier of archivedTiers) {
+      expect(tier.archivedAt).not.toBeNull();
+    }
+  });
+
+  test("should not break active subscription when archiving tiers", async () => {
+    const { plan, tiers } = await PlanFactory.createPaid("gold");
+    createdPlanIds.push(plan.id);
+    const { organizationId } = await UserFactory.createWithOrganization({
+      emailVerified: true,
+    });
+    const pricingTierId = tiers[0].id;
+
+    await SubscriptionFactory.create(organizationId, plan.id, {
+      status: "active",
+      pricingTierId,
+    });
+
+    // Replace tiers — should archive old ones, not delete
+    const newTiers = generateTierPrices(7000);
+    const response = await app.handle(
+      new Request(`${BASE_URL}/v1/payments/plans/${plan.id}`, {
+        method: "PUT",
+        headers: { ...authHeaders, "Content-Type": "application/json" },
+        body: JSON.stringify({ pricingTiers: newTiers }),
+      })
+    );
+    expect(response.status).toBe(200);
+
+    // Verify subscription still resolves employee limit correctly
+    const result = await LimitsService.checkEmployeeLimit(organizationId);
+    expect(result.limit).toBe(tiers[0].maxEmployees);
+    expect(result.canAdd).toBe(true);
+  });
+
+  test("should not include archived tiers in plan response", async () => {
+    const { plan } = await PlanFactory.createPaid("diamond");
+    createdPlanIds.push(plan.id);
+
+    // Replace tiers to archive the originals
+    const newTiers = generateTierPrices(8000);
+    await app.handle(
+      new Request(`${BASE_URL}/v1/payments/plans/${plan.id}`, {
+        method: "PUT",
+        headers: { ...authHeaders, "Content-Type": "application/json" },
+        body: JSON.stringify({ pricingTiers: newTiers }),
+      })
+    );
+
+    // Fetch plan — should only show new (active) tiers
+    const getResponse = await app.handle(
+      new Request(`${BASE_URL}/v1/payments/plans/${plan.id}`, {
+        method: "GET",
+        headers: authHeaders,
+      })
+    );
+    const body = await getResponse.json();
+
+    expect(body.data.pricingTiers.length).toBe(newTiers.length);
+    expect(body.data.pricingTiers[0].priceMonthly).toBe(8000);
+  });
+
+  test("should allow replaceTiers when only canceled subscriptions reference tier", async () => {
+    const { plan, tiers } = await PlanFactory.createPaid("gold");
+    createdPlanIds.push(plan.id);
+    const { organizationId } = await UserFactory.createWithOrganization({
+      emailVerified: true,
+    });
+
+    await SubscriptionFactory.create(organizationId, plan.id, {
+      status: "canceled",
+      pricingTierId: tiers[0].id,
+    });
+
+    const newTiers = generateTierPrices(9000);
+    const response = await app.handle(
+      new Request(`${BASE_URL}/v1/payments/plans/${plan.id}`, {
+        method: "PUT",
+        headers: { ...authHeaders, "Content-Type": "application/json" },
+        body: JSON.stringify({ pricingTiers: newTiers }),
+      })
+    );
+    expect(response.status).toBe(200);
   });
 });
