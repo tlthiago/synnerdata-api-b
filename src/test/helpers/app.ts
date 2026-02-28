@@ -27,13 +27,13 @@ export function createTestApp() {
       })
     )
     .use(betterAuthPlugin)
+    .use(adminOrganizationsController)
     .use(organizationController)
     .use(employeeController)
     .use(occurrencesController)
     .use(paymentsController)
     .use(auditController)
     .use(apiKeysController)
-    .use(adminOrganizationsController)
     .get("/", ({ redirect }) => redirect("/health"));
 }
 

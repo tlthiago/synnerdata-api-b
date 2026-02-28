@@ -4,7 +4,11 @@ import { schema } from "@/db/schema";
 import type {
   ListOrganizationsData,
   ListOrganizationsInput,
+  MemberData,
+  OrganizationDetailsData,
+  UpdatePowerBiUrlInput,
 } from "./admin-organization.model";
+import { OrganizationNotFoundError } from "./errors";
 
 export abstract class AdminOrganizationService {
   static async list(
@@ -94,5 +98,122 @@ export abstract class AdminOrganizationService {
       page,
       limit,
     };
+  }
+
+  static async getDetails(
+    organizationId: string
+  ): Promise<OrganizationDetailsData> {
+    const [org] = await db
+      .select({
+        id: schema.organizations.id,
+        name: schema.organizations.name,
+        slug: schema.organizations.slug,
+        createdAt: schema.organizations.createdAt,
+      })
+      .from(schema.organizations)
+      .where(eq(schema.organizations.id, organizationId))
+      .limit(1);
+
+    if (!org) {
+      throw new OrganizationNotFoundError(organizationId);
+    }
+
+    const [profile] = await db
+      .select({
+        tradeName: schema.organizationProfiles.tradeName,
+        legalName: schema.organizationProfiles.legalName,
+        taxId: schema.organizationProfiles.taxId,
+        email: schema.organizationProfiles.email,
+        phone: schema.organizationProfiles.phone,
+        street: schema.organizationProfiles.street,
+        number: schema.organizationProfiles.number,
+        neighborhood: schema.organizationProfiles.neighborhood,
+        city: schema.organizationProfiles.city,
+        state: schema.organizationProfiles.state,
+        zipCode: schema.organizationProfiles.zipCode,
+        industry: schema.organizationProfiles.industry,
+        businessArea: schema.organizationProfiles.businessArea,
+        pbUrl: schema.organizationProfiles.pbUrl,
+        status: schema.organizationProfiles.status,
+      })
+      .from(schema.organizationProfiles)
+      .where(eq(schema.organizationProfiles.organizationId, organizationId))
+      .limit(1);
+
+    const membersRows = await db
+      .select({
+        id: schema.members.id,
+        userId: schema.members.userId,
+        role: schema.members.role,
+        userName: schema.users.name,
+        userEmail: schema.users.email,
+      })
+      .from(schema.members)
+      .innerJoin(schema.users, eq(schema.members.userId, schema.users.id))
+      .where(eq(schema.members.organizationId, organizationId));
+
+    const members: MemberData[] = membersRows.map((row) => ({
+      id: row.id,
+      userId: row.userId,
+      role: row.role,
+      user: {
+        name: row.userName,
+        email: row.userEmail,
+      },
+    }));
+
+    const [subscription] = await db
+      .select({
+        planName: schema.subscriptionPlans.displayName,
+        status: schema.orgSubscriptions.status,
+        startDate: schema.orgSubscriptions.currentPeriodStart,
+      })
+      .from(schema.orgSubscriptions)
+      .innerJoin(
+        schema.subscriptionPlans,
+        eq(schema.orgSubscriptions.planId, schema.subscriptionPlans.id)
+      )
+      .where(eq(schema.orgSubscriptions.organizationId, organizationId))
+      .limit(1);
+
+    return {
+      ...org,
+      profile: profile ?? null,
+      memberCount: members.length,
+      members,
+      subscription: subscription ?? null,
+    };
+  }
+
+  static async updatePowerBiUrl(
+    organizationId: string,
+    data: UpdatePowerBiUrlInput
+  ): Promise<{ pbUrl: string | null }> {
+    const [org] = await db
+      .select({ id: schema.organizations.id })
+      .from(schema.organizations)
+      .where(eq(schema.organizations.id, organizationId))
+      .limit(1);
+
+    if (!org) {
+      throw new OrganizationNotFoundError(organizationId);
+    }
+
+    const [profile] = await db
+      .select({ id: schema.organizationProfiles.id })
+      .from(schema.organizationProfiles)
+      .where(eq(schema.organizationProfiles.organizationId, organizationId))
+      .limit(1);
+
+    if (!profile) {
+      throw new OrganizationNotFoundError(organizationId);
+    }
+
+    await db
+      .update(schema.organizationProfiles)
+      .set({ pbUrl: data.url })
+      .where(eq(schema.organizationProfiles.organizationId, organizationId));
+
+    return { pbUrl: data.url };
   }
 }
