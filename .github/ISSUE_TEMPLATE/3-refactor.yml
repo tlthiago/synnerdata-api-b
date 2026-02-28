@@ -31,12 +31,23 @@ body:
     attributes:
       label: Acceptance Criteria
       description: |
-        Verifiable scenarios that prove the refactor works correctly and doesn't break existing behavior.
+        Checklist of verifiable scenarios that prove the refactor works correctly and doesn't break existing behavior.
+        Each criterion should be a concrete, testable scenario — not a vague statement.
+        Use the format: "Given [context], when [action], then [expected result]."
       placeholder: |
-        - [ ] Existing tests continue passing without modification
         - [ ] Given a plan with 5 custom tiers, when listing plans, then all tiers are returned correctly
+        - [ ] Given existing tests, when running the full suite, then all tests pass without modification
     validations:
       required: true
+
+  - type: textarea
+    id: out-of-scope
+    attributes:
+      label: Out of Scope
+      description: What is explicitly NOT part of this issue (prevents scope creep).
+      placeholder: "Changing the public API contract — this refactor only restructures internal implementation."
+    validations:
+      required: false
 
   - type: textarea
     id: risks

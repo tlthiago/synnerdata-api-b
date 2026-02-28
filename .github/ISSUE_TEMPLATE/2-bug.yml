@@ -46,6 +46,15 @@ body:
       required: true
 
   - type: textarea
+    id: out-of-scope
+    attributes:
+      label: Out of Scope
+      description: What is explicitly NOT part of this issue (prevents scope creep).
+      placeholder: "Refactoring the subscription lifecycle — this fix only addresses the FK constraint on tier updates."
+    validations:
+      required: false
+
+  - type: textarea
     id: root-cause
     attributes:
       label: Root Cause Analysis
