@@ -544,10 +544,13 @@ export class TierGapError extends PaymentError {
 export class TierNotFoundError extends PaymentError {
   status = 404;
 
-  constructor(tierId: string, planId: string) {
-    super(`Tier "${tierId}" not found in plan "${planId}".`, "TIER_NOT_FOUND", {
+  constructor(tierId: string, planId?: string) {
+    const message = planId
+      ? `Tier "${tierId}" not found in plan "${planId}".`
+      : `Tier "${tierId}" not found.`;
+    super(message, "TIER_NOT_FOUND", {
       tierId,
-      planId,
+      ...(planId && { planId }),
     });
   }
 }
