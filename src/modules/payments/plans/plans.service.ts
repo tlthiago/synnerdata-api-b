@@ -269,9 +269,15 @@ export abstract class PlansService {
       throw new PlanHasActiveSubscriptionsError(planId);
     }
 
-    await db
-      .delete(schema.subscriptionPlans)
-      .where(eq(schema.subscriptionPlans.id, planId));
+    await db.transaction(async (tx) => {
+      await tx
+        .delete(schema.planPricingTiers)
+        .where(eq(schema.planPricingTiers.planId, planId));
+
+      await tx
+        .delete(schema.subscriptionPlans)
+        .where(eq(schema.subscriptionPlans.id, planId));
+    });
 
     return { deleted: true };
   }
