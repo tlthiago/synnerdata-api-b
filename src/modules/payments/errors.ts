@@ -120,6 +120,18 @@ export class PlanNotAvailableError extends PaymentError {
   }
 }
 
+export class TrialPlanAsBaseError extends PaymentError {
+  status = 400;
+
+  constructor(planId: string) {
+    super(
+      `Trial plans cannot be used as base for custom checkout: ${planId}`,
+      "TRIAL_PLAN_AS_BASE",
+      { planId }
+    );
+  }
+}
+
 export class YearlyBillingNotAvailableError extends PaymentError {
   status = 400;
 

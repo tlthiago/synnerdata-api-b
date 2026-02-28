@@ -21,8 +21,9 @@ const ENDPOINT = `${BASE_URL}/v1/payments/admin/checkout`;
 function buildPayload(overrides: Record<string, unknown> = {}) {
   return {
     organizationId: "org-placeholder",
-    planId: "plan-placeholder",
-    pricingTierId: "tier-placeholder",
+    basePlanId: "plan-placeholder",
+    minEmployees: 0,
+    maxEmployees: 25,
     billingCycle: "monthly",
     customPriceMonthly: 5000,
     successUrl: "https://app.example.com/success",
@@ -78,8 +79,6 @@ describe("POST /v1/payments/admin/checkout", () => {
 
   test("should return 403 for non-admin user", async () => {
     const { headers } = await UserFactory.create();
-
-    const tier = PlanFactory.getFirstTier(goldPlanResult);
     const org = await OrganizationFactory.create();
 
     const response = await app.handle(
@@ -89,8 +88,7 @@ describe("POST /v1/payments/admin/checkout", () => {
         body: JSON.stringify(
           buildPayload({
             organizationId: org.id,
-            planId: goldPlanResult.plan.id,
-            pricingTierId: tier.id,
+            basePlanId: goldPlanResult.plan.id,
           })
         ),
       })
@@ -120,7 +118,6 @@ describe("POST /v1/payments/admin/checkout", () => {
   test("should return 422 when customPriceMonthly is below 100 centavos", async () => {
     const { headers } = await UserFactory.createAdmin();
     const org = await OrganizationFactory.create();
-    const tier = PlanFactory.getFirstTier(goldPlanResult);
 
     const response = await app.handle(
       new Request(ENDPOINT, {
@@ -129,8 +126,7 @@ describe("POST /v1/payments/admin/checkout", () => {
         body: JSON.stringify(
           buildPayload({
             organizationId: org.id,
-            planId: goldPlanResult.plan.id,
-            pricingTierId: tier.id,
+            basePlanId: goldPlanResult.plan.id,
             customPriceMonthly: 50,
           })
         ),
@@ -142,18 +138,40 @@ describe("POST /v1/payments/admin/checkout", () => {
 
   test("should return 422 for missing required fields (no organizationId)", async () => {
     const { headers } = await UserFactory.createAdmin();
-    const tier = PlanFactory.getFirstTier(goldPlanResult);
 
     const response = await app.handle(
       new Request(ENDPOINT, {
         method: "POST",
         headers: { ...headers, "Content-Type": "application/json" },
         body: JSON.stringify({
-          planId: goldPlanResult.plan.id,
-          pricingTierId: tier.id,
+          basePlanId: goldPlanResult.plan.id,
+          minEmployees: 0,
+          maxEmployees: 25,
           customPriceMonthly: 5000,
           successUrl: "https://app.example.com/success",
         }),
+      })
+    );
+
+    expect(response.status).toBe(422);
+  });
+
+  test("should return 422 when maxEmployees <= minEmployees", async () => {
+    const { headers } = await UserFactory.createAdmin();
+    const org = await OrganizationFactory.create();
+
+    const response = await app.handle(
+      new Request(ENDPOINT, {
+        method: "POST",
+        headers: { ...headers, "Content-Type": "application/json" },
+        body: JSON.stringify(
+          buildPayload({
+            organizationId: org.id,
+            basePlanId: goldPlanResult.plan.id,
+            minEmployees: 10,
+            maxEmployees: 10,
+          })
+        ),
       })
     );
 
@@ -164,7 +182,6 @@ describe("POST /v1/payments/admin/checkout", () => {
 
   test("should return 404 for non-existent organization", async () => {
     const { headers } = await UserFactory.createAdmin();
-    const tier = PlanFactory.getFirstTier(goldPlanResult);
 
     const response = await app.handle(
       new Request(ENDPOINT, {
@@ -173,8 +190,7 @@ describe("POST /v1/payments/admin/checkout", () => {
         body: JSON.stringify(
           buildPayload({
             organizationId: "org-non-existent-id",
-            planId: goldPlanResult.plan.id,
-            pricingTierId: tier.id,
+            basePlanId: goldPlanResult.plan.id,
           })
         ),
       })
@@ -188,7 +204,6 @@ describe("POST /v1/payments/admin/checkout", () => {
   test("should return 400 when organization has active paid subscription", async () => {
     const { headers } = await UserFactory.createAdmin();
     const org = await OrganizationFactory.create();
-    const tier = PlanFactory.getFirstTier(goldPlanResult);
 
     await SubscriptionFactory.createActive(org.id, goldPlanResult.plan.id);
 
@@ -199,8 +214,7 @@ describe("POST /v1/payments/admin/checkout", () => {
         body: JSON.stringify(
           buildPayload({
             organizationId: org.id,
-            planId: goldPlanResult.plan.id,
-            pricingTierId: tier.id,
+            basePlanId: goldPlanResult.plan.id,
           })
         ),
       })
@@ -211,10 +225,9 @@ describe("POST /v1/payments/admin/checkout", () => {
     expect(body.error.code).toBe("SUBSCRIPTION_ALREADY_ACTIVE");
   });
 
-  test("should return 404 for non-existent plan", async () => {
+  test("should return 404 for non-existent plan (basePlanId)", async () => {
     const { headers } = await UserFactory.createAdmin();
     const org = await OrganizationFactory.create();
-    const tier = PlanFactory.getFirstTier(goldPlanResult);
 
     const response = await app.handle(
       new Request(ENDPOINT, {
@@ -223,8 +236,7 @@ describe("POST /v1/payments/admin/checkout", () => {
         body: JSON.stringify(
           buildPayload({
             organizationId: org.id,
-            planId: "plan-non-existent",
-            pricingTierId: tier.id,
+            basePlanId: "plan-non-existent",
           })
         ),
       })
@@ -238,7 +250,6 @@ describe("POST /v1/payments/admin/checkout", () => {
   test("should return 400 for inactive plan", async () => {
     const { headers } = await UserFactory.createAdmin();
     const org = await OrganizationFactory.create();
-    const tier = PlanFactory.getFirstTier(inactivePlanResult);
 
     const response = await app.handle(
       new Request(ENDPOINT, {
@@ -247,8 +258,7 @@ describe("POST /v1/payments/admin/checkout", () => {
         body: JSON.stringify(
           buildPayload({
             organizationId: org.id,
-            planId: inactivePlanResult.plan.id,
-            pricingTierId: tier.id,
+            basePlanId: inactivePlanResult.plan.id,
           })
         ),
       })
@@ -259,9 +269,11 @@ describe("POST /v1/payments/admin/checkout", () => {
     expect(body.error.code).toBe("PLAN_NOT_AVAILABLE");
   });
 
-  test("should return 404 for non-existent pricing tier", async () => {
+  test("should return 400 when basePlanId is a trial plan (TRIAL_PLAN_AS_BASE)", async () => {
     const { headers } = await UserFactory.createAdmin();
     const org = await OrganizationFactory.create();
+
+    await BillingProfileFactory.create({ organizationId: org.id });
 
     const response = await app.handle(
       new Request(ENDPOINT, {
@@ -270,22 +282,20 @@ describe("POST /v1/payments/admin/checkout", () => {
         body: JSON.stringify(
           buildPayload({
             organizationId: org.id,
-            planId: goldPlanResult.plan.id,
-            pricingTierId: "tier-non-existent",
+            basePlanId: trialPlanResult.plan.id,
           })
         ),
       })
     );
 
-    expect(response.status).toBe(404);
+    expect(response.status).toBe(400);
     const body = await response.json();
-    expect(body.error.code).toBe("PRICING_TIER_NOT_FOUND");
+    expect(body.error.code).toBe("TRIAL_PLAN_AS_BASE");
   });
 
   test("should return 400 when billing profile is missing and no billing data provided", async () => {
     const { headers } = await UserFactory.createAdmin();
     const org = await OrganizationFactory.create();
-    const tier = PlanFactory.getFirstTier(goldPlanResult);
 
     const response = await app.handle(
       new Request(ENDPOINT, {
@@ -294,8 +304,7 @@ describe("POST /v1/payments/admin/checkout", () => {
         body: JSON.stringify(
           buildPayload({
             organizationId: org.id,
-            planId: goldPlanResult.plan.id,
-            pricingTierId: tier.id,
+            basePlanId: goldPlanResult.plan.id,
           })
         ),
       })
@@ -313,7 +322,6 @@ describe("POST /v1/payments/admin/checkout", () => {
     async () => {
       const { headers } = await UserFactory.createAdmin();
       const org = await OrganizationFactory.create();
-      const tier = PlanFactory.getFirstTier(goldPlanResult);
 
       await BillingProfileFactory.create({ organizationId: org.id });
 
@@ -324,8 +332,9 @@ describe("POST /v1/payments/admin/checkout", () => {
           body: JSON.stringify(
             buildPayload({
               organizationId: org.id,
-              planId: goldPlanResult.plan.id,
-              pricingTierId: tier.id,
+              basePlanId: goldPlanResult.plan.id,
+              minEmployees: 0,
+              maxEmployees: 25,
               customPriceMonthly: 5000,
               notes: "Desconto negociado",
             })
@@ -336,15 +345,46 @@ describe("POST /v1/payments/admin/checkout", () => {
       expect(response.status).toBe(200);
 
       const body = await response.json();
+
       expect(body.success).toBe(true);
       expect(body.data.checkoutUrl).toBeString();
       expect(body.data.paymentLinkId).toBeString();
+      expect(body.data.privatePlanId).toStartWith("plan-");
+      expect(body.data.privateTierId).toStartWith("tier-");
       expect(body.data.customPriceMonthly).toBe(5000);
       expect(body.data.customPriceYearly).toBeNumber();
-      expect(body.data.catalogPriceMonthly).toBeNumber();
-      expect(body.data.catalogPriceYearly).toBeNumber();
-      expect(body.data.discountPercentage).toBeNumber();
+      expect(body.data.basePlanDisplayName).toBe(
+        goldPlanResult.plan.displayName
+      );
+      expect(body.data.minEmployees).toBe(0);
+      expect(body.data.maxEmployees).toBe(25);
       expect(body.data.expiresAt).toBeString();
+
+      // Verify private plan was created in DB
+      const [privatePlan] = await db
+        .select()
+        .from(schema.subscriptionPlans)
+        .where(eq(schema.subscriptionPlans.id, body.data.privatePlanId))
+        .limit(1);
+
+      expect(privatePlan).toBeDefined();
+      expect(privatePlan.isPublic).toBe(false);
+      expect(privatePlan.isTrial).toBe(false);
+      expect(privatePlan.isActive).toBe(true);
+
+      // Verify private tier was created in DB
+      const [privateTier] = await db
+        .select()
+        .from(schema.planPricingTiers)
+        .where(eq(schema.planPricingTiers.id, body.data.privateTierId))
+        .limit(1);
+
+      expect(privateTier).toBeDefined();
+      expect(privateTier.planId).toBe(body.data.privatePlanId);
+      expect(privateTier.minEmployees).toBe(0);
+      expect(privateTier.maxEmployees).toBe(25);
+      expect(privateTier.priceMonthly).toBe(5000);
+      expect(privateTier.priceYearly).toBeNumber();
 
       // Verify pending checkout was saved
       const [checkout] = await db
@@ -357,8 +397,8 @@ describe("POST /v1/payments/admin/checkout", () => {
 
       expect(checkout).toBeDefined();
       expect(checkout.organizationId).toBe(org.id);
-      expect(checkout.planId).toBe(goldPlanResult.plan.id);
-      expect(checkout.pricingTierId).toBe(tier.id);
+      expect(checkout.planId).toBe(body.data.privatePlanId);
+      expect(checkout.pricingTierId).toBe(body.data.privateTierId);
       expect(checkout.status).toBe("pending");
       expect(checkout.customPriceMonthly).toBe(5000);
       expect(checkout.customPriceYearly).toBeNumber();
@@ -373,7 +413,6 @@ describe("POST /v1/payments/admin/checkout", () => {
     async () => {
       const { headers } = await UserFactory.createAdmin();
       const org = await OrganizationFactory.create();
-      const tier = PlanFactory.getFirstTier(goldPlanResult);
 
       const response = await app.handle(
         new Request(ENDPOINT, {
@@ -382,8 +421,9 @@ describe("POST /v1/payments/admin/checkout", () => {
           body: JSON.stringify(
             buildPayload({
               organizationId: org.id,
-              planId: goldPlanResult.plan.id,
-              pricingTierId: tier.id,
+              basePlanId: goldPlanResult.plan.id,
+              minEmployees: 0,
+              maxEmployees: 25,
               customPriceMonthly: 3000,
               billing: buildBillingData(),
             })
@@ -396,7 +436,14 @@ describe("POST /v1/payments/admin/checkout", () => {
       const body = await response.json();
       expect(body.success).toBe(true);
       expect(body.data.checkoutUrl).toBeString();
+      expect(body.data.privatePlanId).toStartWith("plan-");
+      expect(body.data.privateTierId).toStartWith("tier-");
       expect(body.data.customPriceMonthly).toBe(3000);
+      expect(body.data.basePlanDisplayName).toBe(
+        goldPlanResult.plan.displayName
+      );
+      expect(body.data.minEmployees).toBe(0);
+      expect(body.data.maxEmployees).toBe(25);
 
       // Verify billing profile was created
       const [profile] = await db
@@ -416,7 +463,6 @@ describe("POST /v1/payments/admin/checkout", () => {
     async () => {
       const { headers } = await UserFactory.createAdmin();
       const org = await OrganizationFactory.create();
-      const tier = PlanFactory.getFirstTier(goldPlanResult);
 
       await BillingProfileFactory.create({ organizationId: org.id });
       await SubscriptionFactory.createTrial(org.id, trialPlanResult.plan.id);
@@ -428,8 +474,9 @@ describe("POST /v1/payments/admin/checkout", () => {
           body: JSON.stringify(
             buildPayload({
               organizationId: org.id,
-              planId: goldPlanResult.plan.id,
-              pricingTierId: tier.id,
+              basePlanId: goldPlanResult.plan.id,
+              minEmployees: 0,
+              maxEmployees: 25,
             })
           ),
         })
@@ -440,6 +487,104 @@ describe("POST /v1/payments/admin/checkout", () => {
       const body = await response.json();
       expect(body.success).toBe(true);
       expect(body.data.checkoutUrl).toBeString();
+      expect(body.data.privatePlanId).toStartWith("plan-");
+      expect(body.data.privateTierId).toStartWith("tier-");
+      expect(body.data.basePlanDisplayName).toBe(
+        goldPlanResult.plan.displayName
+      );
+    },
+    15_000
+  );
+
+  test.skipIf(skipIntegration)(
+    "should create checkout with custom range above catalog (min=0, max=500)",
+    async () => {
+      const { headers } = await UserFactory.createAdmin();
+      const org = await OrganizationFactory.create();
+
+      await BillingProfileFactory.create({ organizationId: org.id });
+
+      const response = await app.handle(
+        new Request(ENDPOINT, {
+          method: "POST",
+          headers: { ...headers, "Content-Type": "application/json" },
+          body: JSON.stringify(
+            buildPayload({
+              organizationId: org.id,
+              basePlanId: goldPlanResult.plan.id,
+              minEmployees: 0,
+              maxEmployees: 500,
+              customPriceMonthly: 200_000,
+            })
+          ),
+        })
+      );
+
+      expect(response.status).toBe(200);
+
+      const body = await response.json();
+      expect(body.success).toBe(true);
+      expect(body.data.checkoutUrl).toBeString();
+      expect(body.data.privatePlanId).toStartWith("plan-");
+      expect(body.data.privateTierId).toStartWith("tier-");
+      expect(body.data.minEmployees).toBe(0);
+      expect(body.data.maxEmployees).toBe(500);
+      expect(body.data.customPriceMonthly).toBe(200_000);
+
+      // Verify private tier has the custom range
+      const [privateTier] = await db
+        .select()
+        .from(schema.planPricingTiers)
+        .where(eq(schema.planPricingTiers.id, body.data.privateTierId))
+        .limit(1);
+
+      expect(privateTier).toBeDefined();
+      expect(privateTier.minEmployees).toBe(0);
+      expect(privateTier.maxEmployees).toBe(500);
+    },
+    15_000
+  );
+
+  test.skipIf(skipIntegration)(
+    "should create private plan with base plan features (verify DB limits)",
+    async () => {
+      const { headers } = await UserFactory.createAdmin();
+      const org = await OrganizationFactory.create();
+
+      await BillingProfileFactory.create({ organizationId: org.id });
+
+      const response = await app.handle(
+        new Request(ENDPOINT, {
+          method: "POST",
+          headers: { ...headers, "Content-Type": "application/json" },
+          body: JSON.stringify(
+            buildPayload({
+              organizationId: org.id,
+              basePlanId: goldPlanResult.plan.id,
+              minEmployees: 0,
+              maxEmployees: 50,
+              customPriceMonthly: 10_000,
+            })
+          ),
+        })
+      );
+
+      expect(response.status).toBe(200);
+
+      const body = await response.json();
+      expect(body.success).toBe(true);
+
+      // Verify private plan inherits base plan's limits/features
+      const [privatePlan] = await db
+        .select()
+        .from(schema.subscriptionPlans)
+        .where(eq(schema.subscriptionPlans.id, body.data.privatePlanId))
+        .limit(1);
+
+      expect(privatePlan).toBeDefined();
+      expect(privatePlan.isPublic).toBe(false);
+      expect(privatePlan.isTrial).toBe(false);
+      expect(privatePlan.limits).toEqual(goldPlanResult.plan.limits);
     },
     15_000
   );
@@ -451,7 +596,6 @@ describe("POST /v1/payments/admin/checkout", () => {
 
     const { headers } = await UserFactory.createAdmin();
     const org = await OrganizationFactory.create();
-    const tier = PlanFactory.getFirstTier(goldPlanResult);
 
     await BillingProfileFactory.create({ organizationId: org.id });
 
@@ -467,8 +611,7 @@ describe("POST /v1/payments/admin/checkout", () => {
         body: JSON.stringify(
           buildPayload({
             organizationId: org.id,
-            planId: goldPlanResult.plan.id,
-            pricingTierId: tier.id,
+            basePlanId: goldPlanResult.plan.id,
           })
         ),
       })
