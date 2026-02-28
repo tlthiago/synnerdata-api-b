@@ -1,0 +1,26 @@
+name: Permissions Sync
+
+on:
+  pull_request:
+    branches: ['**']
+    paths:
+      - 'src/lib/permissions.ts'
+
+jobs:
+  check-sync:
+    name: Check permissions sync
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout backend
+        uses: actions/checkout@v4
+
+      - name: Checkout frontend
+        uses: actions/checkout@v4
+        with:
+          repository: tlthiago/synnerdata-web-n
+          path: synnerdata-web-n
+          sparse-checkout: src/lib/permissions.ts
+          sparse-checkout-cone-mode: false
+
+      - name: Compare permissions
+        run: ./scripts/check-permissions-sync.sh synnerdata-web-n/src/lib/permissions.ts src/lib/permissions.ts
