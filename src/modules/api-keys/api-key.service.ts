@@ -1,4 +1,3 @@
-import { APIError } from "better-auth/api";
 import { auth } from "@/lib/auth";
 import { DEFAULT_API_KEY_PERMISSIONS } from "@/lib/permissions";
 import type {
@@ -129,7 +128,7 @@ export abstract class ApiKeyService {
         createdAt: result.createdAt.toISOString(),
       };
     } catch (error) {
-      if (error instanceof APIError && error.status === "NOT_FOUND") {
+      if (isBetterAuthNotFound(error)) {
         throw new ApiKeyNotFoundError(keyId);
       }
       throw error;
@@ -153,7 +152,7 @@ export abstract class ApiKeyService {
         revoked: true,
       };
     } catch (error) {
-      if (error instanceof APIError && error.status === "NOT_FOUND") {
+      if (isBetterAuthNotFound(error)) {
         throw new ApiKeyNotFoundError(keyId);
       }
       throw error;
@@ -174,10 +173,18 @@ export abstract class ApiKeyService {
         deleted: true,
       };
     } catch (error) {
-      if (error instanceof APIError && error.status === "NOT_FOUND") {
+      if (isBetterAuthNotFound(error)) {
         throw new ApiKeyNotFoundError(keyId);
       }
       throw error;
     }
   }
+}
+
+function isBetterAuthNotFound(error: unknown): boolean {
+  return (
+    error instanceof Error &&
+    error.name === "APIError" &&
+    (error as unknown as { statusCode: number }).statusCode === 404
+  );
 }
