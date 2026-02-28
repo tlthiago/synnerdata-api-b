@@ -36,6 +36,13 @@
       "when": 1772280354671,
       "tag": "0004_cuddly_captain_britain",
       "breakpoints": true
+    },
+    {
+      "idx": 5,
+      "version": "7",
+      "when": 1772290889342,
+      "tag": "0005_dry_namora",
+      "breakpoints": true
     }
   ]
 }

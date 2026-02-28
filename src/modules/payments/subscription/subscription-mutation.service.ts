@@ -72,6 +72,8 @@ export abstract class SubscriptionMutationService {
     const updatedSubscription = await updateById(subscription.id, {
       cancelAtPeriodEnd: true,
       canceledAt: new Date(),
+      cancelReason: reason ?? null,
+      cancelComment: comment ?? null,
     });
 
     if (updatedSubscription) {

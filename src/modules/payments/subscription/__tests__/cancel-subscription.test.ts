@@ -327,7 +327,7 @@ describe("POST /v1/payments/subscription/cancel", () => {
     cancelSubscriptionSpy.mockRestore();
   });
 
-  test("should store reason and comment in audit log when provided", async () => {
+  test("should store reason and comment in subscription and audit log", async () => {
     const { headers, organizationId } =
       await UserFactory.createWithOrganization({
         emailVerified: true,
@@ -358,7 +358,19 @@ describe("POST /v1/payments/subscription/cancel", () => {
     expect(body.success).toBe(true);
     expect(body.data.cancelAtPeriodEnd).toBe(true);
 
-    // Verify audit log was created with reason and comment
+    // Verify reason and comment persisted in subscription
+    const [subscription] = await db
+      .select()
+      .from(schema.orgSubscriptions)
+      .where(eq(schema.orgSubscriptions.organizationId, organizationId))
+      .limit(1);
+
+    expect(subscription.cancelReason).toBe("too_expensive");
+    expect(subscription.cancelComment).toBe(
+      "O plano ficou caro para o porte da empresa"
+    );
+
+    // Verify audit log was also created
     const auditLogs = await db
       .select()
       .from(schema.auditLogs)
@@ -400,6 +412,16 @@ describe("POST /v1/payments/subscription/cancel", () => {
     const body = await response.json();
     expect(body.success).toBe(true);
     expect(body.data.cancelAtPeriodEnd).toBe(true);
+
+    // Verify subscription has null reason/comment
+    const [subscription] = await db
+      .select()
+      .from(schema.orgSubscriptions)
+      .where(eq(schema.orgSubscriptions.organizationId, organizationId))
+      .limit(1);
+
+    expect(subscription.cancelReason).toBeNull();
+    expect(subscription.cancelComment).toBeNull();
 
     // No audit log should be created when reason/comment are not provided
     const auditLogs = await db
