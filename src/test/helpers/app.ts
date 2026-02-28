@@ -5,6 +5,7 @@ import { betterAuthPlugin } from "@/lib/auth-plugin";
 import { errorPlugin } from "@/lib/errors/error-plugin";
 import { healthPlugin } from "@/lib/health";
 import { loggerPlugin } from "@/lib/logger";
+import { adminOrganizationsController } from "@/modules/admin-organizations";
 import { apiKeysController } from "@/modules/api-keys";
 import { auditController } from "@/modules/audit";
 import { employeeController } from "@/modules/employees";
@@ -32,6 +33,7 @@ export function createTestApp() {
     .use(paymentsController)
     .use(auditController)
     .use(apiKeysController)
+    .use(adminOrganizationsController)
     .get("/", ({ redirect }) => redirect("/health"));
 }
 
