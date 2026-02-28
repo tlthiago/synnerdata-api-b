@@ -21,35 +21,54 @@ const billingDataSchema = z.object({
   zipCode: z.string().length(8).describe("ZIP code (CEP)"),
 });
 
-export const createAdminCheckoutSchema = z.object({
-  organizationId: z.string().min(1).describe("Target organization ID"),
-  planId: z.string().min(1).describe("Plan ID"),
-  pricingTierId: z.string().min(1).describe("Pricing tier ID"),
-  billingCycle: z
-    .enum(["monthly", "yearly"])
-    .default("monthly")
-    .describe("Billing cycle"),
-  customPriceMonthly: z
-    .number()
-    .int()
-    .min(100, "Minimum price is 100 centavos (R$ 1.00)")
-    .describe("Custom monthly price in centavos"),
-  successUrl: (isProduction ? z.httpUrl() : z.url()).describe(
-    "URL to redirect after successful payment"
-  ),
-  notes: z
-    .string()
-    .max(500)
-    .optional()
-    .describe("Admin notes (discount reason, contract info)"),
-  billing: billingDataSchema
-    .optional()
-    .describe("Billing data -- required if org has no billing profile"),
-});
+export const createAdminCheckoutSchema = z
+  .object({
+    organizationId: z.string().min(1).describe("Target organization ID"),
+    basePlanId: z
+      .string()
+      .min(1)
+      .describe("Base plan ID (public, active, non-trial) to inherit features"),
+    minEmployees: z
+      .number()
+      .int()
+      .min(0)
+      .describe("Minimum employees in custom tier"),
+    maxEmployees: z
+      .number()
+      .int()
+      .min(1)
+      .describe("Maximum employees in custom tier"),
+    billingCycle: z
+      .enum(["monthly", "yearly"])
+      .default("monthly")
+      .describe("Billing cycle"),
+    customPriceMonthly: z
+      .number()
+      .int()
+      .min(100, "Minimum price is 100 centavos (R$ 1.00)")
+      .describe("Custom monthly price in centavos"),
+    successUrl: (isProduction ? z.httpUrl() : z.url()).describe(
+      "URL to redirect after successful payment"
+    ),
+    notes: z
+      .string()
+      .max(500)
+      .optional()
+      .describe("Admin notes (discount reason, contract info)"),
+    billing: billingDataSchema
+      .optional()
+      .describe("Billing data -- required if org has no billing profile"),
+  })
+  .refine((data) => data.maxEmployees > data.minEmployees, {
+    message: "maxEmployees must be greater than minEmployees",
+    path: ["maxEmployees"],
+  });
 
 const adminCheckoutDataSchema = z.object({
   checkoutUrl: z.url().describe("Payment link URL"),
   paymentLinkId: z.string().describe("Pagar.me payment link ID"),
+  privatePlanId: z.string().describe("Created private plan ID"),
+  privateTierId: z.string().describe("Created private tier ID"),
   customPriceMonthly: z
     .number()
     .int()
@@ -58,17 +77,9 @@ const adminCheckoutDataSchema = z.object({
     .number()
     .int()
     .describe("Custom yearly price (centavos)"),
-  catalogPriceMonthly: z
-    .number()
-    .int()
-    .describe("Catalog monthly price (centavos)"),
-  catalogPriceYearly: z
-    .number()
-    .int()
-    .describe("Catalog yearly price (centavos)"),
-  discountPercentage: z
-    .number()
-    .describe("Discount percentage compared to catalog"),
+  basePlanDisplayName: z.string().describe("Base plan display name"),
+  minEmployees: z.number().int().describe("Custom tier min employees"),
+  maxEmployees: z.number().int().describe("Custom tier max employees"),
   expiresAt: z.string().describe("Checkout link expiration (ISO 8601)"),
 });
 

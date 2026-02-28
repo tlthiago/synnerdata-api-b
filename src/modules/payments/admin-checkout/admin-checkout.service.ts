@@ -7,6 +7,7 @@ import { CustomerService } from "@/modules/payments/customer/customer.service";
 import {
   BillingProfileRequiredError,
   OrganizationNotFoundError,
+  TrialPlanAsBaseError,
 } from "@/modules/payments/errors";
 import {
   PAGARME_RETRY_CONFIG,
@@ -31,8 +32,9 @@ export abstract class AdminCheckoutService {
     const {
       organizationId,
       adminUserId,
-      planId,
-      pricingTierId,
+      basePlanId,
+      minEmployees,
+      maxEmployees,
       billingCycle = "monthly",
       customPriceMonthly,
       successUrl,
@@ -54,9 +56,12 @@ export abstract class AdminCheckoutService {
     // 2. Validate no active paid subscription
     await SubscriptionService.ensureNoPaidSubscription(organizationId);
 
-    // 3. Validate plan + tier
-    const plan = await PlansService.getAvailableById(planId);
-    const tier = await PlansService.getTierById(pricingTierId);
+    // 3. Validate base plan (must be active, non-trial)
+    const basePlan = await PlansService.getAvailableById(basePlanId);
+
+    if (basePlan.isTrial) {
+      throw new TrialPlanAsBaseError(basePlanId);
+    }
 
     // 4. Handle billing profile
     await AdminCheckoutService.ensureBillingProfile(organizationId, billing);
@@ -70,23 +75,53 @@ export abstract class AdminCheckoutService {
     const effectivePrice =
       billingCycle === "monthly" ? customPriceMonthly : customPriceYearly;
 
-    // 7. Create custom Pagarme plan
+    // 7. Create private plan + tier in transaction
+    const privatePlanId = `plan-${crypto.randomUUID()}`;
+    const privateTierId = `tier-${crypto.randomUUID()}`;
+    const timestamp = Date.now();
+    const privatePlanName = `custom-${basePlan.name}-${organizationId}-${timestamp}`;
+
+    await db.transaction(async (tx) => {
+      await tx.insert(schema.subscriptionPlans).values({
+        id: privatePlanId,
+        name: privatePlanName,
+        displayName: basePlan.displayName,
+        description: `Custom plan based on ${basePlan.displayName} for org ${organizationId}`,
+        trialDays: 0,
+        limits: basePlan.limits,
+        isActive: true,
+        isPublic: false,
+        isTrial: false,
+        sortOrder: basePlan.sortOrder,
+      });
+
+      await tx.insert(schema.planPricingTiers).values({
+        id: privateTierId,
+        planId: privatePlanId,
+        minEmployees,
+        maxEmployees,
+        priceMonthly: customPriceMonthly,
+        priceYearly: customPriceYearly,
+      });
+    });
+
+    // 8. Create custom Pagarme plan
     const pagarmePlanId = await PagarmePlanService.createCustomPlan({
-      plan: { id: plan.id, name: plan.name, displayName: plan.displayName },
-      tier: {
-        id: tier.id,
-        minEmployees: tier.minEmployees,
-        maxEmployees: tier.maxEmployees,
+      plan: {
+        id: privatePlanId,
+        name: basePlan.name,
+        displayName: basePlan.displayName,
       },
+      tier: { id: privateTierId, minEmployees, maxEmployees },
       billingCycle,
       price: effectivePrice,
     });
 
-    // 8. Create payment link
-    const tierLabel = `${tier.minEmployees}-${tier.maxEmployees} funcionarios`;
+    // 9. Create payment link
+    const tierLabel = `${minEmployees}-${maxEmployees} funcionarios`;
     const paymentLinkData: CreatePaymentLinkRequest = {
       type: "subscription",
-      name: `${plan.displayName} (${tierLabel})${billingCycle === "yearly" ? " - Anual" : ""} [Custom]`,
+      name: `${basePlan.displayName} (${tierLabel})${billingCycle === "yearly" ? " - Anual" : ""} [Custom]`,
       payment_settings: {
         accepted_payment_methods: ["credit_card"],
         credit_card_settings: {
@@ -105,8 +140,8 @@ export abstract class AdminCheckoutService {
       max_paid_sessions: 1,
       metadata: {
         organization_id: organizationId,
-        plan_id: planId,
-        pricing_tier_id: tier.id,
+        plan_id: privatePlanId,
+        pricing_tier_id: privateTierId,
         billing_cycle: billingCycle,
         is_custom_price: "true",
         custom_price_monthly: String(customPriceMonthly),
@@ -121,20 +156,20 @@ export abstract class AdminCheckoutService {
       () =>
         PagarmeClient.createPaymentLink(
           paymentLinkData,
-          `admin-checkout-${organizationId}-${planId}-${Date.now()}`
+          `admin-checkout-${organizationId}-${privatePlanId}-${Date.now()}`
         ),
       PAGARME_RETRY_CONFIG.WRITE
     );
 
-    // 9. Save pending checkout
+    // 10. Save pending checkout
     const expiresAt = new Date();
     expiresAt.setHours(expiresAt.getHours() + CHECKOUT_EXPIRATION_HOURS);
 
     await db.insert(schema.pendingCheckouts).values({
       id: `checkout-${crypto.randomUUID()}`,
       organizationId,
-      planId,
-      pricingTierId: tier.id,
+      planId: privatePlanId,
+      pricingTierId: privateTierId,
       billingCycle,
       paymentLinkId: paymentLink.id,
       status: "pending",
@@ -146,25 +181,17 @@ export abstract class AdminCheckoutService {
       pagarmePlanId,
     });
 
-    // 10. Calculate comparison data
-    const catalogPriceMonthly = tier.priceMonthly;
-    const catalogPriceYearly = tier.priceYearly;
-    const discountPercentage =
-      catalogPriceMonthly > 0
-        ? Math.round(
-            ((catalogPriceMonthly - customPriceMonthly) / catalogPriceMonthly) *
-              10_000
-          ) / 100
-        : 0;
-
+    // 11. Return checkout data
     return {
       checkoutUrl: paymentLink.url,
       paymentLinkId: paymentLink.id,
+      privatePlanId,
+      privateTierId,
       customPriceMonthly,
       customPriceYearly,
-      catalogPriceMonthly,
-      catalogPriceYearly,
-      discountPercentage,
+      basePlanDisplayName: basePlan.displayName,
+      minEmployees,
+      maxEmployees,
       expiresAt: expiresAt.toISOString(),
     };
   }
