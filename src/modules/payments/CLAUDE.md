@@ -57,7 +57,7 @@ CANCELED/EXPIRED → sem recuperação
 - `subscription:update` — checkout, cancelar, restaurar, trocar plano
 - `billing:read` — perfil, faturas, usage
 - `billing:update` — criar/atualizar perfil, atualizar cartão
-- `requireAdmin` — admin checkout com preço customizado, reajuste de preços (individual e bulk)
+- `requireAdmin` — admin checkout com preço customizado, reajuste de preços (individual e bulk), provisioning de organizações
 
 ## Orphaned Plans
 
@@ -77,3 +77,4 @@ Quando `replaceTiers()` substitui tiers, os tiers antigos são arquivados (soft 
 - **Email** → notificações de subscription/payment/price-adjustment
 - **Jobs/Cron** → tarefas diárias de expiração
 - **price-adjustment** → reajuste de preço individual ou em massa (admin only)
+- **admin-provision** → provisionamento de user + org (trial ou checkout) pelo admin, com audit trail

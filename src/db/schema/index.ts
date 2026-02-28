@@ -1,5 +1,9 @@
 import { absenceRelations, absences } from "./absences";
 import { accidentRelations, accidents } from "./accidents";
+import {
+  adminOrgProvisionRelations,
+  adminOrgProvisions,
+} from "./admin-org-provisions";
 import { auditLogRelations, auditLogs } from "./audit";
 import {
   accountRelations,
@@ -118,6 +122,7 @@ export const schema = {
   pendingCheckouts,
   pagarmePlanHistory,
   priceAdjustments,
+  adminOrgProvisions,
   auditLogs,
 };
 
@@ -163,11 +168,17 @@ export const fullSchema = {
   pendingCheckoutRelations,
   pagarmePlanHistoryRelations,
   priceAdjustmentRelations,
+  adminOrgProvisionRelations,
   auditLogRelations,
 };
 
 export type { Absence, NewAbsence } from "./absences";
 export type { Accident, NewAccident } from "./accidents";
+export type {
+  AdminOrgProvision,
+  NewAdminOrgProvision,
+} from "./admin-org-provisions";
+export { provisionStatusEnum, provisionTypeEnum } from "./admin-org-provisions";
 export type { AuditLog, NewAuditLog } from "./audit";
 export type { Role, SystemRole } from "./auth";
 export { roleValues, systemRoleValues } from "./auth";

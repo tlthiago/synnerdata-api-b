@@ -892,6 +892,58 @@ export async function sendCheckoutLinkEmail(
 }
 
 // ============================================================
+// ACCOUNT ACTIVATION EMAIL (admin-provisioned users)
+// ============================================================
+
+type AccountActivationEmailParams = {
+  email: string;
+  url: string;
+  userName: string;
+};
+
+export async function sendAccountActivationEmail(
+  params: AccountActivationEmailParams
+): Promise<void> {
+  const { email, url, userName } = params;
+
+  const html = `
+    <div style="font-family: Arial, sans-serif; max-width: 600px; margin: 0 auto; padding: 20px;">
+      <h1 style="color: #333;">Ative sua conta — Synnerdata</h1>
+
+      <p>Olá <strong>${userName}</strong>,</p>
+
+      <p>Sua conta foi criada no Synnerdata. Clique no botão abaixo para definir sua senha e começar a usar.</p>
+
+      <p>
+        <a href="${url}"
+           style="display: inline-block; background: #007bff; color: white; padding: 12px 24px; text-decoration: none; border-radius: 4px;">
+          Definir Senha e Ativar Conta
+        </a>
+      </p>
+
+      <hr style="border: 1px solid #eee; margin: 20px 0;">
+
+      <p style="color: #999; font-size: 12px;">
+        Se o botão não funcionar, copie e cole este link: ${url}
+      </p>
+      <p style="color: #999; font-size: 12px;">
+        Este link expira em 1 hora. Se você não esperava este email, ignore-o.
+      </p>
+
+      <p style="color: #999; font-size: 12px;">
+        Equipe Synnerdata
+      </p>
+    </div>
+  `;
+
+  await sendEmail({
+    to: email,
+    subject: "Ative sua conta — Synnerdata",
+    html,
+  });
+}
+
+// ============================================================
 // ORGANIZATION INVITATION EMAIL
 // ============================================================
 

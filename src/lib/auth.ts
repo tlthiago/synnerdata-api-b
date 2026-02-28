@@ -21,6 +21,7 @@ import { logger } from "@/lib/logger";
 import { AuditService } from "@/modules/audit/audit.service";
 import { SubscriptionService } from "@/modules/payments/subscription/subscription.service";
 import {
+  sendAccountActivationEmail,
   sendOrganizationInvitationEmail,
   sendPasswordResetEmail,
   sendTwoFactorOTPEmail,
@@ -274,7 +275,26 @@ export const auth = betterAuth({
     minPasswordLength: 8,
     maxPasswordLength: 128,
     async sendResetPassword({ user, url }) {
-      await sendPasswordResetEmail({ email: user.email, url });
+      const provision = await db.query.adminOrgProvisions?.findFirst({
+        where: and(
+          eq(schema.adminOrgProvisions.userId, user.id),
+          eq(schema.adminOrgProvisions.status, "pending_activation")
+        ),
+      });
+
+      if (provision) {
+        await sendAccountActivationEmail({
+          email: user.email,
+          url,
+          userName: user.name,
+        });
+        await db
+          .update(schema.adminOrgProvisions)
+          .set({ activationUrl: url, activationSentAt: new Date() })
+          .where(eq(schema.adminOrgProvisions.id, provision.id));
+      } else {
+        await sendPasswordResetEmail({ email: user.email, url });
+      }
     },
     revokeSessionsOnPasswordReset: true,
   },
@@ -372,6 +392,20 @@ export const auth = betterAuth({
         },
         after: async (session) => {
           await auditLogin(session);
+
+          // Mark admin-provisioned account as active on first login
+          await db
+            .update(schema.adminOrgProvisions)
+            .set({ status: "active", activatedAt: new Date() })
+            .where(
+              and(
+                eq(schema.adminOrgProvisions.userId, session.userId),
+                eq(schema.adminOrgProvisions.status, "pending_activation")
+              )
+            )
+            .catch(() => {
+              // Silently ignore — should not affect normal login flow
+            });
         },
       },
     },
