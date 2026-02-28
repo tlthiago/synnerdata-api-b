@@ -18,8 +18,8 @@ export const adminOrgProvisions = pgTable(
   "admin_org_provisions",
   {
     id: text("id").primaryKey(),
-    userId: text("user_id"),
-    organizationId: text("organization_id"),
+    userId: text("user_id").notNull(),
+    organizationId: text("organization_id").notNull(),
     type: provisionTypeEnum("type").notNull(),
     status: provisionStatusEnum("status")
       .default("pending_activation")

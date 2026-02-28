@@ -64,6 +64,13 @@
       "when": 1772313050852,
       "tag": "0008_boring_ironclad",
       "breakpoints": true
+    },
+    {
+      "idx": 9,
+      "version": "7",
+      "when": 1772313700041,
+      "tag": "0009_chunky_magus",
+      "breakpoints": true
     }
   ]
 }
