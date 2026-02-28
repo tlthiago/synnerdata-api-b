@@ -153,7 +153,7 @@ describe("POST /v1/payments/subscription/cancel", () => {
     expect(body.data.currentPeriodEnd).toBeDefined();
   });
 
-  test("should cancel trial subscription", async () => {
+  test("should reject canceling trial subscription", async () => {
     const { headers, organizationId } =
       await UserFactory.createWithOrganization({
         emailVerified: true,
@@ -161,7 +161,7 @@ describe("POST /v1/payments/subscription/cancel", () => {
 
     await SubscriptionFactory.createTrial(
       organizationId,
-      diamondPlanResult.plan.id
+      trialPlanResult.plan.id
     );
 
     const response = await app.handle(
@@ -171,11 +171,9 @@ describe("POST /v1/payments/subscription/cancel", () => {
       })
     );
 
-    expect(response.status).toBe(200);
-
+    expect(response.status).toBe(400);
     const body = await response.json();
-    expect(body.success).toBe(true);
-    expect(body.data.cancelAtPeriodEnd).toBe(true);
+    expect(body.error.code).toBe("TRIAL_NOT_CANCELLABLE");
   });
 
   test("should keep original status when canceling active subscription", async () => {
@@ -209,13 +207,12 @@ describe("POST /v1/payments/subscription/cancel", () => {
     expect(subscription.canceledAt).toBeInstanceOf(Date);
   });
 
-  test("should keep original status when canceling trial subscription", async () => {
+  test("should reject canceling trial plan subscription even when status is active", async () => {
     const { headers, organizationId } =
       await UserFactory.createWithOrganization({
         emailVerified: true,
       });
 
-    // Trial subscriptions have status "active" in DB (trial is determined by plan.isTrial)
     await SubscriptionFactory.create(organizationId, trialPlanResult.plan.id, {
       status: "active",
       trialDays: 14,
@@ -228,18 +225,9 @@ describe("POST /v1/payments/subscription/cancel", () => {
       })
     );
 
-    expect(response.status).toBe(200);
-
-    const [subscription] = await db
-      .select()
-      .from(schema.orgSubscriptions)
-      .where(eq(schema.orgSubscriptions.organizationId, organizationId))
-      .limit(1);
-
-    // Status remains "active" in DB (trial is not a status, it's determined by plan.isTrial)
-    expect(subscription.status).toBe("active");
-    expect(subscription.cancelAtPeriodEnd).toBe(true);
-    expect(subscription.canceledAt).toBeInstanceOf(Date);
+    expect(response.status).toBe(400);
+    const body = await response.json();
+    expect(body.error.code).toBe("TRIAL_NOT_CANCELLABLE");
   });
 
   test("should not call Pagarme immediately (soft cancel)", async () => {

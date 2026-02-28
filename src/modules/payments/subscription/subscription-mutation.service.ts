@@ -6,6 +6,7 @@ import {
   SubscriptionNotCancelableError,
   SubscriptionNotFoundError,
   SubscriptionNotRestorableError,
+  TrialNotCancellableError,
 } from "@/modules/payments/errors";
 import { PaymentHooks } from "@/modules/payments/hooks";
 import {
@@ -43,6 +44,7 @@ export abstract class SubscriptionMutationService {
    * @param input - Contains organizationId
    * @returns Cancel data with cancelAtPeriodEnd and currentPeriodEnd
    * @throws SubscriptionNotFoundError if no subscription exists
+   * @throws TrialNotCancellableError if subscription is a trial
    * @throws SubscriptionNotCancelableError if subscription cannot be canceled
    */
   static async cancel(
@@ -58,8 +60,11 @@ export abstract class SubscriptionMutationService {
 
     const { subscription, plan } = result;
 
-    // Can cancel if active OR if it's a trial plan
-    const canCancel = subscription.status === "active" || plan.isTrial;
+    if (plan.isTrial) {
+      throw new TrialNotCancellableError(organizationId);
+    }
+
+    const canCancel = subscription.status === "active";
     if (!canCancel) {
       throw new SubscriptionNotCancelableError(subscription.status);
     }

@@ -59,7 +59,7 @@ describe("GET /v1/payments/billing/invoices", () => {
     expect(body.error.code).toBe("SUBSCRIPTION_NOT_FOUND");
   });
 
-  test("should return empty invoices for trial subscription", async () => {
+  test("should return 400 for trial subscription", async () => {
     const userResult = await UserFactory.createWithOrganization();
 
     await SubscriptionFactory.createTrial(
@@ -74,11 +74,9 @@ describe("GET /v1/payments/billing/invoices", () => {
       })
     );
 
-    expect(response.status).toBe(200);
+    expect(response.status).toBe(400);
     const body = await response.json();
-    expect(body.success).toBe(true);
-    expect(body.data.invoices).toEqual([]);
-    expect(body.data.total).toBe(0);
+    expect(body.error.code).toBe("BILLING_NOT_AVAILABLE_FOR_TRIAL");
   });
 
   test.skipIf(skipIntegration)(
@@ -119,12 +117,23 @@ describe("GET /v1/payments/billing/invoices", () => {
   );
 
   test("should accept pagination parameters", async () => {
+    const { PagarmeClient } = await import("../../pagarme/client");
+
     const userResult = await UserFactory.createWithOrganization();
 
-    await SubscriptionFactory.createTrial(
+    await SubscriptionFactory.createActive(
       userResult.organizationId,
-      trialPlanId
+      trialPlanId,
+      { pagarmeSubscriptionId: "sub_pagination_test" }
     );
+
+    const getInvoicesSpy = spyOn(
+      PagarmeClient,
+      "getInvoices"
+    ).mockResolvedValueOnce({
+      data: [],
+      paging: { total: 0 },
+    } as never);
 
     const response = await app.handle(
       new Request(`${BASE_URL}/v1/payments/billing/invoices?page=2&limit=10`, {
@@ -137,15 +146,28 @@ describe("GET /v1/payments/billing/invoices", () => {
     const body = await response.json();
     expect(body.data.page).toBe(2);
     expect(body.data.limit).toBe(10);
+
+    getInvoicesSpy.mockRestore();
   });
 
   test("should use default pagination when not provided", async () => {
+    const { PagarmeClient } = await import("../../pagarme/client");
+
     const userResult = await UserFactory.createWithOrganization();
 
-    await SubscriptionFactory.createTrial(
+    await SubscriptionFactory.createActive(
       userResult.organizationId,
-      trialPlanId
+      trialPlanId,
+      { pagarmeSubscriptionId: "sub_default_pagination_test" }
     );
+
+    const getInvoicesSpy = spyOn(
+      PagarmeClient,
+      "getInvoices"
+    ).mockResolvedValueOnce({
+      data: [],
+      paging: { total: 0 },
+    } as never);
 
     const response = await app.handle(
       new Request(`${BASE_URL}/v1/payments/billing/invoices`, {
@@ -158,6 +180,8 @@ describe("GET /v1/payments/billing/invoices", () => {
     const body = await response.json();
     expect(body.data.page).toBe(1);
     expect(body.data.limit).toBe(20);
+
+    getInvoicesSpy.mockRestore();
   });
 
   test.each([
