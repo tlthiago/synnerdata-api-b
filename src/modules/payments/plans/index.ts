@@ -12,6 +12,7 @@ import {
   createPlanSchema,
   deletePlanResponseSchema,
   getPlanResponseSchema,
+  listArchivedTiersResponseSchema,
   listPlansResponseSchema,
   planIdParamsSchema,
   updatePlanResponseSchema,
@@ -71,6 +72,26 @@ export const plansProtectedController = new Elysia({
         summary: "Get plan details (Admin)",
         description:
           "Returns details of a specific plan with its pricing tiers. Requires admin privileges.",
+      },
+    }
+  )
+  .get(
+    "/:id/archived-tiers",
+    async ({ params }) =>
+      wrapSuccess(await PlansService.listArchivedTiers(params.id)),
+    {
+      auth: { requireAdmin: true },
+      params: planIdParamsSchema,
+      response: {
+        200: listArchivedTiersResponseSchema,
+        401: unauthorizedErrorSchema,
+        403: forbiddenErrorSchema,
+        404: notFoundErrorSchema,
+      },
+      detail: {
+        summary: "List archived pricing tiers (Admin)",
+        description:
+          "Returns archived pricing tiers for a plan with the count of active subscriptions still referencing each tier. Requires admin privileges.",
       },
     }
   )

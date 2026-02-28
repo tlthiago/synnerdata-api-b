@@ -503,6 +503,22 @@ export class TierNotFoundError extends PaymentError {
   }
 }
 
+export class TiersInUseError extends PaymentError {
+  status = 409;
+
+  constructor(
+    activeSubscriptions: number,
+    pendingCheckouts: number,
+    pendingChanges: number
+  ) {
+    super(
+      `Cannot delete tiers: ${activeSubscriptions} active subscription(s), ${pendingCheckouts} pending checkout(s), ${pendingChanges} pending plan change(s) reference current tiers.`,
+      "TIERS_IN_USE",
+      { activeSubscriptions, pendingCheckouts, pendingChanges }
+    );
+  }
+}
+
 // Billing Profile Errors
 
 export class BillingProfileNotFoundError extends PaymentError {

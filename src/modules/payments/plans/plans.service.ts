@@ -1,4 +1,4 @@
-import { and, eq, ne } from "drizzle-orm";
+import { and, count, desc, eq, isNotNull, isNull, ne } from "drizzle-orm";
 import { db } from "@/db";
 import { schema } from "@/db/schema";
 import {
@@ -19,6 +19,7 @@ import { PagarmePlanHistoryService } from "@/modules/payments/pagarme/pagarme-pl
 
 import { calculateYearlyPrice, TRIAL_TIER } from "./plans.constants";
 import type {
+  ArchivedTierData,
   CreatePlanData,
   CreatePlanInput,
   DeletePlanData,
@@ -47,6 +48,7 @@ export abstract class PlansService {
     const tiers = await db
       .select()
       .from(schema.planPricingTiers)
+      .where(isNull(schema.planPricingTiers.archivedAt))
       .orderBy(schema.planPricingTiers.minEmployees);
 
     const tiersByPlan = PlansService.groupTiersByPlan(tiers);
@@ -67,6 +69,7 @@ export abstract class PlansService {
     const tiers = await db
       .select()
       .from(schema.planPricingTiers)
+      .where(isNull(schema.planPricingTiers.archivedAt))
       .orderBy(schema.planPricingTiers.minEmployees);
 
     const tiersByPlan = PlansService.groupTiersByPlan(tiers);
@@ -92,7 +95,12 @@ export abstract class PlansService {
     const tiers = await db
       .select()
       .from(schema.planPricingTiers)
-      .where(eq(schema.planPricingTiers.planId, planId))
+      .where(
+        and(
+          eq(schema.planPricingTiers.planId, planId),
+          isNull(schema.planPricingTiers.archivedAt)
+        )
+      )
       .orderBy(schema.planPricingTiers.minEmployees);
 
     return PlansService.mapPlanWithTiers(plan, tiers);
@@ -109,7 +117,6 @@ export abstract class PlansService {
   }
 
   static async getTrialPlan(): Promise<PlanWithTiersData> {
-    const { desc } = await import("drizzle-orm");
     const [plan] = await db
       .select()
       .from(schema.subscriptionPlans)
@@ -124,7 +131,12 @@ export abstract class PlansService {
     const tiers = await db
       .select()
       .from(schema.planPricingTiers)
-      .where(eq(schema.planPricingTiers.planId, plan.id))
+      .where(
+        and(
+          eq(schema.planPricingTiers.planId, plan.id),
+          isNull(schema.planPricingTiers.archivedAt)
+        )
+      )
       .orderBy(schema.planPricingTiers.minEmployees);
 
     return PlansService.mapPlanWithTiers(plan, tiers);
@@ -264,6 +276,63 @@ export abstract class PlansService {
     return { deleted: true };
   }
 
+  static async listArchivedTiers(planId: string): Promise<ArchivedTierData[]> {
+    const [plan] = await db
+      .select({ id: schema.subscriptionPlans.id })
+      .from(schema.subscriptionPlans)
+      .where(eq(schema.subscriptionPlans.id, planId))
+      .limit(1);
+
+    if (!plan) {
+      throw new PlanNotFoundError(planId);
+    }
+
+    const tiers = await db
+      .select({
+        id: schema.planPricingTiers.id,
+        minEmployees: schema.planPricingTiers.minEmployees,
+        maxEmployees: schema.planPricingTiers.maxEmployees,
+        priceMonthly: schema.planPricingTiers.priceMonthly,
+        priceYearly: schema.planPricingTiers.priceYearly,
+        archivedAt: schema.planPricingTiers.archivedAt,
+      })
+      .from(schema.planPricingTiers)
+      .where(
+        and(
+          eq(schema.planPricingTiers.planId, planId),
+          isNotNull(schema.planPricingTiers.archivedAt)
+        )
+      )
+      .orderBy(schema.planPricingTiers.archivedAt);
+
+    const tiersWithCounts = await Promise.all(
+      tiers.map(async (tier) => {
+        const [countResult] = await db
+          .select({ value: count() })
+          .from(schema.orgSubscriptions)
+          .where(
+            and(
+              eq(schema.orgSubscriptions.pricingTierId, tier.id),
+              ne(schema.orgSubscriptions.status, "canceled"),
+              ne(schema.orgSubscriptions.status, "expired")
+            )
+          );
+
+        return {
+          id: tier.id,
+          minEmployees: tier.minEmployees,
+          maxEmployees: tier.maxEmployees,
+          priceMonthly: tier.priceMonthly,
+          priceYearly: tier.priceYearly,
+          archivedAt: (tier.archivedAt as Date).toISOString(),
+          activeSubscriptionCount: countResult?.value ?? 0,
+        };
+      })
+    );
+
+    return tiersWithCounts;
+  }
+
   private static validateTierRanges(
     tiers: TierPriceInput[],
     isTrial: boolean
@@ -371,19 +440,43 @@ export abstract class PlansService {
     planId: string,
     tiers: TierPriceInput[]
   ): Promise<PricingTierData[]> {
+    const now = new Date();
+
+    // 1. Archive old tiers (soft delete) instead of hard delete
     const oldTiers = await tx
       .select({ id: schema.planPricingTiers.id })
       .from(schema.planPricingTiers)
-      .where(eq(schema.planPricingTiers.planId, planId));
+      .where(
+        and(
+          eq(schema.planPricingTiers.planId, planId),
+          isNull(schema.planPricingTiers.archivedAt)
+        )
+      );
 
-    for (const oldTier of oldTiers) {
-      await PagarmePlanHistoryService.deactivateByTierId(oldTier.id);
+    if (oldTiers.length > 0) {
+      await tx
+        .update(schema.planPricingTiers)
+        .set({ archivedAt: now })
+        .where(
+          and(
+            eq(schema.planPricingTiers.planId, planId),
+            isNull(schema.planPricingTiers.archivedAt)
+          )
+        );
     }
 
-    await tx
-      .delete(schema.planPricingTiers)
-      .where(eq(schema.planPricingTiers.planId, planId));
+    // 2. Deactivate Pagar.me plans only for tiers without active subscriptions
+    for (const oldTier of oldTiers) {
+      const hasActiveReferences = await PlansService.tierHasActiveReferences(
+        tx,
+        oldTier.id
+      );
+      if (!hasActiveReferences) {
+        await PagarmePlanHistoryService.deactivateByTierId(oldTier.id);
+      }
+    }
 
+    // 3. Create new tier records
     const tierRecords = tiers.map((tier) => ({
       id: `tier-${crypto.randomUUID()}`,
       planId,
@@ -407,6 +500,50 @@ export abstract class PlansService {
     }));
   }
 
+  private static async tierHasActiveReferences(
+    tx: Parameters<Parameters<typeof db.transaction>[0]>[0],
+    tierId: string
+  ): Promise<boolean> {
+    const [subRef] = await tx
+      .select({ id: schema.orgSubscriptions.id })
+      .from(schema.orgSubscriptions)
+      .where(
+        and(
+          eq(schema.orgSubscriptions.pricingTierId, tierId),
+          ne(schema.orgSubscriptions.status, "canceled"),
+          ne(schema.orgSubscriptions.status, "expired")
+        )
+      )
+      .limit(1);
+
+    if (subRef) {
+      return true;
+    }
+
+    const [pendingRef] = await tx
+      .select({ id: schema.orgSubscriptions.id })
+      .from(schema.orgSubscriptions)
+      .where(eq(schema.orgSubscriptions.pendingPricingTierId, tierId))
+      .limit(1);
+
+    if (pendingRef) {
+      return true;
+    }
+
+    const [checkoutRef] = await tx
+      .select({ id: schema.pendingCheckouts.id })
+      .from(schema.pendingCheckouts)
+      .where(
+        and(
+          eq(schema.pendingCheckouts.pricingTierId, tierId),
+          eq(schema.pendingCheckouts.status, "pending")
+        )
+      )
+      .limit(1);
+
+    return !!checkoutRef;
+  }
+
   private static async getExistingTiers(
     tx: Parameters<Parameters<typeof db.transaction>[0]>[0],
     planId: string
@@ -414,7 +551,12 @@ export abstract class PlansService {
     const tiers = await tx
       .select()
       .from(schema.planPricingTiers)
-      .where(eq(schema.planPricingTiers.planId, planId))
+      .where(
+        and(
+          eq(schema.planPricingTiers.planId, planId),
+          isNull(schema.planPricingTiers.archivedAt)
+        )
+      )
       .orderBy(schema.planPricingTiers.minEmployees);
 
     return tiers.map((t) => ({
@@ -495,7 +637,12 @@ export abstract class PlansService {
     const [tier] = await db
       .select()
       .from(schema.planPricingTiers)
-      .where(eq(schema.planPricingTiers.id, tierId))
+      .where(
+        and(
+          eq(schema.planPricingTiers.id, tierId),
+          isNull(schema.planPricingTiers.archivedAt)
+        )
+      )
       .limit(1);
 
     if (!tier) {

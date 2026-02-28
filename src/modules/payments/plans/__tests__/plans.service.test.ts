@@ -1,4 +1,7 @@
 import { describe, expect, test } from "bun:test";
+import { eq } from "drizzle-orm";
+import { db } from "@/db";
+import { schema } from "@/db/schema";
 import {
   PlanNotAvailableError,
   PlanNotFoundError,
@@ -74,6 +77,27 @@ describe("PlansService", () => {
 
     test("should throw PricingTierNotFoundError for non-existent tier", () => {
       expect(() => PlansService.getTierById("tier-non-existent-id")).toThrow();
+    });
+
+    test("should throw for archived tier", async () => {
+      const { plan } = await PlanFactory.createPaid("gold");
+
+      // Get the tier ID before archiving
+      const originalTiers = await db
+        .select()
+        .from(schema.planPricingTiers)
+        .where(eq(schema.planPricingTiers.planId, plan.id));
+
+      const tierToArchive = originalTiers[0];
+
+      // Archive the tier (simulate what replaceTiers does)
+      await db
+        .update(schema.planPricingTiers)
+        .set({ archivedAt: new Date() })
+        .where(eq(schema.planPricingTiers.id, tierToArchive.id));
+
+      // getTierById should not find archived tiers
+      expect(() => PlansService.getTierById(tierToArchive.id)).toThrow();
     });
   });
 });

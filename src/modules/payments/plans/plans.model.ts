@@ -140,3 +140,25 @@ export type GetPlanData = PlanWithTiersData;
 export type CreatePlanData = PlanWithTiersData;
 export type UpdatePlanData = PlanWithTiersData;
 export type DeletePlanData = z.infer<typeof deletePlanDataSchema>;
+
+export const archivedTierDataSchema = z.object({
+  id: z.string(),
+  minEmployees: z.number(),
+  maxEmployees: z.number(),
+  priceMonthly: z.number(),
+  priceYearly: z.number(),
+  archivedAt: z.string().datetime(),
+  activeSubscriptionCount: z.number(),
+});
+
+export type ArchivedTierData = z.infer<typeof archivedTierDataSchema>;
+
+export const listArchivedTiersDataSchema = z.array(archivedTierDataSchema);
+export type ListArchivedTiersData = z.infer<typeof listArchivedTiersDataSchema>;
+
+export const listArchivedTiersResponseSchema = successResponseSchema(
+  listArchivedTiersDataSchema
+);
+export type ListArchivedTiersResponse = z.infer<
+  typeof listArchivedTiersResponseSchema
+>;
