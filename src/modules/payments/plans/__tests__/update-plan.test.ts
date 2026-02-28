@@ -36,12 +36,14 @@ describe("PUT /payments/plans/:id", () => {
   });
 
   afterAll(async () => {
-    // Cleanup: delete subscriptions, pricing tiers, and plans created during tests
+    // Cleanup: delete subscriptions, pagarme history, pricing tiers, and plans created during tests
     if (createdPlanIds.length > 0) {
-      // Delete subscriptions first (FK restrict on pricingTierId)
       await db
         .delete(schema.orgSubscriptions)
         .where(inArray(schema.orgSubscriptions.planId, createdPlanIds));
+      await db
+        .delete(schema.pagarmePlanHistory)
+        .where(inArray(schema.pagarmePlanHistory.localPlanId, createdPlanIds));
       await db
         .delete(schema.planPricingTiers)
         .where(inArray(schema.planPricingTiers.planId, createdPlanIds));
