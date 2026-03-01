@@ -68,7 +68,7 @@ const memberDataSchema = z.object({
 
 const profileDataSchema = z.object({
   tradeName: z.string(),
-  legalName: z.string(),
+  legalName: z.string().nullable(),
   taxId: z.string().nullable(),
   email: z.string().nullable(),
   phone: z.string().nullable(),
