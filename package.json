@@ -75,7 +75,7 @@
   "module": "src/index.js",
   "lint-staged": {
     "*.{js,jsx,ts,tsx,json,jsonc,css,scss,md,mdx}": [
-      "bun x ultracite fix"
+      "bun x ultracite check"
     ]
   },
   "config": {
