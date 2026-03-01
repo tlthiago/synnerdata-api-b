@@ -44,7 +44,7 @@ export function PlanChangeExecutedEmail({
 
       <Hr className="my-5 border-gray-200" />
 
-      <Text className="mb-4 text-base text-gray-600">
+      <Text className="mb-4 text-base text-gray-600 leading-6">
         Você agora tem acesso a todos os recursos do plano {newPlanName}!
       </Text>
 

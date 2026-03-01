@@ -51,7 +51,7 @@ export function OrganizationInvitationEmail({
 
       <Hr className="my-5 border-gray-200" />
 
-      <Text className="mb-4 text-base text-gray-600">
+      <Text className="mb-4 text-base text-gray-600 leading-6">
         Clique no botão abaixo para aceitar o convite:
       </Text>
 
