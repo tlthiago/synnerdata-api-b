@@ -209,6 +209,129 @@ describe("OrganizationService", () => {
     });
   });
 
+  describe("createMinimalProfile", () => {
+    test("should create profile with tradeName only", async () => {
+      const org = await createOrganizationWithoutProfile();
+
+      await OrganizationService.createMinimalProfile(org.id, org.name);
+
+      const [profile] = await db
+        .select()
+        .from(schema.organizationProfiles)
+        .where(eq(schema.organizationProfiles.organizationId, org.id))
+        .limit(1);
+
+      expect(profile).toBeDefined();
+      expect(profile.id).toStartWith("profile-");
+      expect(profile.tradeName).toBe(org.name);
+      expect(profile.legalName).toBeNull();
+      expect(profile.taxId).toBeNull();
+      expect(profile.phone).toBeNull();
+      expect(profile.mobile).toBeNull();
+      expect(profile.email).toBeNull();
+    });
+
+    test("should be idempotent — return silently if profile already exists", async () => {
+      const org = await createTestOrganization({ tradeName: "Original Name" });
+
+      await OrganizationService.createMinimalProfile(org.id, "New Name");
+
+      const [profile] = await db
+        .select()
+        .from(schema.organizationProfiles)
+        .where(eq(schema.organizationProfiles.organizationId, org.id))
+        .limit(1);
+
+      expect(profile.tradeName).toBe("Original Name");
+    });
+  });
+
+  describe("enrichProfile", () => {
+    test("should fill null fields with provided data", async () => {
+      const org = await createOrganizationWithoutProfile();
+      await OrganizationService.createMinimalProfile(org.id, org.name);
+
+      await OrganizationService.enrichProfile(org.id, {
+        legalName: "Enriched Legal Name",
+        taxId: generateUniqueTaxId(),
+        email: "enriched@example.com",
+        phone: "11888888888",
+        street: "Rua Teste",
+        number: "123",
+        city: "São Paulo",
+        state: "SP",
+        zipCode: "01001000",
+      });
+
+      const profile = await OrganizationService.getProfile(org.id);
+
+      expect(profile?.legalName).toBe("Enriched Legal Name");
+      expect(profile?.email).toBe("enriched@example.com");
+      expect(profile?.phone).toBe("11888888888");
+      expect(profile?.mobile).toBe("11888888888");
+      expect(profile?.street).toBe("Rua Teste");
+      expect(profile?.number).toBe("123");
+      expect(profile?.city).toBe("São Paulo");
+      expect(profile?.state).toBe("SP");
+      expect(profile?.zipCode).toBe("01001000");
+    });
+
+    test("should not overwrite fields that already have values", async () => {
+      const existingTaxId = generateUniqueTaxId();
+      const org = await createTestOrganization({
+        tradeName: "Existing Company",
+        legalName: "Existing Legal",
+        taxId: existingTaxId,
+        phone: "11999999999",
+        email: "existing@example.com",
+      });
+
+      await OrganizationService.enrichProfile(org.id, {
+        legalName: "Should Not Overwrite",
+        taxId: "99999999999999",
+        email: "should-not@example.com",
+        phone: "21888888888",
+        street: "New Street",
+      });
+
+      const profile = await OrganizationService.getProfile(org.id);
+
+      expect(profile?.legalName).toBe("Existing Legal");
+      expect(profile?.taxId).toBe(existingTaxId);
+      expect(profile?.email).toBe("existing@example.com");
+      expect(profile?.phone).toBe("11999999999");
+      expect(profile?.street).toBe("New Street");
+    });
+
+    test("should do nothing if profile does not exist", async () => {
+      await OrganizationService.enrichProfile("non-existent-org-id", {
+        legalName: "Test",
+      });
+
+      // Should not throw
+    });
+
+    test("should do nothing if all fields already have values", async () => {
+      const org = await createTestOrganization({
+        tradeName: "Full Company",
+        legalName: "Full Legal",
+        taxId: generateUniqueTaxId(),
+        phone: "11999999999",
+        email: "full@example.com",
+      });
+
+      await OrganizationService.enrichProfile(org.id, {
+        legalName: "New Legal",
+        email: "new@example.com",
+      });
+
+      const profile = await OrganizationService.getProfile(org.id);
+
+      expect(profile?.legalName).toBe("Full Legal");
+      expect(profile?.email).toBe("full@example.com");
+    });
+  });
+
   describe("setCustomerId", () => {
     test("should update pagarmeCustomerId for existing profile", async () => {
       const org = await createTestOrganization();

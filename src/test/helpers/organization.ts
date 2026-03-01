@@ -187,23 +187,22 @@ export async function createOrganizationViaApi(
   const body = await response.json();
   const organizationId = body.id;
 
-  // Create organization profile (Better Auth doesn't create it automatically)
-  const profileId = `profile-${crypto.randomUUID()}`;
-  // Generate unique taxId using timestamp and random to avoid conflicts
+  // Update the auto-created minimal profile with test data
   const uniqueTaxId =
     options.taxId ??
     `${Date.now()}${Math.floor(Math.random() * 1_000_000)}`.slice(0, 14);
 
-  await db.insert(schema.organizationProfiles).values({
-    id: profileId,
-    organizationId,
-    tradeName: options.tradeName ?? `Test Company ${testId.slice(0, 8)}`,
-    legalName: options.legalName ?? `Test Legal Name ${testId.slice(0, 8)}`,
-    taxId: uniqueTaxId,
-    phone: options.phone ?? "11999999999",
-    mobile: options.phone ?? "11999999999",
-    email: options.email ?? `org-${testId}@example.com`,
-  });
+  await db
+    .update(schema.organizationProfiles)
+    .set({
+      tradeName: options.tradeName ?? `Test Company ${testId.slice(0, 8)}`,
+      legalName: options.legalName ?? `Test Legal Name ${testId.slice(0, 8)}`,
+      taxId: uniqueTaxId,
+      phone: options.phone ?? "11999999999",
+      mobile: options.phone ?? "11999999999",
+      email: options.email ?? `org-${testId}@example.com`,
+    })
+    .where(eq(schema.organizationProfiles.organizationId, organizationId));
 
   return {
     organizationId,

@@ -471,7 +471,21 @@ export const auth = betterAuth({
           organization: Organization;
           member: { userId: string };
         }) => {
+          const { OrganizationService } = await import(
+            "@/modules/organizations/profile/organization.service"
+          );
+
           await SubscriptionService.createTrial(org.id);
+
+          OrganizationService.createMinimalProfile(org.id, org.name).catch(
+            (error) => {
+              logger.error({
+                type: "organization:auto-profile:failed",
+                organizationId: org.id,
+                error: error instanceof Error ? error.message : String(error),
+              });
+            }
+          );
 
           auditOrganizationCreate(org, member.userId).catch((error) => {
             logger.error({

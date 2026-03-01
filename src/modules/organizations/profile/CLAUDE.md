@@ -11,6 +11,23 @@ Metadata, dados fiscais e configurações da organização. Relação 1:1 com or
 - Sem soft delete — profiles são permanentes
 - Alterações em `taxId` e `email` geram log no `AuditService`
 
+## Auto-criação no Onboarding
+
+Profile mínimo é criado automaticamente quando a organização é criada:
+- **Signup normal**: `afterCreateOrganization` hook em `auth.ts` chama `createMinimalProfile()` (fire-and-forget)
+- **Admin provision**: `createOrganizationForUser()` em `admin-provision.service.ts` chama `createMinimalProfile()` (await)
+- Dados: `tradeName = org.name`, demais campos null
+- Idempotente: retorna silenciosamente se perfil já existe
+- Usuário preenche os dados progressivamente via `PUT /profile`
+
+## Enriquecimento via Billing Profile
+
+Quando o billing profile é criado ou atualizado, campos **null** do org profile são preenchidos automaticamente:
+- `enrichProfile()` recebe dados do billing e preenche apenas campos que são `null`
+- Nunca sobrescreve dados que o usuário já preencheu manualmente
+- Propagação é fire-and-forget (falha não bloqueia o billing)
+- Campos propagados: `legalName`, `taxId`, `email`, `phone`/`mobile`, endereço completo
+
 ## Billing Integration
 
 - `pagarmeCustomerId` armazena ID do cliente no Pagar.me

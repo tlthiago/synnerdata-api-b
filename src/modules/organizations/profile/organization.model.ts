@@ -178,7 +178,7 @@ export type OrganizationData = {
 export type CreateProfileData = {
   tradeName: string;
   legalName?: string;
-  taxId: string;
-  phone: string;
+  taxId?: string;
+  phone?: string;
   email?: string;
 };

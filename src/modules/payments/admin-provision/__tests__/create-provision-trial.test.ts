@@ -240,5 +240,19 @@ describe("POST /v1/payments/admin/provisions/trial", () => {
     expect(provision.createdBy).toBe(adminUser.id);
     expect(provision.activationUrl).toBeString();
     expect(provision.activationSentAt).toBeDefined();
+
+    // Verify organization profile auto-created
+    const [orgProfile] = await db
+      .select()
+      .from(schema.organizationProfiles)
+      .where(
+        eq(schema.organizationProfiles.organizationId, data.organizationId)
+      )
+      .limit(1);
+
+    expect(orgProfile).toBeDefined();
+    expect(orgProfile.tradeName).toBe(payload.organizationName);
+    expect(orgProfile.legalName).toBeNull();
+    expect(orgProfile.taxId).toBeNull();
   });
 });

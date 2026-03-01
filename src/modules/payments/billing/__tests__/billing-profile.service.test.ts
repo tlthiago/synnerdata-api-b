@@ -252,4 +252,113 @@ describe("BillingService - Profile Methods", () => {
       expect(result).toBe(customerId);
     });
   });
+
+  describe("createProfile — org profile propagation", () => {
+    test("should propagate billing data to null org profile fields", async () => {
+      const { schema } = await import("@/db/schema");
+      const org = await OrganizationFactory.create();
+
+      // Reset org profile fields to null (simulating minimal profile)
+      await db
+        .update(schema.organizationProfiles)
+        .set({
+          legalName: null,
+          taxId: null,
+          email: null,
+          phone: null,
+          mobile: null,
+          street: null,
+        })
+        .where(eq(schema.organizationProfiles.organizationId, org.id));
+
+      const input = {
+        legalName: faker.company.name(),
+        taxId: generateCnpj(),
+        email: faker.internet.email(),
+        phone: generateMobile(),
+      };
+
+      await BillingService.createProfile(org.id, input);
+
+      // Wait for fire-and-forget propagation
+      await new Promise((resolve) => setTimeout(resolve, 200));
+
+      const [orgProfile] = await db
+        .select()
+        .from(schema.organizationProfiles)
+        .where(eq(schema.organizationProfiles.organizationId, org.id))
+        .limit(1);
+
+      expect(orgProfile.legalName).toBe(input.legalName);
+      expect(orgProfile.taxId).toBe(input.taxId);
+      expect(orgProfile.email).toBe(input.email);
+      expect(orgProfile.phone).toBe(input.phone);
+      expect(orgProfile.mobile).toBe(input.phone);
+    });
+
+    test("should not overwrite existing org profile fields", async () => {
+      const existingTaxId = `${Date.now()}`.slice(0, 14);
+      const org = await OrganizationFactory.create({
+        legalName: "Existing Legal Name",
+        taxId: existingTaxId,
+      });
+
+      const input = {
+        legalName: "New Billing Legal Name",
+        taxId: generateCnpj(),
+        email: faker.internet.email(),
+        phone: generateMobile(),
+      };
+
+      await BillingService.createProfile(org.id, input);
+
+      // Wait for fire-and-forget propagation
+      await new Promise((resolve) => setTimeout(resolve, 200));
+
+      const { schema } = await import("@/db/schema");
+      const [orgProfile] = await db
+        .select()
+        .from(schema.organizationProfiles)
+        .where(eq(schema.organizationProfiles.organizationId, org.id))
+        .limit(1);
+
+      // Existing values should be preserved
+      expect(orgProfile.legalName).toBe("Existing Legal Name");
+      expect(orgProfile.taxId).toBe(existingTaxId);
+    });
+  });
+
+  describe("updateProfile — org profile propagation", () => {
+    test("should propagate updated billing data to null org profile fields", async () => {
+      const { schema } = await import("@/db/schema");
+      const org = await OrganizationFactory.create();
+      await BillingProfileFactory.create({ organizationId: org.id });
+
+      // Reset org profile fields to null
+      await db
+        .update(schema.organizationProfiles)
+        .set({
+          legalName: null,
+          taxId: null,
+          email: null,
+          phone: null,
+          mobile: null,
+        })
+        .where(eq(schema.organizationProfiles.organizationId, org.id));
+
+      const newLegalName = faker.company.name();
+      await BillingService.updateProfile(org.id, { legalName: newLegalName });
+
+      // Wait for fire-and-forget propagation
+      await new Promise((resolve) => setTimeout(resolve, 200));
+
+      const [orgProfile] = await db
+        .select()
+        .from(schema.organizationProfiles)
+        .where(eq(schema.organizationProfiles.organizationId, org.id))
+        .limit(1);
+
+      expect(orgProfile.legalName).toBe(newLegalName);
+    });
+  });
 });

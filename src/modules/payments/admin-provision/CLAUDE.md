@@ -1,6 +1,6 @@
 # Admin Provision Module
 
-Provisionamento de organizações pelo admin: criação de user + org + subscription (trial ou checkout com pagamento).
+Provisionamento de organizações pelo admin: criação de user + org + subscription + profile mínimo (trial ou checkout com pagamento).
 
 ## Endpoints
 
@@ -29,7 +29,7 @@ CHECKOUT:
 
 ## Decisões Arquiteturais
 
-- **Criação de org via Drizzle direto** — `auth.api.createOrganization()` não funciona para admin porque `allowUserToCreateOrganization` bloqueia roles `admin`/`super_admin`. A função `createOrganizationForUser()` insere org + member diretamente e chama `SubscriptionService.createTrial()`.
+- **Criação de org via Drizzle direto** — `auth.api.createOrganization()` não funciona para admin porque `allowUserToCreateOrganization` bloqueia roles `admin`/`super_admin`. A função `createOrganizationForUser()` insere org + member diretamente, chama `SubscriptionService.createTrial()` e `OrganizationService.createMinimalProfile()`.
 - **`auth.api.createUser()` requer headers admin** — a API do Better Auth admin precisa de sessão autenticada. Os headers são passados do controller → service.
 - **Sem FK constraints na tabela `admin_org_provisions`** — `userId` e `organizationId` são colunas text simples (sem FK). Isso garante que o registro de provisão (audit trail) sobreviva ao hard delete de org/user.
 - **Ativação via `requestPasswordReset`** — o email de ativação usa o fluxo de reset de senha do Better Auth. O listener em `hooks/listeners.ts` intercepta o evento e salva a URL na provisão.
