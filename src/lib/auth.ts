@@ -300,6 +300,10 @@ export const auth = betterAuth({
   },
   emailVerification: {
     async sendVerificationEmail({ user, url }) {
+      // Admin/super_admin já são criados com emailVerified: true — não enviar
+      if (user.emailVerified) {
+        return;
+      }
       await sendVerificationEmailFn({ email: user.email, url });
     },
     sendOnSignUp: true,
