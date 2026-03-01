@@ -14,15 +14,15 @@ export function WelcomeEmail({ userName }: WelcomeEmailProps) {
         Bem-vindo ao Synnerdata!
       </Heading>
 
-      <Text className="text-gray-600 text-sm leading-6">
+      <Text className="text-base text-gray-600 leading-6">
         Olá <strong>{userName}</strong>,
       </Text>
 
-      <Text className="text-gray-600 text-sm leading-6">
+      <Text className="text-base text-gray-600 leading-6">
         Estamos muito felizes em ter você conosco!
       </Text>
 
-      <Text className="text-gray-600 text-sm leading-6">
+      <Text className="text-base text-gray-600 leading-6">
         Sua conta foi criada com sucesso e você já pode começar a explorar todos
         os recursos da plataforma.
       </Text>
@@ -31,13 +31,13 @@ export function WelcomeEmail({ userName }: WelcomeEmailProps) {
         Próximos passos
       </Heading>
 
-      <Text className="text-gray-600 text-sm leading-6">
+      <Text className="text-base text-gray-600 leading-6">
         - Complete seu perfil
       </Text>
-      <Text className="text-gray-600 text-sm leading-6">
+      <Text className="text-base text-gray-600 leading-6">
         - Crie sua primeira organização
       </Text>
-      <Text className="text-gray-600 text-sm leading-6">
+      <Text className="text-base text-gray-600 leading-6">
         - Explore os recursos disponíveis no seu plano
       </Text>
 

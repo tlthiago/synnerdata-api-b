@@ -176,5 +176,6 @@ describe("payment email templates", () => {
     expect(html).toContain("Pro");
     expect(html).toContain("https://checkout.stripe.com/abc");
     expect(html).toContain("Continuar Pagamento");
+    expect(html).toContain("copie e cole");
   });
 });
