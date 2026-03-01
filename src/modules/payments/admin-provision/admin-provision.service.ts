@@ -130,7 +130,7 @@ export abstract class AdminProvisionService {
     const { user: createdUser } = await auth.api.createUser({
       body: {
         email: ownerEmail,
-        password: crypto.randomUUID(),
+        password: `P@${crypto.randomUUID()}`,
         name: ownerName,
         role: "user",
       },
@@ -241,7 +241,7 @@ export abstract class AdminProvisionService {
     const { user: createdUser } = await auth.api.createUser({
       body: {
         email: ownerEmail,
-        password: crypto.randomUUID(),
+        password: `P@${crypto.randomUUID()}`,
         name: ownerName,
         role: "user",
       },

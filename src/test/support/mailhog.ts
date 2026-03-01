@@ -450,7 +450,7 @@ export type PaymentFailedEmailData = {
 };
 
 const PAYMENT_FAILED_SUBJECT_PATTERN = "Falha no Pagamento";
-const PAYMENT_FAILED_ERROR_REGEX = /<strong>Motivo:<\/strong>\s*([^<]+)<\/p>/i;
+const PAYMENT_FAILED_ERROR_REGEX = />Motivo:\s*(?:<!--\s*-->)?\s*([^<]+)<\/p>/i;
 const PAYMENT_FAILED_PLAN_NAME_REGEX =
   /Falha no Pagamento\s*-\s*([^-]+)\s*-\s*Synnerdata/i;
 
