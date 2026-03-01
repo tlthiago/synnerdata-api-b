@@ -1,6 +1,7 @@
 import { betterAuth } from "better-auth";
 import { drizzleAdapter } from "better-auth/adapters/drizzle";
 import { APIError } from "better-auth/api";
+import { hashPassword, verifyPassword } from "better-auth/crypto";
 import { apiKey, openAPI } from "better-auth/plugins";
 import { admin } from "better-auth/plugins/admin";
 import {
@@ -28,6 +29,7 @@ import {
   sendVerificationEmail as sendVerificationEmailFn,
   sendWelcomeEmail,
 } from "./email";
+import { validatePasswordComplexity } from "./password-complexity";
 import { orgAc, orgRoles, systemAc, systemRoles } from "./permissions";
 
 const isTest = process.env.NODE_ENV === "test";
@@ -297,6 +299,13 @@ export const auth = betterAuth({
       }
     },
     revokeSessionsOnPasswordReset: true,
+    password: {
+      async hash(password) {
+        validatePasswordComplexity(password);
+        return await hashPassword(password);
+      },
+      verify: ({ password, hash }) => verifyPassword({ password, hash }),
+    },
   },
   emailVerification: {
     async sendVerificationEmail({ user, url }) {
