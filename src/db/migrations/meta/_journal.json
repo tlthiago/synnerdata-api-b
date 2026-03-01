@@ -71,6 +71,13 @@
       "when": 1772313700041,
       "tag": "0009_chunky_magus",
       "breakpoints": true
+    },
+    {
+      "idx": 10,
+      "version": "7",
+      "when": 1772322923597,
+      "tag": "0010_special_ultimates",
+      "breakpoints": true
     }
   ]
 }

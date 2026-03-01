@@ -8,6 +8,7 @@ Perfil de cobrança, faturas, cartões e tracking de uso.
 - CNPJ validado (14-18 chars)
 - Sync com Pagar.me: se `pagarmeCustomerId` existe, atualiza customer no provider
 - Document type: 11 dígitos = CPF (individual), mais = CNPJ (company)
+- **Propagação para org profile**: ao criar/atualizar billing profile, campos null do org profile são preenchidos automaticamente via `OrganizationService.enrichProfile()` (fire-and-forget)
 
 ## Invoices
 

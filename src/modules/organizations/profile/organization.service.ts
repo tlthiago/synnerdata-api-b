@@ -190,4 +190,91 @@ export abstract class OrganizationService {
       .set({ pagarmeCustomerId })
       .where(eq(schema.organizationProfiles.organizationId, organizationId));
   }
+
+  /**
+   * Creates a minimal profile (tradeName = org.name, other fields null).
+   * Idempotent: returns silently if profile already exists.
+   */
+  static async createMinimalProfile(
+    organizationId: string,
+    orgName: string
+  ): Promise<void> {
+    const existing =
+      await OrganizationService.findByOrganizationId(organizationId);
+    if (existing) {
+      return;
+    }
+
+    const profileId = `profile-${crypto.randomUUID()}`;
+
+    await db.insert(schema.organizationProfiles).values({
+      id: profileId,
+      organizationId,
+      tradeName: orgName,
+    });
+  }
+
+  /**
+   * Enriches the organization profile with data from billing profile.
+   * Only fills fields that are currently null — never overwrites existing data.
+   */
+  static async enrichProfile(
+    organizationId: string,
+    data: {
+      legalName?: string;
+      taxId?: string;
+      email?: string;
+      phone?: string;
+      street?: string;
+      number?: string;
+      complement?: string;
+      neighborhood?: string;
+      city?: string;
+      state?: string;
+      zipCode?: string;
+    }
+  ): Promise<void> {
+    const profile =
+      await OrganizationService.findByOrganizationId(organizationId);
+    if (!profile) {
+      return;
+    }
+
+    const fieldsToCheck = [
+      "legalName",
+      "taxId",
+      "email",
+      "phone",
+      "street",
+      "number",
+      "complement",
+      "neighborhood",
+      "city",
+      "state",
+      "zipCode",
+    ] as const;
+
+    const updates: Record<string, string> = {};
+
+    for (const field of fieldsToCheck) {
+      const value = data[field];
+      if (value && profile[field] === null) {
+        updates[field] = value;
+      }
+    }
+
+    // Sync phone to mobile
+    if (updates.phone && profile.mobile === null) {
+      updates.mobile = updates.phone;
+    }
+
+    if (Object.keys(updates).length === 0) {
+      return;
+    }
+
+    await db
+      .update(schema.organizationProfiles)
+      .set(updates)
+      .where(eq(schema.organizationProfiles.organizationId, organizationId));
+  }
 }

@@ -109,6 +109,8 @@ export abstract class BillingService {
       })
       .returning();
 
+    BillingService.propagateToOrgProfile(organizationId, input);
+
     return profile;
   }
 
@@ -140,7 +142,40 @@ export abstract class BillingService {
       await syncCustomerToPagarme(existing, input, organizationId);
     }
 
+    BillingService.propagateToOrgProfile(organizationId, input);
+
     return updated;
+  }
+
+  private static propagateToOrgProfile(
+    organizationId: string,
+    input: CreateProfileInput | UpdateProfileInput
+  ): void {
+    import("@/modules/organizations/profile/organization.service")
+      .then(({ OrganizationService }) =>
+        OrganizationService.enrichProfile(organizationId, {
+          legalName: input.legalName,
+          taxId: input.taxId,
+          email: input.email,
+          phone: input.phone,
+          street: input.address?.street,
+          number: input.address?.number,
+          complement: input.address?.complement,
+          neighborhood: input.address?.neighborhood,
+          city: input.address?.city,
+          state: input.address?.state,
+          zipCode: input.address?.zipCode,
+        })
+      )
+      .catch((error: unknown) => {
+        import("@/lib/logger").then(({ logger }) => {
+          logger.error({
+            type: "billing:enrich-org-profile:failed",
+            organizationId,
+            error: error instanceof Error ? error.message : String(error),
+          });
+        });
+      });
   }
 
   static async setCustomerIdIfNull(

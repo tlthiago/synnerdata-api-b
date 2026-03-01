@@ -80,6 +80,12 @@ async function createOrganizationForUser(params: {
   // Replicate afterCreateOrganization hook: create trial subscription
   await SubscriptionService.createTrial(orgId);
 
+  // Create minimal organization profile
+  const { OrganizationService } = await import(
+    "@/modules/organizations/profile/organization.service"
+  );
+  await OrganizationService.createMinimalProfile(orgId, params.name);
+
   return { id: orgId };
 }
 
