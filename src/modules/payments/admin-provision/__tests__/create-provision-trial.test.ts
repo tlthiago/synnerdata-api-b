@@ -182,7 +182,7 @@ describe("POST /v1/payments/admin/provisions/trial", () => {
     expect(data.ownerEmail).toBe(payload.ownerEmail);
     expect(data.organizationName).toBe(payload.organization.tradeName);
     expect(data.notes).toBe("Test provision");
-    expect(data.createdBy).toBe(adminUser.id);
+    expect(data.createdBy).toEqual({ id: adminUser.id, name: adminUser.name });
     expect(data.activationUrl).toBeString();
 
     // Verify user created with emailVerified=true

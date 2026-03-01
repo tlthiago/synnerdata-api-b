@@ -1,4 +1,4 @@
-import { and, count, eq, isNull, sql } from "drizzle-orm";
+import { aliasedTable, and, count, eq, isNull, sql } from "drizzle-orm";
 import { db } from "@/db";
 import type { AdminOrgProvision } from "@/db/schema";
 import { schema } from "@/db/schema";
@@ -24,10 +24,13 @@ import {
   UserAlreadyExistsError,
 } from "./errors";
 
+const creatorUser = aliasedTable(schema.users, "creator_user");
+
 function toProvisionData(
   provision: typeof schema.adminOrgProvisions.$inferSelect,
   user: { name: string; email: string },
-  org: { name: string }
+  org: { name: string },
+  createdByUser: { id: string; name: string } | null
 ): ProvisionData {
   return {
     id: provision.id,
@@ -43,7 +46,7 @@ function toProvisionData(
     checkoutUrl: provision.checkoutUrl,
     checkoutExpiresAt: provision.checkoutExpiresAt?.toISOString() ?? null,
     notes: provision.notes,
-    createdBy: provision.createdBy,
+    createdBy: createdByUser,
     createdAt: provision.createdAt.toISOString(),
   };
 }
@@ -104,6 +107,7 @@ export abstract class AdminProvisionService {
       organizationSlug,
       notes,
       adminUserId,
+      adminUserName,
       headers,
     } = input;
 
@@ -173,7 +177,8 @@ export abstract class AdminProvisionService {
       return toProvisionData(
         provision,
         { name: ownerName, email: ownerEmail },
-        { name: organization.tradeName }
+        { name: organization.tradeName },
+        { id: adminUserId, name: adminUserName }
       );
     } catch (error) {
       // Cleanup: delete user if org creation or subsequent steps fail
@@ -215,6 +220,7 @@ export abstract class AdminProvisionService {
       billing,
       notes,
       adminUserId,
+      adminUserName,
       headers,
     } = input;
 
@@ -304,7 +310,8 @@ export abstract class AdminProvisionService {
       return toProvisionData(
         provision,
         { name: ownerName, email: ownerEmail },
-        { name: organizationName }
+        { name: organizationName },
+        { id: adminUserId, name: adminUserName }
       );
     } catch (error) {
       // Cleanup: delete user (CASCADE deletes org, members, subscriptions)
@@ -354,6 +361,8 @@ export abstract class AdminProvisionService {
           userName: schema.users.name,
           userEmail: schema.users.email,
           orgName: schema.organizations.name,
+          creatorId: creatorUser.id,
+          creatorName: creatorUser.name,
         })
         .from(schema.adminOrgProvisions)
         .innerJoin(
@@ -363,6 +372,10 @@ export abstract class AdminProvisionService {
         .innerJoin(
           schema.organizations,
           eq(schema.adminOrgProvisions.organizationId, schema.organizations.id)
+        )
+        .leftJoin(
+          creatorUser,
+          eq(schema.adminOrgProvisions.createdBy, creatorUser.id)
         )
         .where(whereClause)
         .orderBy(sql`${schema.adminOrgProvisions.createdAt} DESC`)
@@ -378,7 +391,8 @@ export abstract class AdminProvisionService {
       toProvisionData(
         item.provision,
         { name: item.userName, email: item.userEmail },
-        { name: item.orgName }
+        { name: item.orgName },
+        item.creatorId ? { id: item.creatorId, name: item.creatorName } : null
       )
     );
 
@@ -439,10 +453,15 @@ export abstract class AdminProvisionService {
       .where(eq(schema.organizations.id, provision.organizationId))
       .limit(1);
 
+    const createdByUser = await AdminProvisionService.fetchCreatedByUser(
+      updated.createdBy
+    );
+
     return toProvisionData(
       updated,
       { name: user.name, email: user.email },
-      { name: org?.name ?? "" }
+      { name: org?.name ?? "" },
+      createdByUser
     );
   }
 
@@ -643,10 +662,15 @@ export abstract class AdminProvisionService {
       .where(eq(schema.organizations.id, provision.organizationId))
       .limit(1);
 
+    const createdByUser = await AdminProvisionService.fetchCreatedByUser(
+      updated.createdBy
+    );
+
     return toProvisionData(
       updated,
       { name: user?.name ?? "", email: user?.email ?? "" },
-      { name: org?.name ?? "" }
+      { name: org?.name ?? "" },
+      createdByUser
     );
   }
 
@@ -666,6 +690,22 @@ export abstract class AdminProvisionService {
     if (existing) {
       throw new SlugAlreadyExistsError(slug);
     }
+  }
+
+  private static async fetchCreatedByUser(
+    createdBy: string | null
+  ): Promise<{ id: string; name: string } | null> {
+    if (!createdBy) {
+      return null;
+    }
+
+    const [user] = await db
+      .select({ id: schema.users.id, name: schema.users.name })
+      .from(schema.users)
+      .where(eq(schema.users.id, createdBy))
+      .limit(1);
+
+    return user ?? null;
   }
 
   private static async getProvisionOrThrow(provisionId: string) {

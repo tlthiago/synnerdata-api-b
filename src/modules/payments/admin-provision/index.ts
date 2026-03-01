@@ -39,6 +39,7 @@ export const adminProvisionController = new Elysia({
         await AdminProvisionService.createWithTrial({
           ...body,
           adminUserId: user.id,
+          adminUserName: user.name,
           headers: request.headers,
         })
       ),
@@ -67,6 +68,7 @@ export const adminProvisionController = new Elysia({
         await AdminProvisionService.createWithCheckout({
           ...body,
           adminUserId: user.id,
+          adminUserName: user.name,
           headers: request.headers,
         })
       ),

@@ -6,6 +6,7 @@ import { env } from "@/env";
 import { PlanFactory } from "@/test/factories/payments/plan.factory";
 import { UserFactory } from "@/test/factories/user.factory";
 import { createTestApp, type TestApp } from "@/test/support/app";
+import { generateCnpj } from "@/test/support/faker";
 
 const BASE_URL = env.API_URL;
 const PROVISIONS_URL = `${BASE_URL}/v1/payments/admin/provisions`;
@@ -18,7 +19,12 @@ async function createTrialProvision(
   const payload = {
     ownerName: `Support Owner ${id}`,
     ownerEmail: `support-${id}@example.com`,
-    organizationName: `Support Org ${id}`,
+    organization: {
+      tradeName: `Support Org ${id}`,
+      taxId: generateCnpj(),
+      email: `support-org-${id}@example.com`,
+      phone: "11999990000",
+    },
     organizationSlug: `support-org-${id}`,
   };
 

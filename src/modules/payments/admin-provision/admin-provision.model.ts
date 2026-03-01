@@ -3,6 +3,7 @@ import {
   paginatedResponseSchema,
   successResponseSchema,
 } from "@/lib/responses/response.types";
+import { entityReferenceSchema } from "@/lib/schemas/relationships";
 import { isValidCNPJ } from "@/lib/validation/documents";
 
 const isProduction = process.env.NODE_ENV === "production";
@@ -49,7 +50,7 @@ export const provisionDataSchema = z.object({
   checkoutUrl: z.string().nullable(),
   checkoutExpiresAt: z.string().nullable(),
   notes: z.string().nullable(),
-  createdBy: z.string().nullable(),
+  createdBy: entityReferenceSchema.nullable(),
   createdAt: z.string(),
 });
 
@@ -99,6 +100,7 @@ export const createProvisionTrialResponseSchema =
 export type CreateProvisionTrial = z.infer<typeof createProvisionTrialSchema>;
 export type CreateProvisionTrialInput = CreateProvisionTrial & {
   adminUserId: string;
+  adminUserName: string;
   headers: Headers;
 };
 
@@ -151,6 +153,7 @@ export type CreateProvisionCheckout = z.infer<
 >;
 export type CreateProvisionCheckoutInput = CreateProvisionCheckout & {
   adminUserId: string;
+  adminUserName: string;
   headers: Headers;
 };
 
