@@ -219,7 +219,8 @@ describe("Invitation Hooks", () => {
       });
 
       expect(spy).toHaveBeenCalled();
-      const callArgs = spy.mock.calls.at(-1)?.[0];
+      // biome-ignore lint/style/useAtIndex: .at() not available in current TS target
+      const callArgs = spy.mock.calls[spy.mock.calls.length - 1][0];
       expect(callArgs.inviteLink).toContain(
         `?email=${encodeURIComponent(inviteeEmail)}`
       );
