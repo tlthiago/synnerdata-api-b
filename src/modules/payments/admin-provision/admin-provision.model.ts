@@ -60,7 +60,29 @@ export const provisionDataSchema = z.object({
 export const createProvisionTrialSchema = z.object({
   ownerName: z.string().min(2).max(100).describe("Name of the owner"),
   ownerEmail: z.email().describe("Email of the owner"),
-  organizationName: z.string().min(1).describe("Organization name"),
+  organization: z
+    .object({
+      tradeName: z.string().min(1).describe("Nome fantasia"),
+      taxId: z
+        .string()
+        .refine((value) => isValidCNPJ(value), { message: "CNPJ invalido" })
+        .describe("CNPJ (14 digitos)"),
+      email: z.email().describe("Email comercial da organizacao"),
+      phone: z
+        .string()
+        .min(10)
+        .max(15)
+        .describe("Telefone comercial (10-15 digitos)"),
+      legalName: z.string().optional().describe("Razao social"),
+      street: z.string().optional().describe("Logradouro"),
+      number: z.string().optional().describe("Numero"),
+      complement: z.string().optional().describe("Complemento"),
+      neighborhood: z.string().optional().describe("Bairro"),
+      city: z.string().optional().describe("Cidade"),
+      state: z.string().length(2).optional().describe("UF (2 chars)"),
+      zipCode: z.string().length(8).optional().describe("CEP (8 digitos)"),
+    })
+    .describe("Organization profile data"),
   organizationSlug: z
     .string()
     .regex(

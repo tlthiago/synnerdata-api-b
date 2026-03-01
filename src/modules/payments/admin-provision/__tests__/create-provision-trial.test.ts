@@ -6,6 +6,7 @@ import { env } from "@/env";
 import { PlanFactory } from "@/test/factories/payments/plan.factory";
 import { UserFactory } from "@/test/factories/user.factory";
 import { createTestApp, type TestApp } from "@/test/support/app";
+import { generateCnpj } from "@/test/support/faker";
 
 const BASE_URL = env.API_URL;
 const ENDPOINT = `${BASE_URL}/v1/payments/admin/provisions/trial`;
@@ -15,7 +16,12 @@ function buildPayload(overrides: Record<string, unknown> = {}) {
   return {
     ownerName: `Owner ${id}`,
     ownerEmail: `owner-${id}@example.com`,
-    organizationName: `Org ${id}`,
+    organization: {
+      tradeName: `Org ${id}`,
+      taxId: generateCnpj(),
+      email: `org-${id}@example.com`,
+      phone: "11999990000",
+    },
     organizationSlug: `org-${id}`,
     ...overrides,
   };
@@ -174,7 +180,7 @@ describe("POST /v1/payments/admin/provisions/trial", () => {
     expect(data.status).toBe("pending_activation");
     expect(data.ownerName).toBe(payload.ownerName);
     expect(data.ownerEmail).toBe(payload.ownerEmail);
-    expect(data.organizationName).toBe(payload.organizationName);
+    expect(data.organizationName).toBe(payload.organization.tradeName);
     expect(data.notes).toBe("Test provision");
     expect(data.createdBy).toBe(adminUser.id);
     expect(data.activationUrl).toBeString();
@@ -198,7 +204,7 @@ describe("POST /v1/payments/admin/provisions/trial", () => {
       .limit(1);
 
     expect(createdOrg).toBeDefined();
-    expect(createdOrg.name).toBe(payload.organizationName);
+    expect(createdOrg.name).toBe(payload.organization.tradeName);
     expect(createdOrg.slug).toBe(payload.organizationSlug);
 
     // Verify member with role=owner
@@ -251,8 +257,63 @@ describe("POST /v1/payments/admin/provisions/trial", () => {
       .limit(1);
 
     expect(orgProfile).toBeDefined();
-    expect(orgProfile.tradeName).toBe(payload.organizationName);
-    expect(orgProfile.legalName).toBeNull();
-    expect(orgProfile.taxId).toBeNull();
+    // Verify organization profile enriched with provided data
+    expect(orgProfile.tradeName).toBe(payload.organization.tradeName);
+    expect(orgProfile.taxId).toBe(payload.organization.taxId);
+    expect(orgProfile.email).toBe(payload.organization.email);
+    expect(orgProfile.phone).toBe(payload.organization.phone);
+    // Optional fields not provided → null
+    expect(orgProfile.street).toBeNull();
+    expect(orgProfile.city).toBeNull();
+  });
+
+  test("should enrich org profile with optional address fields", async () => {
+    const { headers } = await UserFactory.createAdmin();
+    const payload = buildPayload({
+      organization: {
+        tradeName: "Org With Address",
+        taxId: generateCnpj(),
+        email: "address-test@example.com",
+        phone: "11999990000",
+        legalName: "Razao Social Ltda",
+        street: "Rua Teste",
+        number: "123",
+        complement: "Sala 1",
+        neighborhood: "Centro",
+        city: "Sao Paulo",
+        state: "SP",
+        zipCode: "01001000",
+      },
+    });
+
+    const response = await app.handle(
+      new Request(ENDPOINT, {
+        method: "POST",
+        headers: { ...headers, "Content-Type": "application/json" },
+        body: JSON.stringify(payload),
+      })
+    );
+
+    expect(response.status).toBe(200);
+    const body = await response.json();
+    const data = body.data;
+
+    const [orgProfile] = await db
+      .select()
+      .from(schema.organizationProfiles)
+      .where(
+        eq(schema.organizationProfiles.organizationId, data.organizationId)
+      )
+      .limit(1);
+
+    expect(orgProfile.legalName).toBe("Razao Social Ltda");
+    expect(orgProfile.street).toBe("Rua Teste");
+    expect(orgProfile.number).toBe("123");
+    expect(orgProfile.complement).toBe("Sala 1");
+    expect(orgProfile.neighborhood).toBe("Centro");
+    expect(orgProfile.city).toBe("Sao Paulo");
+    expect(orgProfile.state).toBe("SP");
+    expect(orgProfile.zipCode).toBe("01001000");
+    expect(orgProfile.mobile).toBe("11999990000");
   });
 });
