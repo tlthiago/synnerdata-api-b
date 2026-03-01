@@ -155,6 +155,14 @@ describe("PUT /v1/organizations/profile", () => {
 
     expect(profile.tradeName).toBe("Updated Company Name");
     expect(profile.industry).toBe("Technology");
+
+    const [org] = await db
+      .select({ name: schema.organizations.name })
+      .from(schema.organizations)
+      .where(eq(schema.organizations.id, organizationId))
+      .limit(1);
+
+    expect(org.name).toBe("Updated Company Name");
   });
 
   test("should reject non-owner from updating profile", async () => {

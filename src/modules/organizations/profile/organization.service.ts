@@ -115,11 +115,22 @@ export abstract class OrganizationService {
       updateData.mobile = data.phone;
     }
 
-    const [updated] = await db
-      .update(schema.organizationProfiles)
-      .set(updateData)
-      .where(eq(schema.organizationProfiles.organizationId, organizationId))
-      .returning();
+    const [updated] = await db.transaction(async (tx) => {
+      const result = await tx
+        .update(schema.organizationProfiles)
+        .set(updateData)
+        .where(eq(schema.organizationProfiles.organizationId, organizationId))
+        .returning();
+
+      if (data.tradeName) {
+        await tx
+          .update(schema.organizations)
+          .set({ name: data.tradeName })
+          .where(eq(schema.organizations.id, organizationId));
+      }
+
+      return result;
+    });
 
     if (userId && (data.taxId || data.email)) {
       await AuditService.log({
