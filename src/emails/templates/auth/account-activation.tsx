@@ -1,5 +1,6 @@
 import { Heading, Text } from "@react-email/components";
 import { EmailButton } from "../../components/email-button";
+import { EmailFallbackLink } from "../../components/email-fallback-link";
 import { EmailLayout } from "../../components/email-layout";
 
 type AccountActivationEmailProps = {
@@ -17,22 +18,20 @@ export function AccountActivationEmail({
         Ative sua conta
       </Heading>
 
-      <Text className="text-gray-600 text-sm leading-6">
+      <Text className="text-base text-gray-600 leading-6">
         Olá <strong>{userName}</strong>,
       </Text>
 
-      <Text className="mb-6 text-gray-600 text-sm leading-6">
+      <Text className="mb-6 text-base text-gray-600 leading-6">
         Sua conta foi criada no Synnerdata. Clique no botão abaixo para definir
         sua senha e começar a usar.
       </Text>
 
       <EmailButton href={url}>Definir Senha e Ativar Conta</EmailButton>
 
-      <Text className="mt-6 text-gray-400 text-xs">
-        Se o botão não funcionar, copie e cole este link: {url}
-      </Text>
+      <EmailFallbackLink url={url} />
 
-      <Text className="text-gray-400 text-xs">
+      <Text className="text-gray-400 text-sm">
         Este link expira em 1 hora. Se você não esperava este email, ignore-o.
       </Text>
     </EmailLayout>

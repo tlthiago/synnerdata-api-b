@@ -16,6 +16,7 @@ describe("auth email templates", () => {
     expect(html).toContain("Verifique seu email");
     expect(html).toContain("https://app.test/verify?token=abc");
     expect(html).toContain("Verificar Email");
+    expect(html).toContain("copie e cole");
     expect(text).toContain("VERIFIQUE SEU EMAIL");
   });
 
@@ -27,6 +28,7 @@ describe("auth email templates", () => {
     expect(html).toContain("Redefinir sua senha");
     expect(html).toContain("https://app.test/reset?token=xyz");
     expect(html).toContain("1 hora");
+    expect(html).toContain("copie e cole");
     expect(text).toContain("Redefinir");
   });
 
@@ -60,6 +62,7 @@ describe("auth email templates", () => {
     expect(html).toContain("João");
     expect(html).toContain("Definir Senha e Ativar Conta");
     expect(html).toContain("https://app.test/activate?token=abc");
+    expect(html).toContain("copie e cole");
     expect(text).toContain("João");
   });
 
@@ -81,6 +84,7 @@ describe("auth email templates", () => {
     expect(html).toContain("Gerente");
     expect(html).toContain("Aceitar Convite");
     expect(html).toContain("https://app.test/invite/abc");
+    expect(html).toContain("copie e cole");
     expect(text).toContain("Acme Corp");
   });
 

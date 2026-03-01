@@ -8,11 +8,11 @@ type TwoFactorOtpEmailProps = {
 export function TwoFactorOtpEmail({ otp }: TwoFactorOtpEmailProps) {
   return (
     <EmailLayout preview={`Seu código de verificação: ${otp}`}>
-      <Heading as="h2" className="mb-4 text-gray-800 text-xl">
+      <Heading as="h1" className="mb-4 text-2xl text-gray-800">
         Código de verificação
       </Heading>
 
-      <Text className="mb-2 text-gray-600 text-sm leading-6">
+      <Text className="mb-2 text-base text-gray-600 leading-6">
         Use o código abaixo para completar seu login:
       </Text>
 
@@ -22,7 +22,7 @@ export function TwoFactorOtpEmail({ otp }: TwoFactorOtpEmailProps) {
         </Text>
       </Section>
 
-      <Text className="text-gray-400 text-xs">
+      <Text className="text-gray-400 text-sm">
         Este código expira em 5 minutos. Se você não solicitou este código,
         ignore este email.
       </Text>

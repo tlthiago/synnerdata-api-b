@@ -358,30 +358,41 @@ export const auth = betterAuth({
   databaseHooks: {
     user: {
       create: {
-        before: (user) => {
+        before: async (user) => {
           const { superAdmins, admins } = getAdminEmails();
 
           if (superAdmins.includes(user.email)) {
-            return Promise.resolve({
+            return {
               data: {
                 ...user,
                 role: "super_admin",
                 emailVerified: true,
               },
-            });
+            };
           }
 
           if (admins.includes(user.email)) {
-            return Promise.resolve({
+            return {
               data: {
                 ...user,
                 role: "admin",
                 emailVerified: true,
               },
-            });
+            };
           }
 
-          return Promise.resolve({ data: user });
+          const pendingInvitation = await db.query.invitations.findFirst({
+            where: and(
+              eq(schema.invitations.email, user.email),
+              eq(schema.invitations.status, "pending")
+            ),
+          });
+
+          if (pendingInvitation) {
+            return { data: { ...user, emailVerified: true } };
+          }
+
+          return { data: user };
         },
         after: async (user) => {
           await auditUserCreate(user);
@@ -438,8 +449,32 @@ export const auth = betterAuth({
     organization({
       organizationLimit: 1,
       membershipLimit: 4,
-      allowUserToCreateOrganization: (user: User & Record<string, unknown>) =>
-        user.role === "user",
+      allowUserToCreateOrganization: async (
+        user: User & Record<string, unknown>
+      ) => {
+        if (user.role !== "user") {
+          return false;
+        }
+
+        const existingMembership = await db.query.members.findFirst({
+          where: eq(schema.members.userId, user.id),
+        });
+        if (existingMembership) {
+          return false;
+        }
+
+        const pendingInvitation = await db.query.invitations.findFirst({
+          where: and(
+            eq(schema.invitations.email, user.email),
+            eq(schema.invitations.status, "pending")
+          ),
+        });
+        if (pendingInvitation) {
+          return false;
+        }
+
+        return true;
+      },
       ac: orgAc,
       roles: orgRoles,
       async sendInvitationEmail(data: {
@@ -449,7 +484,7 @@ export const auth = betterAuth({
         inviter: { user: { name: string; email: string } };
         organization: { name: string };
       }) {
-        const inviteLink = `${env.APP_URL}/convite/${data.id}`;
+        const inviteLink = `${env.APP_URL}/convite/${data.id}?email=${encodeURIComponent(data.email)}`;
         await sendOrganizationInvitationEmail({
           to: data.email,
           inviterName: data.inviter.user.name,
@@ -464,7 +499,7 @@ export const auth = betterAuth({
           invitation,
           organization: org,
         }: {
-          invitation: { role: string };
+          invitation: { role: string; email: string };
           organization: Organization;
         }) => {
           const validRoles = roleValues as readonly string[];
@@ -476,6 +511,18 @@ export const auth = betterAuth({
           }
 
           await validateUniqueRole(invitation.role, org.id);
+
+          const existingUser = await db.query.users.findFirst({
+            where: eq(schema.users.email, invitation.email),
+          });
+
+          if (existingUser) {
+            throw new APIError("BAD_REQUEST", {
+              code: "USER_ALREADY_EXISTS",
+              message:
+                "Este email já possui uma conta na plataforma. Convites só podem ser enviados para novos usuários.",
+            });
+          }
         },
         afterCreateOrganization: async ({
           organization: org,

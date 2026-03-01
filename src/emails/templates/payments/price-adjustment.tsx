@@ -25,17 +25,22 @@ export function PriceAdjustmentEmail({
       <Heading as="h1" className="mb-4 text-2xl text-gray-800">
         Reajuste no Valor da Assinatura
       </Heading>
-      <Text className="text-gray-600 text-sm leading-6">
+
+      <Text className="text-base text-gray-600 leading-6">
         Olá <strong>{organizationName}</strong>,
       </Text>
-      <Text className="text-gray-600 text-sm leading-6">
+
+      <Text className="text-base text-gray-600 leading-6">
         Informamos que o valor da sua assinatura do plano{" "}
         <strong>{planName}</strong> será reajustado.
       </Text>
+
       <Hr className="my-5 border-gray-200" />
+
       <Heading as="h2" className="mb-2 text-gray-800 text-lg">
         Detalhes do Reajuste
       </Heading>
+
       <EmailInfoTable
         rows={[
           { label: "Plano:", value: planName },
@@ -44,10 +49,13 @@ export function PriceAdjustmentEmail({
           { label: "Motivo:", value: reason },
         ]}
       />
+
       <Hr className="my-5 border-gray-200" />
+
       <EmailAlertBox variant="warning">
         O novo valor será aplicado a partir do próximo ciclo de cobrança.
       </EmailAlertBox>
+
       <EmailButton href={getAppUrl("/billing")}>Ver Assinatura</EmailButton>
     </EmailLayout>
   );

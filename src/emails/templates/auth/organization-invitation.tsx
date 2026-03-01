@@ -1,5 +1,6 @@
 import { Heading, Hr, Text } from "@react-email/components";
 import { EmailButton } from "../../components/email-button";
+import { EmailFallbackLink } from "../../components/email-fallback-link";
 import { EmailInfoTable } from "../../components/email-info-table";
 import { EmailLayout } from "../../components/email-layout";
 import { roleLabels } from "../../constants";
@@ -29,9 +30,7 @@ export function OrganizationInvitationEmail({
         Você foi convidado para {organizationName}
       </Heading>
 
-      <Text className="text-gray-600 text-sm leading-6">Olá,</Text>
-
-      <Text className="text-gray-600 text-sm leading-6">
+      <Text className="text-base text-gray-600 leading-6">
         <strong>{inviterName}</strong> ({inviterEmail}) convidou você para fazer
         parte da organização <strong>{organizationName}</strong> no Synnerdata.
       </Text>
@@ -52,13 +51,15 @@ export function OrganizationInvitationEmail({
 
       <Hr className="my-5 border-gray-200" />
 
-      <Text className="mb-4 text-gray-600 text-sm">
+      <Text className="mb-4 text-base text-gray-600">
         Clique no botão abaixo para aceitar o convite:
       </Text>
 
       <EmailButton href={inviteLink}>Aceitar Convite</EmailButton>
 
-      <Text className="mt-6 text-gray-400 text-xs">
+      <EmailFallbackLink url={inviteLink} />
+
+      <Text className="text-gray-400 text-sm">
         Se você não esperava este convite, pode ignorar este email.
       </Text>
     </EmailLayout>

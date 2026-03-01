@@ -1,5 +1,6 @@
 import { describe, expect, test } from "bun:test";
 import { Heading, Text } from "@react-email/components";
+import { EmailFallbackLink } from "../components/email-fallback-link";
 import { EmailLayout } from "../components/email-layout";
 import { renderEmail } from "../render";
 
@@ -39,5 +40,38 @@ describe("renderEmail", () => {
 
     expect(html).toContain("synnerdata-logo.png");
     expect(html).toContain('alt="Synnerdata"');
+  });
+
+  test("should include color-scheme meta for dark mode", async () => {
+    const { html } = await renderEmail(
+      <EmailLayout preview="test">
+        <Text>Content</Text>
+      </EmailLayout>
+    );
+
+    expect(html).toContain("color-scheme");
+  });
+
+  test("should include complete footer with company name and copyright", async () => {
+    const { html } = await renderEmail(
+      <EmailLayout preview="test">
+        <Text>Content</Text>
+      </EmailLayout>
+    );
+
+    expect(html).toContain("Synnerdata");
+    expect(html).toContain("Tecnologia para gestão de pessoas");
+    expect(html).toContain("©");
+  });
+
+  test("EmailFallbackLink renders url with fallback text", async () => {
+    const { html } = await renderEmail(
+      <EmailLayout preview="test">
+        <EmailFallbackLink url="https://app.test/verify?token=abc" />
+      </EmailLayout>
+    );
+
+    expect(html).toContain("https://app.test/verify?token=abc");
+    expect(html).toContain("copie e cole");
   });
 });
