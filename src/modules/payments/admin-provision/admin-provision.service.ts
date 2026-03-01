@@ -100,7 +100,7 @@ export abstract class AdminProvisionService {
     const {
       ownerName,
       ownerEmail,
-      organizationName,
+      organization,
       organizationSlug,
       notes,
       adminUserId,
@@ -127,18 +127,25 @@ export abstract class AdminProvisionService {
     try {
       // 4. Create organization directly (bypasses allowUserToCreateOrganization)
       const createdOrg = await createOrganizationForUser({
-        name: organizationName,
+        name: organization.tradeName,
         slug: organizationSlug,
         userId: createdUser.id,
       });
 
-      // 5. Set emailVerified=true (trial does not require payment)
+      // 5. Enrich org profile with provided data
+      const { OrganizationService } = await import(
+        "@/modules/organizations/profile/organization.service"
+      );
+      const { tradeName: _tradeName, ...profileData } = organization;
+      await OrganizationService.enrichProfile(createdOrg.id, profileData);
+
+      // 6. Set emailVerified=true (trial does not require payment)
       await db
         .update(schema.users)
         .set({ emailVerified: true })
         .where(eq(schema.users.id, createdUser.id));
 
-      // 6. Insert provision record
+      // 7. Insert provision record
       const provisionId = `provision-${crypto.randomUUID()}`;
       await db.insert(schema.adminOrgProvisions).values({
         id: provisionId,
@@ -150,13 +157,13 @@ export abstract class AdminProvisionService {
         createdBy: adminUserId,
       });
 
-      // 7. Trigger activation email via requestPasswordReset
+      // 8. Trigger activation email via requestPasswordReset
       await auth.api.requestPasswordReset({
         body: { email: ownerEmail },
         headers,
       });
 
-      // 8. Return provision data
+      // 9. Return provision data
       const [provision] = await db
         .select()
         .from(schema.adminOrgProvisions)
@@ -166,7 +173,7 @@ export abstract class AdminProvisionService {
       return toProvisionData(
         provision,
         { name: ownerName, email: ownerEmail },
-        { name: organizationName }
+        { name: organization.tradeName }
       );
     } catch (error) {
       // Cleanup: delete user if org creation or subsequent steps fail
