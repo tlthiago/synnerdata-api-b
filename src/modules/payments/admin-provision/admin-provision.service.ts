@@ -26,6 +26,15 @@ import {
 
 const creatorUser = aliasedTable(schema.users, "creator_user");
 
+type ProvisionQueryRow = {
+  provision: typeof schema.adminOrgProvisions.$inferSelect;
+  userName: string;
+  userEmail: string;
+  orgName: string;
+  creatorId: string | null;
+  creatorName: string | null;
+};
+
 function toProvisionData(
   provision: typeof schema.adminOrgProvisions.$inferSelect,
   user: { name: string; email: string },
@@ -387,12 +396,14 @@ export abstract class AdminProvisionService {
         .where(whereClause),
     ]);
 
-    const data = items.map((item) =>
+    const data = (items as ProvisionQueryRow[]).map((item) =>
       toProvisionData(
         item.provision,
         { name: item.userName, email: item.userEmail },
         { name: item.orgName },
-        item.creatorId ? { id: item.creatorId, name: item.creatorName } : null
+        item.creatorId
+          ? { id: item.creatorId, name: item.creatorName ?? "" }
+          : null
       )
     );
 
