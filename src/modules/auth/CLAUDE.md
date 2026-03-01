@@ -28,12 +28,13 @@ Autenticação via Email/Password e lifecycle de usuários/organizações.
 
 - `organizationLimit: 1` — cada usuário pode criar no máximo 1 organização
 - `membershipLimit: 4` — máximo de 4 membros por organização (1 owner, 1 manager, 1 supervisor, 1 viewer)
-- `allowUserToCreateOrganization` — apenas usuários com `role === "user"` podem criar organizações
+- `allowUserToCreateOrganization` — async, verifica 3 condições: `role === "user"`, sem membership existente, sem convite pendente
 
 ## Organization Member Roles
 
 - `owner` | `manager` | `supervisor` | `viewer`
 - Validados antes da criação de convite (400 se inválido)
+- Convite para email existente retorna `USER_ALREADY_EXISTS` (sem multi-tenancy)
 
 ## Organization Deletion Protection
 
@@ -63,10 +64,10 @@ Autenticação via Email/Password e lifecycle de usuários/organizações.
 
 ## Emails
 
-- **Verificação**: enviado no sign-up para todos os usuários
+- **Verificação**: enviado no sign-up para usuários sem convite pendente. Convidados são auto-verificados (`emailVerified: true`) pois o convite prova posse do email
 - **Welcome**: enviado após verificação de email (`afterEmailVerification`), sem guard de role. Admin/super_admin não recebem na prática porque já nascem com `emailVerified: true` e nunca passam pelo fluxo de verificação
 - **OTP (2FA)**: 6 dígitos, 5 min expiração, armazenamento encrypted
-- **Convite**: template com inviter, org name, link (`{APP_URL}/convite/{invitationId}`), role
+- **Convite**: template com inviter, org name, link (`{APP_URL}/convite/{invitationId}?email={encoded}`), role
 - **Password reset**: link com expiração, revoga todas as sessions
 
 ## Melhorias Futuras
