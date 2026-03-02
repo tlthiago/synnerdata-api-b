@@ -46,12 +46,16 @@ import {
   organizationProfiles,
 } from "./organization-profiles";
 import {
+  featureRelations,
+  features,
   orgSubscriptionRelations,
   orgSubscriptions,
   pagarmePlanHistory,
   pagarmePlanHistoryRelations,
   pendingCheckoutRelations,
   pendingCheckouts,
+  planFeatureRelations,
+  planFeatures,
   planPricingTiers,
   planPricingTiersRelations,
   priceAdjustmentRelations,
@@ -122,6 +126,8 @@ export const schema = {
   pendingCheckouts,
   pagarmePlanHistory,
   priceAdjustments,
+  features,
+  planFeatures,
   adminOrgProvisions,
   auditLogs,
 };
@@ -168,6 +174,8 @@ export const fullSchema = {
   pendingCheckoutRelations,
   pagarmePlanHistoryRelations,
   priceAdjustmentRelations,
+  featureRelations,
+  planFeatureRelations,
   adminOrgProvisionRelations,
   auditLogRelations,
 };
@@ -211,9 +219,12 @@ export type {
 } from "./organization-profiles";
 export { organizationStatusEnum } from "./organization-profiles";
 export type {
+  Feature,
+  NewFeature,
   NewOrgSubscription,
   NewPagarmePlanHistoryRecord,
   NewPendingCheckout,
+  NewPlanFeature,
   NewPlanPricingTier,
   NewPriceAdjustment,
   NewSubscriptionEvent,
@@ -221,6 +232,7 @@ export type {
   OrgSubscription,
   PagarmePlanHistoryRecord,
   PendingCheckout,
+  PlanFeature,
   PlanLimits,
   PlanPricingTier,
   PriceAdjustment,

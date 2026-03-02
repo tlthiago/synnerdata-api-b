@@ -7,6 +7,7 @@ import {
   jsonb,
   pgEnum,
   pgTable,
+  primaryKey,
   text,
   timestamp,
   uniqueIndex,
@@ -208,6 +209,7 @@ export const subscriptionPlanRelations = relations(
   ({ one, many }) => ({
     subscriptions: many(orgSubscriptions),
     pricingTiers: many(planPricingTiers),
+    planFeatures: many(planFeatures),
     organization: one(organizations, {
       fields: [subscriptionPlans.organizationId],
       references: [organizations.id],
@@ -381,6 +383,55 @@ export const priceAdjustmentRelations = relations(
   })
 );
 
+export const features = pgTable("features", {
+  id: text("id").primaryKey(),
+  displayName: text("display_name").notNull(),
+  description: text("description"),
+  category: text("category"),
+  sortOrder: integer("sort_order").default(0).notNull(),
+  isActive: boolean("is_active").default(true).notNull(),
+  isDefault: boolean("is_default").default(false).notNull(),
+  isPremium: boolean("is_premium").default(false).notNull(),
+  createdAt: timestamp("created_at", { withTimezone: true })
+    .defaultNow()
+    .notNull(),
+  updatedAt: timestamp("updated_at", { withTimezone: true })
+    .defaultNow()
+    .$onUpdate(() => new Date())
+    .notNull(),
+});
+
+export const planFeatures = pgTable(
+  "plan_features",
+  {
+    planId: text("plan_id")
+      .notNull()
+      .references(() => subscriptionPlans.id, { onDelete: "cascade" }),
+    featureId: text("feature_id")
+      .notNull()
+      .references(() => features.id, { onDelete: "restrict" }),
+  },
+  (table) => [
+    primaryKey({ columns: [table.planId, table.featureId] }),
+    index("plan_features_feature_id_idx").on(table.featureId),
+  ]
+);
+
+export const featureRelations = relations(features, ({ many }) => ({
+  planFeatures: many(planFeatures),
+}));
+
+export const planFeatureRelations = relations(planFeatures, ({ one }) => ({
+  plan: one(subscriptionPlans, {
+    fields: [planFeatures.planId],
+    references: [subscriptionPlans.id],
+  }),
+  feature: one(features, {
+    fields: [planFeatures.featureId],
+    references: [features.id],
+  }),
+}));
+
 export type OrgSubscription = typeof orgSubscriptions.$inferSelect;
 export type NewOrgSubscription = typeof orgSubscriptions.$inferInsert;
 export type SubscriptionPlan = typeof subscriptionPlans.$inferSelect;
@@ -396,3 +447,7 @@ export type NewPagarmePlanHistoryRecord =
   typeof pagarmePlanHistory.$inferInsert;
 export type PriceAdjustment = typeof priceAdjustments.$inferSelect;
 export type NewPriceAdjustment = typeof priceAdjustments.$inferInsert;
+export type Feature = typeof features.$inferSelect;
+export type NewFeature = typeof features.$inferInsert;
+export type PlanFeature = typeof planFeatures.$inferSelect;
+export type NewPlanFeature = typeof planFeatures.$inferInsert;
