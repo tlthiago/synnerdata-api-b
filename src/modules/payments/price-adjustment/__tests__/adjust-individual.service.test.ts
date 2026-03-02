@@ -249,7 +249,7 @@ describe("PriceAdjustmentService.adjustIndividual", () => {
       adminId,
     });
 
-    // calculateYearlyPrice(12990) = 12990 * 12 * 0.8 = 124704
+    // calculateYearlyPrice(12990, 20) = 12990 * 12 * 0.8 = 124704
     const expectedYearlyPrice = Math.round(12_990 * 12 * 0.8);
 
     const [updatedSub] = await db

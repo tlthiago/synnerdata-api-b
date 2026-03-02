@@ -84,7 +84,7 @@ describe("GET /v1/payments/subscription", () => {
     expect(body.data.plan.id).toBe(trialPlanResult.plan.id);
     expect(body.data.plan.name).toBe(trialPlanResult.plan.name);
     expect(body.data.plan.displayName).toBe(trialPlanResult.plan.displayName);
-    expect(body.data.plan.limits).toBeDefined();
+    expect(body.data.plan.features).toBeDefined();
     // Trial subscriptions created without pricingTierId should return null
     expect(body.data.pricingTier).toBeNull();
   });

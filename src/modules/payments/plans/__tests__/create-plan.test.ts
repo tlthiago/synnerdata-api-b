@@ -3,13 +3,41 @@ import { env } from "@/env";
 import { PlanFactory } from "@/test/factories/payments/plan.factory";
 import { UserFactory } from "@/test/factories/user.factory";
 import { createTestApp, type TestApp } from "@/test/support/app";
-import { EMPLOYEE_TIERS, PLAN_FEATURES } from "../plans.constants";
+import { EMPLOYEE_TIERS } from "../plans.constants";
 
 const BASE_URL = env.API_URL;
 
-const GOLD_FEATURES = [...PLAN_FEATURES.gold];
-const DIAMOND_FEATURES = [...PLAN_FEATURES.diamond];
-const TRIAL_FEATURES = [...PLAN_FEATURES.trial];
+const GOLD_FEATURES = [
+  "terminated_employees",
+  "absences",
+  "medical_certificates",
+  "accidents",
+  "warnings",
+  "employee_status",
+];
+const DIAMOND_FEATURES = [
+  "terminated_employees",
+  "absences",
+  "medical_certificates",
+  "accidents",
+  "warnings",
+  "employee_status",
+  "birthdays",
+  "ppe",
+  "employee_record",
+];
+const TRIAL_FEATURES = [
+  "terminated_employees",
+  "absences",
+  "medical_certificates",
+  "accidents",
+  "warnings",
+  "employee_status",
+  "birthdays",
+  "ppe",
+  "employee_record",
+  "payroll",
+];
 
 function generateTierPrices(basePrice: number) {
   return EMPLOYEE_TIERS.map((tier, index) => ({
@@ -41,7 +69,7 @@ describe("POST /payments/plans", () => {
         body: JSON.stringify({
           name: "test-plan",
           displayName: "Test Plan",
-          limits: { features: GOLD_FEATURES },
+          features: GOLD_FEATURES,
           pricingTiers: generateTierPrices(4900),
         }),
       })
@@ -61,7 +89,7 @@ describe("POST /payments/plans", () => {
         body: JSON.stringify({
           name: generateUniqueName("test-non-admin"),
           displayName: "Test Non Admin Plan",
-          limits: { features: GOLD_FEATURES },
+          features: GOLD_FEATURES,
           pricingTiers: generateTierPrices(4900),
         }),
       })
@@ -75,7 +103,7 @@ describe("POST /payments/plans", () => {
       name: generateUniqueName("test-create"),
       displayName: "Test Create Plan",
       trialDays: 7,
-      limits: { features: DIAMOND_FEATURES },
+      features: DIAMOND_FEATURES,
       isActive: true,
       isPublic: true,
       sortOrder: 10,
@@ -99,7 +127,7 @@ describe("POST /payments/plans", () => {
     expect(body.data.name).toBe(planData.name);
     expect(body.data.displayName).toBe(planData.displayName);
     expect(body.data.trialDays).toBe(planData.trialDays);
-    expect(body.data.limits).toEqual(planData.limits);
+    expect(body.data.features).toEqual(planData.features);
     expect(body.data.isActive).toBe(planData.isActive);
     expect(body.data.isPublic).toBe(planData.isPublic);
     expect(body.data.sortOrder).toBe(planData.sortOrder);
@@ -112,7 +140,7 @@ describe("POST /payments/plans", () => {
     const planData = {
       name: generateUniqueName("test-duplicate"),
       displayName: "Test Duplicate Plan",
-      limits: { features: GOLD_FEATURES },
+      features: GOLD_FEATURES,
       pricingTiers: generateTierPrices(1000),
     };
 
@@ -162,7 +190,7 @@ describe("POST /payments/plans", () => {
         body: JSON.stringify({
           name: "negative-price-plan",
           displayName: "Negative Price Plan",
-          limits: { features: GOLD_FEATURES },
+          features: GOLD_FEATURES,
           pricingTiers: invalidTiers,
         }),
       })
@@ -178,7 +206,7 @@ describe("POST /payments/plans", () => {
         body: JSON.stringify({
           name: generateUniqueName("zero-tiers"),
           displayName: "Zero Tiers Plan",
-          limits: { features: GOLD_FEATURES },
+          features: GOLD_FEATURES,
           isTrial: false,
           pricingTiers: [],
         }),
@@ -192,7 +220,7 @@ describe("POST /payments/plans", () => {
     const planData = {
       name: generateUniqueName("test-defaults"),
       displayName: "Test Defaults Plan",
-      limits: { features: GOLD_FEATURES },
+      features: GOLD_FEATURES,
       pricingTiers: generateTierPrices(1000),
     };
 
@@ -225,7 +253,7 @@ describe("POST /payments/plans", () => {
       trialDays: 14,
       isTrial: true,
       isPublic: false,
-      limits: { features: TRIAL_FEATURES },
+      features: TRIAL_FEATURES,
       pricingTiers: [{ minEmployees: 0, maxEmployees: 10, priceMonthly: 0 }],
     };
 
@@ -260,7 +288,7 @@ describe("POST /payments/plans", () => {
           name: generateUniqueName("test-trial-wrong-range"),
           displayName: "Test Trial Wrong Range",
           isTrial: true,
-          limits: { features: TRIAL_FEATURES },
+          features: TRIAL_FEATURES,
           pricingTiers: [
             { minEmployees: 0, maxEmployees: 20, priceMonthly: 0 },
           ],
@@ -278,7 +306,7 @@ describe("POST /payments/plans", () => {
     const planData = {
       name: generateUniqueName("test-yearly"),
       displayName: "Test Yearly Price Plan",
-      limits: { features: GOLD_FEATURES },
+      features: GOLD_FEATURES,
       pricingTiers: tierPrices,
     };
 
@@ -313,7 +341,7 @@ describe("POST /payments/plans", () => {
         body: JSON.stringify({
           name: generateUniqueName("custom-3-tiers"),
           displayName: "Custom 3 Tiers Plan",
-          limits: { features: GOLD_FEATURES },
+          features: GOLD_FEATURES,
           pricingTiers: tierPrices,
         }),
       })
@@ -335,7 +363,7 @@ describe("POST /payments/plans", () => {
         body: JSON.stringify({
           name: generateUniqueName("single-tier"),
           displayName: "Single Tier Plan",
-          limits: { features: GOLD_FEATURES },
+          features: GOLD_FEATURES,
           pricingTiers: [
             { minEmployees: 0, maxEmployees: 1000, priceMonthly: 49_900 },
           ],
@@ -358,7 +386,7 @@ describe("POST /payments/plans", () => {
         body: JSON.stringify({
           name: generateUniqueName("overlap-tiers"),
           displayName: "Overlap Tiers Plan",
-          limits: { features: GOLD_FEATURES },
+          features: GOLD_FEATURES,
           pricingTiers: [
             { minEmployees: 0, maxEmployees: 50, priceMonthly: 9900 },
             { minEmployees: 40, maxEmployees: 100, priceMonthly: 14_900 },
@@ -380,7 +408,7 @@ describe("POST /payments/plans", () => {
         body: JSON.stringify({
           name: generateUniqueName("gap-tiers"),
           displayName: "Gap Tiers Plan",
-          limits: { features: GOLD_FEATURES },
+          features: GOLD_FEATURES,
           pricingTiers: [
             { minEmployees: 0, maxEmployees: 50, priceMonthly: 9900 },
             { minEmployees: 61, maxEmployees: 100, priceMonthly: 14_900 },
@@ -402,7 +430,7 @@ describe("POST /payments/plans", () => {
         body: JSON.stringify({
           name: generateUniqueName("min-gt-max"),
           displayName: "Min GT Max Plan",
-          limits: { features: GOLD_FEATURES },
+          features: GOLD_FEATURES,
           pricingTiers: [
             { minEmployees: 50, maxEmployees: 10, priceMonthly: 9900 },
           ],
@@ -423,7 +451,7 @@ describe("POST /payments/plans", () => {
         body: JSON.stringify({
           name: generateUniqueName("negative-min"),
           displayName: "Negative Min Plan",
-          limits: { features: GOLD_FEATURES },
+          features: GOLD_FEATURES,
           pricingTiers: [
             { minEmployees: -5, maxEmployees: 10, priceMonthly: 9900 },
           ],
@@ -443,7 +471,7 @@ describe("POST /payments/plans", () => {
         body: JSON.stringify({
           name: generateUniqueName("standard-10"),
           displayName: "Standard 10 Tiers Plan",
-          limits: { features: GOLD_FEATURES },
+          features: GOLD_FEATURES,
           pricingTiers: tierPrices,
         }),
       })

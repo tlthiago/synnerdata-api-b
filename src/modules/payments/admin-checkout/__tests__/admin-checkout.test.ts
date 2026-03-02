@@ -576,7 +576,7 @@ describe("POST /v1/payments/admin/checkout", () => {
       const body = await response.json();
       expect(body.success).toBe(true);
 
-      // Verify private plan inherits base plan's limits/features
+      // Verify private plan inherits base plan's features
       const [privatePlan] = await db
         .select()
         .from(schema.subscriptionPlans)
@@ -586,7 +586,21 @@ describe("POST /v1/payments/admin/checkout", () => {
       expect(privatePlan).toBeDefined();
       expect(privatePlan.isPublic).toBe(false);
       expect(privatePlan.isTrial).toBe(false);
-      expect(privatePlan.limits).toEqual(goldPlanResult.plan.limits);
+
+      // Verify features were copied via plan_features table
+      const privateFeatures = await db
+        .select({ featureId: schema.planFeatures.featureId })
+        .from(schema.planFeatures)
+        .where(eq(schema.planFeatures.planId, body.data.privatePlanId));
+
+      const baseFeatures = await db
+        .select({ featureId: schema.planFeatures.featureId })
+        .from(schema.planFeatures)
+        .where(eq(schema.planFeatures.planId, goldPlanResult.plan.id));
+
+      const privateFeatureIds = privateFeatures.map((f) => f.featureId).sort();
+      const baseFeatureIds = baseFeatures.map((f) => f.featureId).sort();
+      expect(privateFeatureIds).toEqual(baseFeatureIds);
     },
     15_000
   );

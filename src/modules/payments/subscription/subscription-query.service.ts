@@ -48,6 +48,15 @@ export abstract class SubscriptionQueryService {
 
     const { subscription, plan, pricingTier } = result;
 
+    // Query features from plan_features
+    const { eq } = await import("drizzle-orm");
+    const { db } = await import("@/db");
+    const { schema } = await import("@/db/schema");
+    const featureRows = await db
+      .select({ featureId: schema.planFeatures.featureId })
+      .from(schema.planFeatures)
+      .where(eq(schema.planFeatures.planId, plan.id));
+
     return {
       id: subscription.id,
       organizationId: subscription.organizationId,
@@ -57,7 +66,7 @@ export abstract class SubscriptionQueryService {
         id: plan.id,
         name: plan.name,
         displayName: plan.displayName,
-        limits: plan.limits,
+        features: featureRows.map((r) => r.featureId),
       },
       billingCycle: subscription.billingCycle as "monthly" | "yearly" | null,
       trialStart: subscription.trialStart?.toISOString() ?? null,

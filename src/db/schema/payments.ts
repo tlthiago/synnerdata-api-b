@@ -21,10 +21,6 @@ export const subscriptionStatusEnum = pgEnum("subscription_status", [
   "expired",
 ]);
 
-export type PlanLimits = {
-  features: string[];
-};
-
 export const subscriptionPlans = pgTable(
   "subscription_plans",
   {
@@ -33,7 +29,6 @@ export const subscriptionPlans = pgTable(
     displayName: text("display_name").notNull(),
     description: text("description"),
     trialDays: integer("trial_days").default(0).notNull(),
-    limits: jsonb("limits").$type<PlanLimits>(),
     isActive: boolean("is_active").default(true).notNull(),
     isPublic: boolean("is_public").default(true).notNull(),
     isTrial: boolean("is_trial").default(false).notNull(),

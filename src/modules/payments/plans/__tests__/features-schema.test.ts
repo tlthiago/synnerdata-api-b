@@ -6,7 +6,6 @@ import {
   planFeatures,
   subscriptionPlans,
 } from "@/db/schema/payments";
-import { PLAN_FEATURES } from "../plans.constants";
 
 const SEED_PLAN_IDS = {
   trial: "plan-trial",
@@ -27,6 +26,30 @@ const ALL_FEATURE_IDS = [
   "employee_record",
   "payroll",
 ] as const;
+
+const PLAN_FEATURE_IDS = {
+  trial: [...ALL_FEATURE_IDS],
+  gold: [
+    "terminated_employees",
+    "absences",
+    "medical_certificates",
+    "accidents",
+    "warnings",
+    "employee_status",
+  ],
+  diamond: [
+    "terminated_employees",
+    "absences",
+    "medical_certificates",
+    "accidents",
+    "warnings",
+    "employee_status",
+    "birthdays",
+    "ppe",
+    "employee_record",
+  ],
+  platinum: [...ALL_FEATURE_IDS],
+} as const;
 
 describe("features and plan_features schema", () => {
   describe("features table — seed data", () => {
@@ -124,7 +147,7 @@ describe("features and plan_features schema", () => {
         .where(eq(planFeatures.planId, SEED_PLAN_IDS.trial));
 
       const featureIds = result.map((r) => r.featureId).sort();
-      expect(featureIds).toEqual([...PLAN_FEATURES.trial].sort());
+      expect(featureIds).toEqual([...PLAN_FEATURE_IDS.trial].sort());
     });
 
     test("gold plan should have 6 default features", async () => {
@@ -134,7 +157,7 @@ describe("features and plan_features schema", () => {
         .where(eq(planFeatures.planId, SEED_PLAN_IDS.gold));
 
       const featureIds = result.map((r) => r.featureId).sort();
-      expect(featureIds).toEqual([...PLAN_FEATURES.gold].sort());
+      expect(featureIds).toEqual([...PLAN_FEATURE_IDS.gold].sort());
     });
 
     test("diamond plan should have gold + birthdays, ppe, employee_record", async () => {
@@ -144,7 +167,7 @@ describe("features and plan_features schema", () => {
         .where(eq(planFeatures.planId, SEED_PLAN_IDS.diamond));
 
       const featureIds = result.map((r) => r.featureId).sort();
-      expect(featureIds).toEqual([...PLAN_FEATURES.diamond].sort());
+      expect(featureIds).toEqual([...PLAN_FEATURE_IDS.diamond].sort());
     });
 
     test("platinum plan should have diamond + payroll", async () => {
@@ -154,7 +177,7 @@ describe("features and plan_features schema", () => {
         .where(eq(planFeatures.planId, SEED_PLAN_IDS.platinum));
 
       const featureIds = result.map((r) => r.featureId).sort();
-      expect(featureIds).toEqual([...PLAN_FEATURES.platinum].sort());
+      expect(featureIds).toEqual([...PLAN_FEATURE_IDS.platinum].sort());
     });
 
     test("feature count should increase with plan tier", async () => {

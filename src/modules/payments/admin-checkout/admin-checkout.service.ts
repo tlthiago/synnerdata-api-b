@@ -71,7 +71,11 @@ export abstract class AdminCheckoutService {
       await CustomerService.getOrCreateForCheckout(organizationId);
 
     // 6. Calculate prices
-    const customPriceYearly = calculateYearlyPrice(customPriceMonthly);
+    const basePlanDiscount = basePlan.yearlyDiscountPercent ?? 20;
+    const customPriceYearly = calculateYearlyPrice(
+      customPriceMonthly,
+      basePlanDiscount
+    );
     const effectivePrice =
       billingCycle === "monthly" ? customPriceMonthly : customPriceYearly;
 
@@ -101,14 +105,29 @@ export abstract class AdminCheckoutService {
         displayName: basePlan.displayName,
         description: `Custom plan based on ${basePlan.displayName} for org ${organizationId}`,
         trialDays: 0,
-        limits: basePlan.limits,
         isActive: true,
         isPublic: false,
         isTrial: false,
         sortOrder: basePlan.sortOrder,
+        yearlyDiscountPercent: basePlanDiscount,
         organizationId,
         basePlanId,
       });
+
+      // Copy features from base plan
+      const baseFeatures = await tx
+        .select({ featureId: schema.planFeatures.featureId })
+        .from(schema.planFeatures)
+        .where(eq(schema.planFeatures.planId, basePlanId));
+
+      if (baseFeatures.length > 0) {
+        await tx.insert(schema.planFeatures).values(
+          baseFeatures.map((f) => ({
+            planId: privatePlanId,
+            featureId: f.featureId,
+          }))
+        );
+      }
 
       await tx.insert(schema.planPricingTiers).values({
         id: privateTierId,

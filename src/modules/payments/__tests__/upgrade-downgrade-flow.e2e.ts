@@ -472,13 +472,12 @@ test.describe("E2E: Complete Upgrade → Downgrade Flow", () => {
 
     console.log("\n=== FASE 10: Verify Features Changed ===");
 
-    const [planData] = await db
-      .select({ limits: schema.subscriptionPlans.limits })
-      .from(schema.subscriptionPlans)
-      .where(eq(schema.subscriptionPlans.id, goldPlanResult.plan.id))
-      .limit(1);
+    const goldFeatureRows = await db
+      .select({ featureId: schema.planFeatures.featureId })
+      .from(schema.planFeatures)
+      .where(eq(schema.planFeatures.planId, goldPlanResult.plan.id));
 
-    const goldFeatures = planData.limits?.features ?? [];
+    const goldFeatures = goldFeatureRows.map((r) => r.featureId);
     console.log(`  Gold Features: ${goldFeatures.join(", ")}`);
 
     // Gold should have these

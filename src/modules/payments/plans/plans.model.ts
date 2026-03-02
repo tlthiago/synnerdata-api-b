@@ -1,10 +1,6 @@
 import { z } from "zod";
 import { successResponseSchema } from "@/lib/responses/response.types";
 
-export const planLimitsSchema = z.object({
-  features: z.array(z.string()).describe("List of enabled feature keys"),
-});
-
 export const tierPriceInputSchema = z.object({
   minEmployees: z
     .number()
@@ -37,7 +33,10 @@ export const createPlanSchema = z.object({
     .min(0)
     .default(0)
     .describe("Trial days (14 for trial plan, 0 for paid plans)"),
-  limits: planLimitsSchema.describe("Plan features"),
+  features: z
+    .array(z.string())
+    .min(1)
+    .describe("List of feature IDs to assign to this plan"),
   isActive: z.boolean().default(true).describe("Whether plan is active"),
   isPublic: z
     .boolean()
@@ -61,7 +60,11 @@ export const updatePlanSchema = z.object({
   displayName: z.string().min(1).max(100).optional(),
   description: z.string().max(500).optional().nullable(),
   trialDays: z.number().int().min(0).optional(),
-  limits: planLimitsSchema.optional(),
+  features: z
+    .array(z.string())
+    .min(1)
+    .optional()
+    .describe("Replace feature list for this plan"),
   isActive: z.boolean().optional(),
   isPublic: z.boolean().optional(),
   sortOrder: z.number().int().optional(),
@@ -82,7 +85,13 @@ const planDataSchema = z.object({
   displayName: z.string().describe("Plan display name"),
   description: z.string().nullable().describe("Plan description"),
   trialDays: z.number().int().describe("Trial days"),
-  limits: planLimitsSchema.nullable().describe("Plan features"),
+  features: z
+    .array(z.string())
+    .describe("List of feature IDs assigned to this plan"),
+  yearlyDiscountPercent: z
+    .number()
+    .int()
+    .describe("Yearly discount percentage"),
   isActive: z.boolean().describe("Whether plan is active"),
   isPublic: z.boolean().describe("Whether plan is publicly visible"),
   isTrial: z.boolean().describe("Whether this is the trial plan"),
@@ -120,7 +129,6 @@ export const updatePlanResponseSchema =
 export const deletePlanResponseSchema =
   successResponseSchema(deletePlanDataSchema);
 
-export type PlanLimits = z.infer<typeof planLimitsSchema>;
 export type TierPriceInput = z.infer<typeof tierPriceInputSchema>;
 export type PricingTierData = z.infer<typeof pricingTierSchema>;
 export type CreatePlanInput = z.infer<typeof createPlanSchema>;

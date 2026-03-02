@@ -1,14 +1,63 @@
 import { and, eq, isNull } from "drizzle-orm";
 import { db } from "@/db";
-import { type PlanLimits, schema } from "@/db/schema";
+import { schema } from "@/db/schema";
 import {
-  calculateYearlyPrice,
   DEFAULT_TRIAL_DAYS,
-  DEFAULT_TRIAL_EMPLOYEE_LIMIT,
   EMPLOYEE_TIERS,
-  PLAN_FEATURES,
   TRIAL_TIER,
 } from "@/modules/payments/plans/plans.constants";
+
+const PLAN_FEATURE_IDS = {
+  trial: [
+    "terminated_employees",
+    "absences",
+    "medical_certificates",
+    "accidents",
+    "warnings",
+    "employee_status",
+    "birthdays",
+    "ppe",
+    "employee_record",
+    "payroll",
+  ],
+  gold: [
+    "terminated_employees",
+    "absences",
+    "medical_certificates",
+    "accidents",
+    "warnings",
+    "employee_status",
+  ],
+  diamond: [
+    "terminated_employees",
+    "absences",
+    "medical_certificates",
+    "accidents",
+    "warnings",
+    "employee_status",
+    "birthdays",
+    "ppe",
+    "employee_record",
+  ],
+  platinum: [
+    "terminated_employees",
+    "absences",
+    "medical_certificates",
+    "accidents",
+    "warnings",
+    "employee_status",
+    "birthdays",
+    "ppe",
+    "employee_record",
+    "payroll",
+  ],
+} as const;
+
+function calculateYearlyPriceDefault(monthlyPrice: number): number {
+  const yearlyFullPrice = monthlyPrice * 12;
+  const discount = Math.round(yearlyFullPrice * 0.2);
+  return yearlyFullPrice - discount;
+}
 
 type PlanType = "trial" | "gold" | "diamond" | "platinum";
 
@@ -21,7 +70,7 @@ type CreatePlanOptions = {
   isPublic?: boolean;
   isTrial?: boolean;
   trialDays?: number;
-  limits?: PlanLimits;
+  features?: string[];
   sortOrder?: number;
 };
 
@@ -76,7 +125,7 @@ function getDefaultsForType(type: PlanType) {
     isPublic: !isTrial,
     isTrial,
     trialDays: isTrial ? DEFAULT_TRIAL_DAYS : 0,
-    limits: { features: [...PLAN_FEATURES[type]] },
+    features: [...PLAN_FEATURE_IDS[type]],
     sortOrder: PLAN_SORT_ORDER[type],
   };
 }
@@ -131,10 +180,26 @@ export abstract class PlanFactory {
         isPublic: options.isPublic ?? defaults.isPublic,
         isTrial,
         trialDays: options.trialDays ?? defaults.trialDays,
-        limits: options.limits ?? defaults.limits,
         sortOrder: options.sortOrder ?? defaults.sortOrder,
       })
       .returning();
+
+    // Insert plan_features
+    const featureIds = options.features ?? defaults.features;
+    if (featureIds.length > 0) {
+      await db
+        .insert(schema.planFeatures)
+        .values(featureIds.map((featureId) => ({ planId, featureId })));
+    }
+
+    // Insert plan_limits for trial plans
+    if (isTrial) {
+      await db.insert(schema.planLimits).values({
+        planId,
+        limitKey: "max_employees",
+        limitValue: 10,
+      });
+    }
 
     const tiers = await PlanFactory.createTiersForPlan(planId, type);
 
@@ -223,7 +288,7 @@ export abstract class PlanFactory {
       for (let i = 0; i < EMPLOYEE_TIERS.length; i++) {
         const employeeTier = EMPLOYEE_TIERS[i];
         const priceMonthly = prices[i];
-        const priceYearly = calculateYearlyPrice(priceMonthly);
+        const priceYearly = calculateYearlyPriceDefault(priceMonthly);
 
         const [tier] = await db
           .insert(schema.planPricingTiers)
@@ -260,4 +325,4 @@ export abstract class PlanFactory {
   }
 }
 
-export const DEFAULT_EMPLOYEE_COUNT = DEFAULT_TRIAL_EMPLOYEE_LIMIT;
+export const DEFAULT_EMPLOYEE_COUNT = 10;

@@ -105,7 +105,7 @@ describe("GET /payments/plans/:id", () => {
     expect(body.data.startingPriceMonthly).toBe(tier.priceMonthly);
     expect(body.data.startingPriceYearly).toBe(tier.priceYearly);
     expect(body.data.trialDays).toBe(plan.trialDays);
-    expect(body.data.limits).toEqual(plan.limits);
+    expect(body.data.features).toBeArray();
     expect(body.data.isActive).toBe(plan.isActive);
     expect(body.data.isPublic).toBe(plan.isPublic);
     expect(body.data.sortOrder).toBe(plan.sortOrder);

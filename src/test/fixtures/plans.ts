@@ -1,11 +1,60 @@
-import type { PlanLimits } from "@/db/schema";
 import {
-  calculateYearlyPrice,
   DEFAULT_TRIAL_DAYS,
   EMPLOYEE_TIERS,
-  PLAN_FEATURES,
   TRIAL_TIER,
 } from "@/modules/payments/plans/plans.constants";
+
+const PLAN_FEATURE_IDS = {
+  trial: [
+    "terminated_employees",
+    "absences",
+    "medical_certificates",
+    "accidents",
+    "warnings",
+    "employee_status",
+    "birthdays",
+    "ppe",
+    "employee_record",
+    "payroll",
+  ],
+  gold: [
+    "terminated_employees",
+    "absences",
+    "medical_certificates",
+    "accidents",
+    "warnings",
+    "employee_status",
+  ],
+  diamond: [
+    "terminated_employees",
+    "absences",
+    "medical_certificates",
+    "accidents",
+    "warnings",
+    "employee_status",
+    "birthdays",
+    "ppe",
+    "employee_record",
+  ],
+  platinum: [
+    "terminated_employees",
+    "absences",
+    "medical_certificates",
+    "accidents",
+    "warnings",
+    "employee_status",
+    "birthdays",
+    "ppe",
+    "employee_record",
+    "payroll",
+  ],
+} as const;
+
+function calculateYearlyPriceDefault(monthlyPrice: number): number {
+  const yearlyFullPrice = monthlyPrice * 12;
+  const discount = Math.round(yearlyFullPrice * 0.2);
+  return yearlyFullPrice - discount;
+}
 
 type PlanFixture = {
   id: string;
@@ -16,7 +65,7 @@ type PlanFixture = {
   isPublic: boolean;
   isTrial: boolean;
   trialDays: number;
-  limits: PlanLimits;
+  features: string[];
   sortOrder: number;
 };
 
@@ -72,7 +121,7 @@ function createPlanFixture(
     isPublic: !isTrial,
     isTrial,
     trialDays: isTrial ? DEFAULT_TRIAL_DAYS : 0,
-    limits: { features: [...PLAN_FEATURES[type]] },
+    features: [...PLAN_FEATURE_IDS[type]],
     sortOrder: PLAN_SORT_ORDER[type],
   };
 }
@@ -102,7 +151,7 @@ function createPricingTiersFixture(
     minEmployees: tier.min,
     maxEmployees: tier.max,
     priceMonthly: prices[index],
-    priceYearly: calculateYearlyPrice(prices[index]),
+    priceYearly: calculateYearlyPriceDefault(prices[index]),
   }));
 }
 

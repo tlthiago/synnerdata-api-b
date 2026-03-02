@@ -1,11 +1,10 @@
-import { and, count, eq, isNull, like } from "drizzle-orm";
+import { and, asc, count, eq, isNull, like } from "drizzle-orm";
 import { db } from "@/db";
 import { schema } from "@/db/schema";
 import {
   EmployeeLimitReachedError,
   FeatureNotAvailableError,
 } from "@/modules/payments/errors";
-import { PLAN_FEATURES } from "@/modules/payments/plans/plans.constants";
 import { SubscriptionService } from "@/modules/payments/subscription/subscription.service";
 import type {
   CapabilitiesData,
@@ -15,27 +14,35 @@ import type {
   FeatureAccess,
 } from "./limits.model";
 
-// Derive all feature names from PLAN_FEATURES (single source of truth)
-const ALL_FEATURE_NAMES = [
-  ...new Set(Object.values(PLAN_FEATURES).flat()),
-] as string[];
-
-// Plan hierarchy from lowest to highest tier
-const PLAN_HIERARCHY = ["gold", "diamond", "platinum"] as const;
-
 /**
  * Gets the minimum plan required for a feature.
- * Derived dynamically from PLAN_FEATURES to ensure consistency.
+ * Queries the plan_features and subscription_plans tables to find
+ * the lowest-tier public plan that includes the feature.
  */
-function getMinimumPlanForFeature(
+async function getMinimumPlanForFeature(
   featureName: string
-): (typeof PLAN_HIERARCHY)[number] | null {
-  for (const planType of PLAN_HIERARCHY) {
-    if (PLAN_FEATURES[planType].includes(featureName as never)) {
-      return planType;
-    }
+): Promise<string | null> {
+  const [result] = await db
+    .select({ name: schema.subscriptionPlans.name })
+    .from(schema.planFeatures)
+    .innerJoin(
+      schema.subscriptionPlans,
+      eq(schema.planFeatures.planId, schema.subscriptionPlans.id)
+    )
+    .where(
+      and(
+        eq(schema.planFeatures.featureId, featureName),
+        eq(schema.subscriptionPlans.isPublic, true),
+        isNull(schema.subscriptionPlans.archivedAt)
+      )
+    )
+    .orderBy(asc(schema.subscriptionPlans.sortOrder))
+    .limit(1);
+
+  if (!result) {
+    return null;
   }
-  return null;
+  return result.name.split("-")[0];
 }
 
 // Cache for plan display names (loaded from database)
@@ -108,7 +115,7 @@ export abstract class LimitsService {
     const planFeatures = await LimitsService.getPlanFeatures(organizationId);
 
     const hasAccess = planFeatures.includes(featureName);
-    const requiredPlanType = getMinimumPlanForFeature(featureName);
+    const requiredPlanType = await getMinimumPlanForFeature(featureName);
     const requiredPlan = requiredPlanType
       ? await getPlanDisplayName(requiredPlanType)
       : null;
@@ -136,7 +143,7 @@ export abstract class LimitsService {
     const results: FeatureAccess[] = await Promise.all(
       featureNames.map(async (featureName) => {
         const hasAccess = planFeatures.includes(featureName);
-        const requiredPlanType = getMinimumPlanForFeature(featureName);
+        const requiredPlanType = await getMinimumPlanForFeature(featureName);
         const requiredPlan = requiredPlanType
           ? await getPlanDisplayName(requiredPlanType)
           : null;
@@ -180,7 +187,7 @@ export abstract class LimitsService {
 
     // Find the required plan's sortOrder by matching the base type
     // Order by sortOrder ASC to get the base tier (lowest sortOrder > 0)
-    const { asc, gt } = await import("drizzle-orm");
+    const { gt } = await import("drizzle-orm");
     const [requiredPlan] = await db
       .select({ sortOrder: schema.subscriptionPlans.sortOrder })
       .from(schema.subscriptionPlans)
@@ -214,10 +221,17 @@ export abstract class LimitsService {
       features: availableFeatures,
     } = await LimitsService.getPlanInfo(organizationId);
 
+    const allFeatures = await db
+      .select({ id: schema.features.id })
+      .from(schema.features)
+      .where(eq(schema.features.isActive, true))
+      .orderBy(schema.features.sortOrder);
+    const allFeatureNames = allFeatures.map((f) => f.id);
+
     const features: FeatureAccess[] = await Promise.all(
-      ALL_FEATURE_NAMES.map(async (featureName) => {
+      allFeatureNames.map(async (featureName) => {
         const hasAccess = availableFeatures.includes(featureName);
-        const requiredPlanType = getMinimumPlanForFeature(featureName);
+        const requiredPlanType = await getMinimumPlanForFeature(featureName);
         const requiredPlan = requiredPlanType
           ? await getPlanDisplayName(requiredPlanType)
           : null;
@@ -327,9 +341,9 @@ export abstract class LimitsService {
     const [result] = await db
       .select({
         status: schema.orgSubscriptions.status,
+        planId: schema.subscriptionPlans.id,
         planName: schema.subscriptionPlans.name,
         planDisplayName: schema.subscriptionPlans.displayName,
-        limits: schema.subscriptionPlans.limits,
         sortOrder: schema.subscriptionPlans.sortOrder,
         isTrial: schema.subscriptionPlans.isTrial,
       })
@@ -342,7 +356,6 @@ export abstract class LimitsService {
       .limit(1);
 
     if (!result) {
-      // No subscription = no features
       return {
         features: [],
         planName: "none",
@@ -351,8 +364,6 @@ export abstract class LimitsService {
       };
     }
 
-    // Active subscriptions have access to features
-    // Trial plans also have status="active" while valid (trial is a plan, not a status)
     const hasAccess = result.status === "active";
     if (!hasAccess) {
       return {
@@ -363,8 +374,13 @@ export abstract class LimitsService {
       };
     }
 
+    const featureRows = await db
+      .select({ featureId: schema.planFeatures.featureId })
+      .from(schema.planFeatures)
+      .where(eq(schema.planFeatures.planId, result.planId));
+
     return {
-      features: result.limits?.features ?? [],
+      features: featureRows.map((r) => r.featureId),
       planName: result.planName,
       planDisplayName: result.planDisplayName,
       sortOrder: result.sortOrder,

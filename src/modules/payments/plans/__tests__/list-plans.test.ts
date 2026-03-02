@@ -108,7 +108,7 @@ describe("GET /payments/plans", () => {
     expect(plan).toHaveProperty("startingPriceMonthly");
     expect(plan).toHaveProperty("startingPriceYearly");
     expect(plan).toHaveProperty("trialDays");
-    expect(plan).toHaveProperty("limits");
+    expect(plan).toHaveProperty("features");
     expect(plan).toHaveProperty("isActive");
     expect(plan).toHaveProperty("isPublic");
     expect(plan).toHaveProperty("sortOrder");
@@ -116,7 +116,7 @@ describe("GET /payments/plans", () => {
     expect(plan.pricingTiers).toBeArray();
   });
 
-  test("should return plan limits with features array", async () => {
+  test("should return plan features as array", async () => {
     const { plan: createdPlan } = await PlanFactory.createPaid("diamond");
 
     const response = await app.handle(
@@ -129,9 +129,8 @@ describe("GET /payments/plans", () => {
     );
 
     expect(plan).toBeDefined();
-    expect(plan.limits).toHaveProperty("features");
-    expect(plan.limits.features).toBeArray();
-    expect(plan.limits.features.length).toBeGreaterThan(0);
+    expect(plan.features).toBeArray();
+    expect(plan.features.length).toBeGreaterThan(0);
   });
 
   test("should return pricing tiers with correct structure", async () => {
