@@ -1,6 +1,6 @@
 {
-  "id": "dd5d79d0-23f6-4653-abf4-83fa7163bd01",
-  "prevId": "6732ba38-8584-44bf-816b-5ad962b435fd",
+  "id": "506af400-5009-468d-9b38-935a9bc48e82",
+  "prevId": "4025ba36-4e80-47c4-b249-326a5322a46f",
   "version": "7",
   "dialect": "postgresql",
   "tables": {
@@ -3973,6 +3973,85 @@
       "checkConstraints": {},
       "isRLSEnabled": false
     },
+    "public.features": {
+      "name": "features",
+      "schema": "",
+      "columns": {
+        "id": {
+          "name": "id",
+          "type": "text",
+          "primaryKey": true,
+          "notNull": true
+        },
+        "display_name": {
+          "name": "display_name",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "description": {
+          "name": "description",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": false
+        },
+        "category": {
+          "name": "category",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": false
+        },
+        "sort_order": {
+          "name": "sort_order",
+          "type": "integer",
+          "primaryKey": false,
+          "notNull": true,
+          "default": 0
+        },
+        "is_active": {
+          "name": "is_active",
+          "type": "boolean",
+          "primaryKey": false,
+          "notNull": true,
+          "default": true
+        },
+        "is_default": {
+          "name": "is_default",
+          "type": "boolean",
+          "primaryKey": false,
+          "notNull": true,
+          "default": false
+        },
+        "is_premium": {
+          "name": "is_premium",
+          "type": "boolean",
+          "primaryKey": false,
+          "notNull": true,
+          "default": false
+        },
+        "created_at": {
+          "name": "created_at",
+          "type": "timestamp with time zone",
+          "primaryKey": false,
+          "notNull": true,
+          "default": "now()"
+        },
+        "updated_at": {
+          "name": "updated_at",
+          "type": "timestamp with time zone",
+          "primaryKey": false,
+          "notNull": true,
+          "default": "now()"
+        }
+      },
+      "indexes": {},
+      "foreignKeys": {},
+      "compositePrimaryKeys": {},
+      "uniqueConstraints": {},
+      "policies": {},
+      "checkConstraints": {},
+      "isRLSEnabled": false
+    },
     "public.org_subscriptions": {
       "name": "org_subscriptions",
       "schema": "",
@@ -4617,6 +4696,135 @@
         }
       },
       "compositePrimaryKeys": {},
+      "uniqueConstraints": {},
+      "policies": {},
+      "checkConstraints": {},
+      "isRLSEnabled": false
+    },
+    "public.plan_features": {
+      "name": "plan_features",
+      "schema": "",
+      "columns": {
+        "plan_id": {
+          "name": "plan_id",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "feature_id": {
+          "name": "feature_id",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": true
+        }
+      },
+      "indexes": {
+        "plan_features_feature_id_idx": {
+          "name": "plan_features_feature_id_idx",
+          "columns": [
+            {
+              "expression": "feature_id",
+              "isExpression": false,
+              "asc": true,
+              "nulls": "last"
+            }
+          ],
+          "isUnique": false,
+          "concurrently": false,
+          "method": "btree",
+          "with": {}
+        }
+      },
+      "foreignKeys": {
+        "plan_features_plan_id_subscription_plans_id_fk": {
+          "name": "plan_features_plan_id_subscription_plans_id_fk",
+          "tableFrom": "plan_features",
+          "tableTo": "subscription_plans",
+          "columnsFrom": [
+            "plan_id"
+          ],
+          "columnsTo": [
+            "id"
+          ],
+          "onDelete": "cascade",
+          "onUpdate": "no action"
+        },
+        "plan_features_feature_id_features_id_fk": {
+          "name": "plan_features_feature_id_features_id_fk",
+          "tableFrom": "plan_features",
+          "tableTo": "features",
+          "columnsFrom": [
+            "feature_id"
+          ],
+          "columnsTo": [
+            "id"
+          ],
+          "onDelete": "restrict",
+          "onUpdate": "no action"
+        }
+      },
+      "compositePrimaryKeys": {
+        "plan_features_plan_id_feature_id_pk": {
+          "name": "plan_features_plan_id_feature_id_pk",
+          "columns": [
+            "plan_id",
+            "feature_id"
+          ]
+        }
+      },
+      "uniqueConstraints": {},
+      "policies": {},
+      "checkConstraints": {},
+      "isRLSEnabled": false
+    },
+    "public.plan_limits": {
+      "name": "plan_limits",
+      "schema": "",
+      "columns": {
+        "plan_id": {
+          "name": "plan_id",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "limit_key": {
+          "name": "limit_key",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "limit_value": {
+          "name": "limit_value",
+          "type": "integer",
+          "primaryKey": false,
+          "notNull": true
+        }
+      },
+      "indexes": {},
+      "foreignKeys": {
+        "plan_limits_plan_id_subscription_plans_id_fk": {
+          "name": "plan_limits_plan_id_subscription_plans_id_fk",
+          "tableFrom": "plan_limits",
+          "tableTo": "subscription_plans",
+          "columnsFrom": [
+            "plan_id"
+          ],
+          "columnsTo": [
+            "id"
+          ],
+          "onDelete": "cascade",
+          "onUpdate": "no action"
+        }
+      },
+      "compositePrimaryKeys": {
+        "plan_limits_plan_id_limit_key_pk": {
+          "name": "plan_limits_plan_id_limit_key_pk",
+          "columns": [
+            "plan_id",
+            "limit_key"
+          ]
+        }
+      },
       "uniqueConstraints": {},
       "policies": {},
       "checkConstraints": {},

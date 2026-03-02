@@ -210,6 +210,7 @@ export const subscriptionPlanRelations = relations(
     subscriptions: many(orgSubscriptions),
     pricingTiers: many(planPricingTiers),
     planFeatures: many(planFeatures),
+    planLimits: many(planLimits),
     organization: one(organizations, {
       fields: [subscriptionPlans.organizationId],
       references: [organizations.id],
@@ -417,6 +418,25 @@ export const planFeatures = pgTable(
   ]
 );
 
+export const planLimits = pgTable(
+  "plan_limits",
+  {
+    planId: text("plan_id")
+      .notNull()
+      .references(() => subscriptionPlans.id, { onDelete: "cascade" }),
+    limitKey: text("limit_key").notNull(),
+    limitValue: integer("limit_value").notNull(),
+  },
+  (table) => [primaryKey({ columns: [table.planId, table.limitKey] })]
+);
+
+export const planLimitRelations = relations(planLimits, ({ one }) => ({
+  plan: one(subscriptionPlans, {
+    fields: [planLimits.planId],
+    references: [subscriptionPlans.id],
+  }),
+}));
+
 export const featureRelations = relations(features, ({ many }) => ({
   planFeatures: many(planFeatures),
 }));
@@ -451,3 +471,5 @@ export type Feature = typeof features.$inferSelect;
 export type NewFeature = typeof features.$inferInsert;
 export type PlanFeature = typeof planFeatures.$inferSelect;
 export type NewPlanFeature = typeof planFeatures.$inferInsert;
+export type PlanLimit = typeof planLimits.$inferSelect;
+export type NewPlanLimit = typeof planLimits.$inferInsert;
