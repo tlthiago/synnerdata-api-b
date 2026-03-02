@@ -239,7 +239,6 @@ export type {
   PendingCheckout,
   PlanFeature,
   PlanLimit,
-  PlanLimits,
   PlanPricingTier,
   PriceAdjustment,
   SubscriptionEvent,

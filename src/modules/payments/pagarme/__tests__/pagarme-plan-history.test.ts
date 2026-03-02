@@ -5,11 +5,18 @@ import { schema } from "@/db/schema";
 import { env } from "@/env";
 import { UserFactory } from "@/test/factories/user.factory";
 import { createTestApp, type TestApp } from "@/test/support/app";
-import { EMPLOYEE_TIERS, PLAN_FEATURES } from "../../plans/plans.constants";
+import { EMPLOYEE_TIERS } from "../../plans/plans.constants";
 import { PagarmePlanHistoryService } from "../pagarme-plan-history.service";
 
 const BASE_URL = env.API_URL;
-const GOLD_FEATURES = [...PLAN_FEATURES.gold];
+const GOLD_FEATURES = [
+  "terminated_employees",
+  "absences",
+  "medical_certificates",
+  "accidents",
+  "warnings",
+  "employee_status",
+];
 
 function generateTierPrices(basePrice: number) {
   return EMPLOYEE_TIERS.map((tier, index) => ({
@@ -259,7 +266,7 @@ describe("PlansService.replaceTiers deactivates history", () => {
         body: JSON.stringify({
           name: generateUniqueName("hist-replace"),
           displayName: "History Replace Test",
-          limits: { features: GOLD_FEATURES },
+          features: GOLD_FEATURES,
           pricingTiers: generateTierPrices(5000),
         }),
       })

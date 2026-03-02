@@ -7,10 +7,10 @@ Cria um **plano privado dedicado** (`isPublic=false`) com faixa de funcionários
 
 - Admin autenticado (role = admin ou super_admin)
 - Organização NÃO pode ter subscription paga ativa
-- `basePlanId` deve referenciar plano ativo e não-trial (herda features/limits)
+- `basePlanId` deve referenciar plano ativo e não-trial (herda features via `plan_features`)
 - `minEmployees >= 0`, `maxEmployees > minEmployees` (faixa livre, não precisa existir no catálogo)
 - `customPriceMonthly >= 100` centavos (R$ 1,00)
-- Preço anual: `calculateYearlyPrice(customPriceMonthly)` — mesma regra de 20% desconto do catálogo
+- Preço anual: `calculateYearlyPrice(customPriceMonthly, basePlan.yearlyDiscountPercent)` — usa o desconto do plano base
 - Billing profile obrigatório — admin pode enviar dados de billing no payload para criação automática
 - Um plano Pagar.me dedicado é criado para cada checkout (não cacheado no tier)
 
@@ -19,7 +19,7 @@ Cria um **plano privado dedicado** (`isPublic=false`) com faixa de funcionários
 - Exatamente **1 tier** por plano privado
 - `isPublic=false` — não aparece no catálogo (`GET /plans`)
 - `isTrial=false`, `isActive=true`
-- Features herdadas do plano base (Gold/Diamond/Platinum)
+- Features copiadas do plano base via `plan_features` (Gold/Diamond/Platinum)
 - Exclusivo por organização (uma org por plano privado)
 
 ## Flow
@@ -28,7 +28,7 @@ Cria um **plano privado dedicado** (`isPublic=false`) com faixa de funcionários
 2. Garantir billing profile (criar se billing data informado, erro se ausente)
 3. Get/create customer no Pagar.me (via CustomerService)
 4. Calcular preço anual customizado
-5. Criar plano privado (`subscription_plans`) + 1 tier (`plan_pricing_tiers`) em transação
+5. Criar plano privado (`subscription_plans`) + 1 tier (`plan_pricing_tiers`) + copiar `plan_features` do plano base em transação
 6. Criar plano customizado no Pagar.me (`PagarmePlanService.createCustomPlan`)
 7. Criar payment link com metadata apontando para o plano privado
 8. Salvar pending checkout referenciando plano privado

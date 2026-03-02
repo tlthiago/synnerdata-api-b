@@ -1,6 +1,5 @@
 import { beforeAll, describe, expect, test } from "bun:test";
 import { env } from "@/env";
-import { PLAN_FEATURES } from "@/modules/payments/plans/plans.constants";
 import { OrganizationFactory } from "@/test/factories/organization.factory";
 import {
   type CreatePlanResult,
@@ -226,7 +225,17 @@ describe("GET /v1/payments/subscription/capabilities", () => {
     }
 
     // Diamond plan should have access to diamond features
-    const diamondFeatures = PLAN_FEATURES.diamond;
+    const diamondFeatures = [
+      "terminated_employees",
+      "absences",
+      "medical_certificates",
+      "accidents",
+      "warnings",
+      "employee_status",
+      "birthdays",
+      "ppe",
+      "employee_record",
+    ];
     for (const featureName of diamondFeatures) {
       const feature = body.data.features.find(
         (f: { featureName: string }) => f.featureName === featureName

@@ -143,20 +143,16 @@ describe("Downgrade Use Case: Diamond → Gold", () => {
     });
 
     test("should have access to Diamond features", async () => {
-      const [subscription] = await db
-        .select({
-          subscription: schema.orgSubscriptions,
-          plan: schema.subscriptionPlans,
-        })
+      const featureRows = await db
+        .select({ featureId: schema.planFeatures.featureId })
         .from(schema.orgSubscriptions)
         .innerJoin(
-          schema.subscriptionPlans,
-          eq(schema.orgSubscriptions.planId, schema.subscriptionPlans.id)
+          schema.planFeatures,
+          eq(schema.orgSubscriptions.planId, schema.planFeatures.planId)
         )
-        .where(eq(schema.orgSubscriptions.organizationId, organizationId))
-        .limit(1);
+        .where(eq(schema.orgSubscriptions.organizationId, organizationId));
 
-      const features = subscription.plan.limits?.features ?? [];
+      const features = featureRows.map((r) => r.featureId);
 
       // Diamond has these features that Gold doesn't
       expect(features).toContain("birthdays");
@@ -376,19 +372,18 @@ describe("Downgrade Use Case: Diamond → Gold", () => {
 
   describe("Fase 5: Validar Features e Limites Após Downgrade", () => {
     test("should have Gold features (lost Diamond-exclusive features)", async () => {
-      const [result] = await db
-        .select({
-          plan: schema.subscriptionPlans,
-        })
+      const [sub] = await db
+        .select({ planId: schema.orgSubscriptions.planId })
         .from(schema.orgSubscriptions)
-        .innerJoin(
-          schema.subscriptionPlans,
-          eq(schema.orgSubscriptions.planId, schema.subscriptionPlans.id)
-        )
         .where(eq(schema.orgSubscriptions.id, subscriptionId))
         .limit(1);
 
-      const features = result.plan.limits?.features ?? [];
+      const featureRows = await db
+        .select({ featureId: schema.planFeatures.featureId })
+        .from(schema.planFeatures)
+        .where(eq(schema.planFeatures.planId, sub.planId));
+
+      const features = featureRows.map((r) => r.featureId);
 
       // Gold features
       expect(features).toContain("terminated_employees");

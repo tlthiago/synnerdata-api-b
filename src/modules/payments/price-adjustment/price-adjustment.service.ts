@@ -21,10 +21,7 @@ export abstract class PriceAdjustmentService {
    * Creates a dedicated Pagar.me plan, updates the subscription item pricing,
    * and records the adjustment.
    */
-  static async adjustIndividual(input: AdjustIndividualInput) {
-    const { subscriptionId, newPriceMonthly, reason, adminId } = input;
-
-    // 1. Fetch subscription by ID
+  private static async validateAndFetchSubscription(subscriptionId: string) {
     const [subscription] = await db
       .select()
       .from(schema.orgSubscriptions)
@@ -38,7 +35,6 @@ export abstract class PriceAdjustmentService {
       );
     }
 
-    // 2. Validate: must be active
     if (subscription.status !== "active") {
       throw new SubscriptionNotAdjustableError(
         subscriptionId,
@@ -46,7 +42,6 @@ export abstract class PriceAdjustmentService {
       );
     }
 
-    // Validate: priceAtPurchase must not be null (no trials)
     if (subscription.priceAtPurchase === null) {
       throw new SubscriptionNotAdjustableError(
         subscriptionId,
@@ -54,21 +49,34 @@ export abstract class PriceAdjustmentService {
       );
     }
 
-    // 3. Determine billingCycle and calculate effective price
-    const billingCycle =
-      (subscription.billingCycle as "monthly" | "yearly") ?? "monthly";
-    const newPriceYearly = calculateYearlyPrice(newPriceMonthly);
-    const effectiveNewPrice =
-      billingCycle === "yearly" ? newPriceYearly : newPriceMonthly;
+    return subscription;
+  }
 
-    const oldPrice = subscription.priceAtPurchase;
+  static async adjustIndividual(input: AdjustIndividualInput) {
+    const { subscriptionId, newPriceMonthly, reason, adminId } = input;
 
-    // 4. Get plan and tier info from DB
+    // 1. Fetch and validate subscription
+    const subscription =
+      await PriceAdjustmentService.validateAndFetchSubscription(subscriptionId);
+
+    // 2. Get plan info from DB (needed for discount percentage)
     const [plan] = await db
       .select()
       .from(schema.subscriptionPlans)
       .where(eq(schema.subscriptionPlans.id, subscription.planId))
       .limit(1);
+
+    // 3. Determine billingCycle and calculate effective price
+    const billingCycle =
+      (subscription.billingCycle as "monthly" | "yearly") ?? "monthly";
+    const newPriceYearly = calculateYearlyPrice(
+      newPriceMonthly,
+      plan?.yearlyDiscountPercent ?? 20
+    );
+    const effectiveNewPrice =
+      billingCycle === "yearly" ? newPriceYearly : newPriceMonthly;
+
+    const oldPrice = subscription.priceAtPurchase;
 
     const tier = subscription.pricingTierId
       ? (
@@ -80,7 +88,7 @@ export abstract class PriceAdjustmentService {
         )[0]
       : null;
 
-    // 5. Create dedicated Pagar.me plan (registers plan in Pagar.me for audit trail)
+    // 4. Create dedicated Pagar.me plan (registers plan in Pagar.me for audit trail)
     await PagarmePlanService.createCustomPlan({
       plan: {
         id: plan?.id ?? subscription.planId,
@@ -96,7 +104,7 @@ export abstract class PriceAdjustmentService {
       price: effectiveNewPrice,
     });
 
-    // 6. If subscription has pagarmeSubscriptionId, update item pricing
+    // 5. If subscription has pagarmeSubscriptionId, update item pricing
     if (subscription.pagarmeSubscriptionId) {
       const pagarmeSubscription = await PagarmeClient.getSubscription(
         subscription.pagarmeSubscriptionId
@@ -119,7 +127,7 @@ export abstract class PriceAdjustmentService {
       }
     }
 
-    // 7. Update orgSubscriptions
+    // 6. Update orgSubscriptions
     await db
       .update(schema.orgSubscriptions)
       .set({
@@ -128,7 +136,7 @@ export abstract class PriceAdjustmentService {
       })
       .where(eq(schema.orgSubscriptions.id, subscriptionId));
 
-    // 8. Insert price adjustment record
+    // 7. Insert price adjustment record
     const adjustmentId = `price-adj-${crypto.randomUUID()}`;
     const now = new Date();
 
@@ -146,7 +154,7 @@ export abstract class PriceAdjustmentService {
       createdAt: now,
     });
 
-    // 9. Emit hook
+    // 8. Emit hook
     const updatedSubscription = {
       ...subscription,
       priceAtPurchase: effectiveNewPrice,
@@ -162,7 +170,7 @@ export abstract class PriceAdjustmentService {
       adminId,
     });
 
-    // 10. Return result
+    // 9. Return result
     return {
       adjustment: {
         id: adjustmentId,
@@ -216,24 +224,28 @@ export abstract class PriceAdjustmentService {
       throw new TierNotFoundForAdjustmentError(pricingTierId, planId);
     }
 
-    // 2. Calculate effective price
-    const newPriceYearly = calculateYearlyPrice(newPriceMonthly);
+    // 2. Get plan info (needed for discount percentage and display name)
+    const [plan] = await db
+      .select()
+      .from(schema.subscriptionPlans)
+      .where(eq(schema.subscriptionPlans.id, planId))
+      .limit(1);
+
+    // 3. Calculate effective price
+    const newPriceYearly = calculateYearlyPrice(
+      newPriceMonthly,
+      plan?.yearlyDiscountPercent ?? 20
+    );
     const effectiveNewPrice =
       billingCycle === "yearly" ? newPriceYearly : newPriceMonthly;
 
-    // 3. Update catalog plan in Pagar.me
+    // 4. Update catalog plan in Pagar.me
     const pagarmePlanField =
       billingCycle === "monthly"
         ? tier.pagarmePlanIdMonthly
         : tier.pagarmePlanIdYearly;
 
     if (pagarmePlanField) {
-      const [plan] = await db
-        .select()
-        .from(schema.subscriptionPlans)
-        .where(eq(schema.subscriptionPlans.id, planId))
-        .limit(1);
-
       await PagarmeClient.updatePlan(pagarmePlanField, {
         items: [
           {
@@ -248,7 +260,7 @@ export abstract class PriceAdjustmentService {
       });
     }
 
-    // 4. Update planPricingTiers locally
+    // 5. Update planPricingTiers locally
     if (billingCycle === "monthly") {
       await db
         .update(schema.planPricingTiers)
@@ -266,7 +278,7 @@ export abstract class PriceAdjustmentService {
         .where(eq(schema.planPricingTiers.id, pricingTierId));
     }
 
-    // 5. Find all active subscriptions matching tier + billingCycle + status active
+    // 6. Find all active subscriptions matching tier + billingCycle + status active
     const subscriptions = await db
       .select()
       .from(schema.orgSubscriptions)
@@ -278,7 +290,7 @@ export abstract class PriceAdjustmentService {
         )
       );
 
-    // 6. For each subscription, update price and insert adjustment record
+    // 7. For each subscription, update price and insert adjustment record
     const adjustments: {
       id: string;
       subscriptionId: string;
@@ -355,7 +367,7 @@ export abstract class PriceAdjustmentService {
       });
     }
 
-    // 7. Return result
+    // 8. Return result
     return {
       adjustments,
       updatedCount: adjustments.length,

@@ -44,12 +44,14 @@ CANCELED/EXPIRED → sem recuperação
 - Grace period: 15 dias
 - Trial: 14 dias
 
-## Feature Hierarchy
+## Feature Hierarchy (tabela `plan_features`)
+
+Features são armazenadas na tabela `plan_features` (junction table) e definidas na tabela `features`. Limites numéricos na tabela `plan_limits`.
 
 - **Gold**: terminated_employees, absences, medical_certificates, accidents, warnings, employee_status
 - **Diamond**: Gold + birthdays, ppe, employee_record
 - **Platinum**: Diamond + payroll
-- **Trial**: todas as features (durante período ativo)
+- **Trial**: todas as features (durante período ativo), `max_employees=10` via `plan_limits`
 
 ## Permissions
 

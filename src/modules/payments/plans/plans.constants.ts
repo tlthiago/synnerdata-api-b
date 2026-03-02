@@ -13,78 +13,21 @@ export const EMPLOYEE_TIERS = [
 
 export const TRIAL_TIER = EMPLOYEE_TIERS[0];
 export const TRIAL_TIERS_COUNT = 1;
-export const YEARLY_DISCOUNT = 0.2;
 export const DEFAULT_TRIAL_DAYS = 14;
-export const DEFAULT_TRIAL_EMPLOYEE_LIMIT = 10;
 
-export const PLAN_FEATURES = {
-  trial: [
-    "terminated_employees",
-    "absences",
-    "medical_certificates",
-    "accidents",
-    "warnings",
-    "employee_status",
-    "birthdays",
-    "ppe",
-    "employee_record",
-    "payroll",
-  ],
-  gold: [
-    "terminated_employees",
-    "absences",
-    "medical_certificates",
-    "accidents",
-    "warnings",
-    "employee_status",
-  ],
-  diamond: [
-    "terminated_employees",
-    "absences",
-    "medical_certificates",
-    "accidents",
-    "warnings",
-    "employee_status",
-    "birthdays",
-    "ppe",
-    "employee_record",
-  ],
-  platinum: [
-    "terminated_employees",
-    "absences",
-    "medical_certificates",
-    "accidents",
-    "warnings",
-    "employee_status",
-    "birthdays",
-    "ppe",
-    "employee_record",
-    "payroll",
-  ],
-} as const;
-
-export const FEATURE_DISPLAY_NAMES: Record<string, string> = {
-  terminated_employees: "Demitidos",
-  absences: "Faltas",
-  medical_certificates: "Atestados",
-  accidents: "Acidentes",
-  warnings: "Advertências",
-  employee_status: "Status do Trabalhador",
-  birthdays: "Aniversariantes",
-  ppe: "EPI",
-  employee_record: "Ficha Cadastral",
-  payroll: "Folha",
-};
-
-export function calculateYearlyPrice(monthlyPrice: number): number {
+export function calculateYearlyPrice(
+  monthlyPrice: number,
+  discountPercent: number
+): number {
   const yearlyFullPrice = monthlyPrice * 12;
-  const discount = Math.round(yearlyFullPrice * YEARLY_DISCOUNT);
+  const discount = Math.round(yearlyFullPrice * (discountPercent / 100));
   return yearlyFullPrice - discount;
 }
 
 export function compareFeatures(
   currentFeatures: string[],
-  newFeatures: string[]
+  newFeatures: string[],
+  displayNames: Record<string, string>
 ): { gained: string[]; lost: string[] } {
   const currentSet = new Set(currentFeatures);
   const newSet = new Set(newFeatures);
@@ -94,13 +37,13 @@ export function compareFeatures(
 
   for (const feature of newSet) {
     if (!currentSet.has(feature)) {
-      gained.push(FEATURE_DISPLAY_NAMES[feature] ?? feature);
+      gained.push(displayNames[feature] ?? feature);
     }
   }
 
   for (const feature of currentSet) {
     if (!newSet.has(feature)) {
-      lost.push(FEATURE_DISPLAY_NAMES[feature] ?? feature);
+      lost.push(displayNames[feature] ?? feature);
     }
   }
 

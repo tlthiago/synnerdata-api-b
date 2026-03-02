@@ -1,9 +1,6 @@
 import { z } from "zod";
 import { successResponseSchema } from "@/lib/responses/response.types";
-import {
-  planLimitsSchema,
-  pricingTierSchema,
-} from "@/modules/payments/plans/plans.model";
+import { pricingTierSchema } from "@/modules/payments/plans/plans.model";
 
 /**
  * Database subscription status - persisted state
@@ -48,7 +45,9 @@ const planDataSchema = z.object({
   id: z.string().describe("Plan ID"),
   name: z.string().describe("Plan internal name"),
   displayName: z.string().describe("Plan display name"),
-  limits: planLimitsSchema.nullable().describe("Plan limits"),
+  features: z
+    .array(z.string())
+    .describe("List of feature IDs assigned to this plan"),
 });
 
 const billingCycleSchema = z.enum(["monthly", "yearly"]);

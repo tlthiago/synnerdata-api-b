@@ -8,11 +8,21 @@ import { PlanFactory } from "@/test/factories/payments/plan.factory";
 import { SubscriptionFactory } from "@/test/factories/payments/subscription.factory";
 import { UserFactory } from "@/test/factories/user.factory";
 import { createTestApp, type TestApp } from "@/test/support/app";
-import { EMPLOYEE_TIERS, PLAN_FEATURES } from "../plans.constants";
+import { EMPLOYEE_TIERS } from "../plans.constants";
 
 const BASE_URL = env.API_URL;
 
-const DIAMOND_FEATURES = [...PLAN_FEATURES.diamond];
+const DIAMOND_FEATURES = [
+  "terminated_employees",
+  "absences",
+  "medical_certificates",
+  "accidents",
+  "warnings",
+  "employee_status",
+  "birthdays",
+  "ppe",
+  "employee_record",
+];
 
 function generateTierPrices(basePrice: number) {
   return EMPLOYEE_TIERS.map((tier, index) => ({
@@ -103,23 +113,22 @@ describe("PUT /payments/plans/:id", () => {
     expect(body.data.name).toBe(plan.name);
   });
 
-  test("should update plan limits with valid features", async () => {
+  test("should update plan features with valid features", async () => {
     const { plan } = await PlanFactory.createPaid("gold");
     createdPlanIds.push(plan.id);
-    const newLimits = { features: DIAMOND_FEATURES };
 
     const response = await app.handle(
       new Request(`${BASE_URL}/v1/payments/plans/${plan.id}`, {
         method: "PUT",
         headers: { ...authHeaders, "Content-Type": "application/json" },
-        body: JSON.stringify({ limits: newLimits }),
+        body: JSON.stringify({ features: DIAMOND_FEATURES }),
       })
     );
     expect(response.status).toBe(200);
 
     const body = await response.json();
     expect(body.success).toBe(true);
-    expect(body.data.limits).toEqual(newLimits);
+    expect(body.data.features).toEqual(DIAMOND_FEATURES);
   });
 
   test("should update plan status flags", async () => {

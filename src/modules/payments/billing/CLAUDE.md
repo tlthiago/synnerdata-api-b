@@ -23,7 +23,8 @@ Perfil de cobrança, faturas, cartões e tracking de uso.
 
 ## Usage Tracking
 
-- Members usage: count de employees ativos vs `tier.maxEmployees`
+- Members usage: count de employees ativos vs `tier.maxEmployees` (ou `plan_limits.max_employees` para trial)
+- Features: consultadas via `plan_features` table
 - Percentual: 0-100% (null se ilimitado)
 
 ## Endpoints

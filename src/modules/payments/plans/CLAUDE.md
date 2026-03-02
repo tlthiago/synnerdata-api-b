@@ -15,13 +15,19 @@ Planos com pricing tiers por faixa de funcionários.
 - Trial: 0-10 (tier único, regra fixa)
 - Paid: qualquer conjunto de tiers contíguos (min >= 0, sem gaps, sem overlaps)
 - `EMPLOYEE_TIERS` mantido como template/default para seeds
-- Desconto anual: configurável por plano via `yearlyDiscountPercent` (default 20%). Fórmula: `monthlyPrice * 12 * (1 - yearlyDiscountPercent / 100)`
+- Desconto anual: configurável por plano via `yearlyDiscountPercent` (default 20%). Fórmula: `calculateYearlyPrice(monthlyPrice, discountPercent)` = `monthlyPrice * 12 * (1 - discountPercent / 100)`
 
-## Plan Features (PLAN_FEATURES constant)
+## Plan Features (tabela `plan_features`)
+
+Features são armazenadas na tabela `plan_features` (junction: planId + featureId) e definidas na tabela `features`. Não existe mais constante `PLAN_FEATURES` — a fonte de verdade é o banco de dados.
 
 - **Gold**: terminated_employees, absences, medical_certificates, accidents, warnings, employee_status
 - **Diamond**: Gold + birthdays, ppe, employee_record
 - **Platinum**: Diamond + payroll
+
+## Plan Limits (tabela `plan_limits`)
+
+Limites numéricos por plano são armazenados na tabela `plan_limits` (planId + limitKey + limitValue). Exemplo: trial plan tem `max_employees = 10`.
 
 ## Tier Versioning
 

@@ -1,6 +1,6 @@
 import { eq, sql } from "drizzle-orm";
 import { db } from "@/db";
-import { type BillingProfile, type PlanLimits, schema } from "@/db/schema";
+import { type BillingProfile, schema } from "@/db/schema";
 import { billingProfiles } from "@/db/schema/billing-profiles";
 import { Retry } from "@/lib/utils/retry";
 import {
@@ -14,7 +14,6 @@ import {
   PAGARME_RETRY_CONFIG,
   PagarmeClient,
 } from "@/modules/payments/pagarme/client";
-import { DEFAULT_TRIAL_EMPLOYEE_LIMIT } from "@/modules/payments/plans/plans.constants";
 import { SubscriptionService } from "@/modules/payments/subscription/subscription.service";
 import type {
   CreateProfileInput,
@@ -323,7 +322,28 @@ export abstract class BillingService {
       throw new SubscriptionNotFoundError(organizationId);
     }
 
-    const limits = result.plan.limits as PlanLimits | null;
+    // For trial plans without a tier, get limit from plan_limits
+    let membersLimit = result.tier?.maxEmployees ?? 0;
+    if (!result.tier) {
+      const { and } = await import("drizzle-orm");
+      const [limitRow] = await db
+        .select({ limitValue: schema.planLimits.limitValue })
+        .from(schema.planLimits)
+        .where(
+          and(
+            eq(schema.planLimits.planId, result.plan.id),
+            eq(schema.planLimits.limitKey, "max_employees")
+          )
+        )
+        .limit(1);
+      membersLimit = limitRow?.limitValue ?? 0;
+    }
+
+    // Get features from plan_features
+    const featureRows = await db
+      .select({ featureId: schema.planFeatures.featureId })
+      .from(schema.planFeatures)
+      .where(eq(schema.planFeatures.planId, result.plan.id));
 
     const [membersCount] = await db
       .select({ count: sql<number>`count(*)` })
@@ -331,8 +351,6 @@ export abstract class BillingService {
       .where(eq(schema.members.organizationId, organizationId));
 
     const membersCurrent = Number(membersCount.count);
-    const membersLimit =
-      result.tier?.maxEmployees ?? DEFAULT_TRIAL_EMPLOYEE_LIMIT;
 
     return {
       plan: {
@@ -348,7 +366,7 @@ export abstract class BillingService {
             : null,
         },
       },
-      features: limits?.features ?? [],
+      features: featureRows.map((r) => r.featureId),
     };
   }
 }

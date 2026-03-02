@@ -10,7 +10,6 @@ import {
   clearPlanDisplayNamesCache,
   LimitsService,
 } from "@/modules/payments/limits/limits.service";
-import { PLAN_FEATURES } from "@/modules/payments/plans/plans.constants";
 import {
   type CreatePlanResult,
   PlanFactory,
@@ -495,12 +494,31 @@ describe("LimitsService", () => {
       const features = await LimitsService.getAvailableFeatures(organizationId);
 
       // Should have gold features
-      for (const goldFeature of PLAN_FEATURES.gold) {
+      const goldFeatures = [
+        "terminated_employees",
+        "absences",
+        "medical_certificates",
+        "accidents",
+        "warnings",
+        "employee_status",
+      ];
+      for (const goldFeature of goldFeatures) {
         expect(features).toContain(goldFeature);
       }
 
       // Should have diamond features
-      for (const diamondFeature of PLAN_FEATURES.diamond) {
+      const diamondFeatures = [
+        "terminated_employees",
+        "absences",
+        "medical_certificates",
+        "accidents",
+        "warnings",
+        "employee_status",
+        "birthdays",
+        "ppe",
+        "employee_record",
+      ];
+      for (const diamondFeature of diamondFeatures) {
         expect(features).toContain(diamondFeature);
       }
     });
@@ -520,9 +538,16 @@ describe("LimitsService", () => {
 
       // Should have all features from all plans
       const allFeatures = [
-        ...PLAN_FEATURES.gold,
-        ...PLAN_FEATURES.diamond,
-        ...PLAN_FEATURES.platinum,
+        "terminated_employees",
+        "absences",
+        "medical_certificates",
+        "accidents",
+        "warnings",
+        "employee_status",
+        "birthdays",
+        "ppe",
+        "employee_record",
+        "payroll",
       ];
 
       for (const feature of allFeatures) {

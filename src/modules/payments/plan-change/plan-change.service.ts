@@ -552,7 +552,6 @@ export abstract class PlanChangeService {
     currentPlan: {
       id: string;
       displayName: string;
-      limits: { features: string[] } | null;
     };
     currentTier: {
       id: string;
@@ -564,7 +563,6 @@ export abstract class PlanChangeService {
     newPlan: {
       id: string;
       displayName: string;
-      limits: { features: string[] } | null;
     };
     newTier: {
       id: string;
@@ -624,11 +622,42 @@ export abstract class PlanChangeService {
     const { compareFeatures } = await import(
       "@/modules/payments/plans/plans.constants"
     );
-    const currentFeatures = currentPlan.limits?.features ?? [];
-    const newFeatures = newPlan.limits?.features ?? [];
+
+    // Query features from plan_features table
+    const [currentFeatureRows, newFeatureRows] = await Promise.all([
+      db
+        .select({ featureId: schema.planFeatures.featureId })
+        .from(schema.planFeatures)
+        .where(eq(schema.planFeatures.planId, currentPlan.id)),
+      db
+        .select({ featureId: schema.planFeatures.featureId })
+        .from(schema.planFeatures)
+        .where(eq(schema.planFeatures.planId, newPlan.id)),
+    ]);
+    const currentFeatures = currentFeatureRows.map((r) => r.featureId);
+    const newFeatures = newFeatureRows.map((r) => r.featureId);
+
+    // Build display names map from features table
+    const allFeatureIds = [...new Set([...currentFeatures, ...newFeatures])];
+    let displayNames: Record<string, string> = {};
+    if (allFeatureIds.length > 0) {
+      const { inArray } = await import("drizzle-orm");
+      const featureDisplayRows = await db
+        .select({
+          id: schema.features.id,
+          displayName: schema.features.displayName,
+        })
+        .from(schema.features)
+        .where(inArray(schema.features.id, allFeatureIds));
+      displayNames = Object.fromEntries(
+        featureDisplayRows.map((r) => [r.id, r.displayName])
+      );
+    }
+
     const { gained: featuresGained, lost: featuresLost } = compareFeatures(
       currentFeatures,
-      newFeatures
+      newFeatures,
+      displayNames
     );
 
     return {
