@@ -38,6 +38,9 @@ export const subscriptionPlans = pgTable(
     isPublic: boolean("is_public").default(true).notNull(),
     isTrial: boolean("is_trial").default(false).notNull(),
     sortOrder: integer("sort_order").default(0).notNull(),
+    yearlyDiscountPercent: integer("yearly_discount_percent")
+      .default(20)
+      .notNull(),
     createdAt: timestamp("created_at", { withTimezone: true })
       .defaultNow()
       .notNull(),
@@ -55,6 +58,9 @@ export const subscriptionPlans = pgTable(
     index("subscription_plans_organization_id_idx").on(table.organizationId),
     index("subscription_plans_base_plan_id_idx").on(table.basePlanId),
     index("subscription_plans_archived_at_idx").on(table.archivedAt),
+    uniqueIndex("subscription_plans_single_active_trial")
+      .on(table.isTrial)
+      .where(sql`${table.isTrial} = true AND ${table.archivedAt} IS NULL`),
   ]
 );
 

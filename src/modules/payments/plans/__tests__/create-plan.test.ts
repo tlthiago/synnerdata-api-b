@@ -1,5 +1,6 @@
 import { beforeAll, describe, expect, test } from "bun:test";
 import { env } from "@/env";
+import { PlanFactory } from "@/test/factories/payments/plan.factory";
 import { UserFactory } from "@/test/factories/user.factory";
 import { createTestApp, type TestApp } from "@/test/support/app";
 import { EMPLOYEE_TIERS, PLAN_FEATURES } from "../plans.constants";
@@ -215,6 +216,9 @@ describe("POST /payments/plans", () => {
   });
 
   test("should create trial plan with 1 tier (0-10 employees)", async () => {
+    // Archive existing active trial to satisfy unique constraint
+    await PlanFactory.archiveActiveTrial();
+
     const planData = {
       name: generateUniqueName("test-trial"),
       displayName: "Test Trial Plan",

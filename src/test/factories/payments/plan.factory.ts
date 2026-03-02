@@ -1,3 +1,4 @@
+import { and, eq, isNull } from "drizzle-orm";
 import { db } from "@/db";
 import { type PlanLimits, schema } from "@/db/schema";
 import {
@@ -112,6 +113,12 @@ export abstract class PlanFactory {
     const defaults = getDefaultsForType(type);
 
     const planId = generatePlanId();
+    const isTrial = options.isTrial ?? defaults.isTrial;
+
+    // Archive existing active trial to satisfy unique constraint
+    if (isTrial) {
+      await PlanFactory.archiveActiveTrial();
+    }
 
     const [plan] = await db
       .insert(schema.subscriptionPlans)
@@ -122,7 +129,7 @@ export abstract class PlanFactory {
         description: options.description ?? defaults.description,
         isActive: options.isActive ?? defaults.isActive,
         isPublic: options.isPublic ?? defaults.isPublic,
-        isTrial: options.isTrial ?? defaults.isTrial,
+        isTrial,
         trialDays: options.trialDays ?? defaults.trialDays,
         limits: options.limits ?? defaults.limits,
         sortOrder: options.sortOrder ?? defaults.sortOrder,
@@ -234,6 +241,22 @@ export abstract class PlanFactory {
     }
 
     return tiers;
+  }
+
+  /**
+   * Archives any active (non-archived) trial plan.
+   * Required before inserting a new trial plan due to the unique constraint.
+   */
+  static async archiveActiveTrial(): Promise<void> {
+    await db
+      .update(schema.subscriptionPlans)
+      .set({ archivedAt: new Date() })
+      .where(
+        and(
+          eq(schema.subscriptionPlans.isTrial, true),
+          isNull(schema.subscriptionPlans.archivedAt)
+        )
+      );
   }
 }
 

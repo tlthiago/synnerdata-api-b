@@ -7,6 +7,7 @@ Planos com pricing tiers por faixa de funcionários.
 - Nome do plano único
 - Não pode deletar plano com subscriptions ativas
 - Trial plan: `isTrial=true`, `trialDays=14`, 1 tier (0-10), todas as features
+- Unique trial constraint: apenas 1 plano trial ativo (não arquivado) por vez — enforced via partial unique index `subscription_plans_single_active_trial`
 - Paid plans: `isTrial=false`, >= 1 tier contíguo (sem gaps/overlaps, first tier starts at 0)
 
 ## Employee Tiers
@@ -14,7 +15,7 @@ Planos com pricing tiers por faixa de funcionários.
 - Trial: 0-10 (tier único, regra fixa)
 - Paid: qualquer conjunto de tiers contíguos (min >= 0, sem gaps, sem overlaps)
 - `EMPLOYEE_TIERS` mantido como template/default para seeds
-- Desconto anual: 20% (`monthlyPrice * 12 * 0.8`)
+- Desconto anual: configurável por plano via `yearlyDiscountPercent` (default 20%). Fórmula: `monthlyPrice * 12 * (1 - yearlyDiscountPercent / 100)`
 
 ## Plan Features (PLAN_FEATURES constant)
 
