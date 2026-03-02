@@ -76,7 +76,8 @@ export abstract class PriceAdjustmentService {
     const effectiveNewPrice =
       billingCycle === "yearly" ? newPriceYearly : newPriceMonthly;
 
-    const oldPrice = subscription.priceAtPurchase;
+    // Guaranteed non-null by validateAndFetchSubscription
+    const oldPrice = subscription.priceAtPurchase as number;
 
     const tier = subscription.pricingTierId
       ? (
