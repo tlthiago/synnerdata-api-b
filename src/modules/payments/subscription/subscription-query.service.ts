@@ -1,3 +1,6 @@
+import { eq } from "drizzle-orm";
+import { db } from "@/db";
+import { schema } from "@/db/schema";
 import { SubscriptionNotFoundError } from "@/modules/payments/errors";
 import {
   findByOrganizationId,
@@ -49,9 +52,6 @@ export abstract class SubscriptionQueryService {
     const { subscription, plan, pricingTier } = result;
 
     // Query features from plan_features
-    const { eq } = await import("drizzle-orm");
-    const { db } = await import("@/db");
-    const { schema } = await import("@/db/schema");
     const featureRows = await db
       .select({ featureId: schema.planFeatures.featureId })
       .from(schema.planFeatures)

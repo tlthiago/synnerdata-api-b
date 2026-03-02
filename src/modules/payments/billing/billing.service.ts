@@ -1,4 +1,4 @@
-import { eq, sql } from "drizzle-orm";
+import { and, eq, sql } from "drizzle-orm";
 import { db } from "@/db";
 import { type BillingProfile, schema } from "@/db/schema";
 import { billingProfiles } from "@/db/schema/billing-profiles";
@@ -325,7 +325,6 @@ export abstract class BillingService {
     // For trial plans without a tier, get limit from plan_limits
     let membersLimit = result.tier?.maxEmployees ?? 0;
     if (!result.tier) {
-      const { and } = await import("drizzle-orm");
       const [limitRow] = await db
         .select({ limitValue: schema.planLimits.limitValue })
         .from(schema.planLimits)

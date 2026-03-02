@@ -86,6 +86,11 @@ describe("SubscriptionMutationService.createTrial", () => {
         SubscriptionMutationService.createTrial(org.id)
       ).rejects.toBeInstanceOf(TrialPlanMisconfiguredError);
     } finally {
+      // Clean up the misconfigured plan first (unique trial constraint)
+      await db
+        .delete(schema.subscriptionPlans)
+        .where(eq(schema.subscriptionPlans.id, misconfiguredPlan.id));
+
       // Restore all original trial plans
       for (const plan of existingTrialPlans) {
         await db
@@ -93,11 +98,6 @@ describe("SubscriptionMutationService.createTrial", () => {
           .set({ isTrial: true })
           .where(eq(schema.subscriptionPlans.id, plan.id));
       }
-
-      // Clean up the misconfigured plan
-      await db
-        .delete(schema.subscriptionPlans)
-        .where(eq(schema.subscriptionPlans.id, misconfiguredPlan.id));
     }
   });
 });

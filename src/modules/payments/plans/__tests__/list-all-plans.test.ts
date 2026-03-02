@@ -129,7 +129,8 @@ describe("GET /payments/plans/all", () => {
     expect(plan).toHaveProperty("startingPriceMonthly");
     expect(plan).toHaveProperty("startingPriceYearly");
     expect(plan).toHaveProperty("trialDays");
-    expect(plan).toHaveProperty("limits");
+    expect(plan).toHaveProperty("features");
+    expect(plan).toHaveProperty("yearlyDiscountPercent");
     expect(plan).toHaveProperty("isActive");
     expect(plan).toHaveProperty("isPublic");
     expect(plan).toHaveProperty("isTrial");
