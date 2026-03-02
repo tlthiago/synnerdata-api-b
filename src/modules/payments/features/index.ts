@@ -15,18 +15,35 @@ import {
   deleteFeatureResponseSchema,
   featureIdParamsSchema,
   listFeaturesResponseSchema,
+  listPublicFeaturesResponseSchema,
   updateFeatureResponseSchema,
   updateFeatureSchema,
 } from "./features.model";
 import { FeaturesService } from "./features.service";
 
-export const featuresController = new Elysia({
-  name: "features",
+export const featuresPublicController = new Elysia({
+  name: "features-public",
+  prefix: "/features",
+  detail: { tags: ["Payments - Features"] },
+}).get("/", async () => wrapSuccess(await FeaturesService.listPublic()), {
+  response: {
+    200: listPublicFeaturesResponseSchema,
+    422: validationErrorSchema,
+  },
+  detail: {
+    summary: "List active features",
+    description:
+      "Returns all active features with metadata for the pricing page. No authentication required.",
+  },
+});
+
+export const featuresProtectedController = new Elysia({
+  name: "features-protected",
   prefix: "/features",
   detail: { tags: ["Payments - Features (Admin)"] },
 })
   .use(betterAuthPlugin)
-  .get("/", async () => wrapSuccess(await FeaturesService.list()), {
+  .get("/all", async () => wrapSuccess(await FeaturesService.list()), {
     auth: { requireAdmin: true },
     response: {
       200: listFeaturesResponseSchema,

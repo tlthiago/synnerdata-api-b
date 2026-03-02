@@ -4,7 +4,10 @@ import { adminProvisionController } from "./admin-provision";
 import { billingController } from "./billing";
 import { checkoutController } from "./checkout";
 import { customerController } from "./customer";
-import { featuresController } from "./features";
+import {
+  featuresProtectedController,
+  featuresPublicController,
+} from "./features";
 import { jobsController } from "./jobs";
 import { orphanedPlansController } from "./pagarme/pagarme-orphaned-plans.controller";
 import { planChangeController } from "./plan-change";
@@ -19,9 +22,10 @@ export const paymentsController = new Elysia({
   detail: { tags: ["Payments"] },
 })
   .use(plansPublicController)
+  .use(featuresPublicController)
   .use(webhookController)
   .use(plansProtectedController)
-  .use(featuresController)
+  .use(featuresProtectedController)
   .use(checkoutController)
   .use(adminCheckoutController)
   .use(adminProvisionController)

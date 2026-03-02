@@ -9,10 +9,29 @@ import type {
   CreateFeatureInput,
   FeatureData,
   ListFeaturesData,
+  ListPublicFeaturesData,
   UpdateFeatureInput,
 } from "./features.model";
 
 export abstract class FeaturesService {
+  static async listPublic(): Promise<ListPublicFeaturesData> {
+    const rows = await db
+      .select({
+        id: schema.features.id,
+        displayName: schema.features.displayName,
+        description: schema.features.description,
+        category: schema.features.category,
+        sortOrder: schema.features.sortOrder,
+        isDefault: schema.features.isDefault,
+        isPremium: schema.features.isPremium,
+      })
+      .from(schema.features)
+      .where(eq(schema.features.isActive, true))
+      .orderBy(schema.features.sortOrder);
+
+    return { features: rows };
+  }
+
   static async list(): Promise<ListFeaturesData> {
     const rows = await db
       .select({

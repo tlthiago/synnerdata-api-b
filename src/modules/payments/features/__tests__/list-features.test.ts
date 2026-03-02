@@ -8,7 +8,7 @@ import { createTestApp, type TestApp } from "@/test/support/app";
 
 const BASE_URL = env.API_URL;
 
-describe("GET /payments/features", () => {
+describe("GET /payments/features/all", () => {
   let app: TestApp;
   let authHeaders: Record<string, string>;
 
@@ -20,7 +20,7 @@ describe("GET /payments/features", () => {
 
   test("should reject unauthenticated requests", async () => {
     const response = await app.handle(
-      new Request(`${BASE_URL}/v1/payments/features`)
+      new Request(`${BASE_URL}/v1/payments/features/all`)
     );
     expect(response.status).toBe(401);
   });
@@ -31,7 +31,7 @@ describe("GET /payments/features", () => {
     });
 
     const response = await app.handle(
-      new Request(`${BASE_URL}/v1/payments/features`, {
+      new Request(`${BASE_URL}/v1/payments/features/all`, {
         headers: nonAdminHeaders,
       })
     );
@@ -40,7 +40,7 @@ describe("GET /payments/features", () => {
 
   test("should list all features with planCount", async () => {
     const response = await app.handle(
-      new Request(`${BASE_URL}/v1/payments/features`, {
+      new Request(`${BASE_URL}/v1/payments/features/all`, {
         headers: authHeaders,
       })
     );
@@ -62,7 +62,7 @@ describe("GET /payments/features", () => {
 
   test("should return features ordered by sortOrder", async () => {
     const response = await app.handle(
-      new Request(`${BASE_URL}/v1/payments/features`, {
+      new Request(`${BASE_URL}/v1/payments/features/all`, {
         headers: authHeaders,
       })
     );
@@ -90,7 +90,7 @@ describe("GET /payments/features", () => {
 
     try {
       const response = await app.handle(
-        new Request(`${BASE_URL}/v1/payments/features`, {
+        new Request(`${BASE_URL}/v1/payments/features/all`, {
           headers: authHeaders,
         })
       );

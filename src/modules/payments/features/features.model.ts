@@ -79,8 +79,24 @@ export const deleteFeatureResponseSchema = successResponseSchema(
   z.union([deactivateFeatureDataSchema, deleteFeatureDataSchema])
 );
 
+const publicFeatureDataSchema = z.object({
+  id: z.string().describe("Feature ID"),
+  displayName: z.string().describe("Display name"),
+  description: z.string().nullable().describe("Feature description"),
+  category: z.string().nullable().describe("Category"),
+  sortOrder: z.number().int().describe("Sort order"),
+  isDefault: z.boolean().describe("Whether feature is default for new plans"),
+  isPremium: z.boolean().describe("Whether feature is premium"),
+});
+
+export const listPublicFeaturesResponseSchema = successResponseSchema(
+  z.object({ features: z.array(publicFeatureDataSchema) })
+);
+
 export type CreateFeatureInput = z.infer<typeof createFeatureSchema>;
 export type UpdateFeatureInput = z.infer<typeof updateFeatureSchema>;
 export type FeatureIdParams = z.infer<typeof featureIdParamsSchema>;
 export type FeatureData = z.infer<typeof featureDataSchema>;
+export type PublicFeatureData = z.infer<typeof publicFeatureDataSchema>;
 export type ListFeaturesData = { features: FeatureData[] };
+export type ListPublicFeaturesData = { features: PublicFeatureData[] };
