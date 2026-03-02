@@ -135,7 +135,9 @@ describe("GET /payments/plans/all", () => {
     expect(plan).toHaveProperty("isPublic");
     expect(plan).toHaveProperty("isTrial");
     expect(plan).toHaveProperty("sortOrder");
+    expect(plan).toHaveProperty("limits");
     expect(plan).toHaveProperty("pricingTiers");
     expect(plan.pricingTiers).toBeArray();
+    expect(plan.limits).toBeArray();
   });
 });

@@ -384,6 +384,239 @@ describe("PUT /payments/plans/:id", () => {
     expect(tier1History.isActive).toBe(false);
   });
 
+  // --- plan_limits tests ---
+
+  test("should update plan with limits", async () => {
+    const { plan } = await PlanFactory.createPaid("gold");
+    createdPlanIds.push(plan.id);
+
+    const response = await app.handle(
+      new Request(`${BASE_URL}/v1/payments/plans/${plan.id}`, {
+        method: "PUT",
+        headers: { ...authHeaders, "Content-Type": "application/json" },
+        body: JSON.stringify({
+          limits: [
+            { key: "max_employees", value: 50 },
+            { key: "max_members", value: 10 },
+          ],
+        }),
+      })
+    );
+    expect(response.status).toBe(200);
+
+    const body = await response.json();
+    expect(body.success).toBe(true);
+    expect(body.data.limits).toBeArray();
+    expect(body.data.limits.length).toBe(2);
+
+    const maxEmployees = body.data.limits.find(
+      (l: { key: string }) => l.key === "max_employees"
+    );
+    expect(maxEmployees.value).toBe(50);
+  });
+
+  test("should replace existing limits on update", async () => {
+    const { plan } = await PlanFactory.createTrial();
+    createdPlanIds.push(plan.id);
+
+    // Trial plan already has max_employees=10 from factory
+    const response = await app.handle(
+      new Request(`${BASE_URL}/v1/payments/plans/${plan.id}`, {
+        method: "PUT",
+        headers: { ...authHeaders, "Content-Type": "application/json" },
+        body: JSON.stringify({
+          limits: [{ key: "max_employees", value: 20 }],
+        }),
+      })
+    );
+    expect(response.status).toBe(200);
+
+    const body = await response.json();
+    expect(body.data.limits.length).toBe(1);
+    expect(body.data.limits[0].key).toBe("max_employees");
+    expect(body.data.limits[0].value).toBe(20);
+  });
+
+  test("should remove all limits with empty array", async () => {
+    const { plan } = await PlanFactory.createTrial();
+    createdPlanIds.push(plan.id);
+
+    const response = await app.handle(
+      new Request(`${BASE_URL}/v1/payments/plans/${plan.id}`, {
+        method: "PUT",
+        headers: { ...authHeaders, "Content-Type": "application/json" },
+        body: JSON.stringify({ limits: [] }),
+      })
+    );
+    expect(response.status).toBe(200);
+
+    const body = await response.json();
+    expect(body.data.limits).toEqual([]);
+  });
+
+  // --- yearlyDiscountPercent tests ---
+
+  test("should update yearlyDiscountPercent and recalculate tier prices", async () => {
+    const { plan, tiers } = await PlanFactory.createPaid("gold");
+    createdPlanIds.push(plan.id);
+
+    const response = await app.handle(
+      new Request(`${BASE_URL}/v1/payments/plans/${plan.id}`, {
+        method: "PUT",
+        headers: { ...authHeaders, "Content-Type": "application/json" },
+        body: JSON.stringify({ yearlyDiscountPercent: 10 }),
+      })
+    );
+    expect(response.status).toBe(200);
+
+    const body = await response.json();
+    expect(body.data.yearlyDiscountPercent).toBe(10);
+
+    // Verify recalculation: yearly = monthly * 12 * 0.9
+    const firstTier = body.data.pricingTiers[0];
+    const expectedYearly = Math.round(tiers[0].priceMonthly * 12 * 0.9);
+    expect(firstTier.priceYearly).toBe(expectedYearly);
+  });
+
+  test("should set yearlyDiscountPercent to 0 (no discount)", async () => {
+    const { plan, tiers } = await PlanFactory.createPaid("diamond");
+    createdPlanIds.push(plan.id);
+
+    const response = await app.handle(
+      new Request(`${BASE_URL}/v1/payments/plans/${plan.id}`, {
+        method: "PUT",
+        headers: { ...authHeaders, "Content-Type": "application/json" },
+        body: JSON.stringify({ yearlyDiscountPercent: 0 }),
+      })
+    );
+    expect(response.status).toBe(200);
+
+    const body = await response.json();
+    expect(body.data.yearlyDiscountPercent).toBe(0);
+
+    // yearly = monthly * 12 (no discount)
+    const firstTier = body.data.pricingTiers[0];
+    expect(firstTier.priceYearly).toBe(tiers[0].priceMonthly * 12);
+  });
+
+  test("should set yearlyDiscountPercent to 100 (free yearly)", async () => {
+    const { plan } = await PlanFactory.createPaid("gold");
+    createdPlanIds.push(plan.id);
+
+    const response = await app.handle(
+      new Request(`${BASE_URL}/v1/payments/plans/${plan.id}`, {
+        method: "PUT",
+        headers: { ...authHeaders, "Content-Type": "application/json" },
+        body: JSON.stringify({ yearlyDiscountPercent: 100 }),
+      })
+    );
+    expect(response.status).toBe(200);
+
+    const body = await response.json();
+    expect(body.data.yearlyDiscountPercent).toBe(100);
+
+    for (const tier of body.data.pricingTiers) {
+      expect(tier.priceYearly).toBe(0);
+    }
+  });
+
+  test("should reject negative yearlyDiscountPercent", async () => {
+    const { plan } = await PlanFactory.createPaid("gold");
+    createdPlanIds.push(plan.id);
+
+    const response = await app.handle(
+      new Request(`${BASE_URL}/v1/payments/plans/${plan.id}`, {
+        method: "PUT",
+        headers: { ...authHeaders, "Content-Type": "application/json" },
+        body: JSON.stringify({ yearlyDiscountPercent: -5 }),
+      })
+    );
+    expect(response.status).toBe(422);
+  });
+
+  test("should reject yearlyDiscountPercent > 100", async () => {
+    const { plan } = await PlanFactory.createPaid("gold");
+    createdPlanIds.push(plan.id);
+
+    const response = await app.handle(
+      new Request(`${BASE_URL}/v1/payments/plans/${plan.id}`, {
+        method: "PUT",
+        headers: { ...authHeaders, "Content-Type": "application/json" },
+        body: JSON.stringify({ yearlyDiscountPercent: 101 }),
+      })
+    );
+    expect(response.status).toBe(422);
+  });
+
+  test("should reject non-integer yearlyDiscountPercent", async () => {
+    const { plan } = await PlanFactory.createPaid("gold");
+    createdPlanIds.push(plan.id);
+
+    const response = await app.handle(
+      new Request(`${BASE_URL}/v1/payments/plans/${plan.id}`, {
+        method: "PUT",
+        headers: { ...authHeaders, "Content-Type": "application/json" },
+        body: JSON.stringify({ yearlyDiscountPercent: 20.5 }),
+      })
+    );
+    expect(response.status).toBe(422);
+  });
+
+  // --- Feature ID validation tests ---
+
+  test("should reject update with non-existent feature ID", async () => {
+    const { plan } = await PlanFactory.createPaid("gold");
+    createdPlanIds.push(plan.id);
+
+    const response = await app.handle(
+      new Request(`${BASE_URL}/v1/payments/plans/${plan.id}`, {
+        method: "PUT",
+        headers: { ...authHeaders, "Content-Type": "application/json" },
+        body: JSON.stringify({
+          features: ["terminated_employees", "unknown_feature"],
+        }),
+      })
+    );
+    expect(response.status).toBe(422);
+
+    const errorBody = await response.json();
+    expect(errorBody.error.code).toBe("INVALID_FEATURE_IDS");
+    expect(errorBody.error.details.invalidIds).toContain("unknown_feature");
+  });
+
+  test("should reject update with inactive feature", async () => {
+    const { plan } = await PlanFactory.createPaid("gold");
+    createdPlanIds.push(plan.id);
+
+    // Deactivate a feature temporarily
+    await db
+      .update(schema.features)
+      .set({ isActive: false })
+      .where(eq(schema.features.id, "payroll"));
+
+    try {
+      const response = await app.handle(
+        new Request(`${BASE_URL}/v1/payments/plans/${plan.id}`, {
+          method: "PUT",
+          headers: { ...authHeaders, "Content-Type": "application/json" },
+          body: JSON.stringify({
+            features: ["terminated_employees", "payroll"],
+          }),
+        })
+      );
+      expect(response.status).toBe(422);
+
+      const errorBody = await response.json();
+      expect(errorBody.error.code).toBe("INVALID_FEATURE_IDS");
+      expect(errorBody.error.details.invalidIds).toContain("payroll");
+    } finally {
+      await db
+        .update(schema.features)
+        .set({ isActive: true })
+        .where(eq(schema.features.id, "payroll"));
+    }
+  });
+
   test("should allow replaceTiers when only canceled subscriptions reference tier", async () => {
     const { plan, tiers } = await PlanFactory.createPaid("gold");
     createdPlanIds.push(plan.id);

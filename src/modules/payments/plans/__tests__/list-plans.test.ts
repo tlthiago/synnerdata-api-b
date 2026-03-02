@@ -109,11 +109,13 @@ describe("GET /payments/plans", () => {
     expect(plan).toHaveProperty("startingPriceYearly");
     expect(plan).toHaveProperty("trialDays");
     expect(plan).toHaveProperty("features");
+    expect(plan).toHaveProperty("limits");
     expect(plan).toHaveProperty("isActive");
     expect(plan).toHaveProperty("isPublic");
     expect(plan).toHaveProperty("sortOrder");
     expect(plan).toHaveProperty("pricingTiers");
     expect(plan.pricingTiers).toBeArray();
+    expect(plan.limits).toBeArray();
   });
 
   test("should return plan features as array", async () => {

@@ -15,6 +15,16 @@ export const tierPriceInputSchema = z.object({
   priceMonthly: z.number().int().min(0).describe("Monthly price in cents"),
 });
 
+export const limitInputSchema = z.object({
+  key: z
+    .string()
+    .min(1)
+    .max(50)
+    .regex(/^[a-z][a-z0-9_]*$/, "Key must be snake_case")
+    .describe("Limit key (e.g., max_employees)"),
+  value: z.number().int().describe("Limit value (-1 for unlimited)"),
+});
+
 export const pricingTierSchema = z.object({
   id: z.string().describe("Pricing tier ID"),
   minEmployees: z.number().int().describe("Minimum employees in this tier"),
@@ -22,6 +32,28 @@ export const pricingTierSchema = z.object({
   priceMonthly: z.number().int().describe("Monthly price in cents"),
   priceYearly: z.number().int().describe("Yearly price in cents"),
 });
+
+export const planLimitSchema = z.object({
+  key: z.string().describe("Limit key"),
+  value: z.number().int().describe("Limit value"),
+});
+
+const limitsArraySchema = z
+  .array(limitInputSchema)
+  .optional()
+  .superRefine((limits, ctx) => {
+    if (!limits) {
+      return;
+    }
+    const keys = limits.map((l) => l.key);
+    const duplicates = keys.filter((key, index) => keys.indexOf(key) !== index);
+    if (duplicates.length > 0) {
+      ctx.addIssue({
+        code: z.ZodIssueCode.custom,
+        message: `Duplicate limit keys: ${[...new Set(duplicates)].join(", ")}`,
+      });
+    }
+  });
 
 export const createPlanSchema = z.object({
   name: z.string().min(1).max(50).describe("Plan internal name (unique)"),
@@ -54,6 +86,7 @@ export const createPlanSchema = z.object({
     .describe(
       "Pricing tiers: 1 tier (0-10) for trial, at least 1 contiguous tier for paid plans"
     ),
+  limits: limitsArraySchema.describe("Plan limits (e.g., max_employees)"),
 });
 
 export const updatePlanSchema = z.object({
@@ -73,6 +106,16 @@ export const updatePlanSchema = z.object({
     .min(1)
     .optional()
     .describe("Optional: update prices for all tiers"),
+  yearlyDiscountPercent: z
+    .number()
+    .int()
+    .min(0)
+    .max(100)
+    .optional()
+    .describe("Yearly discount percentage (0-100)"),
+  limits: limitsArraySchema.describe(
+    "Replace plan limits. Empty array removes all limits."
+  ),
 });
 
 export const planIdParamsSchema = z.object({
@@ -88,6 +131,9 @@ const planDataSchema = z.object({
   features: z
     .array(z.string())
     .describe("List of feature IDs assigned to this plan"),
+  limits: z
+    .array(planLimitSchema)
+    .describe("Plan limits (e.g., max_employees)"),
   yearlyDiscountPercent: z
     .number()
     .int()
@@ -129,6 +175,8 @@ export const updatePlanResponseSchema =
 export const deletePlanResponseSchema =
   successResponseSchema(deletePlanDataSchema);
 
+export type LimitInput = z.infer<typeof limitInputSchema>;
+export type PlanLimitData = z.infer<typeof planLimitSchema>;
 export type TierPriceInput = z.infer<typeof tierPriceInputSchema>;
 export type PricingTierData = z.infer<typeof pricingTierSchema>;
 export type CreatePlanInput = z.infer<typeof createPlanSchema>;
