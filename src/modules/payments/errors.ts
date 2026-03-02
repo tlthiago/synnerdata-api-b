@@ -571,6 +571,42 @@ export class TiersInUseError extends PaymentError {
   }
 }
 
+// Feature Errors
+
+export class FeatureNotFoundError extends PaymentError {
+  status = 404;
+
+  constructor(featureId: string) {
+    super(`Feature not found: ${featureId}`, "FEATURE_NOT_FOUND", {
+      featureId,
+    });
+  }
+}
+
+export class FeatureAlreadyExistsError extends PaymentError {
+  status = 409;
+
+  constructor(featureId: string) {
+    super(
+      `Feature with id "${featureId}" already exists`,
+      "FEATURE_ALREADY_EXISTS",
+      { featureId }
+    );
+  }
+}
+
+export class FeatureHasPlansError extends PaymentError {
+  status = 400;
+
+  constructor(featureId: string, planCount: number) {
+    super(
+      `Cannot delete feature "${featureId}": it is associated with ${planCount} plan(s)`,
+      "FEATURE_HAS_PLANS",
+      { featureId, planCount }
+    );
+  }
+}
+
 // Billing Profile Errors
 
 export class BillingProfileNotFoundError extends PaymentError {
