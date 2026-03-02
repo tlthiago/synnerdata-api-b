@@ -11,6 +11,7 @@ import {
 import { db } from "@/db";
 import { schema } from "@/db/schema";
 import {
+  InvalidFeatureIdsError,
   InvalidTierCountError,
   InvalidTierRangeError,
   PlanHasActiveSubscriptionsError,
@@ -34,6 +35,7 @@ import type {
   DeletePlanData,
   GetPlanData,
   ListPlansData,
+  PlanLimitData,
   PlanWithTiersData,
   PricingTierData,
   TierPriceInput,
@@ -60,17 +62,18 @@ export abstract class PlansService {
       .where(isNull(schema.planPricingTiers.archivedAt))
       .orderBy(schema.planPricingTiers.minEmployees);
 
+    const planIds = plans.map((p) => p.id);
     const tiersByPlan = PlansService.groupTiersByPlan(tiers);
-    const featuresByPlan = await PlansService.getBulkPlanFeatures(
-      plans.map((p) => p.id)
-    );
+    const featuresByPlan = await PlansService.getBulkPlanFeatures(planIds);
+    const limitsByPlan = await PlansService.getBulkPlanLimits(planIds);
 
     return {
       plans: plans.map((plan) =>
         PlansService.mapPlanWithTiers(
           plan,
           tiersByPlan.get(plan.id) ?? [],
-          featuresByPlan.get(plan.id) ?? []
+          featuresByPlan.get(plan.id) ?? [],
+          limitsByPlan.get(plan.id) ?? []
         )
       ),
     };
@@ -88,17 +91,18 @@ export abstract class PlansService {
       .where(isNull(schema.planPricingTiers.archivedAt))
       .orderBy(schema.planPricingTiers.minEmployees);
 
+    const planIds = plans.map((p) => p.id);
     const tiersByPlan = PlansService.groupTiersByPlan(tiers);
-    const featuresByPlan = await PlansService.getBulkPlanFeatures(
-      plans.map((p) => p.id)
-    );
+    const featuresByPlan = await PlansService.getBulkPlanFeatures(planIds);
+    const limitsByPlan = await PlansService.getBulkPlanLimits(planIds);
 
     return {
       plans: plans.map((plan) =>
         PlansService.mapPlanWithTiers(
           plan,
           tiersByPlan.get(plan.id) ?? [],
-          featuresByPlan.get(plan.id) ?? []
+          featuresByPlan.get(plan.id) ?? [],
+          limitsByPlan.get(plan.id) ?? []
         )
       ),
     };
@@ -127,7 +131,8 @@ export abstract class PlansService {
       .orderBy(schema.planPricingTiers.minEmployees);
 
     const features = await PlansService.getPlanFeatureIds(plan.id);
-    return PlansService.mapPlanWithTiers(plan, tiers, features);
+    const limits = await PlansService.getPlanLimits(plan.id);
+    return PlansService.mapPlanWithTiers(plan, tiers, features, limits);
   }
 
   static async getAvailableById(planId: string): Promise<PlanWithTiersData> {
@@ -164,7 +169,8 @@ export abstract class PlansService {
       .orderBy(schema.planPricingTiers.minEmployees);
 
     const features = await PlansService.getPlanFeatureIds(plan.id);
-    return PlansService.mapPlanWithTiers(plan, tiers, features);
+    const limits = await PlansService.getPlanLimits(plan.id);
+    return PlansService.mapPlanWithTiers(plan, tiers, features, limits);
   }
 
   static async create(data: CreatePlanInput): Promise<CreatePlanData> {
@@ -181,6 +187,8 @@ export abstract class PlansService {
     if (data.pricingTiers) {
       PlansService.validateTierRanges(data.pricingTiers, data.isTrial ?? false);
     }
+
+    await PlansService.validateFeatureIds(data.features);
 
     const planId = `plan-${crypto.randomUUID()}`;
 
@@ -200,11 +208,21 @@ export abstract class PlansService {
         })
         .returning();
 
-      if (data.features && data.features.length > 0) {
+      if (data.features.length > 0) {
         await tx.insert(schema.planFeatures).values(
           data.features.map((featureId) => ({
             planId: plan.id,
             featureId,
+          }))
+        );
+      }
+
+      if (data.limits && data.limits.length > 0) {
+        await tx.insert(schema.planLimits).values(
+          data.limits.map((limit) => ({
+            planId: plan.id,
+            limitKey: limit.key,
+            limitValue: limit.value,
           }))
         );
       }
@@ -238,7 +256,12 @@ export abstract class PlansService {
         }));
       }
 
-      return PlansService.mapPlanWithTiers(plan, tiers, data.features ?? []);
+      const limits: PlanLimitData[] = (data.limits ?? []).map((l) => ({
+        key: l.key,
+        value: l.value,
+      }));
+
+      return PlansService.mapPlanWithTiers(plan, tiers, data.features, limits);
     });
   }
 
@@ -260,6 +283,10 @@ export abstract class PlansService {
       PlansService.validateTierRanges(data.pricingTiers, existingPlan.isTrial);
     }
 
+    if (data.features) {
+      await PlansService.validateFeatureIds(data.features);
+    }
+
     const updateFields = PlansService.buildUpdateFields(data);
     const tierInput = data.pricingTiers;
 
@@ -270,19 +297,9 @@ export abstract class PlansService {
         .where(eq(schema.subscriptionPlans.id, planId))
         .returning();
 
-      if (data.features) {
-        await tx
-          .delete(schema.planFeatures)
-          .where(eq(schema.planFeatures.planId, plan.id));
-        if (data.features.length > 0) {
-          await tx.insert(schema.planFeatures).values(
-            data.features.map((featureId) => ({
-              planId: plan.id,
-              featureId,
-            }))
-          );
-        }
-      }
+      await PlansService.replaceFeatures(tx, plan.id, data.features);
+      await PlansService.replaceLimits(tx, plan.id, data.limits);
+      await PlansService.recalculateYearlyPrices(tx, plan, data);
 
       const features =
         data.features ?? (await PlansService.getPlanFeatureIds(plan.id, tx));
@@ -296,7 +313,9 @@ export abstract class PlansService {
           )
         : await PlansService.getExistingTiers(tx, planId);
 
-      return PlansService.mapPlanWithTiers(plan, tiers, features);
+      const limits = await PlansService.getPlanLimits(plan.id, tx);
+
+      return PlansService.mapPlanWithTiers(plan, tiers, features, limits);
     });
   }
 
@@ -397,6 +416,33 @@ export abstract class PlansService {
     return tiersWithCounts;
   }
 
+  private static async validateFeatureIds(featureIds: string[]): Promise<void> {
+    if (featureIds.length === 0) {
+      return;
+    }
+
+    const existingFeatures = await db
+      .select({
+        id: schema.features.id,
+        isActive: schema.features.isActive,
+      })
+      .from(schema.features)
+      .where(inArray(schema.features.id, featureIds));
+
+    const existingMap = new Map(
+      existingFeatures.map((f) => [f.id, f.isActive])
+    );
+
+    const invalidIds = featureIds.filter((id) => {
+      const isActive = existingMap.get(id);
+      return isActive === undefined || !isActive;
+    });
+
+    if (invalidIds.length > 0) {
+      throw new InvalidFeatureIdsError(invalidIds);
+    }
+  }
+
   private static validateTierRanges(
     tiers: TierPriceInput[],
     isTrial: boolean
@@ -469,6 +515,79 @@ export abstract class PlansService {
     }
   }
 
+  private static async replaceFeatures(
+    tx: Parameters<Parameters<typeof db.transaction>[0]>[0],
+    planId: string,
+    features: string[] | undefined
+  ): Promise<void> {
+    if (!features) {
+      return;
+    }
+    await tx
+      .delete(schema.planFeatures)
+      .where(eq(schema.planFeatures.planId, planId));
+    if (features.length > 0) {
+      await tx.insert(schema.planFeatures).values(
+        features.map((featureId) => ({
+          planId,
+          featureId,
+        }))
+      );
+    }
+  }
+
+  private static async replaceLimits(
+    tx: Parameters<Parameters<typeof db.transaction>[0]>[0],
+    planId: string,
+    limits: UpdatePlanInput["limits"]
+  ): Promise<void> {
+    if (limits === undefined) {
+      return;
+    }
+    await tx
+      .delete(schema.planLimits)
+      .where(eq(schema.planLimits.planId, planId));
+    if (limits.length > 0) {
+      await tx.insert(schema.planLimits).values(
+        limits.map((limit) => ({
+          planId,
+          limitKey: limit.key,
+          limitValue: limit.value,
+        }))
+      );
+    }
+  }
+
+  private static async recalculateYearlyPrices(
+    tx: Parameters<Parameters<typeof db.transaction>[0]>[0],
+    plan: { id: string; yearlyDiscountPercent: number },
+    data: UpdatePlanInput
+  ): Promise<void> {
+    if (data.yearlyDiscountPercent === undefined) {
+      return;
+    }
+    const activeTiers = await tx
+      .select()
+      .from(schema.planPricingTiers)
+      .where(
+        and(
+          eq(schema.planPricingTiers.planId, plan.id),
+          isNull(schema.planPricingTiers.archivedAt)
+        )
+      );
+
+    for (const tier of activeTiers) {
+      const newYearlyPrice = calculateYearlyPrice(
+        tier.priceMonthly,
+        plan.yearlyDiscountPercent
+      );
+      await tx
+        .update(schema.planPricingTiers)
+        .set({ priceYearly: newYearlyPrice })
+        .where(eq(schema.planPricingTiers.id, tier.id));
+    }
+  }
+
   private static buildUpdateFields(
     data: UpdatePlanInput
   ): Record<string, unknown> {
@@ -491,6 +610,9 @@ export abstract class PlansService {
     }
     if (data.sortOrder !== undefined) {
       fields.sortOrder = data.sortOrder;
+    }
+    if (data.yearlyDiscountPercent !== undefined) {
+      fields.yearlyDiscountPercent = data.yearlyDiscountPercent;
     }
 
     return fields;
@@ -698,6 +820,47 @@ export abstract class PlansService {
     return map;
   }
 
+  private static async getPlanLimits(
+    planId: string,
+    tx?: Parameters<Parameters<typeof db.transaction>[0]>[0]
+  ): Promise<PlanLimitData[]> {
+    const client = tx ?? db;
+    const rows = await client
+      .select({
+        limitKey: schema.planLimits.limitKey,
+        limitValue: schema.planLimits.limitValue,
+      })
+      .from(schema.planLimits)
+      .where(eq(schema.planLimits.planId, planId));
+    return rows.map((r) => ({ key: r.limitKey, value: r.limitValue }));
+  }
+
+  private static async getBulkPlanLimits(
+    planIds: string[]
+  ): Promise<Map<string, PlanLimitData[]>> {
+    if (planIds.length === 0) {
+      return new Map();
+    }
+
+    const rows = await db
+      .select({
+        planId: schema.planLimits.planId,
+        limitKey: schema.planLimits.limitKey,
+        limitValue: schema.planLimits.limitValue,
+      })
+      .from(schema.planLimits)
+      .where(inArray(schema.planLimits.planId, planIds));
+
+    const map = new Map<string, PlanLimitData[]>();
+    for (const row of rows) {
+      if (!map.has(row.planId)) {
+        map.set(row.planId, []);
+      }
+      map.get(row.planId)?.push({ key: row.limitKey, value: row.limitValue });
+    }
+    return map;
+  }
+
   private static mapPlanWithTiers(
     plan: {
       id: string;
@@ -712,7 +875,8 @@ export abstract class PlansService {
       yearlyDiscountPercent: number;
     },
     tiers: PricingTierData[],
-    features: string[]
+    features: string[],
+    limits: PlanLimitData[] = []
   ): PlanWithTiersData {
     const startingPriceMonthly =
       tiers.length > 0 ? Math.min(...tiers.map((t) => t.priceMonthly)) : 0;
@@ -726,6 +890,7 @@ export abstract class PlansService {
       description: plan.description,
       trialDays: plan.trialDays,
       features,
+      limits,
       yearlyDiscountPercent: plan.yearlyDiscountPercent,
       isActive: plan.isActive,
       isPublic: plan.isPublic,

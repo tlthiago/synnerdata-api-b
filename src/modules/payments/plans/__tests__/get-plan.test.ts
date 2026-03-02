@@ -106,10 +106,42 @@ describe("GET /payments/plans/:id", () => {
     expect(body.data.startingPriceYearly).toBe(tier.priceYearly);
     expect(body.data.trialDays).toBe(plan.trialDays);
     expect(body.data.features).toBeArray();
+    expect(body.data.limits).toBeArray();
     expect(body.data.isActive).toBe(plan.isActive);
     expect(body.data.isPublic).toBe(plan.isPublic);
     expect(body.data.sortOrder).toBe(plan.sortOrder);
     expect(body.data.pricingTiers).toBeArray();
     expect(body.data.pricingTiers.length).toBe(10);
+  });
+
+  test("should return limits for trial plan", async () => {
+    const { plan } = await PlanFactory.createTrial();
+
+    const response = await app.handle(
+      new Request(`${BASE_URL}/v1/payments/plans/${plan.id}`, {
+        headers: authHeaders,
+      })
+    );
+    expect(response.status).toBe(200);
+
+    const body = await response.json();
+    expect(body.data.limits).toBeArray();
+    expect(body.data.limits.length).toBe(1);
+    expect(body.data.limits[0].key).toBe("max_employees");
+    expect(body.data.limits[0].value).toBe(10);
+  });
+
+  test("should return empty limits for paid plan without limits", async () => {
+    const { plan } = await PlanFactory.createPaid("diamond");
+
+    const response = await app.handle(
+      new Request(`${BASE_URL}/v1/payments/plans/${plan.id}`, {
+        headers: authHeaders,
+      })
+    );
+    expect(response.status).toBe(200);
+
+    const body = await response.json();
+    expect(body.data.limits).toEqual([]);
   });
 });

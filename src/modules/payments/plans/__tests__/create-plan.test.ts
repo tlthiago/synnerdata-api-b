@@ -461,6 +461,223 @@ describe("POST /payments/plans", () => {
     expect(response.status).toBe(422);
   });
 
+  // --- plan_limits tests ---
+
+  test("should create plan with limits", async () => {
+    const planData = {
+      name: generateUniqueName("with-limits"),
+      displayName: "Plan With Limits",
+      features: GOLD_FEATURES,
+      pricingTiers: generateTierPrices(5000),
+      limits: [
+        { key: "max_employees", value: 10 },
+        { key: "max_members", value: 4 },
+        { key: "max_branches", value: -1 },
+      ],
+    };
+
+    const response = await app.handle(
+      new Request(`${BASE_URL}/v1/payments/plans`, {
+        method: "POST",
+        headers: { ...authHeaders, "Content-Type": "application/json" },
+        body: JSON.stringify(planData),
+      })
+    );
+    expect(response.status).toBe(200);
+
+    const body = await response.json();
+    expect(body.success).toBe(true);
+    expect(body.data.limits).toBeArray();
+    expect(body.data.limits.length).toBe(3);
+
+    const maxEmployees = body.data.limits.find(
+      (l: { key: string }) => l.key === "max_employees"
+    );
+    expect(maxEmployees.value).toBe(10);
+
+    const maxBranches = body.data.limits.find(
+      (l: { key: string }) => l.key === "max_branches"
+    );
+    expect(maxBranches.value).toBe(-1);
+  });
+
+  test("should create plan without limits (empty array in response)", async () => {
+    const planData = {
+      name: generateUniqueName("no-limits"),
+      displayName: "Plan Without Limits",
+      features: GOLD_FEATURES,
+      pricingTiers: generateTierPrices(5000),
+    };
+
+    const response = await app.handle(
+      new Request(`${BASE_URL}/v1/payments/plans`, {
+        method: "POST",
+        headers: { ...authHeaders, "Content-Type": "application/json" },
+        body: JSON.stringify(planData),
+      })
+    );
+    expect(response.status).toBe(200);
+
+    const body = await response.json();
+    expect(body.data.limits).toEqual([]);
+  });
+
+  test("should accept limit with value 0 (disabled)", async () => {
+    const planData = {
+      name: generateUniqueName("zero-limit"),
+      displayName: "Plan With Zero Limit",
+      features: GOLD_FEATURES,
+      pricingTiers: generateTierPrices(5000),
+      limits: [{ key: "max_employees", value: 0 }],
+    };
+
+    const response = await app.handle(
+      new Request(`${BASE_URL}/v1/payments/plans`, {
+        method: "POST",
+        headers: { ...authHeaders, "Content-Type": "application/json" },
+        body: JSON.stringify(planData),
+      })
+    );
+    expect(response.status).toBe(200);
+
+    const body = await response.json();
+    expect(body.data.limits[0].value).toBe(0);
+  });
+
+  test("should reject duplicate limit keys in same request", async () => {
+    const planData = {
+      name: generateUniqueName("dup-limits"),
+      displayName: "Plan With Duplicate Limits",
+      features: GOLD_FEATURES,
+      pricingTiers: generateTierPrices(5000),
+      limits: [
+        { key: "max_employees", value: 10 },
+        { key: "max_employees", value: 20 },
+      ],
+    };
+
+    const response = await app.handle(
+      new Request(`${BASE_URL}/v1/payments/plans`, {
+        method: "POST",
+        headers: { ...authHeaders, "Content-Type": "application/json" },
+        body: JSON.stringify(planData),
+      })
+    );
+    expect(response.status).toBe(422);
+  });
+
+  // --- yearlyDiscountPercent on create ---
+
+  test("should create plan with custom yearlyDiscountPercent via tiers calculation", async () => {
+    // yearlyDiscountPercent is a plan-level column with default 20.
+    // When creating a plan, tiers are calculated using the plan's default discount.
+    // To verify the formula, we check the yearly price.
+    const tierPrices = generateTierPrices(10_000);
+    const planData = {
+      name: generateUniqueName("discount-create"),
+      displayName: "Discount Create Plan",
+      features: GOLD_FEATURES,
+      pricingTiers: tierPrices,
+    };
+
+    const response = await app.handle(
+      new Request(`${BASE_URL}/v1/payments/plans`, {
+        method: "POST",
+        headers: { ...authHeaders, "Content-Type": "application/json" },
+        body: JSON.stringify(planData),
+      })
+    );
+    expect(response.status).toBe(200);
+
+    const body = await response.json();
+    // Default discount is 20%, so yearly = monthly * 12 * 0.8
+    const expectedYearly = Math.round(tierPrices[0].priceMonthly * 12 * 0.8);
+    expect(body.data.pricingTiers[0].priceYearly).toBe(expectedYearly);
+    expect(body.data.yearlyDiscountPercent).toBe(20);
+  });
+
+  // --- Feature ID validation tests ---
+
+  test("should reject plan with non-existent feature ID", async () => {
+    const planData = {
+      name: generateUniqueName("bad-feature"),
+      displayName: "Plan With Bad Feature",
+      features: ["terminated_employees", "nonexistent_feature"],
+      pricingTiers: generateTierPrices(5000),
+    };
+
+    const response = await app.handle(
+      new Request(`${BASE_URL}/v1/payments/plans`, {
+        method: "POST",
+        headers: { ...authHeaders, "Content-Type": "application/json" },
+        body: JSON.stringify(planData),
+      })
+    );
+    expect(response.status).toBe(422);
+
+    const errorBody = await response.json();
+    expect(errorBody.error.code).toBe("INVALID_FEATURE_IDS");
+    expect(errorBody.error.details.invalidIds).toContain("nonexistent_feature");
+  });
+
+  test("should reject plan with inactive feature", async () => {
+    // Deactivate a feature temporarily for this test
+    const { db: dbImport } = await import("@/db");
+    const { schema: schemaImport } = await import("@/db/schema");
+    const { eq } = await import("drizzle-orm");
+
+    await dbImport
+      .update(schemaImport.features)
+      .set({ isActive: false })
+      .where(eq(schemaImport.features.id, "payroll"));
+
+    try {
+      const planData = {
+        name: generateUniqueName("inactive-feature"),
+        displayName: "Plan With Inactive Feature",
+        features: ["terminated_employees", "payroll"],
+        pricingTiers: generateTierPrices(5000),
+      };
+
+      const response = await app.handle(
+        new Request(`${BASE_URL}/v1/payments/plans`, {
+          method: "POST",
+          headers: { ...authHeaders, "Content-Type": "application/json" },
+          body: JSON.stringify(planData),
+        })
+      );
+      expect(response.status).toBe(422);
+
+      const errorBody = await response.json();
+      expect(errorBody.error.code).toBe("INVALID_FEATURE_IDS");
+      expect(errorBody.error.details.invalidIds).toContain("payroll");
+    } finally {
+      // Restore the feature
+      await dbImport
+        .update(schemaImport.features)
+        .set({ isActive: true })
+        .where(eq(schemaImport.features.id, "payroll"));
+    }
+  });
+
+  test("should create plan with valid features (positive control)", async () => {
+    const planData = {
+      name: generateUniqueName("valid-features"),
+      displayName: "Plan With Valid Features",
+      features: GOLD_FEATURES,
+      pricingTiers: generateTierPrices(5000),
+    };
+
+    const response = await app.handle(
+      new Request(`${BASE_URL}/v1/payments/plans`, {
+        method: "POST",
+        headers: { ...authHeaders, "Content-Type": "application/json" },
+        body: JSON.stringify(planData),
+      })
+    );
+    expect(response.status).toBe(200);
+  });
+
   test("should still accept standard 10 EMPLOYEE_TIERS", async () => {
     const tierPrices = generateTierPrices(4900);
 

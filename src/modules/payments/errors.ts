@@ -573,6 +573,18 @@ export class TiersInUseError extends PaymentError {
 
 // Feature Errors
 
+export class InvalidFeatureIdsError extends PaymentError {
+  status = 422;
+
+  constructor(invalidIds: string[]) {
+    super(
+      `Features not found or inactive: ${invalidIds.join(", ")}`,
+      "INVALID_FEATURE_IDS",
+      { invalidIds }
+    );
+  }
+}
+
 export class FeatureNotFoundError extends PaymentError {
   status = 404;
 
