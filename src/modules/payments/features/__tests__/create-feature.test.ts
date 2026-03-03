@@ -1,5 +1,5 @@
 import { afterAll, beforeAll, describe, expect, test } from "bun:test";
-import { like } from "drizzle-orm";
+import { eq, like } from "drizzle-orm";
 import { db } from "@/db";
 import { schema } from "@/db/schema";
 import { env } from "@/env";
@@ -15,11 +15,15 @@ function generateUniqueId(prefix: string): string {
 describe("POST /payments/features", () => {
   let app: TestApp;
   let authHeaders: Record<string, string>;
+  let adminUserId: string;
 
   beforeAll(async () => {
     app = createTestApp();
-    const { headers } = await UserFactory.createAdmin({ emailVerified: true });
+    const { headers, user } = await UserFactory.createAdmin({
+      emailVerified: true,
+    });
     authHeaders = headers;
+    adminUserId = user.id;
   });
 
   afterAll(async () => {
@@ -92,6 +96,30 @@ describe("POST /payments/features", () => {
     expect(body.data.planCount).toBe(0);
     expect(body.data.createdAt).toBeString();
     expect(body.data.updatedAt).toBeString();
+  });
+
+  test("should populate createdBy with admin user ID", async () => {
+    const featureId = generateUniqueId("test_created_by");
+    const response = await app.handle(
+      new Request(`${BASE_URL}/v1/payments/features`, {
+        method: "POST",
+        headers: { ...authHeaders, "Content-Type": "application/json" },
+        body: JSON.stringify({
+          id: featureId,
+          displayName: "Created By Test Feature",
+        }),
+      })
+    );
+    expect(response.status).toBe(200);
+
+    const [dbFeature] = await db
+      .select({ createdBy: schema.features.createdBy })
+      .from(schema.features)
+      .where(eq(schema.features.id, featureId))
+      .limit(1);
+
+    expect(dbFeature).toBeDefined();
+    expect(dbFeature.createdBy).toBe(adminUserId);
   });
 
   test("should apply default values for optional fields", async () => {

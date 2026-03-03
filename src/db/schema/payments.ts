@@ -401,6 +401,8 @@ export const features = pgTable("features", {
     .defaultNow()
     .$onUpdate(() => new Date())
     .notNull(),
+  createdBy: text("created_by"),
+  updatedBy: text("updated_by"),
 });
 
 export const planFeatures = pgTable(

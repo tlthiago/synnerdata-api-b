@@ -205,6 +205,7 @@ export abstract class PlansService {
           isPublic: data.isPublic ?? true,
           isTrial: data.isTrial ?? false,
           sortOrder: data.sortOrder ?? 0,
+          yearlyDiscountPercent: data.yearlyDiscountPercent ?? 20,
         })
         .returning();
 
@@ -563,7 +564,10 @@ export abstract class PlansService {
     plan: { id: string; yearlyDiscountPercent: number },
     data: UpdatePlanInput
   ): Promise<void> {
-    if (data.yearlyDiscountPercent === undefined) {
+    if (
+      data.yearlyDiscountPercent === undefined ||
+      data.pricingTiers !== undefined
+    ) {
       return;
     }
     const activeTiers = await tx

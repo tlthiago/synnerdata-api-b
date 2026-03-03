@@ -93,8 +93,11 @@ export const listPublicFeaturesResponseSchema = successResponseSchema(
   z.object({ features: z.array(publicFeatureDataSchema) })
 );
 
-export type CreateFeatureInput = z.infer<typeof createFeatureSchema>;
-export type UpdateFeatureInput = z.infer<typeof updateFeatureSchema>;
+export type CreateFeature = z.infer<typeof createFeatureSchema>;
+export type CreateFeatureInput = CreateFeature & { userId: string };
+
+export type UpdateFeature = z.infer<typeof updateFeatureSchema>;
+export type UpdateFeatureInput = UpdateFeature & { userId: string };
 export type FeatureIdParams = z.infer<typeof featureIdParamsSchema>;
 export type FeatureData = z.infer<typeof featureDataSchema>;
 export type PublicFeatureData = z.infer<typeof publicFeatureDataSchema>;

@@ -79,6 +79,13 @@ export const createPlanSchema = z.object({
     .default(false)
     .describe("Whether this is the trial plan"),
   sortOrder: z.number().int().default(0).describe("Display sort order"),
+  yearlyDiscountPercent: z
+    .number()
+    .int()
+    .min(0)
+    .max(100)
+    .default(20)
+    .describe("Yearly discount percentage (0-100). Defaults to 20."),
   pricingTiers: z
     .array(tierPriceInputSchema)
     .min(1)

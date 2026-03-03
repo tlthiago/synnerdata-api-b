@@ -607,18 +607,6 @@ export class FeatureAlreadyExistsError extends PaymentError {
   }
 }
 
-export class FeatureHasPlansError extends PaymentError {
-  status = 400;
-
-  constructor(featureId: string, planCount: number) {
-    super(
-      `Cannot delete feature "${featureId}": it is associated with ${planCount} plan(s)`,
-      "FEATURE_HAS_PLANS",
-      { featureId, planCount }
-    );
-  }
-}
-
 // Billing Profile Errors
 
 export class BillingProfileNotFoundError extends PaymentError {

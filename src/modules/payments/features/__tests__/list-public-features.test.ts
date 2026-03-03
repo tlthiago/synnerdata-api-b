@@ -68,16 +68,31 @@ describe("GET /payments/features (public)", () => {
   });
 
   test("should return correct public feature properties", async () => {
-    const response = await app.handle(
-      new Request(`${BASE_URL}/v1/payments/features`)
-    );
-    expect(response.status).toBe(200);
+    const featureId = `test_props_${crypto.randomUUID().slice(0, 8)}`;
 
-    const body = await response.json();
-    const features = body.data.features;
+    await db.insert(schema.features).values({
+      id: featureId,
+      displayName: "Test Props Feature",
+      description: "Test description",
+      category: "test_category",
+      sortOrder: 0,
+      isDefault: true,
+      isPremium: false,
+    });
 
-    if (features.length > 0) {
-      const feature = features[0];
+    try {
+      const response = await app.handle(
+        new Request(`${BASE_URL}/v1/payments/features`)
+      );
+      expect(response.status).toBe(200);
+
+      const body = await response.json();
+      const features = body.data.features;
+
+      expect(features.length).toBeGreaterThan(0);
+
+      const feature = features.find((f: { id: string }) => f.id === featureId);
+      expect(feature).toBeDefined();
       expect(feature).toHaveProperty("id");
       expect(feature).toHaveProperty("displayName");
       expect(feature).toHaveProperty("description");
@@ -85,6 +100,8 @@ describe("GET /payments/features (public)", () => {
       expect(feature).toHaveProperty("sortOrder");
       expect(feature).toHaveProperty("isDefault");
       expect(feature).toHaveProperty("isPremium");
+    } finally {
+      await db.delete(schema.features).where(eq(schema.features.id, featureId));
     }
   });
 

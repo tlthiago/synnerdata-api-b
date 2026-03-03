@@ -1,5 +1,5 @@
 import { afterAll, beforeAll, describe, expect, test } from "bun:test";
-import { like } from "drizzle-orm";
+import { eq, like } from "drizzle-orm";
 import { db } from "@/db";
 import { schema } from "@/db/schema";
 import { env } from "@/env";
@@ -35,11 +35,15 @@ async function createFeature(
 describe("PUT /payments/features/:id", () => {
   let app: TestApp;
   let authHeaders: Record<string, string>;
+  let adminUserId: string;
 
   beforeAll(async () => {
     app = createTestApp();
-    const { headers } = await UserFactory.createAdmin({ emailVerified: true });
+    const { headers, user } = await UserFactory.createAdmin({
+      emailVerified: true,
+    });
     authHeaders = headers;
+    adminUserId = user.id;
   });
 
   afterAll(async () => {
@@ -105,6 +109,28 @@ describe("PUT /payments/features/:id", () => {
     expect(body.data.sortOrder).toBe(updateData.sortOrder);
     expect(body.data.isDefault).toBe(true);
     expect(body.data.isPremium).toBe(true);
+  });
+
+  test("should populate updatedBy with admin user ID", async () => {
+    const feature = await createFeature(app, authHeaders);
+
+    const response = await app.handle(
+      new Request(`${BASE_URL}/v1/payments/features/${feature.id}`, {
+        method: "PUT",
+        headers: { ...authHeaders, "Content-Type": "application/json" },
+        body: JSON.stringify({ displayName: "Updated for audit" }),
+      })
+    );
+    expect(response.status).toBe(200);
+
+    const [dbFeature] = await db
+      .select({ updatedBy: schema.features.updatedBy })
+      .from(schema.features)
+      .where(eq(schema.features.id, feature.id))
+      .limit(1);
+
+    expect(dbFeature).toBeDefined();
+    expect(dbFeature.updatedBy).toBe(adminUserId);
   });
 
   test("should deactivate feature via update", async () => {

@@ -81,6 +81,7 @@ export abstract class FeaturesService {
         sortOrder: data.sortOrder,
         isDefault: data.isDefault,
         isPremium: data.isPremium,
+        createdBy: data.userId,
       })
       .returning();
 
@@ -101,7 +102,9 @@ export abstract class FeaturesService {
       throw new FeatureNotFoundError(featureId);
     }
 
-    const updateData: Record<string, unknown> = {};
+    const updateData: Record<string, unknown> = {
+      updatedBy: data.userId,
+    };
     if (data.displayName !== undefined) {
       updateData.displayName = data.displayName;
     }
@@ -142,7 +145,8 @@ export abstract class FeaturesService {
   }
 
   static async delete(
-    featureId: string
+    featureId: string,
+    userId: string
   ): Promise<{ deactivated: true; planCount: number } | { deleted: true }> {
     const existing = await db
       .select()
@@ -164,7 +168,7 @@ export abstract class FeaturesService {
     if (planCount > 0) {
       await db
         .update(schema.features)
-        .set({ isActive: false })
+        .set({ isActive: false, updatedBy: userId })
         .where(eq(schema.features.id, featureId));
 
       return { deactivated: true, planCount };
