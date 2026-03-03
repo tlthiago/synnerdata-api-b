@@ -568,14 +568,11 @@ describe("POST /payments/plans", () => {
 
   // --- yearlyDiscountPercent on create ---
 
-  test("should create plan with custom yearlyDiscountPercent via tiers calculation", async () => {
-    // yearlyDiscountPercent is a plan-level column with default 20.
-    // When creating a plan, tiers are calculated using the plan's default discount.
-    // To verify the formula, we check the yearly price.
+  test("should create plan with default yearlyDiscountPercent (20%)", async () => {
     const tierPrices = generateTierPrices(10_000);
     const planData = {
-      name: generateUniqueName("discount-create"),
-      displayName: "Discount Create Plan",
+      name: generateUniqueName("discount-default"),
+      displayName: "Discount Default Plan",
       features: GOLD_FEATURES,
       pricingTiers: tierPrices,
     };
@@ -594,6 +591,69 @@ describe("POST /payments/plans", () => {
     const expectedYearly = Math.round(tierPrices[0].priceMonthly * 12 * 0.8);
     expect(body.data.pricingTiers[0].priceYearly).toBe(expectedYearly);
     expect(body.data.yearlyDiscountPercent).toBe(20);
+  });
+
+  test("should create plan with custom yearlyDiscountPercent (15%)", async () => {
+    const tierPrices = [
+      { minEmployees: 0, maxEmployees: 50, priceMonthly: 9900 },
+      { minEmployees: 51, maxEmployees: 100, priceMonthly: 14_900 },
+    ];
+    const planData = {
+      name: generateUniqueName("discount-15"),
+      displayName: "Discount 15% Plan",
+      features: GOLD_FEATURES,
+      yearlyDiscountPercent: 15,
+      pricingTiers: tierPrices,
+    };
+
+    const response = await app.handle(
+      new Request(`${BASE_URL}/v1/payments/plans`, {
+        method: "POST",
+        headers: { ...authHeaders, "Content-Type": "application/json" },
+        body: JSON.stringify(planData),
+      })
+    );
+    expect(response.status).toBe(200);
+
+    const body = await response.json();
+    expect(body.data.yearlyDiscountPercent).toBe(15);
+
+    // yearly = monthly * 12 - round(monthly * 12 * 0.15)
+    for (let i = 0; i < tierPrices.length; i++) {
+      const yearlyFull = tierPrices[i].priceMonthly * 12;
+      const discount = Math.round(yearlyFull * (15 / 100));
+      const expectedYearly = yearlyFull - discount;
+      expect(body.data.pricingTiers[i].priceYearly).toBe(expectedYearly);
+    }
+  });
+
+  test("should create plan with yearlyDiscountPercent 0 (no discount)", async () => {
+    const tierPrices = [
+      { minEmployees: 0, maxEmployees: 100, priceMonthly: 9900 },
+    ];
+    const planData = {
+      name: generateUniqueName("discount-zero"),
+      displayName: "No Discount Plan",
+      features: GOLD_FEATURES,
+      yearlyDiscountPercent: 0,
+      pricingTiers: tierPrices,
+    };
+
+    const response = await app.handle(
+      new Request(`${BASE_URL}/v1/payments/plans`, {
+        method: "POST",
+        headers: { ...authHeaders, "Content-Type": "application/json" },
+        body: JSON.stringify(planData),
+      })
+    );
+    expect(response.status).toBe(200);
+
+    const body = await response.json();
+    expect(body.data.yearlyDiscountPercent).toBe(0);
+    // No discount: yearly = monthly * 12
+    expect(body.data.pricingTiers[0].priceYearly).toBe(
+      tierPrices[0].priceMonthly * 12
+    );
   });
 
   // --- Feature ID validation tests ---
