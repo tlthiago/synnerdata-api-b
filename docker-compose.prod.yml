@@ -1,7 +1,7 @@
 name: synnerdata-api
 
 services:
-  postgres:
+  synnerdata-db:
     image: postgres:17-alpine
     environment:
       POSTGRES_DB: ${POSTGRES_DB:-synnerdata}
@@ -30,7 +30,7 @@ services:
     environment:
       - NODE_ENV=production
       - PORT=${PORT:-3333}
-      - DATABASE_URL=postgresql://${POSTGRES_USER:-postgres}:${POSTGRES_PASSWORD}@postgres:5432/${POSTGRES_DB:-synnerdata}
+      - DATABASE_URL=postgresql://${POSTGRES_USER:-postgres}:${POSTGRES_PASSWORD}@synnerdata-db:5432/${POSTGRES_DB:-synnerdata}
       - CORS_ORIGIN
       - BETTER_AUTH_SECRET
       - BETTER_AUTH_URL
@@ -49,7 +49,7 @@ services:
       - INTERNAL_API_KEY
       - PII_ENCRYPTION_KEY
     depends_on:
-      postgres:
+      synnerdata-db:
         condition: service_healthy
     healthcheck:
       test: ["CMD", "curl", "-f", "http://localhost:${PORT:-3333}/health/live"]

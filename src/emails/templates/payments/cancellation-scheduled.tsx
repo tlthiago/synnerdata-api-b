@@ -54,7 +54,10 @@ export function CancellationScheduledEmail({
         {formattedDate} e continuar aproveitando todos os benefícios.
       </Text>
 
-      <EmailButton href={getAppUrl("/billing")} variant="success">
+      <EmailButton
+        href={getAppUrl("/configuracoes/assinatura")}
+        variant="success"
+      >
         Restaurar Assinatura
       </EmailButton>
 
