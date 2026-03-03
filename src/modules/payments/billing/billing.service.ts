@@ -1,4 +1,4 @@
-import { and, eq, sql } from "drizzle-orm";
+import { and, eq, isNull, sql } from "drizzle-orm";
 import { db } from "@/db";
 import { type BillingProfile, schema } from "@/db/schema";
 import { billingProfiles } from "@/db/schema/billing-profiles";
@@ -323,7 +323,7 @@ export abstract class BillingService {
     }
 
     // For trial plans without a tier, get limit from plan_limits
-    let membersLimit = result.tier?.maxEmployees ?? 0;
+    let employeesLimit = result.tier?.maxEmployees ?? 0;
     if (!result.tier) {
       const [limitRow] = await db
         .select({ limitValue: schema.planLimits.limitValue })
@@ -335,7 +335,7 @@ export abstract class BillingService {
           )
         )
         .limit(1);
-      membersLimit = limitRow?.limitValue ?? 0;
+      employeesLimit = limitRow?.limitValue ?? 0;
     }
 
     // Get features from plan_features
@@ -344,12 +344,17 @@ export abstract class BillingService {
       .from(schema.planFeatures)
       .where(eq(schema.planFeatures.planId, result.plan.id));
 
-    const [membersCount] = await db
+    const [employeesCount] = await db
       .select({ count: sql<number>`count(*)` })
-      .from(schema.members)
-      .where(eq(schema.members.organizationId, organizationId));
+      .from(schema.employees)
+      .where(
+        and(
+          eq(schema.employees.organizationId, organizationId),
+          isNull(schema.employees.deletedAt)
+        )
+      );
 
-    const membersCurrent = Number(membersCount.count);
+    const employeesCurrent = Number(employeesCount.count);
 
     return {
       plan: {
@@ -357,11 +362,11 @@ export abstract class BillingService {
         displayName: result.plan.displayName,
       },
       usage: {
-        members: {
-          current: membersCurrent,
-          limit: membersLimit,
-          percentage: membersLimit
-            ? Math.round((membersCurrent / membersLimit) * 100)
+        employees: {
+          current: employeesCurrent,
+          limit: employeesLimit,
+          percentage: employeesLimit
+            ? Math.round((employeesCurrent / employeesLimit) * 100)
             : null,
         },
       },

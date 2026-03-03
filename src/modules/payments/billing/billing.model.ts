@@ -88,7 +88,7 @@ const getUsageDataSchema = z.object({
     displayName: z.string().describe("Plan display name"),
   }),
   usage: z.object({
-    members: usageItemSchema.describe("Member usage"),
+    employees: usageItemSchema.describe("Employee usage"),
   }),
   features: z.array(z.string()).describe("Available features"),
 });

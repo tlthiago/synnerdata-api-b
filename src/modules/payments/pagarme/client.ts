@@ -2,6 +2,7 @@ import { env } from "@/env";
 import {
   CheckoutError,
   PagarmeApiError,
+  PagarmeConnectionError,
   PagarmeTimeoutError,
 } from "@/modules/payments/errors";
 import type {
@@ -31,6 +32,24 @@ const PAGARME_PAYMENTLINKS_URL = env.PAGARME_SECRET_KEY.startsWith("sk_test_")
   : env.PAGARME_BASE_URL;
 
 const REQUEST_TIMEOUT_MS = 30_000;
+
+const CONNECTION_ERROR_PATTERNS = [
+  "socket connection was closed",
+  "connection refused",
+  "ECONNRESET",
+  "ECONNREFUSED",
+  "ETIMEDOUT",
+  "EHOSTUNREACH",
+  "ENETUNREACH",
+  "fetch failed",
+];
+
+function isConnectionError(error: Error): boolean {
+  const message = error.message.toLowerCase();
+  return CONNECTION_ERROR_PATTERNS.some((pattern) =>
+    message.includes(pattern.toLowerCase())
+  );
+}
 
 /**
  * Standardized retry configuration for Pagarme API calls.
@@ -92,6 +111,9 @@ export abstract class PagarmeClient {
     } catch (error) {
       if (error instanceof Error && error.name === "AbortError") {
         throw new PagarmeTimeoutError(path);
+      }
+      if (error instanceof Error && isConnectionError(error)) {
+        throw new PagarmeConnectionError(path, error.message);
       }
       throw error;
     } finally {

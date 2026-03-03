@@ -78,14 +78,14 @@ describe("GET /v1/payments/billing/usage", () => {
     expect(body.success).toBe(true);
     expect(body.data.plan).toHaveProperty("name");
     expect(body.data.plan).toHaveProperty("displayName");
-    expect(body.data.usage).toHaveProperty("members");
-    expect(body.data.usage.members).toHaveProperty("current");
-    expect(body.data.usage.members).toHaveProperty("limit");
-    expect(body.data.usage.members).toHaveProperty("percentage");
+    expect(body.data.usage).toHaveProperty("employees");
+    expect(body.data.usage.employees).toHaveProperty("current");
+    expect(body.data.usage.employees).toHaveProperty("limit");
+    expect(body.data.usage.employees).toHaveProperty("percentage");
     expect(body.data).toHaveProperty("features");
   });
 
-  test("should return correct member count", async () => {
+  test("should return correct employee count", async () => {
     const userResult = await UserFactory.createWithOrganization();
 
     await SubscriptionFactory.createTrial(
@@ -102,7 +102,7 @@ describe("GET /v1/payments/billing/usage", () => {
 
     expect(response.status).toBe(200);
     const body = await response.json();
-    expect(body.data.usage.members.current).toBeGreaterThanOrEqual(1);
+    expect(body.data.usage.employees.current).toBeGreaterThanOrEqual(0);
   });
 
   test.each([

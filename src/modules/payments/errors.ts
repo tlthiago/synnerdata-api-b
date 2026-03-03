@@ -264,6 +264,21 @@ export class PagarmeTimeoutError extends PaymentError {
   }
 }
 
+export class PagarmeConnectionError extends PaymentError {
+  status = 502;
+
+  constructor(endpoint: string, reason: string) {
+    super(
+      "Não foi possível conectar ao serviço de pagamento. Tente novamente em alguns instantes.",
+      "PAGARME_CONNECTION_ERROR",
+      {
+        endpoint,
+        reason,
+      }
+    );
+  }
+}
+
 export class SamePlanError extends PaymentError {
   status = 400;
 
