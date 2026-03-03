@@ -11,6 +11,7 @@ import { employeeController } from "@/modules/employees";
 import { occurrencesController } from "@/modules/occurrences";
 import { organizationController } from "@/modules/organizations";
 import { paymentsController } from "@/modules/payments";
+import { publicController } from "@/modules/public";
 
 /**
  * Creates a test application instance with all controllers registered.
@@ -39,6 +40,7 @@ export function createTestApp() {
     .use(occurrencesController)
     .use(paymentsController)
     .use(auditController)
+    .use(publicController)
     .get("/", ({ redirect }) => redirect("/health"));
 }
 

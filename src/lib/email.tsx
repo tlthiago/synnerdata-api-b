@@ -6,6 +6,7 @@ import { PasswordResetEmail } from "@/emails/templates/auth/password-reset";
 import { TwoFactorOtpEmail } from "@/emails/templates/auth/two-factor-otp";
 import { VerificationEmail } from "@/emails/templates/auth/verification";
 import { WelcomeEmail } from "@/emails/templates/auth/welcome";
+import { ContactMessageEmail } from "@/emails/templates/contact/contact-message";
 import { CancellationScheduledEmail } from "@/emails/templates/payments/cancellation-scheduled";
 import { CheckoutLinkEmail } from "@/emails/templates/payments/checkout-link";
 import { PaymentFailedEmail } from "@/emails/templates/payments/payment-failed";
@@ -353,6 +354,36 @@ export async function sendCheckoutLinkEmail(params: {
   await sendEmail({
     to: params.to,
     subject: `Complete seu upgrade para o Plano ${params.planName} - Synnerdata`,
+    html,
+    text,
+  });
+}
+
+// ============================================================
+// CONTACT EMAILS
+// ============================================================
+
+export async function sendContactEmail(params: {
+  name: string;
+  email: string;
+  company: string;
+  phone?: string;
+  subject: string;
+  message: string;
+}) {
+  const { html, text } = await renderEmail(
+    <ContactMessageEmail
+      company={params.company}
+      email={params.email}
+      message={params.message}
+      name={params.name}
+      phone={params.phone}
+      subject={params.subject}
+    />
+  );
+  await sendEmail({
+    to: "contato@synnerdata.com.br",
+    subject: `[Contato Site] ${params.subject}`,
     html,
     text,
   });

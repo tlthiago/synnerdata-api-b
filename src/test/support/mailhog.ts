@@ -328,6 +328,76 @@ export async function waitForPasswordResetEmail(
 }
 
 // ============================================================
+// CONTACT EMAIL
+// ============================================================
+
+export type ContactEmailData = {
+  subject: string;
+  body: string;
+};
+
+const CONTACT_SUBJECT_PATTERN = "[Contato Site]";
+
+function isContactEmail(message: MailHogMessage): boolean {
+  const subject = message.Content.Headers.Subject?.[0] ?? "";
+  return subject.includes(CONTACT_SUBJECT_PATTERN);
+}
+
+async function tryGetContactEmail(
+  email: string
+): Promise<ContactEmailData | null> {
+  const messages = await searchEmailsByRecipient(email);
+  const contactEmail = messages.find(isContactEmail);
+
+  if (!contactEmail) {
+    return null;
+  }
+
+  const subject = contactEmail.Content.Headers.Subject?.[0] ?? "";
+  const body = contactEmail.Content.Body;
+
+  return { subject, body };
+}
+
+export async function waitForContactEmail(
+  email: string,
+  maxRetries = DEFAULT_MAX_RETRIES,
+  delayMs = DEFAULT_RETRY_DELAY_MS
+): Promise<ContactEmailData> {
+  for (let attempt = 1; attempt <= maxRetries; attempt++) {
+    try {
+      const emailData = await tryGetContactEmail(email);
+
+      if (emailData) {
+        return emailData;
+      }
+
+      if (attempt >= maxRetries) {
+        throw new Error(
+          `No contact email found for ${email} after ${maxRetries} attempts.`
+        );
+      }
+
+      await delay(delayMs);
+    } catch (error) {
+      if (error instanceof TypeError && error.message.includes("fetch")) {
+        throwMailHogUnavailableError();
+      }
+
+      if (attempt >= maxRetries) {
+        throw error;
+      }
+
+      await delay(delayMs);
+    }
+  }
+
+  throw new Error(
+    `Contact email not found for ${email} after ${maxRetries} retries`
+  );
+}
+
+// ============================================================
 // CLEAR MAILBOX
 // ============================================================
 

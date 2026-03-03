@@ -8,3 +8,10 @@ export function wrapSuccessWithMessage<T>(
 ): { success: true; data: T; message: string } {
   return { success: true as const, data, message };
 }
+
+export function wrapMessage(message: string): {
+  success: true;
+  message: string;
+} {
+  return { success: true as const, message };
+}

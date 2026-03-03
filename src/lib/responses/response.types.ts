@@ -38,6 +38,12 @@ export function successResponseSchema<T extends z.ZodTypeAny>(dataSchema: T) {
   });
 }
 
+/** Schema Zod para resposta de sucesso apenas com mensagem (sem data) */
+export const messageOnlyResponseSchema = z.object({
+  success: z.literal(true),
+  message: z.string(),
+});
+
 /** Cria um schema Zod para resposta paginada com envelope */
 export function paginatedResponseSchema<T extends z.ZodTypeAny>(itemSchema: T) {
   return z.object({

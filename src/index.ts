@@ -20,6 +20,7 @@ import { occurrencesController } from "./modules/occurrences";
 import { organizationController } from "./modules/organizations";
 import { paymentsController } from "./modules/payments";
 import { registerPaymentListeners } from "./modules/payments/hooks/listeners";
+import { publicController } from "./modules/public";
 
 const isProduction = process.env.NODE_ENV === "production";
 
@@ -159,6 +160,7 @@ const app = new Elysia({
   .use(paymentsController)
   .use(auditController)
   .use(adminController)
+  .use(publicController)
   .get("/", ({ redirect }) => redirect("/health"))
   .listen(env.PORT, ({ hostname, port }) => {
     // Application initialization

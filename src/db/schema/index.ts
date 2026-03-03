@@ -41,6 +41,7 @@ import {
   medicalCertificateRelations,
   medicalCertificates,
 } from "./medical-certificates";
+import { newsletterSubscribers } from "./newsletter-subscribers";
 import {
   organizationProfileRelations,
   organizationProfiles,
@@ -133,6 +134,7 @@ export const schema = {
   planLimits,
   adminOrgProvisions,
   auditLogs,
+  newsletterSubscribers,
 };
 
 export const fullSchema = {
@@ -217,6 +219,11 @@ export type {
   MedicalCertificate,
   NewMedicalCertificate,
 } from "./medical-certificates";
+export type {
+  NewNewsletterSubscriber,
+  NewsletterSubscriber,
+} from "./newsletter-subscribers";
+export { newsletterStatusEnum } from "./newsletter-subscribers";
 export type {
   NewOrganizationProfile,
   OrganizationProfile,
