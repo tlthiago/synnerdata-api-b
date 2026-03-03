@@ -106,6 +106,37 @@ describe("PUT /v1/medical-certificates/:id", () => {
     expect(response.status).toBe(404);
   });
 
+  test("should reject future startDate on update", async () => {
+    const { headers, organizationId, userId } =
+      await createTestUserWithOrganization({
+        emailVerified: true,
+      });
+
+    const { employee } = await createTestEmployee({ organizationId, userId });
+    const certificate = await createTestMedicalCertificate({
+      organizationId,
+      userId,
+      employeeId: employee.id,
+      daysOff: 3,
+    });
+
+    const futureDate = new Date();
+    futureDate.setDate(futureDate.getDate() + 10);
+    const futureDateStr = futureDate.toISOString().split("T")[0];
+
+    const response = await app.handle(
+      new Request(`${BASE_URL}/v1/medical-certificates/${certificate.id}`, {
+        method: "PUT",
+        headers: { ...headers, "Content-Type": "application/json" },
+        body: JSON.stringify({
+          startDate: futureDateStr,
+        }),
+      })
+    );
+
+    expect(response.status).toBe(422);
+  });
+
   test("should update medical certificate successfully", async () => {
     const { headers, organizationId, userId } =
       await createTestUserWithOrganization({

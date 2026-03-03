@@ -163,6 +163,34 @@ describe("POST /v1/medical-certificates", () => {
     expect(response.status).toBe(422);
   });
 
+  test("should reject future startDate", async () => {
+    const { headers, organizationId, userId } =
+      await createTestUserWithOrganization({
+        emailVerified: true,
+      });
+
+    const { employee } = await createTestEmployee({ organizationId, userId });
+
+    const futureDate = new Date();
+    futureDate.setDate(futureDate.getDate() + 10);
+    const futureDateStr = futureDate.toISOString().split("T")[0];
+
+    const response = await app.handle(
+      new Request(`${BASE_URL}/v1/medical-certificates`, {
+        method: "POST",
+        headers: { ...headers, "Content-Type": "application/json" },
+        body: JSON.stringify({
+          employeeId: employee.id,
+          startDate: futureDateStr,
+          endDate: futureDateStr,
+          daysOff: 1,
+        }),
+      })
+    );
+
+    expect(response.status).toBe(422);
+  });
+
   test("should create medical certificate successfully", async () => {
     const { headers, organizationId, userId } =
       await createTestUserWithOrganization({

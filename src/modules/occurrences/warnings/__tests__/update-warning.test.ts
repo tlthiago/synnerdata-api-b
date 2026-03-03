@@ -99,6 +99,95 @@ describe("PUT /v1/warnings/:id", () => {
     expect(body.error.code).toBe("WARNING_NOT_FOUND");
   });
 
+  test("should reject future date on update", async () => {
+    const { headers, organizationId, user } =
+      await createTestUserWithOrganization({
+        emailVerified: true,
+      });
+
+    const warning = await createTestWarning({
+      organizationId,
+      userId: user.id,
+    });
+
+    const futureDate = new Date();
+    futureDate.setDate(futureDate.getDate() + 10);
+
+    const response = await app.handle(
+      new Request(`${BASE_URL}/v1/warnings/${warning.id}`, {
+        method: "PUT",
+        headers: {
+          ...headers,
+          "Content-Type": "application/json",
+        },
+        body: JSON.stringify({
+          date: futureDate.toISOString().split("T")[0],
+        }),
+      })
+    );
+
+    expect(response.status).toBe(422);
+  });
+
+  test("should reject acknowledgedAt before warning date", async () => {
+    const { headers, organizationId, user } =
+      await createTestUserWithOrganization({
+        emailVerified: true,
+      });
+
+    const warning = await createTestWarning({
+      organizationId,
+      userId: user.id,
+      date: "2024-06-15",
+    });
+
+    const response = await app.handle(
+      new Request(`${BASE_URL}/v1/warnings/${warning.id}`, {
+        method: "PUT",
+        headers: {
+          ...headers,
+          "Content-Type": "application/json",
+        },
+        body: JSON.stringify({
+          acknowledged: true,
+          acknowledgedAt: "2024-06-14T10:00:00.000Z",
+        }),
+      })
+    );
+
+    expect(response.status).toBe(422);
+  });
+
+  test("should reject when date is moved after existing acknowledgedAt", async () => {
+    const { headers, organizationId, user } =
+      await createTestUserWithOrganization({
+        emailVerified: true,
+      });
+
+    const warning = await createTestWarning({
+      organizationId,
+      userId: user.id,
+      date: "2024-06-10",
+      acknowledged: true,
+      acknowledgedAt: "2024-06-12T10:00:00.000Z",
+    });
+
+    const response = await app.handle(
+      new Request(`${BASE_URL}/v1/warnings/${warning.id}`, {
+        method: "PUT",
+        headers: {
+          ...headers,
+          "Content-Type": "application/json",
+        },
+        body: JSON.stringify({
+          date: "2024-06-20",
+        }),
+      })
+    );
+
+    expect(response.status).toBe(422);
+  });
+
   test("should update warning successfully", async () => {
     const { headers, organizationId, user } =
       await createTestUserWithOrganization({

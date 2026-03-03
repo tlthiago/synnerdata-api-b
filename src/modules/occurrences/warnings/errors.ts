@@ -39,3 +39,14 @@ export class WarningInvalidEmployeeError extends WarningError {
     });
   }
 }
+
+export class WarningAcknowledgedBeforeDateError extends WarningError {
+  status = 422;
+
+  constructor() {
+    super(
+      "Data de ciência não pode ser anterior à data da advertência",
+      "WARNING_ACKNOWLEDGED_BEFORE_DATE"
+    );
+  }
+}

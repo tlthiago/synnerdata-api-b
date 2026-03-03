@@ -48,6 +48,11 @@ export async function createTestLaborLawsuit(
     finalEmployeeId = employee.id;
   }
 
+  const filingDate =
+    overrides.filingDate ??
+    faker.date.recent({ days: 180 }).toISOString().split("T")[0];
+  const knowledgeDate = overrides.knowledgeDate ?? filingDate;
+
   const lawsuit = await LaborLawsuitService.create({
     organizationId,
     userId,
@@ -62,12 +67,8 @@ export async function createTestLaborLawsuit(
         "Vara do Trabalho de Campinas",
         "3ª Vara do Trabalho de Belo Horizonte",
       ]),
-    filingDate:
-      overrides.filingDate ??
-      faker.date.recent({ days: 180 }).toISOString().split("T")[0],
-    knowledgeDate:
-      overrides.knowledgeDate ??
-      faker.date.recent({ days: 200 }).toISOString().split("T")[0],
+    filingDate,
+    knowledgeDate,
     plaintiff: overrides.plaintiff ?? faker.person.fullName(),
     defendant:
       overrides.defendant ??

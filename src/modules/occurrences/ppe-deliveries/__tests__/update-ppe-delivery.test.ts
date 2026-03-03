@@ -208,6 +208,39 @@ describe("PUT /v1/ppe-deliveries/:id", () => {
     expect(body.error.code).toBe("FORBIDDEN");
   });
 
+  test("should reject future deliveryDate on update", async () => {
+    const { headers, organizationId, user } =
+      await createTestUserWithOrganization({
+        emailVerified: true,
+      });
+
+    const delivery = await createTestPpeDelivery({
+      organizationId,
+      userId: user.id,
+    });
+
+    const futureDate = new Date();
+    futureDate.setDate(futureDate.getDate() + 10);
+    const futureDateStr = futureDate.toISOString().split("T")[0];
+
+    const response = await app.handle(
+      new Request(`${BASE_URL}/v1/ppe-deliveries/${delivery.id}`, {
+        method: "PUT",
+        headers: {
+          ...headers,
+          "Content-Type": "application/json",
+        },
+        body: JSON.stringify({
+          deliveryDate: futureDateStr,
+        }),
+      })
+    );
+
+    expect(response.status).toBe(422);
+    const body = await response.json();
+    expect(body.error.code).toBe("VALIDATION_ERROR");
+  });
+
   test("should allow manager to update delivery", async () => {
     const { addMemberToOrganization } = await import(
       "@/test/helpers/organization"

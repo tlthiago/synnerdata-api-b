@@ -1,5 +1,6 @@
 import { z } from "zod";
 import { successResponseSchema } from "@/lib/responses/response.types";
+import { isFutureDate, isFutureDatetime } from "@/lib/schemas/date-helpers";
 import { entityReferenceSchema } from "@/lib/schemas/relationships";
 
 export const warningTypeEnum = z.enum(["verbal", "written", "suspension"]);
@@ -12,6 +13,9 @@ const warningFieldsSchema = z.object({
   date: z
     .string()
     .date("Data da advertência deve ser uma data válida")
+    .refine((val) => !isFutureDate(val), {
+      message: "Data da advertência não pode ser no futuro",
+    })
     .describe("Data da advertência"),
   type: warningTypeEnum.describe("Tipo da advertência"),
   reason: z
@@ -24,31 +28,58 @@ const warningFieldsSchema = z.object({
   acknowledgedAt: z
     .string()
     .datetime("Data do ciente deve ser uma data/hora válida")
+    .refine((val) => !isFutureDatetime(val), {
+      message: "Data de ciência não pode ser no futuro",
+    })
     .optional()
     .describe("Data do ciente"),
   notes: z.string().optional().describe("Observações"),
 });
 
-export const createWarningSchema = warningFieldsSchema.refine(
-  (data) => !data.acknowledged || data.acknowledgedAt,
-  {
+export const createWarningSchema = warningFieldsSchema
+  .refine((data) => !data.acknowledged || data.acknowledgedAt, {
     message: "Data de ciência é obrigatória quando o funcionário deu ciência",
     path: ["acknowledgedAt"],
-  }
-);
-
-export const updateWarningSchema = warningFieldsSchema.partial().refine(
-  (data) => {
-    if (data.acknowledged === true) {
-      return !!data.acknowledgedAt;
+  })
+  .refine(
+    (data) => {
+      if (!data.acknowledgedAt) {
+        return true;
+      }
+      return new Date(data.acknowledgedAt) >= new Date(data.date);
+    },
+    {
+      message: "Data de ciência não pode ser anterior à data da advertência",
+      path: ["acknowledgedAt"],
     }
-    return true;
-  },
-  {
-    message: "Data de ciência é obrigatória quando o funcionário deu ciência",
-    path: ["acknowledgedAt"],
-  }
-);
+  );
+
+export const updateWarningSchema = warningFieldsSchema
+  .partial()
+  .refine(
+    (data) => {
+      if (data.acknowledged === true) {
+        return !!data.acknowledgedAt;
+      }
+      return true;
+    },
+    {
+      message: "Data de ciência é obrigatória quando o funcionário deu ciência",
+      path: ["acknowledgedAt"],
+    }
+  )
+  .refine(
+    (data) => {
+      if (!(data.acknowledgedAt && data.date)) {
+        return true;
+      }
+      return new Date(data.acknowledgedAt) >= new Date(data.date);
+    },
+    {
+      message: "Data de ciência não pode ser anterior à data da advertência",
+      path: ["acknowledgedAt"],
+    }
+  );
 
 export const idParamSchema = z.object({
   id: z.string().min(1).describe("ID da advertência"),

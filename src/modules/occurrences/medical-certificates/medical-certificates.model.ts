@@ -1,5 +1,6 @@
 import { z } from "zod";
 import { successResponseSchema } from "@/lib/responses/response.types";
+import { isFutureDate } from "@/lib/schemas/date-helpers";
 import { entityReferenceSchema } from "@/lib/schemas/relationships";
 
 export const createMedicalCertificateSchema = z
@@ -11,10 +12,16 @@ export const createMedicalCertificateSchema = z
     startDate: z
       .string()
       .date("Data de início deve ser uma data válida")
+      .refine((val) => !isFutureDate(val), {
+        message: "Data de início não pode ser no futuro",
+      })
       .describe("Data de início do afastamento"),
     endDate: z
       .string()
       .date("Data de fim deve ser uma data válida")
+      .refine((val) => !isFutureDate(val), {
+        message: "Data de fim não pode ser no futuro",
+      })
       .describe("Data de fim do afastamento"),
     daysOff: z
       .number()

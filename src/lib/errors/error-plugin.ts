@@ -69,7 +69,7 @@ export const errorPlugin = new Elysia({ name: "error-handler" })
         success: false as const,
         error: {
           code: "VALIDATION_ERROR",
-          message: "Invalid request data",
+          message: "Dados de requisição inválidos",
           details: formatValidationErrors(error.all),
         },
       };

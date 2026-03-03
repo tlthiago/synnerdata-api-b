@@ -1,8 +1,9 @@
 import { z } from "zod";
 import { successResponseSchema } from "@/lib/responses/response.types";
+import { isFutureDate } from "@/lib/schemas/date-helpers";
 import { entityReferenceSchema } from "@/lib/schemas/relationships";
 
-export const createLaborLawsuitSchema = z.object({
+const laborLawsuitFieldsSchema = z.object({
   employeeId: z
     .string()
     .min(1, "ID do funcionário é obrigatório")
@@ -19,9 +20,15 @@ export const createLaborLawsuitSchema = z.object({
     .describe("Tribunal ou vara responsável"),
   filingDate: z.iso
     .date({ error: "Data de ajuizamento inválida" })
+    .refine((val) => !isFutureDate(val), {
+      message: "Data de ajuizamento não pode ser no futuro",
+    })
     .describe("Data de ajuizamento da ação"),
   knowledgeDate: z.iso
     .date({ error: "Data de conhecimento inválida" })
+    .refine((val) => !isFutureDate(val), {
+      message: "Data de conhecimento não pode ser no futuro",
+    })
     .describe("Data de conhecimento da ação"),
   plaintiff: z
     .string()
@@ -56,6 +63,9 @@ export const createLaborLawsuitSchema = z.object({
   decision: z.string().optional().describe("Decisão/sentença"),
   conclusionDate: z.iso
     .date({ error: "Data de conclusão inválida" })
+    .refine((val) => !isFutureDate(val), {
+      message: "Data de conclusão não pode ser no futuro",
+    })
     .optional()
     .describe("Data de conclusão do processo"),
   appeals: z.string().optional().describe("Recursos interpostos"),
@@ -66,9 +76,50 @@ export const createLaborLawsuitSchema = z.object({
     .describe("Custas e despesas processuais"),
 });
 
-export const updateLaborLawsuitSchema = createLaborLawsuitSchema
+export const createLaborLawsuitSchema = laborLawsuitFieldsSchema
+  .refine((data) => data.knowledgeDate >= data.filingDate, {
+    message:
+      "Data de conhecimento deve ser igual ou posterior à data de ajuizamento",
+    path: ["knowledgeDate"],
+  })
+  .refine(
+    (data) => !data.conclusionDate || data.conclusionDate >= data.filingDate,
+    {
+      message:
+        "Data de conclusão deve ser igual ou posterior à data de ajuizamento",
+      path: ["conclusionDate"],
+    }
+  );
+
+export const updateLaborLawsuitSchema = laborLawsuitFieldsSchema
   .omit({ employeeId: true })
-  .partial();
+  .partial()
+  .refine(
+    (data) => {
+      if (!(data.filingDate && data.knowledgeDate)) {
+        return true;
+      }
+      return data.knowledgeDate >= data.filingDate;
+    },
+    {
+      message:
+        "Data de conhecimento deve ser igual ou posterior à data de ajuizamento",
+      path: ["knowledgeDate"],
+    }
+  )
+  .refine(
+    (data) => {
+      if (!(data.filingDate && data.conclusionDate)) {
+        return true;
+      }
+      return data.conclusionDate >= data.filingDate;
+    },
+    {
+      message:
+        "Data de conclusão deve ser igual ou posterior à data de ajuizamento",
+      path: ["conclusionDate"],
+    }
+  );
 
 export const listLaborLawsuitsQuerySchema = z.object({
   employeeId: z.string().optional().describe("Filtrar por funcionário"),

@@ -1,6 +1,7 @@
 import { z } from "zod";
 import { vacationStatusEnum } from "@/db/schema";
 import { successResponseSchema } from "@/lib/responses/response.types";
+import { isFutureDate } from "@/lib/schemas/date-helpers";
 import { entityReferenceSchema } from "@/lib/schemas/relationships";
 
 const vacationStatuses = vacationStatusEnum.enumValues;
@@ -12,17 +13,11 @@ const vacationFieldsSchema = z.object({
     .describe("ID do funcionário"),
   startDate: z
     .string()
-    .regex(
-      /^\d{4}-\d{2}-\d{2}$/,
-      "Data de início deve estar no formato YYYY-MM-DD"
-    )
+    .date("Data de início deve ser uma data válida")
     .describe("Data de início das férias (YYYY-MM-DD)"),
   endDate: z
     .string()
-    .regex(
-      /^\d{4}-\d{2}-\d{2}$/,
-      "Data de término deve estar no formato YYYY-MM-DD"
-    )
+    .date("Data de término deve ser uma data válida")
     .describe("Data de término das férias (YYYY-MM-DD)"),
   daysTotal: z
     .number()
@@ -36,17 +31,17 @@ const vacationFieldsSchema = z.object({
     .describe("Dias utilizados"),
   acquisitionPeriodStart: z
     .string()
-    .regex(
-      /^\d{4}-\d{2}-\d{2}$/,
-      "Início do período aquisitivo deve estar no formato YYYY-MM-DD"
-    )
+    .date("Início do período aquisitivo deve ser uma data válida")
+    .refine((val) => !isFutureDate(val), {
+      message: "Início do período aquisitivo não pode ser no futuro",
+    })
     .describe("Início do período aquisitivo (YYYY-MM-DD)"),
   acquisitionPeriodEnd: z
     .string()
-    .regex(
-      /^\d{4}-\d{2}-\d{2}$/,
-      "Fim do período aquisitivo deve estar no formato YYYY-MM-DD"
-    )
+    .date("Fim do período aquisitivo deve ser uma data válida")
+    .refine((val) => !isFutureDate(val), {
+      message: "Fim do período aquisitivo não pode ser no futuro",
+    })
     .describe("Fim do período aquisitivo (YYYY-MM-DD)"),
   status: z
     .enum(vacationStatuses)

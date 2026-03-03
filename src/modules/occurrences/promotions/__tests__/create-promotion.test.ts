@@ -106,6 +106,33 @@ describe("POST /v1/promotions", () => {
     expect(messages).toContain("ID do novo cargo é obrigatório");
   });
 
+  test("should reject future promotionDate", async () => {
+    const { headers } = await createTestUserWithOrganization({
+      emailVerified: true,
+    });
+
+    const futureDate = new Date();
+    futureDate.setDate(futureDate.getDate() + 10);
+    const futureDateStr = futureDate.toISOString().split("T")[0];
+
+    const response = await app.handle(
+      new Request(`${BASE_URL}/v1/promotions`, {
+        method: "POST",
+        headers: { ...headers, "Content-Type": "application/json" },
+        body: JSON.stringify({
+          employeeId: "employee-123",
+          previousJobPositionId: "job-position-123",
+          newJobPositionId: "job-position-456",
+          promotionDate: futureDateStr,
+          previousSalary: "3000.00",
+          newSalary: "3600.00",
+        }),
+      })
+    );
+
+    expect(response.status).toBe(422);
+  });
+
   test("should reject when employee does not exist", async () => {
     const { headers, organizationId, user } =
       await createTestUserWithOrganization({ emailVerified: true });

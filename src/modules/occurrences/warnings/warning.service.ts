@@ -2,6 +2,7 @@ import { and, eq, isNull } from "drizzle-orm";
 import { db } from "@/db";
 import { schema } from "@/db/schema";
 import {
+  WarningAcknowledgedBeforeDateError,
   WarningAlreadyDeletedError,
   WarningInvalidEmployeeError,
   WarningNotFoundError,
@@ -123,6 +124,18 @@ export abstract class WarningService {
     return employee;
   }
 
+  private static validateAcknowledgedAtNotBeforeDate(
+    acknowledgedAt: string | Date | null | undefined,
+    date: string
+  ): void {
+    if (!acknowledgedAt) {
+      return;
+    }
+    if (new Date(acknowledgedAt) < new Date(date)) {
+      throw new WarningAcknowledgedBeforeDateError();
+    }
+  }
+
   static async create(input: CreateWarningInput): Promise<WarningData> {
     const { organizationId, userId, ...data } = input;
 
@@ -228,6 +241,14 @@ export abstract class WarningService {
     if (!existing) {
       throw new WarningNotFoundError(id);
     }
+
+    const effectiveDate = data.date ?? existing.date;
+    const effectiveAcknowledgedAt =
+      data.acknowledgedAt ?? existing.acknowledgedAt;
+    WarningService.validateAcknowledgedAtNotBeforeDate(
+      effectiveAcknowledgedAt,
+      effectiveDate
+    );
 
     const updateData: Record<string, unknown> = {
       updatedBy: userId,

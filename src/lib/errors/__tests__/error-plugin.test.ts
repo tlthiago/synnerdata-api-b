@@ -68,7 +68,7 @@ describe("errorPlugin", () => {
       const body = await response.json();
       expect(body.success).toBe(false);
       expect(body.error.code).toBe("VALIDATION_ERROR");
-      expect(body.error.message).toBe("Invalid request data");
+      expect(body.error.message).toBe("Dados de requisição inválidos");
       expect(body.error.details).toBeArray();
       expect(body.error.details.length).toBeGreaterThan(0);
     });

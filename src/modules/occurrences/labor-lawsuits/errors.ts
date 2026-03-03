@@ -47,3 +47,11 @@ export class LaborLawsuitEmployeeNotFoundError extends LaborLawsuitError {
     });
   }
 }
+
+export class LaborLawsuitInvalidDateOrderError extends LaborLawsuitError {
+  status = 422;
+
+  constructor(message: string, details?: unknown) {
+    super(message, "LABOR_LAWSUIT_INVALID_DATE_ORDER", details);
+  }
+}

@@ -102,6 +102,102 @@ describe("POST /v1/warnings", () => {
     expect(response.status).toBe(422);
   });
 
+  test("should reject future date", async () => {
+    const { headers, organizationId, user } =
+      await createTestUserWithOrganization({
+        emailVerified: true,
+      });
+
+    const { employee } = await createTestEmployee({
+      organizationId,
+      userId: user.id,
+    });
+
+    const futureDate = new Date();
+    futureDate.setDate(futureDate.getDate() + 10);
+
+    const response = await app.handle(
+      new Request(`${BASE_URL}/v1/warnings`, {
+        method: "POST",
+        headers: {
+          ...headers,
+          "Content-Type": "application/json",
+        },
+        body: JSON.stringify({
+          ...validWarningData,
+          employeeId: employee.id,
+          date: futureDate.toISOString().split("T")[0],
+        }),
+      })
+    );
+
+    expect(response.status).toBe(422);
+  });
+
+  test("should reject future acknowledgedAt", async () => {
+    const { headers, organizationId, user } =
+      await createTestUserWithOrganization({
+        emailVerified: true,
+      });
+
+    const { employee } = await createTestEmployee({
+      organizationId,
+      userId: user.id,
+    });
+
+    const futureDate = new Date();
+    futureDate.setDate(futureDate.getDate() + 10);
+
+    const response = await app.handle(
+      new Request(`${BASE_URL}/v1/warnings`, {
+        method: "POST",
+        headers: {
+          ...headers,
+          "Content-Type": "application/json",
+        },
+        body: JSON.stringify({
+          ...validWarningData,
+          employeeId: employee.id,
+          acknowledged: true,
+          acknowledgedAt: futureDate.toISOString(),
+        }),
+      })
+    );
+
+    expect(response.status).toBe(422);
+  });
+
+  test("should reject acknowledgedAt before warning date", async () => {
+    const { headers, organizationId, user } =
+      await createTestUserWithOrganization({
+        emailVerified: true,
+      });
+
+    const { employee } = await createTestEmployee({
+      organizationId,
+      userId: user.id,
+    });
+
+    const response = await app.handle(
+      new Request(`${BASE_URL}/v1/warnings`, {
+        method: "POST",
+        headers: {
+          ...headers,
+          "Content-Type": "application/json",
+        },
+        body: JSON.stringify({
+          ...validWarningData,
+          date: "2024-06-15",
+          employeeId: employee.id,
+          acknowledged: true,
+          acknowledgedAt: "2024-06-14T10:00:00.000Z",
+        }),
+      })
+    );
+
+    expect(response.status).toBe(422);
+  });
+
   test("should create warning successfully", async () => {
     const { headers, organizationId, user } =
       await createTestUserWithOrganization({

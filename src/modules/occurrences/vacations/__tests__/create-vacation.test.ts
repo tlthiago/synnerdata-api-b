@@ -232,6 +232,74 @@ describe("POST /v1/vacations", () => {
     expect(body.data.notes).toBe("Summer vacation");
   });
 
+  test("should reject future acquisitionPeriodStart", async () => {
+    const { headers, organizationId, user } =
+      await createTestUserWithOrganization({
+        emailVerified: true,
+      });
+
+    const { employee } = await createTestEmployee({
+      organizationId,
+      userId: user.id,
+    });
+
+    const futureDate = new Date();
+    futureDate.setDate(futureDate.getDate() + 10);
+    const futureDateStr = futureDate.toISOString().split("T")[0];
+
+    const response = await app.handle(
+      new Request(`${BASE_URL}/v1/vacations`, {
+        method: "POST",
+        headers: { ...headers, "Content-Type": "application/json" },
+        body: JSON.stringify({
+          employeeId: employee.id,
+          startDate: "2025-01-01",
+          endDate: "2025-01-15",
+          daysTotal: 30,
+          daysUsed: 15,
+          acquisitionPeriodStart: futureDateStr,
+          acquisitionPeriodEnd: futureDateStr,
+        }),
+      })
+    );
+
+    expect(response.status).toBe(422);
+  });
+
+  test("should reject future acquisitionPeriodEnd", async () => {
+    const { headers, organizationId, user } =
+      await createTestUserWithOrganization({
+        emailVerified: true,
+      });
+
+    const { employee } = await createTestEmployee({
+      organizationId,
+      userId: user.id,
+    });
+
+    const futureDate = new Date();
+    futureDate.setDate(futureDate.getDate() + 10);
+    const futureDateStr = futureDate.toISOString().split("T")[0];
+
+    const response = await app.handle(
+      new Request(`${BASE_URL}/v1/vacations`, {
+        method: "POST",
+        headers: { ...headers, "Content-Type": "application/json" },
+        body: JSON.stringify({
+          employeeId: employee.id,
+          startDate: "2025-01-01",
+          endDate: "2025-01-15",
+          daysTotal: 30,
+          daysUsed: 15,
+          acquisitionPeriodStart: "2024-01-01",
+          acquisitionPeriodEnd: futureDateStr,
+        }),
+      })
+    );
+
+    expect(response.status).toBe(422);
+  });
+
   test("should allow manager to create vacation", async () => {
     const { addMemberToOrganization } = await import(
       "@/test/helpers/organization"

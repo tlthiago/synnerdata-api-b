@@ -12,8 +12,8 @@ const BASE_URL = env.API_URL;
 const validLawsuitData = {
   processNumber: "0001234-56.2024.5.01.0001",
   court: "1ª Vara do Trabalho do Rio de Janeiro",
-  filingDate: "2024-01-15",
-  knowledgeDate: "2024-01-10",
+  filingDate: "2024-01-10",
+  knowledgeDate: "2024-01-15",
   plaintiff: "João da Silva",
   defendant: "Empresa XYZ Ltda",
   description: "Reclamação por verbas rescisórias",
@@ -92,8 +92,8 @@ describe("POST /v1/labor-lawsuits", () => {
           employeeId: "employee-123",
           processNumber: "",
           court: "",
-          filingDate: "2024-01-15",
-          knowledgeDate: "2024-01-10",
+          filingDate: "2024-01-10",
+          knowledgeDate: "2024-01-15",
           plaintiff: "",
           defendant: "Empresa XYZ",
           description: "",
@@ -135,6 +135,100 @@ describe("POST /v1/labor-lawsuits", () => {
     expect(response.status).toBe(404);
     const body = await response.json();
     expect(body.error.code).toBe("EMPLOYEE_NOT_FOUND");
+  });
+
+  test("should reject future filingDate", async () => {
+    const { headers, organizationId, user } =
+      await createTestUserWithOrganization({
+        emailVerified: true,
+      });
+
+    const { employee } = await createTestEmployee({
+      organizationId,
+      userId: user.id,
+    });
+
+    const futureDate = new Date();
+    futureDate.setDate(futureDate.getDate() + 10);
+
+    const response = await app.handle(
+      new Request(`${BASE_URL}/v1/labor-lawsuits`, {
+        method: "POST",
+        headers: {
+          ...headers,
+          "Content-Type": "application/json",
+        },
+        body: JSON.stringify({
+          ...validLawsuitData,
+          employeeId: employee.id,
+          filingDate: futureDate.toISOString().split("T")[0],
+          knowledgeDate: futureDate.toISOString().split("T")[0],
+        }),
+      })
+    );
+
+    expect(response.status).toBe(422);
+  });
+
+  test("should reject knowledgeDate before filingDate", async () => {
+    const { headers, organizationId, user } =
+      await createTestUserWithOrganization({
+        emailVerified: true,
+      });
+
+    const { employee } = await createTestEmployee({
+      organizationId,
+      userId: user.id,
+    });
+
+    const response = await app.handle(
+      new Request(`${BASE_URL}/v1/labor-lawsuits`, {
+        method: "POST",
+        headers: {
+          ...headers,
+          "Content-Type": "application/json",
+        },
+        body: JSON.stringify({
+          ...validLawsuitData,
+          employeeId: employee.id,
+          filingDate: "2024-06-15",
+          knowledgeDate: "2024-06-10",
+        }),
+      })
+    );
+
+    expect(response.status).toBe(422);
+  });
+
+  test("should reject conclusionDate before filingDate", async () => {
+    const { headers, organizationId, user } =
+      await createTestUserWithOrganization({
+        emailVerified: true,
+      });
+
+    const { employee } = await createTestEmployee({
+      organizationId,
+      userId: user.id,
+    });
+
+    const response = await app.handle(
+      new Request(`${BASE_URL}/v1/labor-lawsuits`, {
+        method: "POST",
+        headers: {
+          ...headers,
+          "Content-Type": "application/json",
+        },
+        body: JSON.stringify({
+          ...validLawsuitData,
+          employeeId: employee.id,
+          filingDate: "2024-06-15",
+          knowledgeDate: "2024-06-20",
+          conclusionDate: "2024-06-10",
+        }),
+      })
+    );
+
+    expect(response.status).toBe(422);
   });
 
   test("should create labor lawsuit successfully", async () => {

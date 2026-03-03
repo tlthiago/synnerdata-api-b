@@ -1,5 +1,6 @@
 import { z } from "zod";
 import { successResponseSchema } from "@/lib/responses/response.types";
+import { isFutureDate } from "@/lib/schemas/date-helpers";
 
 export const createPpeDeliverySchema = z.object({
   employeeId: z
@@ -9,6 +10,10 @@ export const createPpeDeliverySchema = z.object({
   deliveryDate: z
     .string()
     .min(1, "Data de entrega é obrigatória")
+    .date("Data de entrega deve ser uma data válida")
+    .refine((val) => !isFutureDate(val), {
+      message: "Data de entrega não pode ser no futuro",
+    })
     .describe("Data de entrega (YYYY-MM-DD)"),
   reason: z
     .string()
@@ -27,7 +32,14 @@ export const createPpeDeliverySchema = z.object({
 });
 
 export const updatePpeDeliverySchema = z.object({
-  deliveryDate: z.string().optional().describe("Data de entrega (YYYY-MM-DD)"),
+  deliveryDate: z
+    .string()
+    .date("Data de entrega deve ser uma data válida")
+    .refine((val) => !isFutureDate(val), {
+      message: "Data de entrega não pode ser no futuro",
+    })
+    .optional()
+    .describe("Data de entrega (YYYY-MM-DD)"),
   reason: z
     .string()
     .max(500, "Motivo deve ter no máximo 500 caracteres")

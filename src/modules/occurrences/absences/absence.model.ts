@@ -1,5 +1,6 @@
 import { z } from "zod";
 import { successResponseSchema } from "@/lib/responses/response.types";
+import { isFutureDate } from "@/lib/schemas/date-helpers";
 import { entityReferenceSchema } from "@/lib/schemas/relationships";
 
 export const absenceTypeEnum = z.enum(["justified", "unjustified"], {
@@ -17,11 +18,17 @@ const absenceFieldsSchema = z.object({
     .string()
     .min(1, "Data de início é obrigatória")
     .date("Data de início deve ser uma data válida")
+    .refine((val) => !isFutureDate(val), {
+      message: "Data de início não pode ser no futuro",
+    })
     .describe("Data de início (YYYY-MM-DD)"),
   endDate: z
     .string()
     .min(1, "Data de término é obrigatória")
     .date("Data de término deve ser uma data válida")
+    .refine((val) => !isFutureDate(val), {
+      message: "Data de término não pode ser no futuro",
+    })
     .describe("Data de término (YYYY-MM-DD)"),
   type: absenceTypeEnum.describe("Tipo da ausência"),
   reason: z.string().optional().describe("Motivo da ausência"),

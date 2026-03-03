@@ -62,6 +62,37 @@ describe("PUT /v1/promotions/:id", () => {
     expect(body.error.code).toBe("PROMOTION_NOT_FOUND");
   });
 
+  test("should reject future promotionDate on update", async () => {
+    const { headers, organizationId, user } =
+      await createTestUserWithOrganization({
+        emailVerified: true,
+      });
+
+    const { promotion } = await createTestPromotion({
+      organizationId,
+      userId: user.id,
+    });
+
+    const futureDate = new Date();
+    futureDate.setDate(futureDate.getDate() + 10);
+    const futureDateStr = futureDate.toISOString().split("T")[0];
+
+    const response = await app.handle(
+      new Request(`${BASE_URL}/v1/promotions/${promotion.id}`, {
+        method: "PUT",
+        headers: {
+          ...headers,
+          "Content-Type": "application/json",
+        },
+        body: JSON.stringify({
+          promotionDate: futureDateStr,
+        }),
+      })
+    );
+
+    expect(response.status).toBe(422);
+  });
+
   test("should reject when promotion belongs to different organization", async () => {
     const { organizationId, user } = await createTestUserWithOrganization({
       emailVerified: true,

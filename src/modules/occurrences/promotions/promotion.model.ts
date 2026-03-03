@@ -1,5 +1,6 @@
 import { z } from "zod";
 import { successResponseSchema } from "@/lib/responses/response.types";
+import { isFutureDate } from "@/lib/schemas/date-helpers";
 import { entityReferenceSchema } from "@/lib/schemas/relationships";
 
 export const createPromotionSchema = z.object({
@@ -9,10 +10,11 @@ export const createPromotionSchema = z.object({
     .describe("ID do funcionário"),
   promotionDate: z
     .string()
-    .refine((date) => !Number.isNaN(Date.parse(date)), {
-      message: "Data de promoção inválida",
+    .date("Data de promoção deve ser uma data válida")
+    .refine((val) => !isFutureDate(val), {
+      message: "Data de promoção não pode ser no futuro",
     })
-    .describe("Data da promoção (formato ISO)"),
+    .describe("Data da promoção (YYYY-MM-DD)"),
   previousJobPositionId: z
     .string()
     .min(1, "ID do cargo anterior é obrigatório")

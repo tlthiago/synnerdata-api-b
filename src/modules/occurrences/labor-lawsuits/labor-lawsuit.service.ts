@@ -4,6 +4,7 @@ import { schema } from "@/db/schema";
 import {
   LaborLawsuitAlreadyDeletedError,
   LaborLawsuitEmployeeNotFoundError,
+  LaborLawsuitInvalidDateOrderError,
   LaborLawsuitNotFoundError,
 } from "./errors";
 import type {
@@ -152,6 +153,25 @@ export abstract class LaborLawsuitService {
     }
 
     return employee;
+  }
+
+  private static validateDateOrder(
+    filingDate: string,
+    knowledgeDate: string,
+    conclusionDate?: string | null
+  ): void {
+    if (knowledgeDate < filingDate) {
+      throw new LaborLawsuitInvalidDateOrderError(
+        "Data de conhecimento deve ser igual ou posterior à data de ajuizamento",
+        { filingDate, knowledgeDate }
+      );
+    }
+    if (conclusionDate && conclusionDate < filingDate) {
+      throw new LaborLawsuitInvalidDateOrderError(
+        "Data de conclusão deve ser igual ou posterior à data de ajuizamento",
+        { filingDate, conclusionDate }
+      );
+    }
   }
 
   static async create(
@@ -330,6 +350,25 @@ export abstract class LaborLawsuitService {
     const existing = await LaborLawsuitService.findById(id, organizationId);
     if (!existing) {
       throw new LaborLawsuitNotFoundError(id);
+    }
+
+    if (
+      data.filingDate ||
+      data.knowledgeDate ||
+      data.conclusionDate !== undefined
+    ) {
+      const effectiveFilingDate = data.filingDate ?? existing.filingDate;
+      const effectiveKnowledgeDate =
+        data.knowledgeDate ?? existing.knowledgeDate;
+      const effectiveConclusionDate =
+        data.conclusionDate !== undefined
+          ? data.conclusionDate
+          : existing.conclusionDate;
+      LaborLawsuitService.validateDateOrder(
+        effectiveFilingDate,
+        effectiveKnowledgeDate,
+        effectiveConclusionDate
+      );
     }
 
     const updateData = LaborLawsuitService.buildUpdateData(data, userId);

@@ -5,7 +5,10 @@ Registro de advertências e suspensões disciplinares.
 ## Business Rules
 
 - `reason` obrigatório
+- `date` não pode ser no futuro
 - Rastreamento de ciência: `acknowledged` (boolean, default false) + `acknowledgedAt` (datetime opcional)
+- `acknowledgedAt` não pode ser no futuro
+- `acknowledgedAt` não pode ser anterior a `date`
 - `acknowledgedAt` convertido de string para Date no service
 - Listagem ordenada por `date`
 
@@ -26,3 +29,4 @@ Registro de advertências e suspensões disciplinares.
 - `WarningNotFoundError` (404)
 - `WarningAlreadyDeletedError` (404)
 - `WarningInvalidEmployeeError` (422)
+- `WarningAcknowledgedBeforeDateError` (422)

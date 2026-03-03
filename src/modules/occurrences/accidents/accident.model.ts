@@ -1,13 +1,7 @@
 import { z } from "zod";
 import { successResponseSchema } from "@/lib/responses/response.types";
+import { isFutureDate } from "@/lib/schemas/date-helpers";
 import { entityReferenceSchema } from "@/lib/schemas/relationships";
-
-const isFutureDate = (dateStr: string) => {
-  const date = new Date(dateStr);
-  const today = new Date();
-  today.setHours(0, 0, 0, 0);
-  return date > today;
-};
 
 export const createAccidentSchema = z.object({
   employeeId: z
