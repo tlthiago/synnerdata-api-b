@@ -13,10 +13,7 @@ const orphanedPlanSchema = z.object({
 });
 
 export const listOrphanedPlansResponseSchema = successResponseSchema(
-  z.object({
-    orphanedPlans: z.array(orphanedPlanSchema),
-    total: z.number(),
-  })
+  z.array(orphanedPlanSchema)
 );
 
 const cleanupResultSchema = z.object({

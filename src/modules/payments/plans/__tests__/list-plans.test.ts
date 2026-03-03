@@ -22,8 +22,8 @@ describe("GET /payments/plans", () => {
 
     const body = await response.json();
     expect(body.success).toBe(true);
-    expect(body.data.plans).toBeArray();
-    expect(body.data.plans.length).toBeGreaterThan(0);
+    expect(body.data).toBeArray();
+    expect(body.data.length).toBeGreaterThan(0);
   });
 
   test("should return only active and public plans", async () => {
@@ -34,12 +34,12 @@ describe("GET /payments/plans", () => {
     );
     const body = await response.json();
 
-    for (const plan of body.data.plans) {
+    for (const plan of body.data) {
       expect(plan.isActive).toBe(true);
       expect(plan.isPublic).toBe(true);
     }
 
-    const foundPlan = body.data.plans.find(
+    const foundPlan = body.data.find(
       (p: { id: string }) => p.id === activePlan.id
     );
     expect(foundPlan).toBeDefined();
@@ -55,7 +55,7 @@ describe("GET /payments/plans", () => {
     );
     const body = await response.json();
 
-    const foundPlan = body.data.plans.find(
+    const foundPlan = body.data.find(
       (p: { id: string }) => p.id === inactivePlan.id
     );
     expect(foundPlan).toBeUndefined();
@@ -71,7 +71,7 @@ describe("GET /payments/plans", () => {
     );
     const body = await response.json();
 
-    const foundPlan = body.data.plans.find(
+    const foundPlan = body.data.find(
       (p: { id: string }) => p.id === privatePlan.id
     );
     expect(foundPlan).toBeUndefined();
@@ -85,7 +85,7 @@ describe("GET /payments/plans", () => {
       new Request(`${BASE_URL}/v1/payments/plans`)
     );
     const body = await response.json();
-    const plans = body.data.plans;
+    const plans = body.data;
 
     for (let i = 1; i < plans.length; i++) {
       expect(plans[i].sortOrder).toBeGreaterThanOrEqual(plans[i - 1].sortOrder);
@@ -99,7 +99,7 @@ describe("GET /payments/plans", () => {
       new Request(`${BASE_URL}/v1/payments/plans`)
     );
     const body = await response.json();
-    const plan = body.data.plans[0];
+    const plan = body.data[0];
 
     expect(plan).toHaveProperty("id");
     expect(plan).toHaveProperty("name");
@@ -126,9 +126,7 @@ describe("GET /payments/plans", () => {
     );
     const body = await response.json();
 
-    const plan = body.data.plans.find(
-      (p: { id: string }) => p.id === createdPlan.id
-    );
+    const plan = body.data.find((p: { id: string }) => p.id === createdPlan.id);
 
     expect(plan).toBeDefined();
     expect(plan.features).toBeArray();
@@ -143,9 +141,7 @@ describe("GET /payments/plans", () => {
     );
     const body = await response.json();
 
-    const plan = body.data.plans.find(
-      (p: { id: string }) => p.id === createdPlan.id
-    );
+    const plan = body.data.find((p: { id: string }) => p.id === createdPlan.id);
 
     expect(plan).toBeDefined();
     expect(plan.pricingTiers).toBeArray();

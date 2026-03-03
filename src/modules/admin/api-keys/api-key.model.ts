@@ -59,9 +59,7 @@ export const createApiKeyResponseSchema = successResponseSchema(
 );
 
 export const listApiKeysResponseSchema = successResponseSchema(
-  z.object({
-    keys: z.array(apiKeyDataSchema),
-  })
+  z.array(apiKeyDataSchema)
 );
 
 export const getApiKeyResponseSchema = successResponseSchema(apiKeyDataSchema);
@@ -86,7 +84,7 @@ export type DeleteApiKeyResponse = z.infer<typeof deleteApiKeyResponseSchema>;
 
 // Data-only types for service layer
 export type CreateApiKeyData = ApiKeyCreatedData;
-export type ListApiKeysData = { keys: ApiKeyData[] };
+export type ListApiKeysData = ApiKeyData[];
 export type GetApiKeyData = ApiKeyData;
 export type RevokeApiKeyData = { revoked: true };
 export type DeleteApiKeyData = { deleted: true };

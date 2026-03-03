@@ -173,7 +173,7 @@ const deletePlanDataSchema = z.object({
 
 export const getPlanResponseSchema = successResponseSchema(planWithTiersSchema);
 export const listPlansResponseSchema = successResponseSchema(
-  z.object({ plans: z.array(planListItemSchema) })
+  z.array(planListItemSchema)
 );
 export const createPlanResponseSchema =
   successResponseSchema(planWithTiersSchema);
@@ -198,7 +198,7 @@ export type CreatePlanResponse = z.infer<typeof createPlanResponseSchema>;
 export type UpdatePlanResponse = z.infer<typeof updatePlanResponseSchema>;
 export type DeletePlanResponse = z.infer<typeof deletePlanResponseSchema>;
 
-export type ListPlansData = { plans: PlanWithTiersData[] };
+export type ListPlansData = PlanWithTiersData[];
 export type GetPlanData = PlanWithTiersData;
 export type CreatePlanData = PlanWithTiersData;
 export type UpdatePlanData = PlanWithTiersData;

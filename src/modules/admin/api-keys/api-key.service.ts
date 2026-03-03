@@ -63,32 +63,30 @@ export abstract class ApiKeyService {
         )
       : keys;
 
-    return {
-      keys: filtered.map((k) => {
-        const metadata = k.metadata as {
-          organizationId?: string | null;
-          isGlobal?: boolean;
-        } | null;
+    return filtered.map((k) => {
+      const metadata = k.metadata as {
+        organizationId?: string | null;
+        isGlobal?: boolean;
+      } | null;
 
-        return {
-          id: k.id,
-          name: k.name ?? "Unnamed Key",
-          prefix: k.start ?? "",
-          enabled: k.enabled ?? true,
-          organizationId: metadata?.organizationId ?? null,
-          isGlobal: metadata?.isGlobal ?? false,
-          permissions: k.permissions as {
-            employees?: ["read"];
-            occurrences?: ["read"];
-            organizations?: ["read"];
-            reports?: ["read"];
-          } | null,
-          expiresAt: k.expiresAt?.toISOString() ?? null,
-          lastUsedAt: k.lastRequest?.toISOString() ?? null,
-          createdAt: k.createdAt.toISOString(),
-        };
-      }),
-    };
+      return {
+        id: k.id,
+        name: k.name ?? "Unnamed Key",
+        prefix: k.start ?? "",
+        enabled: k.enabled ?? true,
+        organizationId: metadata?.organizationId ?? null,
+        isGlobal: metadata?.isGlobal ?? false,
+        permissions: k.permissions as {
+          employees?: ["read"];
+          occurrences?: ["read"];
+          organizations?: ["read"];
+          reports?: ["read"];
+        } | null,
+        expiresAt: k.expiresAt?.toISOString() ?? null,
+        lastUsedAt: k.lastRequest?.toISOString() ?? null,
+        createdAt: k.createdAt.toISOString(),
+      };
+    });
   }
 
   static async getById(

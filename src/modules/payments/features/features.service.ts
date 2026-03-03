@@ -29,7 +29,7 @@ export abstract class FeaturesService {
       .where(eq(schema.features.isActive, true))
       .orderBy(schema.features.sortOrder);
 
-    return { features: rows };
+    return rows;
   }
 
   static async list(): Promise<ListFeaturesData> {
@@ -55,9 +55,7 @@ export abstract class FeaturesService {
       .groupBy(schema.features.id)
       .orderBy(schema.features.sortOrder);
 
-    return {
-      features: rows.map((row) => FeaturesService.mapFeature(row)),
-    };
+    return rows.map((row) => FeaturesService.mapFeature(row));
   }
 
   static async create(data: CreateFeatureInput): Promise<FeatureData> {

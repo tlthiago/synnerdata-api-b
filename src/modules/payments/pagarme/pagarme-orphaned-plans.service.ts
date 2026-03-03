@@ -6,13 +6,10 @@ export abstract class OrphanedPlansService {
   static async listOrphaned() {
     const orphanedPlans = await PagarmePlanHistoryService.listOrphaned();
 
-    return {
-      orphanedPlans: orphanedPlans.map((p) => ({
-        ...p,
-        createdAt: p.createdAt.toISOString(),
-      })),
-      total: orphanedPlans.length,
-    };
+    return orphanedPlans.map((p) => ({
+      ...p,
+      createdAt: p.createdAt.toISOString(),
+    }));
   }
 
   static async cleanup() {

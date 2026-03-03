@@ -45,8 +45,7 @@ describe("Orphaned Pagarme Plans", () => {
 
       const body = await response.json();
       expect(body.success).toBe(true);
-      expect(body.data.orphanedPlans).toBeArray();
-      expect(body.data.total).toBeNumber();
+      expect(body.data).toBeArray();
     });
 
     test("should return orphaned plans from history", async () => {
@@ -78,10 +77,10 @@ describe("Orphaned Pagarme Plans", () => {
 
       const body = await response.json();
       expect(body.success).toBe(true);
-      expect(body.data.orphanedPlans).toBeArray();
-      expect(body.data.total).toBeGreaterThanOrEqual(1);
+      expect(body.data).toBeArray();
+      expect(body.data.length).toBeGreaterThanOrEqual(1);
 
-      const found = body.data.orphanedPlans.find(
+      const found = body.data.find(
         (p: { pagarmePlanId: string }) => p.pagarmePlanId === pagarmePlanId
       );
       expect(found).toBeDefined();

@@ -22,7 +22,7 @@ describe("GET /payments/features (public)", () => {
 
     const body = await response.json();
     expect(body.success).toBe(true);
-    expect(body.data.features).toBeArray();
+    expect(body.data).toBeArray();
   });
 
   test("should return only active features", async () => {
@@ -42,7 +42,7 @@ describe("GET /payments/features (public)", () => {
       expect(response.status).toBe(200);
 
       const body = await response.json();
-      const inactiveFeature = body.data.features.find(
+      const inactiveFeature = body.data.find(
         (f: { id: string }) => f.id === featureId
       );
       expect(inactiveFeature).toBeUndefined();
@@ -58,7 +58,7 @@ describe("GET /payments/features (public)", () => {
     expect(response.status).toBe(200);
 
     const body = await response.json();
-    const features = body.data.features;
+    const features = body.data;
 
     for (let i = 1; i < features.length; i++) {
       expect(features[i].sortOrder).toBeGreaterThanOrEqual(
@@ -87,7 +87,7 @@ describe("GET /payments/features (public)", () => {
       expect(response.status).toBe(200);
 
       const body = await response.json();
-      const features = body.data.features;
+      const features = body.data;
 
       expect(features.length).toBeGreaterThan(0);
 
@@ -112,7 +112,7 @@ describe("GET /payments/features (public)", () => {
     expect(response.status).toBe(200);
 
     const body = await response.json();
-    const features = body.data.features;
+    const features = body.data;
 
     for (const feature of features) {
       expect(feature).not.toHaveProperty("isActive");

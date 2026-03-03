@@ -67,16 +67,14 @@ export abstract class PlansService {
     const featuresByPlan = await PlansService.getBulkPlanFeatures(planIds);
     const limitsByPlan = await PlansService.getBulkPlanLimits(planIds);
 
-    return {
-      plans: plans.map((plan) =>
-        PlansService.mapPlanWithTiers(
-          plan,
-          tiersByPlan.get(plan.id) ?? [],
-          featuresByPlan.get(plan.id) ?? [],
-          limitsByPlan.get(plan.id) ?? []
-        )
-      ),
-    };
+    return plans.map((plan) =>
+      PlansService.mapPlanWithTiers(
+        plan,
+        tiersByPlan.get(plan.id) ?? [],
+        featuresByPlan.get(plan.id) ?? [],
+        limitsByPlan.get(plan.id) ?? []
+      )
+    );
   }
 
   static async listAll(): Promise<ListPlansData> {
@@ -96,16 +94,14 @@ export abstract class PlansService {
     const featuresByPlan = await PlansService.getBulkPlanFeatures(planIds);
     const limitsByPlan = await PlansService.getBulkPlanLimits(planIds);
 
-    return {
-      plans: plans.map((plan) =>
-        PlansService.mapPlanWithTiers(
-          plan,
-          tiersByPlan.get(plan.id) ?? [],
-          featuresByPlan.get(plan.id) ?? [],
-          limitsByPlan.get(plan.id) ?? []
-        )
-      ),
-    };
+    return plans.map((plan) =>
+      PlansService.mapPlanWithTiers(
+        plan,
+        tiersByPlan.get(plan.id) ?? [],
+        featuresByPlan.get(plan.id) ?? [],
+        limitsByPlan.get(plan.id) ?? []
+      )
+    );
   }
 
   static async getById(planId: string): Promise<GetPlanData> {

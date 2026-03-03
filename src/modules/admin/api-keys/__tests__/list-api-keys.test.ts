@@ -60,8 +60,8 @@ describe("GET /v1/admin/api-keys", () => {
 
     const body = await response.json();
     expect(body.success).toBe(true);
-    expect(body.data.keys).toBeDefined();
-    expect(Array.isArray(body.data.keys)).toBe(true);
+    expect(body.data).toBeDefined();
+    expect(Array.isArray(body.data)).toBe(true);
   });
 
   test("should filter API keys by organizationId", async () => {
@@ -90,7 +90,7 @@ describe("GET /v1/admin/api-keys", () => {
     const body = await response.json();
     expect(body.success).toBe(true);
 
-    for (const key of body.data.keys) {
+    for (const key of body.data) {
       expect(key.organizationId).toBe(organizationId);
     }
   });
@@ -113,6 +113,6 @@ describe("GET /v1/admin/api-keys", () => {
 
     const body = await response.json();
     expect(body.success).toBe(true);
-    expect(body.data.keys).toEqual([]);
+    expect(body.data).toEqual([]);
   });
 });

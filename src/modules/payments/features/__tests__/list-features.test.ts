@@ -48,9 +48,9 @@ describe("GET /payments/features/all", () => {
 
     const body = await response.json();
     expect(body.success).toBe(true);
-    expect(body.data.features).toBeArray();
+    expect(body.data).toBeArray();
 
-    for (const feature of body.data.features) {
+    for (const feature of body.data) {
       expect(feature.id).toBeString();
       expect(feature.displayName).toBeString();
       expect(typeof feature.planCount).toBe("number");
@@ -69,7 +69,7 @@ describe("GET /payments/features/all", () => {
     expect(response.status).toBe(200);
 
     const body = await response.json();
-    const features = body.data.features;
+    const features = body.data;
 
     for (let i = 1; i < features.length; i++) {
       expect(features[i].sortOrder).toBeGreaterThanOrEqual(
@@ -97,7 +97,7 @@ describe("GET /payments/features/all", () => {
       expect(response.status).toBe(200);
 
       const body = await response.json();
-      const inactiveFeature = body.data.features.find(
+      const inactiveFeature = body.data.find(
         (f: { id: string }) => f.id === featureId
       );
       expect(inactiveFeature).toBeDefined();

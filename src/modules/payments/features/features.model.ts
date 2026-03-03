@@ -69,7 +69,7 @@ const deleteFeatureDataSchema = z.object({
 });
 
 export const listFeaturesResponseSchema = successResponseSchema(
-  z.object({ features: z.array(featureDataSchema) })
+  z.array(featureDataSchema)
 );
 export const createFeatureResponseSchema =
   successResponseSchema(featureDataSchema);
@@ -90,7 +90,7 @@ const publicFeatureDataSchema = z.object({
 });
 
 export const listPublicFeaturesResponseSchema = successResponseSchema(
-  z.object({ features: z.array(publicFeatureDataSchema) })
+  z.array(publicFeatureDataSchema)
 );
 
 export type CreateFeature = z.infer<typeof createFeatureSchema>;
@@ -101,5 +101,5 @@ export type UpdateFeatureInput = UpdateFeature & { userId: string };
 export type FeatureIdParams = z.infer<typeof featureIdParamsSchema>;
 export type FeatureData = z.infer<typeof featureDataSchema>;
 export type PublicFeatureData = z.infer<typeof publicFeatureDataSchema>;
-export type ListFeaturesData = { features: FeatureData[] };
-export type ListPublicFeaturesData = { features: PublicFeatureData[] };
+export type ListFeaturesData = FeatureData[];
+export type ListPublicFeaturesData = PublicFeatureData[];
