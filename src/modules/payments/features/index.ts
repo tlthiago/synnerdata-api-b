@@ -58,7 +58,8 @@ export const featuresProtectedController = new Elysia({
   })
   .post(
     "/",
-    async ({ body }) => wrapSuccess(await FeaturesService.create(body)),
+    async ({ user, body }) =>
+      wrapSuccess(await FeaturesService.create({ ...body, userId: user.id })),
     {
       auth: { requireAdmin: true },
       body: createFeatureSchema,
@@ -78,8 +79,10 @@ export const featuresProtectedController = new Elysia({
   )
   .put(
     "/:id",
-    async ({ params, body }) =>
-      wrapSuccess(await FeaturesService.update(params.id, body)),
+    async ({ user, params, body }) =>
+      wrapSuccess(
+        await FeaturesService.update(params.id, { ...body, userId: user.id })
+      ),
     {
       auth: { requireAdmin: true },
       params: featureIdParamsSchema,
@@ -100,7 +103,8 @@ export const featuresProtectedController = new Elysia({
   )
   .delete(
     "/:id",
-    async ({ params }) => wrapSuccess(await FeaturesService.delete(params.id)),
+    async ({ user, params }) =>
+      wrapSuccess(await FeaturesService.delete(params.id, user.id)),
     {
       auth: { requireAdmin: true },
       params: featureIdParamsSchema,
