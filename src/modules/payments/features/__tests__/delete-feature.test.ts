@@ -1,5 +1,5 @@
-import { beforeAll, describe, expect, test } from "bun:test";
-import { eq } from "drizzle-orm";
+import { afterAll, beforeAll, describe, expect, test } from "bun:test";
+import { eq, like } from "drizzle-orm";
 import { db } from "@/db";
 import { schema } from "@/db/schema";
 import { env } from "@/env";
@@ -41,6 +41,13 @@ describe("DELETE /payments/features/:id", () => {
     app = createTestApp();
     const { headers } = await UserFactory.createAdmin({ emailVerified: true });
     authHeaders = headers;
+  });
+
+  afterAll(async () => {
+    await db
+      .delete(schema.planFeatures)
+      .where(like(schema.planFeatures.featureId, "test_%"));
+    await db.delete(schema.features).where(like(schema.features.id, "test_%"));
   });
 
   test("should reject unauthenticated requests", async () => {

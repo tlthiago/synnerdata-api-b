@@ -1,5 +1,5 @@
 import { beforeAll, describe, expect, test } from "bun:test";
-import { eq, sql } from "drizzle-orm";
+import { and, eq, inArray, sql } from "drizzle-orm";
 import { db } from "@/db";
 import {
   features,
@@ -26,6 +26,8 @@ const ALL_FEATURE_IDS = [
   "employee_record",
   "payroll",
 ] as const;
+
+const SEED_IDS = [...ALL_FEATURE_IDS] as string[];
 
 const PLAN_FEATURE_IDS = {
   trial: [...ALL_FEATURE_IDS],
@@ -54,12 +56,18 @@ const PLAN_FEATURE_IDS = {
 describe("features and plan_features schema", () => {
   describe("features table — seed data", () => {
     test("should have 10 seeded features", async () => {
-      const result = await db.select().from(features);
+      const result = await db
+        .select()
+        .from(features)
+        .where(inArray(features.id, SEED_IDS));
       expect(result.length).toBe(10);
     });
 
     test("should have correct feature IDs", async () => {
-      const result = await db.select({ id: features.id }).from(features);
+      const result = await db
+        .select({ id: features.id })
+        .from(features)
+        .where(inArray(features.id, SEED_IDS));
       const ids = result.map((r) => r.id).sort();
       expect(ids).toEqual([...ALL_FEATURE_IDS].sort());
     });
@@ -80,7 +88,8 @@ describe("features and plan_features schema", () => {
 
       const result = await db
         .select({ id: features.id, displayName: features.displayName })
-        .from(features);
+        .from(features)
+        .where(inArray(features.id, SEED_IDS));
 
       for (const row of result) {
         expect(row.displayName).toBe(expectedNames[row.id]);
@@ -91,7 +100,9 @@ describe("features and plan_features schema", () => {
       const result = await db
         .select()
         .from(features)
-        .where(eq(features.isDefault, true));
+        .where(
+          and(inArray(features.id, SEED_IDS), eq(features.isDefault, true))
+        );
       expect(result.length).toBe(6);
 
       const defaultIds = result.map((r) => r.id).sort();
@@ -111,25 +122,30 @@ describe("features and plan_features schema", () => {
       const result = await db
         .select()
         .from(features)
-        .where(eq(features.isPremium, true));
+        .where(
+          and(inArray(features.id, SEED_IDS), eq(features.isPremium, true))
+        );
       expect(result.length).toBe(2);
 
       const premiumIds = result.map((r) => r.id).sort();
       expect(premiumIds).toEqual(["employee_record", "payroll"].sort());
     });
 
-    test("should have all features active by default", async () => {
+    test("should have all seed features active", async () => {
       const result = await db
         .select()
         .from(features)
-        .where(eq(features.isActive, true));
+        .where(
+          and(inArray(features.id, SEED_IDS), eq(features.isActive, true))
+        );
       expect(result.length).toBe(10);
     });
 
     test("should have sequential sort_order", async () => {
       const result = await db
         .select({ id: features.id, sortOrder: features.sortOrder })
-        .from(features);
+        .from(features)
+        .where(inArray(features.id, SEED_IDS));
 
       const sortOrders = result
         .sort((a, b) => a.sortOrder - b.sortOrder)
