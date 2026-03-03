@@ -86,7 +86,7 @@ export const orgRoles: Record<Role, ReturnType<typeof orgAc.newRole>> = {
     audit: ["read"],
   }),
   manager: orgAc.newRole({
-    organization: ["read"],
+    organization: ["read", "update"],
     branch: ["create", "read", "update", "delete"],
     sector: ["create", "read", "update", "delete"],
     costCenter: ["create", "read", "update", "delete"],
