@@ -37,15 +37,3 @@ export class TierNotFoundForAdjustmentError extends PriceAdjustmentError {
     );
   }
 }
-
-export class PriceAdjustmentNotFoundError extends PriceAdjustmentError {
-  status = 404;
-
-  constructor(subscriptionId: string) {
-    super(
-      `No price adjustments found for subscription ${subscriptionId}`,
-      "PRICE_ADJUSTMENTS_NOT_FOUND",
-      { subscriptionId }
-    );
-  }
-}

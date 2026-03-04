@@ -4,7 +4,6 @@ import { db } from "@/db";
 import { schema } from "@/db/schema";
 import { PaymentHooks } from "@/modules/payments/hooks";
 import { PagarmeClient } from "@/modules/payments/pagarme/client";
-import { PagarmePlanService } from "@/modules/payments/pagarme/pagarme-plan.service";
 import { PlanFactory } from "@/test/factories/payments/plan.factory";
 import { SubscriptionFactory } from "@/test/factories/payments/subscription.factory";
 import { createTestOrganization } from "@/test/helpers/organization";
@@ -14,7 +13,6 @@ import { PriceAdjustmentService } from "../price-adjustment.service";
 
 describe("PriceAdjustmentService.adjustIndividual", () => {
   let adminId: string;
-  let createCustomPlanSpy: ReturnType<typeof spyOn>;
   let getSubscriptionSpy: ReturnType<typeof spyOn>;
   let updateSubscriptionItemSpy: ReturnType<typeof spyOn>;
   let hookEmitSpy: ReturnType<typeof spyOn>;
@@ -25,26 +23,21 @@ describe("PriceAdjustmentService.adjustIndividual", () => {
   });
 
   afterEach(() => {
-    createCustomPlanSpy?.mockRestore();
     getSubscriptionSpy?.mockRestore();
     updateSubscriptionItemSpy?.mockRestore();
     hookEmitSpy?.mockRestore();
   });
 
   function mockPagarme(pagarmeSubId = "sub_mock_123") {
-    createCustomPlanSpy = spyOn(
-      PagarmePlanService,
-      "createCustomPlan"
-    ).mockResolvedValue("plan_custom_123");
-
     getSubscriptionSpy = spyOn(
       PagarmeClient,
       "getSubscription"
     ).mockResolvedValue({
       id: pagarmeSubId,
-      plan: {
-        items: [{ id: "item_mock_1", name: "Plan", quantity: 1 }],
-      },
+      plan: { name: "Plan" },
+      items: [
+        { id: "item_mock_1", name: "Plan", quantity: 1, status: "active" },
+      ],
     } as never);
 
     updateSubscriptionItemSpy = spyOn(
@@ -261,10 +254,11 @@ describe("PriceAdjustmentService.adjustIndividual", () => {
     expect(updatedSub.priceAtPurchase).toBe(expectedYearlyPrice);
   });
 
-  test("should call PagarmePlanService.createCustomPlan with correct args", async () => {
+  test("should NOT create a custom plan — only updates item pricing", async () => {
     mockPagarme();
-    const { subId, plan, tier } = await createActiveSubscription({
+    const { subId } = await createActiveSubscription({
       priceAtPurchase: 9990,
+      pagarmeSubscriptionId: "sub_mock_123",
     });
 
     await PriceAdjustmentService.adjustIndividual({
@@ -274,12 +268,9 @@ describe("PriceAdjustmentService.adjustIndividual", () => {
       adminId,
     });
 
-    expect(createCustomPlanSpy).toHaveBeenCalledTimes(1);
-    const callArgs = createCustomPlanSpy.mock.calls[0][0];
-    expect(callArgs.plan.id).toBe(plan.id);
-    expect(callArgs.tier.id).toBe(tier.id);
-    expect(callArgs.billingCycle).toBe("monthly");
-    expect(callArgs.price).toBe(12_990);
+    // Should update subscription item pricing, NOT create a new plan
+    expect(getSubscriptionSpy).toHaveBeenCalledTimes(1);
+    expect(updateSubscriptionItemSpy).toHaveBeenCalledTimes(1);
   });
 
   test("should call PagarmeClient.updateSubscriptionItem when pagarmeSubscriptionId exists", async () => {
@@ -304,6 +295,9 @@ describe("PriceAdjustmentService.adjustIndividual", () => {
     expect(updateSubscriptionItemSpy.mock.calls[0][0]).toBe(pagarmeSubId);
     expect(updateSubscriptionItemSpy.mock.calls[0][1]).toBe("item_mock_1");
     expect(updateSubscriptionItemSpy.mock.calls[0][2]).toEqual({
+      description: "Plan",
+      quantity: 1,
+      status: "active",
       pricing_scheme: { price: 12_990, scheme_type: "unit" },
     });
   });
@@ -324,7 +318,124 @@ describe("PriceAdjustmentService.adjustIndividual", () => {
 
     expect(getSubscriptionSpy).not.toHaveBeenCalled();
     expect(updateSubscriptionItemSpy).not.toHaveBeenCalled();
-    // createCustomPlan should still be called
-    expect(createCustomPlanSpy).toHaveBeenCalledTimes(1);
+  });
+
+  test("should skip updateSubscriptionItem when Pagar.me subscription has no items (GAP 1)", async () => {
+    const pagarmeSubId = "sub_no_items";
+    getSubscriptionSpy = spyOn(
+      PagarmeClient,
+      "getSubscription"
+    ).mockResolvedValue({
+      id: pagarmeSubId,
+      plan: { name: "Plan" },
+      items: [], // empty items
+    } as never);
+    updateSubscriptionItemSpy = spyOn(
+      PagarmeClient,
+      "updateSubscriptionItem"
+    ).mockResolvedValue({ id: pagarmeSubId } as never);
+    hookEmitSpy = spyOn(PaymentHooks, "emit");
+
+    const { subId } = await createActiveSubscription({
+      priceAtPurchase: 9990,
+      pagarmeSubscriptionId: pagarmeSubId,
+    });
+
+    const result = await PriceAdjustmentService.adjustIndividual({
+      subscriptionId: subId,
+      newPriceMonthly: 12_990,
+      reason: "No items test",
+      adminId,
+    });
+
+    // getSubscription called, but updateSubscriptionItem NOT called
+    expect(getSubscriptionSpy).toHaveBeenCalledTimes(1);
+    expect(updateSubscriptionItemSpy).not.toHaveBeenCalled();
+
+    // Service should still complete successfully
+    expect(result.subscription.priceAtPurchase).toBe(12_990);
+    expect(result.subscription.isCustomPrice).toBe(true);
+  });
+
+  test("should use plan's yearlyDiscountPercent for yearly price calculation (GAP 2)", async () => {
+    mockPagarme();
+    const { subId, plan } = await createActiveSubscription({
+      priceAtPurchase: 9990,
+      billingCycle: "yearly",
+      pagarmeSubscriptionId: "sub_mock_123",
+    });
+
+    const result = await PriceAdjustmentService.adjustIndividual({
+      subscriptionId: subId,
+      newPriceMonthly: 12_990,
+      reason: "Plan info test",
+      adminId,
+    });
+
+    // Yearly price should use plan's yearlyDiscountPercent
+    const expectedYearly = Math.round(
+      12_990 * 12 * (1 - (plan.yearlyDiscountPercent ?? 20) / 100)
+    );
+    expect(result.adjustment.newPrice).toBe(expectedYearly);
+    expect(result.subscription.priceAtPurchase).toBe(expectedYearly);
+  });
+
+  test("should work correctly when pricingTierId is null (GAP 3)", async () => {
+    mockPagarme();
+    const organization = await createTestOrganization();
+    const { plan } = await PlanFactory.createPaid("gold");
+
+    // Create subscription without a pricingTierId
+    const subId = await SubscriptionFactory.createActive(
+      organization.id,
+      plan.id,
+      { billingCycle: "monthly" } // no pricingTierId
+    );
+
+    await db
+      .update(schema.orgSubscriptions)
+      .set({ priceAtPurchase: 9990, isCustomPrice: false })
+      .where(eq(schema.orgSubscriptions.id, subId));
+
+    const result = await PriceAdjustmentService.adjustIndividual({
+      subscriptionId: subId,
+      newPriceMonthly: 12_990,
+      reason: "Null tier test",
+      adminId,
+    });
+
+    expect(result.subscription.priceAtPurchase).toBe(12_990);
+    expect(result.subscription.isCustomPrice).toBe(true);
+    expect(result.adjustment.pricingTierId).toBeNull();
+  });
+
+  test("should include original subscription fields in hook payload (GAP 4)", async () => {
+    mockPagarme();
+    const { subId, organizationId, plan, tier } =
+      await createActiveSubscription({
+        priceAtPurchase: 9990,
+      });
+
+    await PriceAdjustmentService.adjustIndividual({
+      subscriptionId: subId,
+      newPriceMonthly: 12_990,
+      reason: "Hook fields test",
+      adminId,
+    });
+
+    expect(hookEmitSpy).toHaveBeenCalledTimes(1);
+    const [, payload] = hookEmitSpy.mock.calls[0];
+
+    // Overridden fields
+    expect(payload.subscription.priceAtPurchase).toBe(12_990);
+    expect(payload.subscription.isCustomPrice).toBe(true);
+
+    // Spread fields from original subscription
+    expect(payload.subscription.id).toBe(subId);
+    expect(payload.subscription.organizationId).toBe(organizationId);
+    expect(payload.subscription.planId).toBe(plan.id);
+    expect(payload.subscription.pricingTierId).toBe(tier.id);
+    expect(payload.subscription.billingCycle).toBe("monthly");
+    expect(payload.subscription.status).toBe("active");
   });
 });

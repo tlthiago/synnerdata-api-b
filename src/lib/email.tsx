@@ -3,6 +3,7 @@ import { renderEmail } from "@/emails/render";
 import { AccountActivationEmail } from "@/emails/templates/auth/account-activation";
 import { OrganizationInvitationEmail } from "@/emails/templates/auth/organization-invitation";
 import { PasswordResetEmail } from "@/emails/templates/auth/password-reset";
+import { ProvisionActivationEmail } from "@/emails/templates/auth/provision-activation";
 import { TwoFactorOtpEmail } from "@/emails/templates/auth/two-factor-otp";
 import { VerificationEmail } from "@/emails/templates/auth/verification";
 import { WelcomeEmail } from "@/emails/templates/auth/welcome";
@@ -12,6 +13,7 @@ import { CheckoutLinkEmail } from "@/emails/templates/payments/checkout-link";
 import { PaymentFailedEmail } from "@/emails/templates/payments/payment-failed";
 import { PlanChangeExecutedEmail } from "@/emails/templates/payments/plan-change-executed";
 import { PriceAdjustmentEmail } from "@/emails/templates/payments/price-adjustment";
+import { ProvisionCheckoutLinkEmail } from "@/emails/templates/payments/provision-checkout-link";
 import { SubscriptionCanceledEmail } from "@/emails/templates/payments/subscription-canceled";
 import { TrialExpiredEmail } from "@/emails/templates/payments/trial-expired";
 import { TrialExpiringEmail } from "@/emails/templates/payments/trial-expiring";
@@ -120,6 +122,29 @@ export async function sendAccountActivationEmail(params: {
   await sendEmail({
     to: params.email,
     subject: "Ative sua conta — Synnerdata",
+    html,
+    text,
+  });
+}
+
+export async function sendProvisionActivationEmail(params: {
+  email: string;
+  url: string;
+  userName: string;
+  organizationName: string;
+  isTrial: boolean;
+}) {
+  const { html, text } = await renderEmail(
+    <ProvisionActivationEmail
+      isTrial={params.isTrial}
+      organizationName={params.organizationName}
+      url={params.url}
+      userName={params.userName}
+    />
+  );
+  await sendEmail({
+    to: params.email,
+    subject: `Ative sua conta — ${params.organizationName} — Synnerdata`,
     html,
     text,
   });
@@ -354,6 +379,31 @@ export async function sendCheckoutLinkEmail(params: {
   await sendEmail({
     to: params.to,
     subject: `Complete seu upgrade para o Plano ${params.planName} - Synnerdata`,
+    html,
+    text,
+  });
+}
+
+export async function sendProvisionCheckoutLinkEmail(params: {
+  to: string;
+  userName: string;
+  organizationName: string;
+  planName: string;
+  checkoutUrl: string;
+  expiresAt: Date;
+}) {
+  const { html, text } = await renderEmail(
+    <ProvisionCheckoutLinkEmail
+      checkoutUrl={params.checkoutUrl}
+      expiresAt={params.expiresAt}
+      organizationName={params.organizationName}
+      planName={params.planName}
+      userName={params.userName}
+    />
+  );
+  await sendEmail({
+    to: params.to,
+    subject: `Bem-vindo ao Synnerdata — finalize o pagamento do Plano ${params.planName}`,
     html,
     text,
   });

@@ -14,6 +14,8 @@ import { PriceAdjustmentService } from "../price-adjustment.service";
 describe("PriceAdjustmentService.adjustBulk", () => {
   let adminId: string;
   let updatePlanSpy: ReturnType<typeof spyOn>;
+  let getSubscriptionSpy: ReturnType<typeof spyOn>;
+  let updateSubscriptionItemSpy: ReturnType<typeof spyOn>;
   let hookEmitSpy: ReturnType<typeof spyOn>;
 
   beforeAll(async () => {
@@ -23,6 +25,8 @@ describe("PriceAdjustmentService.adjustBulk", () => {
 
   afterEach(() => {
     updatePlanSpy?.mockRestore();
+    getSubscriptionSpy?.mockRestore();
+    updateSubscriptionItemSpy?.mockRestore();
     hookEmitSpy?.mockRestore();
   });
 
@@ -30,6 +34,20 @@ describe("PriceAdjustmentService.adjustBulk", () => {
     updatePlanSpy = spyOn(PagarmeClient, "updatePlan").mockResolvedValue({
       id: "plan_mock_123",
     } as never);
+    getSubscriptionSpy = spyOn(
+      PagarmeClient,
+      "getSubscription"
+    ).mockResolvedValue({
+      id: "sub_mock_123",
+      plan: { name: "Plan" },
+      items: [
+        { id: "item_mock_1", name: "Plan", quantity: 1, status: "active" },
+      ],
+    } as never);
+    updateSubscriptionItemSpy = spyOn(
+      PagarmeClient,
+      "updateSubscriptionItem"
+    ).mockResolvedValue({ id: "sub_mock_123" } as never);
     hookEmitSpy = spyOn(PaymentHooks, "emit");
   }
 
@@ -152,6 +170,7 @@ describe("PriceAdjustmentService.adjustBulk", () => {
         .limit(1);
 
       expect(sub.priceAtPurchase).toBe(12_990);
+      expect(sub.isCustomPrice).toBe(true);
     }
   });
 
@@ -335,5 +354,252 @@ describe("PriceAdjustmentService.adjustBulk", () => {
       .limit(1);
 
     expect(sub2.priceAtPurchase).toBe(9990); // unchanged
+  });
+
+  test("should call updateSubscriptionItem for subscriptions with pagarmeSubscriptionId", async () => {
+    mockPagarme();
+    const { plan, tiers } = await PlanFactory.createPaid("gold");
+    const tier = PlanFactory.getFirstTier({ plan, tiers });
+
+    const org1 = await createTestOrganization();
+    const org2 = await createTestOrganization();
+
+    const sub1Id = await SubscriptionFactory.createActive(org1.id, plan.id, {
+      pricingTierId: tier.id,
+      billingCycle: "monthly",
+      pagarmeSubscriptionId: "pagarme_sub_1",
+    });
+    const sub2Id = await SubscriptionFactory.createActive(org2.id, plan.id, {
+      pricingTierId: tier.id,
+      billingCycle: "monthly",
+      pagarmeSubscriptionId: "pagarme_sub_2",
+    });
+
+    for (const subId of [sub1Id, sub2Id]) {
+      await db
+        .update(schema.orgSubscriptions)
+        .set({ priceAtPurchase: 9990 })
+        .where(eq(schema.orgSubscriptions.id, subId));
+    }
+
+    await PriceAdjustmentService.adjustBulk({
+      planId: plan.id,
+      pricingTierId: tier.id,
+      billingCycle: "monthly",
+      newPriceMonthly: 12_990,
+      reason: "Pagar.me item update test",
+      adminId,
+    });
+
+    expect(getSubscriptionSpy).toHaveBeenCalledTimes(2);
+    expect(updateSubscriptionItemSpy).toHaveBeenCalledTimes(2);
+
+    for (const call of updateSubscriptionItemSpy.mock.calls) {
+      const [, , data] = call;
+      expect(data.pricing_scheme.price).toBe(12_990);
+      expect(data.pricing_scheme.scheme_type).toBe("unit");
+    }
+  });
+
+  test("should include isCustomPrice in hook payload for each subscription (GAP 8)", async () => {
+    mockPagarme();
+    const { plan, tiers } = await PlanFactory.createPaid("gold");
+    const tier = PlanFactory.getFirstTier({ plan, tiers });
+
+    const org = await createTestOrganization();
+    const subId = await SubscriptionFactory.createActive(org.id, plan.id, {
+      pricingTierId: tier.id,
+      billingCycle: "monthly",
+    });
+
+    await db
+      .update(schema.orgSubscriptions)
+      .set({ priceAtPurchase: 9990 })
+      .where(eq(schema.orgSubscriptions.id, subId));
+
+    await PriceAdjustmentService.adjustBulk({
+      planId: plan.id,
+      pricingTierId: tier.id,
+      billingCycle: "monthly",
+      newPriceMonthly: 12_990,
+      reason: "Hook isCustomPrice test",
+      adminId,
+    });
+
+    expect(hookEmitSpy).toHaveBeenCalledTimes(1);
+    const [, payload] = hookEmitSpy.mock.calls[0];
+    expect(payload.subscription.isCustomPrice).toBe(true);
+    expect(payload.subscription.priceAtPurchase).toBe(12_990);
+    expect(payload.subscription.organizationId).toBeDefined();
+    expect(payload.subscription.planId).toBeDefined();
+  });
+
+  test("should skip updatePlan when tier has no Pagar.me plan ID (GAP 5)", async () => {
+    mockPagarme();
+    const { plan, tiers } = await PlanFactory.createPaid("gold");
+    const tier = PlanFactory.getFirstTier({ plan, tiers });
+
+    // PlanFactory doesn't set pagarmePlanIdMonthly/Yearly, so they're null
+    // Confirm the tier has no Pagar.me plan ID
+    expect(tier.pagarmePlanIdMonthly).toBeNull();
+
+    await PriceAdjustmentService.adjustBulk({
+      planId: plan.id,
+      pricingTierId: tier.id,
+      billingCycle: "monthly",
+      newPriceMonthly: 15_000,
+      reason: "No Pagar.me plan test",
+      adminId,
+    });
+
+    // updatePlan should NOT have been called
+    expect(updatePlanSpy).not.toHaveBeenCalled();
+  });
+
+  test("should call updatePlan with correct args when tier has Pagar.me plan ID (GAP 7)", async () => {
+    mockPagarme();
+    const { plan, tiers } = await PlanFactory.createPaid("gold");
+    const tier = PlanFactory.getFirstTier({ plan, tiers });
+
+    // Manually set pagarmePlanIdMonthly on the tier
+    await db
+      .update(schema.planPricingTiers)
+      .set({ pagarmePlanIdMonthly: "plan_pagarme_abc" })
+      .where(eq(schema.planPricingTiers.id, tier.id));
+
+    await PriceAdjustmentService.adjustBulk({
+      planId: plan.id,
+      pricingTierId: tier.id,
+      billingCycle: "monthly",
+      newPriceMonthly: 15_000,
+      reason: "UpdatePlan args test",
+      adminId,
+    });
+
+    expect(updatePlanSpy).toHaveBeenCalledTimes(1);
+    expect(updatePlanSpy).toHaveBeenCalledWith("plan_pagarme_abc", {
+      items: [
+        {
+          name: plan.displayName,
+          quantity: 1,
+          pricing_scheme: {
+            price: 15_000,
+            scheme_type: "unit",
+          },
+        },
+      ],
+    });
+  });
+
+  test("should return updatedCount 0 and no hooks when no subscriptions match (GAP 6)", async () => {
+    mockPagarme();
+    const { plan, tiers } = await PlanFactory.createPaid("gold");
+    const tier = PlanFactory.getFirstTier({ plan, tiers });
+
+    // No subscriptions created for this tier
+    const result = await PriceAdjustmentService.adjustBulk({
+      planId: plan.id,
+      pricingTierId: tier.id,
+      billingCycle: "monthly",
+      newPriceMonthly: 15_000,
+      reason: "Empty subs test",
+      adminId,
+    });
+
+    expect(result.updatedCount).toBe(0);
+    expect(result.adjustments).toHaveLength(0);
+    expect(result.catalogUpdated).toBe(true);
+    expect(hookEmitSpy).not.toHaveBeenCalled();
+    expect(getSubscriptionSpy).not.toHaveBeenCalled();
+    expect(updateSubscriptionItemSpy).not.toHaveBeenCalled();
+  });
+
+  test("should handle mixed pagarmeSubscriptionId (some null, some set) in bulk (GAP 9)", async () => {
+    mockPagarme();
+    const { plan, tiers } = await PlanFactory.createPaid("gold");
+    const tier = PlanFactory.getFirstTier({ plan, tiers });
+
+    const org1 = await createTestOrganization();
+    const org2 = await createTestOrganization();
+
+    // sub1 has pagarmeSubscriptionId, sub2 does not
+    const sub1Id = await SubscriptionFactory.createActive(org1.id, plan.id, {
+      pricingTierId: tier.id,
+      billingCycle: "monthly",
+      pagarmeSubscriptionId: "pagarme_sub_mixed",
+    });
+    const sub2Id = await SubscriptionFactory.createActive(org2.id, plan.id, {
+      pricingTierId: tier.id,
+      billingCycle: "monthly",
+      // no pagarmeSubscriptionId
+    });
+
+    for (const subId of [sub1Id, sub2Id]) {
+      await db
+        .update(schema.orgSubscriptions)
+        .set({ priceAtPurchase: 9990 })
+        .where(eq(schema.orgSubscriptions.id, subId));
+    }
+
+    const result = await PriceAdjustmentService.adjustBulk({
+      planId: plan.id,
+      pricingTierId: tier.id,
+      billingCycle: "monthly",
+      newPriceMonthly: 12_990,
+      reason: "Mixed Pagar.me ID test",
+      adminId,
+    });
+
+    // Both should be adjusted in DB
+    expect(result.updatedCount).toBe(2);
+
+    // But only sub1 should trigger Pagar.me calls
+    expect(getSubscriptionSpy).toHaveBeenCalledTimes(1);
+    expect(getSubscriptionSpy).toHaveBeenCalledWith("pagarme_sub_mixed");
+    expect(updateSubscriptionItemSpy).toHaveBeenCalledTimes(1);
+
+    // Both subscriptions should have updated DB values
+    for (const subId of [sub1Id, sub2Id]) {
+      const [sub] = await db
+        .select()
+        .from(schema.orgSubscriptions)
+        .where(eq(schema.orgSubscriptions.id, subId))
+        .limit(1);
+
+      expect(sub.priceAtPurchase).toBe(12_990);
+      expect(sub.isCustomPrice).toBe(true);
+    }
+  });
+
+  test("should update both priceMonthly and priceYearly for yearly billing cycle", async () => {
+    mockPagarme();
+    const { plan, tiers } = await PlanFactory.createPaid("gold");
+    const tier = PlanFactory.getFirstTier({ plan, tiers });
+
+    const originalMonthly = tier.priceMonthly;
+    const originalYearly = tier.priceYearly;
+
+    await PriceAdjustmentService.adjustBulk({
+      planId: plan.id,
+      pricingTierId: tier.id,
+      billingCycle: "yearly",
+      newPriceMonthly: 15_000,
+      reason: "Yearly catalog update",
+      adminId,
+    });
+
+    const [updatedTier] = await db
+      .select()
+      .from(schema.planPricingTiers)
+      .where(eq(schema.planPricingTiers.id, tier.id))
+      .limit(1);
+
+    // Both should be updated, even for yearly billing cycle
+    expect(updatedTier.priceMonthly).toBe(15_000);
+    expect(updatedTier.priceMonthly).not.toBe(originalMonthly);
+
+    const expectedYearly = Math.round(15_000 * 12 * 0.8);
+    expect(updatedTier.priceYearly).toBe(expectedYearly);
+    expect(updatedTier.priceYearly).not.toBe(originalYearly);
   });
 });

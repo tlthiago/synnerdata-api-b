@@ -3,7 +3,6 @@ import { db } from "@/db";
 import { schema } from "@/db/schema";
 import { PaymentHooks } from "@/modules/payments/hooks";
 import { PagarmeClient } from "@/modules/payments/pagarme/client";
-import { PagarmePlanService } from "@/modules/payments/pagarme/pagarme-plan.service";
 import { calculateYearlyPrice } from "@/modules/payments/plans/plans.constants";
 import {
   SubscriptionNotAdjustableError,
@@ -52,6 +51,37 @@ export abstract class PriceAdjustmentService {
     return subscription;
   }
 
+  private static async updatePagarmeSubscriptionItemPrice(
+    pagarmeSubscriptionId: string | null,
+    newPrice: number
+  ) {
+    if (!pagarmeSubscriptionId) {
+      return;
+    }
+
+    const pagarmeSubscription = await PagarmeClient.getSubscription(
+      pagarmeSubscriptionId
+    );
+    const currentItem = pagarmeSubscription.items?.[0];
+
+    if (currentItem) {
+      await PagarmeClient.updateSubscriptionItem(
+        pagarmeSubscriptionId,
+        currentItem.id,
+        {
+          description:
+            currentItem.name || pagarmeSubscription.plan?.name || "Assinatura",
+          quantity: currentItem.quantity,
+          status: currentItem.status,
+          pricing_scheme: {
+            price: newPrice,
+            scheme_type: "unit",
+          },
+        }
+      );
+    }
+  }
+
   static async adjustIndividual(input: AdjustIndividualInput) {
     const { subscriptionId, newPriceMonthly, reason, adminId } = input;
 
@@ -79,54 +109,11 @@ export abstract class PriceAdjustmentService {
     // Guaranteed non-null by validateAndFetchSubscription
     const oldPrice = subscription.priceAtPurchase as number;
 
-    const tier = subscription.pricingTierId
-      ? (
-          await db
-            .select()
-            .from(schema.planPricingTiers)
-            .where(eq(schema.planPricingTiers.id, subscription.pricingTierId))
-            .limit(1)
-        )[0]
-      : null;
-
-    // 4. Create dedicated Pagar.me plan (registers plan in Pagar.me for audit trail)
-    await PagarmePlanService.createCustomPlan({
-      plan: {
-        id: plan?.id ?? subscription.planId,
-        name: plan?.name ?? "unknown",
-        displayName: plan?.displayName ?? "Unknown Plan",
-      },
-      tier: {
-        id: tier?.id ?? subscription.pricingTierId ?? "unknown",
-        minEmployees: tier?.minEmployees ?? 0,
-        maxEmployees: tier?.maxEmployees ?? 0,
-      },
-      billingCycle,
-      price: effectiveNewPrice,
-    });
-
-    // 5. If subscription has pagarmeSubscriptionId, update item pricing
-    if (subscription.pagarmeSubscriptionId) {
-      const pagarmeSubscription = await PagarmeClient.getSubscription(
-        subscription.pagarmeSubscriptionId
-      );
-      const currentItem = pagarmeSubscription.plan?.items?.[0] as unknown as
-        | { id: string; name: string; quantity: number }
-        | undefined;
-
-      if (currentItem) {
-        await PagarmeClient.updateSubscriptionItem(
-          subscription.pagarmeSubscriptionId,
-          currentItem.id,
-          {
-            pricing_scheme: {
-              price: effectiveNewPrice,
-              scheme_type: "unit",
-            },
-          }
-        );
-      }
-    }
+    // 4. If subscription has pagarmeSubscriptionId, update item pricing
+    await PriceAdjustmentService.updatePagarmeSubscriptionItemPrice(
+      subscription.pagarmeSubscriptionId,
+      effectiveNewPrice
+    );
 
     // 6. Update orgSubscriptions
     await db
@@ -261,25 +248,7 @@ export abstract class PriceAdjustmentService {
       });
     }
 
-    // 5. Update planPricingTiers locally
-    if (billingCycle === "monthly") {
-      await db
-        .update(schema.planPricingTiers)
-        .set({
-          priceMonthly: newPriceMonthly,
-          priceYearly: newPriceYearly,
-        })
-        .where(eq(schema.planPricingTiers.id, pricingTierId));
-    } else {
-      await db
-        .update(schema.planPricingTiers)
-        .set({
-          priceYearly: newPriceYearly,
-        })
-        .where(eq(schema.planPricingTiers.id, pricingTierId));
-    }
-
-    // 6. Find all active subscriptions matching tier + billingCycle + status active
+    // 5. Find all active subscriptions matching tier + billingCycle + status active
     const subscriptions = await db
       .select()
       .from(schema.orgSubscriptions)
@@ -291,7 +260,18 @@ export abstract class PriceAdjustmentService {
         )
       );
 
-    // 7. For each subscription, update price and insert adjustment record
+    // 6. Update Pagar.me subscription items for each existing subscription
+    for (const subscription of subscriptions) {
+      if (subscription.priceAtPurchase === null) {
+        continue;
+      }
+      await PriceAdjustmentService.updatePagarmeSubscriptionItemPrice(
+        subscription.pagarmeSubscriptionId,
+        effectiveNewPrice
+      );
+    }
+
+    // 7. Atomic local writes: tier update + subscription updates + adjustment records
     const adjustments: {
       id: string;
       subscriptionId: string;
@@ -306,61 +286,75 @@ export abstract class PriceAdjustmentService {
       createdAt: string;
     }[] = [];
 
+    await db.transaction(async (tx) => {
+      // 7a. Update tier prices (both monthly and yearly to keep pair consistent)
+      await tx
+        .update(schema.planPricingTiers)
+        .set({
+          priceMonthly: newPriceMonthly,
+          priceYearly: newPriceYearly,
+        })
+        .where(eq(schema.planPricingTiers.id, pricingTierId));
+
+      // 7b. Update each subscription and insert adjustment record
+      for (const subscription of subscriptions) {
+        if (subscription.priceAtPurchase === null) {
+          continue;
+        }
+
+        const oldPrice = subscription.priceAtPurchase;
+
+        await tx
+          .update(schema.orgSubscriptions)
+          .set({ priceAtPurchase: effectiveNewPrice, isCustomPrice: true })
+          .where(eq(schema.orgSubscriptions.id, subscription.id));
+
+        const adjustmentId = `price-adj-${crypto.randomUUID()}`;
+        const now = new Date();
+
+        await tx.insert(schema.priceAdjustments).values({
+          id: adjustmentId,
+          subscriptionId: subscription.id,
+          organizationId: subscription.organizationId,
+          oldPrice,
+          newPrice: effectiveNewPrice,
+          reason,
+          adjustmentType: "bulk",
+          billingCycle,
+          pricingTierId,
+          adminId,
+          createdAt: now,
+        });
+
+        adjustments.push({
+          id: adjustmentId,
+          subscriptionId: subscription.id,
+          organizationId: subscription.organizationId,
+          oldPrice,
+          newPrice: effectiveNewPrice,
+          reason,
+          adjustmentType: "bulk",
+          billingCycle,
+          pricingTierId,
+          adminId,
+          createdAt: now.toISOString(),
+        });
+      }
+    });
+
+    // 8. Emit hooks after commit
     for (const subscription of subscriptions) {
-      // Skip if priceAtPurchase is null (trial subscriptions)
       if (subscription.priceAtPurchase === null) {
         continue;
       }
 
-      const oldPrice = subscription.priceAtPurchase;
-
-      // Update priceAtPurchase
-      await db
-        .update(schema.orgSubscriptions)
-        .set({ priceAtPurchase: effectiveNewPrice })
-        .where(eq(schema.orgSubscriptions.id, subscription.id));
-
-      // Insert adjustment record
-      const adjustmentId = `price-adj-${crypto.randomUUID()}`;
-      const now = new Date();
-
-      await db.insert(schema.priceAdjustments).values({
-        id: adjustmentId,
-        subscriptionId: subscription.id,
-        organizationId: subscription.organizationId,
-        oldPrice,
-        newPrice: effectiveNewPrice,
-        reason,
-        adjustmentType: "bulk",
-        billingCycle,
-        pricingTierId,
-        adminId,
-        createdAt: now,
-      });
-
-      adjustments.push({
-        id: adjustmentId,
-        subscriptionId: subscription.id,
-        organizationId: subscription.organizationId,
-        oldPrice,
-        newPrice: effectiveNewPrice,
-        reason,
-        adjustmentType: "bulk",
-        billingCycle,
-        pricingTierId,
-        adminId,
-        createdAt: now.toISOString(),
-      });
-
-      // Emit hook for each subscription
-      const updatedSubscription = {
-        ...subscription,
-        priceAtPurchase: effectiveNewPrice,
-      };
-
       PaymentHooks.emit("subscription.priceAdjusted", {
-        subscription: updatedSubscription,
-        oldPrice,
+        subscription: {
+          ...subscription,
+          priceAtPurchase: effectiveNewPrice,
+          isCustomPrice: true,
+        },
+        oldPrice: subscription.priceAtPurchase,
         newPrice: effectiveNewPrice,
         reason,
         adjustmentType: "bulk",
@@ -368,7 +362,7 @@ export abstract class PriceAdjustmentService {
       });
     }
 
-    // 8. Return result
+    // 9. Return result
     return {
       adjustments,
       updatedCount: adjustments.length,
