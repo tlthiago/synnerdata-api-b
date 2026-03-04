@@ -1,118 +1,78 @@
-import { relations } from "drizzle-orm";
+import { relations, sql } from "drizzle-orm";
 import {
+  type AnyPgColumn,
   boolean,
   index,
   integer,
   jsonb,
   pgEnum,
   pgTable,
+  primaryKey,
   text,
   timestamp,
+  uniqueIndex,
 } from "drizzle-orm/pg-core";
 import { organizations } from "./auth";
 
 export const subscriptionStatusEnum = pgEnum("subscription_status", [
-  "trial",
   "active",
   "past_due",
   "canceled",
   "expired",
 ]);
 
-export interface PlanLimits {
-  maxMembers?: number;
-  maxProjects?: number;
-  maxStorage?: number;
-  features: string[];
-}
+export const subscriptionPlans = pgTable(
+  "subscription_plans",
+  {
+    id: text("id").primaryKey(),
+    name: text("name").notNull().unique(),
+    displayName: text("display_name").notNull(),
+    description: text("description"),
+    trialDays: integer("trial_days").default(0).notNull(),
+    isActive: boolean("is_active").default(true).notNull(),
+    isPublic: boolean("is_public").default(true).notNull(),
+    isTrial: boolean("is_trial").default(false).notNull(),
+    sortOrder: integer("sort_order").default(0).notNull(),
+    yearlyDiscountPercent: integer("yearly_discount_percent")
+      .default(20)
+      .notNull(),
+    createdAt: timestamp("created_at", { withTimezone: true })
+      .defaultNow()
+      .notNull(),
+    updatedAt: timestamp("updated_at", { withTimezone: true })
+      .defaultNow()
+      .$onUpdate(() => new Date())
+      .notNull(),
+    organizationId: text("organization_id").references(() => organizations.id),
+    basePlanId: text("base_plan_id").references(
+      (): AnyPgColumn => subscriptionPlans.id
+    ),
+    archivedAt: timestamp("archived_at", { withTimezone: true }),
+  },
+  (table) => [
+    index("subscription_plans_organization_id_idx").on(table.organizationId),
+    index("subscription_plans_base_plan_id_idx").on(table.basePlanId),
+    index("subscription_plans_archived_at_idx").on(table.archivedAt),
+    uniqueIndex("subscription_plans_single_active_trial")
+      .on(table.isTrial)
+      .where(sql`${table.isTrial} = true AND ${table.archivedAt} IS NULL`),
+  ]
+);
 
-export const PLAN_FEATURES = {
-  gold: [
-    "terminated_employees",
-    "absences",
-    "medical_certificates",
-    "accidents",
-    "warnings",
-    "employee_status",
-  ],
-  diamond: [
-    "terminated_employees",
-    "absences",
-    "medical_certificates",
-    "accidents",
-    "warnings",
-    "employee_status",
-    "birthdays",
-    "ppe",
-    "employee_record",
-  ],
-  platinum: [
-    "terminated_employees",
-    "absences",
-    "medical_certificates",
-    "accidents",
-    "warnings",
-    "employee_status",
-    "birthdays",
-    "ppe",
-    "employee_record",
-    "payroll",
-  ],
-} as const;
-
-export const FEATURE_DISPLAY_NAMES: Record<string, string> = {
-  terminated_employees: "Demitidos",
-  absences: "Faltas",
-  medical_certificates: "Atestados",
-  accidents: "Acidentes",
-  warnings: "Advertências",
-  employee_status: "Status do Trabalhador",
-  birthdays: "Aniversariantes",
-  ppe: "EPI",
-  employee_record: "Ficha Cadastral",
-  payroll: "Folha",
-};
-
-export const MAX_EMPLOYEES = 180;
-export const YEARLY_DISCOUNT = 0.2; // 20% discount
-
-export const subscriptionPlans = pgTable("subscription_plans", {
-  id: text("id").primaryKey(),
-  name: text("name").notNull().unique(),
-  displayName: text("display_name").notNull(),
-  description: text("description"),
-  pagarmePlanIdMonthly: text("pagarme_plan_id_monthly"),
-  pagarmePlanIdYearly: text("pagarme_plan_id_yearly"),
-  priceMonthly: integer("price_monthly").notNull(),
-  priceYearly: integer("price_yearly").notNull(),
-  trialDays: integer("trial_days").default(14).notNull(),
-  limits: jsonb("limits").$type<PlanLimits>(),
-  isActive: boolean("is_active").default(true).notNull(),
-  isPublic: boolean("is_public").default(true).notNull(),
-  sortOrder: integer("sort_order").default(0).notNull(),
-  createdAt: timestamp("created_at", { withTimezone: true })
-    .defaultNow()
-    .notNull(),
-  updatedAt: timestamp("updated_at", { withTimezone: true })
-    .defaultNow()
-    .$onUpdate(() => new Date())
-    .notNull(),
-});
-
-// Pricing tiers - prices vary by employee count range
 export const planPricingTiers = pgTable(
   "plan_pricing_tiers",
   {
     id: text("id").primaryKey(),
     planId: text("plan_id")
       .notNull()
-      .references(() => subscriptionPlans.id, { onDelete: "cascade" }),
+      .references(() => subscriptionPlans.id, { onDelete: "restrict" }),
     minEmployees: integer("min_employees").notNull(),
     maxEmployees: integer("max_employees").notNull(),
-    priceMonthly: integer("price_monthly").notNull(), // centavos
-    priceYearly: integer("price_yearly").notNull(), // centavos
+    priceMonthly: integer("price_monthly").notNull(),
+    priceYearly: integer("price_yearly").notNull(),
     pagarmePlanIdMonthly: text("pagarme_plan_id_monthly"),
     pagarmePlanIdYearly: text("pagarme_plan_id_yearly"),
+    archivedAt: timestamp("archived_at", { withTimezone: true }),
     createdAt: timestamp("created_at", { withTimezone: true })
       .defaultNow()
       .notNull(),
@@ -141,12 +101,12 @@ export const orgSubscriptions = pgTable(
       .notNull()
       .references(() => subscriptionPlans.id),
     pricingTierId: text("pricing_tier_id").references(
-      () => planPricingTiers.id
+      () => planPricingTiers.id,
+      { onDelete: "restrict" }
     ),
-    employeeCount: integer("employee_count"),
-    status: subscriptionStatusEnum("status").default("trial").notNull(),
+    status: subscriptionStatusEnum("status").default("active").notNull(),
     pagarmeSubscriptionId: text("pagarme_subscription_id"),
-    pagarmeCustomerId: text("pagarme_customer_id"),
+    pagarmeUpdatedAt: timestamp("pagarme_updated_at", { withTimezone: true }),
     trialStart: timestamp("trial_start", { withTimezone: true }),
     trialEnd: timestamp("trial_end", { withTimezone: true }),
     trialUsed: boolean("trial_used").default(false).notNull(),
@@ -156,6 +116,8 @@ export const orgSubscriptions = pgTable(
     currentPeriodEnd: timestamp("current_period_end", { withTimezone: true }),
     cancelAtPeriodEnd: boolean("cancel_at_period_end").default(false).notNull(),
     canceledAt: timestamp("canceled_at", { withTimezone: true }),
+    cancelReason: text("cancel_reason"),
+    cancelComment: text("cancel_comment"),
     pastDueSince: timestamp("past_due_since", { withTimezone: true }),
     gracePeriodEnds: timestamp("grace_period_ends", { withTimezone: true }),
     billingCycle: text("billing_cycle").default("monthly"),
@@ -164,10 +126,13 @@ export const orgSubscriptions = pgTable(
     ),
     pendingBillingCycle: text("pending_billing_cycle"),
     pendingPricingTierId: text("pending_pricing_tier_id").references(
-      () => planPricingTiers.id
+      () => planPricingTiers.id,
+      { onDelete: "restrict" }
     ),
     planChangeAt: timestamp("plan_change_at", { withTimezone: true }),
     seats: integer("seats").default(1).notNull(),
+    priceAtPurchase: integer("price_at_purchase"),
+    isCustomPrice: boolean("is_custom_price").default(false).notNull(),
     createdAt: timestamp("created_at", { withTimezone: true })
       .defaultNow()
       .notNull(),
@@ -177,7 +142,9 @@ export const orgSubscriptions = pgTable(
       .notNull(),
   },
   (table) => [
-    index("org_subscriptions_organization_id_idx").on(table.organizationId),
+    uniqueIndex("org_subscriptions_organization_id_active_unique_idx")
+      .on(table.organizationId)
+      .where(sql`status NOT IN ('canceled', 'expired')`),
     index("org_subscriptions_status_idx").on(table.status),
     index("org_subscriptions_pagarme_subscription_id_idx").on(
       table.pagarmeSubscriptionId
@@ -240,9 +207,20 @@ export const subscriptionEventRelations = relations(
 
 export const subscriptionPlanRelations = relations(
   subscriptionPlans,
-  ({ many }) => ({
+  ({ one, many }) => ({
     subscriptions: many(orgSubscriptions),
     pricingTiers: many(planPricingTiers),
+    planFeatures: many(planFeatures),
+    planLimits: many(planLimits),
+    organization: one(organizations, {
+      fields: [subscriptionPlans.organizationId],
+      references: [organizations.id],
+    }),
+    basePlan: one(subscriptionPlans, {
+      fields: [subscriptionPlans.basePlanId],
+      references: [subscriptionPlans.id],
+      relationName: "basePlan",
+    }),
   })
 );
 
@@ -255,6 +233,43 @@ export const planPricingTiersRelations = relations(
     }),
     subscriptions: many(orgSubscriptions),
   })
+);
+
+export const adjustmentTypeEnum = pgEnum("adjustment_type", [
+  "individual",
+  "bulk",
+]);
+
+export const priceAdjustments = pgTable(
+  "price_adjustments",
+  {
+    id: text("id").primaryKey(),
+    subscriptionId: text("subscription_id")
+      .notNull()
+      .references(() => orgSubscriptions.id, { onDelete: "cascade" }),
+    organizationId: text("organization_id")
+      .notNull()
+      .references(() => organizations.id, { onDelete: "cascade" }),
+    oldPrice: integer("old_price").notNull(),
+    newPrice: integer("new_price").notNull(),
+    reason: text("reason").notNull(),
+    adjustmentType: adjustmentTypeEnum("adjustment_type").notNull(),
+    billingCycle: text("billing_cycle").notNull(),
+    pricingTierId: text("pricing_tier_id").references(
+      () => planPricingTiers.id,
+      { onDelete: "set null" }
+    ),
+    adminId: text("admin_id").notNull(),
+    createdAt: timestamp("created_at", { withTimezone: true })
+      .defaultNow()
+      .notNull(),
+  },
+  (table) => [
+    index("price_adjustments_subscription_id_idx").on(table.subscriptionId),
+    index("price_adjustments_organization_id_idx").on(table.organizationId),
+    index("price_adjustments_admin_id_idx").on(table.adminId),
+    index("price_adjustments_created_at_idx").on(table.createdAt),
+  ]
 );
 
 export const pendingCheckoutStatusEnum = pgEnum("pending_checkout_status", [
@@ -274,14 +289,19 @@ export const pendingCheckouts = pgTable(
       .notNull()
       .references(() => subscriptionPlans.id),
     pricingTierId: text("pricing_tier_id").references(
-      () => planPricingTiers.id
+      () => planPricingTiers.id,
+      { onDelete: "restrict" }
     ),
-    employeeCount: integer("employee_count"),
     billingCycle: text("billing_cycle").default("monthly"),
     paymentLinkId: text("payment_link_id").notNull(),
     status: pendingCheckoutStatusEnum("status").default("pending").notNull(),
     expiresAt: timestamp("expires_at", { withTimezone: true }).notNull(),
     completedAt: timestamp("completed_at", { withTimezone: true }),
+    customPriceMonthly: integer("custom_price_monthly"),
+    customPriceYearly: integer("custom_price_yearly"),
+    createdByAdminId: text("created_by_admin_id"),
+    notes: text("notes"),
+    pagarmePlanId: text("pagarme_plan_id"),
     createdAt: timestamp("created_at", { withTimezone: true })
       .defaultNow()
       .notNull(),
@@ -312,6 +332,129 @@ export const pendingCheckoutRelations = relations(
   })
 );
 
+export const pagarmePlanHistory = pgTable(
+  "pagarme_plan_history",
+  {
+    id: text("id").primaryKey(),
+    localPlanId: text("local_plan_id")
+      .notNull()
+      .references(() => subscriptionPlans.id, { onDelete: "restrict" }),
+    // No FK to planPricingTiers — tiers are archived (soft delete) on replaceTiers().
+    // No FK needed: history records track all Pagar.me plans independently of tier lifecycle.
+    localTierId: text("local_tier_id").notNull(),
+    pagarmePlanId: text("pagarme_plan_id").notNull(),
+    billingCycle: text("billing_cycle").notNull(),
+    priceAtCreation: integer("price_at_creation").notNull(),
+    isActive: boolean("is_active").default(true).notNull(),
+    createdAt: timestamp("created_at", { withTimezone: true })
+      .defaultNow()
+      .notNull(),
+  },
+  (table) => [
+    index("pagarme_plan_history_is_active_idx").on(table.isActive),
+    index("pagarme_plan_history_pagarme_plan_id_idx").on(table.pagarmePlanId),
+    index("pagarme_plan_history_local_plan_id_idx").on(table.localPlanId),
+  ]
+);
+
+export const pagarmePlanHistoryRelations = relations(
+  pagarmePlanHistory,
+  ({ one }) => ({
+    plan: one(subscriptionPlans, {
+      fields: [pagarmePlanHistory.localPlanId],
+      references: [subscriptionPlans.id],
+    }),
+  })
+);
+
+export const priceAdjustmentRelations = relations(
+  priceAdjustments,
+  ({ one }) => ({
+    subscription: one(orgSubscriptions, {
+      fields: [priceAdjustments.subscriptionId],
+      references: [orgSubscriptions.id],
+    }),
+    organization: one(organizations, {
+      fields: [priceAdjustments.organizationId],
+      references: [organizations.id],
+    }),
+    pricingTier: one(planPricingTiers, {
+      fields: [priceAdjustments.pricingTierId],
+      references: [planPricingTiers.id],
+    }),
+  })
+);
+
+export const features = pgTable("features", {
+  id: text("id").primaryKey(),
+  displayName: text("display_name").notNull(),
+  description: text("description"),
+  category: text("category"),
+  sortOrder: integer("sort_order").default(0).notNull(),
+  isActive: boolean("is_active").default(true).notNull(),
+  isDefault: boolean("is_default").default(false).notNull(),
+  isPremium: boolean("is_premium").default(false).notNull(),
+  createdAt: timestamp("created_at", { withTimezone: true })
+    .defaultNow()
+    .notNull(),
+  updatedAt: timestamp("updated_at", { withTimezone: true })
+    .defaultNow()
+    .$onUpdate(() => new Date())
+    .notNull(),
+  createdBy: text("created_by"),
+  updatedBy: text("updated_by"),
+});
+
+export const planFeatures = pgTable(
+  "plan_features",
+  {
+    planId: text("plan_id")
+      .notNull()
+      .references(() => subscriptionPlans.id, { onDelete: "cascade" }),
+    featureId: text("feature_id")
+      .notNull()
+      .references(() => features.id, { onDelete: "restrict" }),
+  },
+  (table) => [
+    primaryKey({ columns: [table.planId, table.featureId] }),
+    index("plan_features_feature_id_idx").on(table.featureId),
+  ]
+);
+
+export const planLimits = pgTable(
+  "plan_limits",
+  {
+    planId: text("plan_id")
+      .notNull()
+      .references(() => subscriptionPlans.id, { onDelete: "cascade" }),
+    limitKey: text("limit_key").notNull(),
+    limitValue: integer("limit_value").notNull(),
+  },
+  (table) => [primaryKey({ columns: [table.planId, table.limitKey] })]
+);
+
+export const planLimitRelations = relations(planLimits, ({ one }) => ({
+  plan: one(subscriptionPlans, {
+    fields: [planLimits.planId],
+    references: [subscriptionPlans.id],
+  }),
+}));
+
+export const featureRelations = relations(features, ({ many }) => ({
+  planFeatures: many(planFeatures),
+}));
+
+export const planFeatureRelations = relations(planFeatures, ({ one }) => ({
+  plan: one(subscriptionPlans, {
+    fields: [planFeatures.planId],
+    references: [subscriptionPlans.id],
+  }),
+  feature: one(features, {
+    fields: [planFeatures.featureId],
+    references: [features.id],
+  }),
+}));
+
 export type OrgSubscription = typeof orgSubscriptions.$inferSelect;
 export type NewOrgSubscription = typeof orgSubscriptions.$inferInsert;
 export type SubscriptionPlan = typeof subscriptionPlans.$inferSelect;
@@ -322,3 +465,14 @@ export type SubscriptionEvent = typeof subscriptionEvents.$inferSelect;
 export type NewSubscriptionEvent = typeof subscriptionEvents.$inferInsert;
 export type PendingCheckout = typeof pendingCheckouts.$inferSelect;
 export type NewPendingCheckout = typeof pendingCheckouts.$inferInsert;
+export type PagarmePlanHistoryRecord = typeof pagarmePlanHistory.$inferSelect;
+export type NewPagarmePlanHistoryRecord =
+  typeof pagarmePlanHistory.$inferInsert;
+export type PriceAdjustment = typeof priceAdjustments.$inferSelect;
+export type NewPriceAdjustment = typeof priceAdjustments.$inferInsert;
+export type Feature = typeof features.$inferSelect;
+export type NewFeature = typeof features.$inferInsert;
+export type PlanFeature = typeof planFeatures.$inferSelect;
+export type NewPlanFeature = typeof planFeatures.$inferInsert;
+export type PlanLimit = typeof planLimits.$inferSelect;
+export type NewPlanLimit = typeof planLimits.$inferInsert;

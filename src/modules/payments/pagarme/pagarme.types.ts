@@ -129,7 +129,23 @@ export type PagarmeSubscription = {
   updated_at: string;
   customer: PagarmeCustomer;
   plan: PagarmePlan;
+  card?: {
+    id: string;
+    last_four_digits: string;
+    brand: string;
+    exp_month: number;
+    exp_year: number;
+  };
   metadata?: Record<string, string>;
+};
+
+export type ListSubscriptionsResponse = {
+  data: PagarmeSubscription[];
+  paging: {
+    total: number;
+    previous?: string;
+    next?: string;
+  };
 };
 
 export type CreateOrderRequest = {
@@ -203,8 +219,8 @@ export type PagarmeInvoice = {
 
 export type ListInvoicesResponse = {
   data: PagarmeInvoice[];
-  paging: {
-    total: number;
+  paging?: {
+    total?: number;
     previous?: string;
     next?: string;
   };
@@ -286,6 +302,8 @@ export type PagarmeWebhookData = {
     exp_month: number;
     exp_year: number;
   };
+  // Subscription updated timestamp
+  updated_at?: string;
   metadata?: Record<string, string>;
 };
 
@@ -338,6 +356,15 @@ export type PagarmePaymentLink = {
   expires_at?: string;
   created_at: string;
   updated_at: string;
+};
+
+export type UpdateSubscriptionItemRequest = {
+  description?: string;
+  quantity?: number;
+  pricing_scheme?: {
+    price: number;
+    scheme_type: "unit";
+  };
 };
 
 export type PagarmeApiErrorResponse = {

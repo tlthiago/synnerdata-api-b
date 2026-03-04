@@ -2,9 +2,9 @@ import { cors } from "@elysiajs/cors";
 import { openapi } from "@elysiajs/openapi";
 import { Elysia } from "elysia";
 import { rateLimit } from "elysia-rate-limit";
-import { toJSONSchema } from "zod";
+import { z } from "zod";
 import { pool } from "./db";
-import { env } from "./env";
+import { env, isProduction } from "./env";
 import { betterAuthPlugin, OpenAPI } from "./lib/auth-plugin";
 import { parseOrigins } from "./lib/cors";
 import { cronPlugin } from "./lib/cron-plugin";
@@ -12,15 +12,47 @@ import { errorPlugin } from "./lib/errors/error-plugin";
 import { healthPlugin } from "./lib/health";
 import { logger, loggerPlugin } from "./lib/logger";
 import { setupGracefulShutdown } from "./lib/shutdown/shutdown";
-import { apiKeysController } from "./modules/api-keys";
+import { adminController } from "./modules/admin";
 import { auditController } from "./modules/audit";
+import { employeeController } from "./modules/employees";
+import { occurrencesController } from "./modules/occurrences";
+import { organizationController } from "./modules/organizations";
 import { paymentsController } from "./modules/payments";
+import { registerPaymentListeners } from "./modules/payments/hooks/listeners";
+import { publicController } from "./modules/public";
 
 const corsOrigins = parseOrigins(env.CORS_ORIGIN);
 
-const isProduction = process.env.NODE_ENV === "production";
+const RATE_LIMIT_SKIP_PATHS = ["/health", "/health/live", "/api/auth"];
 
-const RATE_LIMIT_SKIP_PATHS = ["/health", "/health/live", "/auth/api"];
+// biome-ignore lint/suspicious/noExplicitAny: Zod v4 internal API for extracting check error messages
+function extractErrorMessages(zodDef: any): Record<string, string> | null {
+  const { checks } = zodDef;
+  if (!(checks && Array.isArray(checks))) {
+    return null;
+  }
+
+  const errorMessages: Record<string, string> = {};
+  for (const check of checks) {
+    const checkDef = check._zod?.def;
+    if (!checkDef?.error || typeof checkDef.error !== "function") {
+      continue;
+    }
+    try {
+      const msg = checkDef.error({ input: "" });
+      if (typeof msg === "string") {
+        const key = checkDef.format
+          ? `${checkDef.check}:${checkDef.format}`
+          : checkDef.check;
+        errorMessages[key] = msg;
+      }
+    } catch {
+      // Skip checks that can't produce a message
+    }
+  }
+
+  return Object.keys(errorMessages).length > 0 ? errorMessages : null;
+}
 
 const app = new Elysia({
   serve: {
@@ -43,7 +75,7 @@ const app = new Elysia({
   .use(
     cors({
       origin: corsOrigins,
-      methods: ["GET", "POST", "PUT", "DELETE", "OPTIONS"],
+      methods: ["GET", "POST", "PUT", "PATCH", "DELETE", "OPTIONS"],
       credentials: true,
       allowedHeaders: ["Content-Type", "Authorization", "X-Request-ID"],
       exposeHeaders: [
@@ -72,7 +104,21 @@ const app = new Elysia({
   .use(
     openapi({
       mapJsonSchema: {
-        zod: toJSONSchema,
+        zod: (schema: z.ZodType) =>
+          z.toJSONSchema(schema, {
+            unrepresentable: "any",
+            override: (ctx) => {
+              if (ctx.zodSchema._zod.def.type === "date") {
+                ctx.jsonSchema.type = "string";
+                ctx.jsonSchema.format = "date-time";
+              }
+
+              const messages = extractErrorMessages(ctx.zodSchema._zod.def);
+              if (messages) {
+                ctx.jsonSchema["x-error-messages"] = messages;
+              }
+            },
+          }),
       },
       documentation: {
         info: {
@@ -80,26 +126,33 @@ const app = new Elysia({
           version: "1.0.0",
         },
         components: await OpenAPI.components,
-        paths: await OpenAPI.getPaths(),
+        paths: isProduction ? {} : await OpenAPI.getPaths(),
       },
     })
   )
   .use(cronPlugin)
+  .use(organizationController)
+  .use(employeeController)
+  .use(occurrencesController)
   .use(paymentsController)
   .use(auditController)
-  .use(apiKeysController)
+  .use(adminController)
+  .use(publicController)
   .get("/", ({ redirect }) => redirect("/health"))
-  .listen(env.PORT);
+  .listen(env.PORT, ({ hostname, port }) => {
+    // Application initialization
+    registerPaymentListeners();
+
+    logger.info({
+      type: "app:start",
+      message: `🦊 Elysia is running at ${hostname}:${port}`,
+      host: hostname,
+      port,
+    });
+  });
 
 setupGracefulShutdown({
   app,
   pool,
   gracePeriodMs: isProduction ? 5000 : 1000,
-});
-
-logger.info({
-  type: "app:start",
-  message: `🦊 Elysia is running at ${app.server?.hostname}:${app.server?.port}`,
-  host: app.server?.hostname,
-  port: app.server?.port,
 });

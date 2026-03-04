@@ -1,8 +1,21 @@
 import { eq } from "drizzle-orm";
 import { db } from "@/db";
 import { schema } from "@/db/schema";
+import {
+  type CreatePlanResult,
+  PlanFactory,
+} from "@/test/factories/payments/plan.factory";
+import { SubscriptionFactory } from "@/test/factories/payments/subscription.factory";
 import { createTestApp } from "./app";
-import { waitForOTP } from "./mailhog";
+
+let cachedTrialPlan: CreatePlanResult | null = null;
+
+async function getOrCreateTrialPlan(): Promise<CreatePlanResult> {
+  if (!cachedTrialPlan) {
+    cachedTrialPlan = await PlanFactory.createTrial();
+  }
+  return cachedTrialPlan;
+}
 
 export type TestUser = {
   id: string;
@@ -29,9 +42,10 @@ type CreateTestUserOptions = {
 };
 
 const SESSION_TOKEN_REGEX = /better-auth\.session_token=([^;]+)/;
+const TEST_PASSWORD = "TestPassword123!";
 
 /**
- * Creates a test user using Better Auth emailOTP flow.
+ * Creates a test user using Better Auth email+password flow.
  * This creates ONLY the user with a valid session - no organization.
  */
 export async function createTestUser(
@@ -45,38 +59,41 @@ export async function createTestUser(
 
   const app = createTestApp();
 
-  // Step 1: Send OTP to email
-  const sendOtpResponse = await app.handle(
-    new Request("http://localhost/auth/api/email-otp/send-verification-otp", {
+  // Step 1: Sign up with email and password
+  const signUpResponse = await app.handle(
+    new Request("http://localhost/api/auth/sign-up/email", {
       method: "POST",
       headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ email, type: "sign-in" }),
+      body: JSON.stringify({ email, password: TEST_PASSWORD, name }),
     })
   );
 
-  if (!sendOtpResponse.ok) {
-    const errorBody = await sendOtpResponse.text();
+  if (!signUpResponse.ok) {
+    const errorBody = await signUpResponse.text();
     throw new Error(
-      `Failed to send OTP (${sendOtpResponse.status}): ${errorBody || "No response body"}`
+      `Failed to sign up (${signUpResponse.status}): ${errorBody || "No response body"}`
     );
   }
 
-  // Step 2: Get OTP from database
-  const otp = await waitForOTP(email);
+  // Step 2: Always verify email in DB so sign-in works (requireEmailVerification is enabled)
+  await db
+    .update(schema.users)
+    .set({ emailVerified: true })
+    .where(eq(schema.users.email, email));
 
-  // Step 3: Sign in with OTP
+  // Step 3: Sign in with email and password
   const signInResponse = await app.handle(
-    new Request("http://localhost/auth/api/sign-in/email-otp", {
+    new Request("http://localhost/api/auth/sign-in/email", {
       method: "POST",
       headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ email, otp }),
+      body: JSON.stringify({ email, password: TEST_PASSWORD }),
     })
   );
 
   if (!signInResponse.ok) {
     const errorBody = await signInResponse.text();
     throw new Error(
-      `Failed to sign in with OTP (${signInResponse.status}): ${errorBody || "No response body"}`
+      `Failed to sign in (${signInResponse.status}): ${errorBody || "No response body"}`
     );
   }
 
@@ -99,25 +116,17 @@ export async function createTestUser(
     throw new Error("User not found in database after sign-in");
   }
 
-  const userId = dbUser.id;
-
-  // Update user name (emailOTP creates user without name)
-  await db
-    .update(schema.users)
-    .set({ name })
-    .where(eq(schema.users.id, userId));
-
-  // Update email verification if needed
+  // Set emailVerified back to false if requested (after sign-in succeeded)
   if (!emailVerified) {
     await db
       .update(schema.users)
       .set({ emailVerified: false })
-      .where(eq(schema.users.id, userId));
+      .where(eq(schema.users.id, dbUser.id));
   }
 
   return {
     user: {
-      id: userId,
+      id: dbUser.id,
       email,
       name,
       emailVerified,
@@ -172,6 +181,7 @@ export function createAuthHeaders(
 
 type CreateTestUserWithOrgOptions = CreateTestUserOptions & {
   orgName?: string;
+  skipTrialCreation?: boolean;
 };
 
 type CreateTestAdminUserOptions = CreateTestUserOptions & {
@@ -204,13 +214,13 @@ export async function createTestAdminUser(
  */
 export async function createTestUserWithOrganization(
   options: CreateTestUserWithOrgOptions = {}
-): Promise<TestUserResult & { organizationId: string }> {
+): Promise<TestUserResult & { organizationId: string; userId: string }> {
   const {
     addMemberToOrganization,
     createTestOrganization,
   } = require("./organization");
 
-  const { orgName, ...userOptions } = options;
+  const { orgName, skipTrialCreation, ...userOptions } = options;
 
   const userResult = await createTestUser(userOptions);
 
@@ -220,8 +230,18 @@ export async function createTestUserWithOrganization(
     role: "owner",
   });
 
+  if (!skipTrialCreation) {
+    const trialPlan = await getOrCreateTrialPlan();
+    const tier = PlanFactory.getFirstTier(trialPlan);
+    await SubscriptionFactory.create(organization.id, trialPlan.plan.id, {
+      status: "active",
+      pricingTierId: tier.id,
+    });
+  }
+
   return {
     ...userResult,
     organizationId: organization.id,
+    userId: userResult.user.id,
   };
 }

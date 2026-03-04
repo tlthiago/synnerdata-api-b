@@ -38,6 +38,12 @@ export function successResponseSchema<T extends z.ZodTypeAny>(dataSchema: T) {
   });
 }
 
+/** Schema Zod para resposta de sucesso apenas com mensagem (sem data) */
+export const messageOnlyResponseSchema = z.object({
+  success: z.literal(true),
+  message: z.string(),
+});
+
 /** Cria um schema Zod para resposta paginada com envelope */
 export function paginatedResponseSchema<T extends z.ZodTypeAny>(itemSchema: T) {
   return z.object({
@@ -110,5 +116,25 @@ export const internalErrorSchema = z.object({
   error: z.object({
     code: z.literal("INTERNAL_ERROR"),
     message: z.string(),
+  }),
+});
+
+/** Schema para erro de conflito (409) */
+export const conflictErrorSchema = z.object({
+  success: z.literal(false),
+  error: z.object({
+    code: z.literal("CONFLICT"),
+    message: z.string(),
+    details: z.unknown().optional(),
+  }),
+});
+
+/** Schema para erro de requisição inválida (400) */
+export const badRequestErrorSchema = z.object({
+  success: z.literal(false),
+  error: z.object({
+    code: z.string(),
+    message: z.string(),
+    details: z.unknown().optional(),
   }),
 });

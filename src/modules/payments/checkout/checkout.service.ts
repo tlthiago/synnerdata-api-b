@@ -1,13 +1,17 @@
 import { eq } from "drizzle-orm";
 import { db } from "@/db";
 import { schema } from "@/db/schema";
+import { sendCheckoutLinkEmail } from "@/lib/email";
 import { Retry } from "@/lib/utils/retry";
 import { CustomerService } from "@/modules/payments/customer/customer.service";
 import { EmailNotVerifiedError } from "@/modules/payments/errors";
-import { PagarmeClient } from "@/modules/payments/pagarme/client";
+import {
+  PAGARME_RETRY_CONFIG,
+  PagarmeClient,
+} from "@/modules/payments/pagarme/client";
 import type { CreatePaymentLinkRequest } from "@/modules/payments/pagarme/pagarme.types";
-import { PlanService } from "@/modules/payments/plan/plan.service";
-import { PricingTierService } from "@/modules/payments/pricing/pricing.service";
+import { PagarmePlanService } from "@/modules/payments/pagarme/pagarme-plan.service";
+import { PlansService } from "@/modules/payments/plans/plans.service";
 import { SubscriptionService } from "@/modules/payments/subscription/subscription.service";
 import type { CheckoutData, CreateCheckoutInput } from "./checkout.model";
 
@@ -17,11 +21,11 @@ export abstract class CheckoutService {
   static async create(input: CreateCheckoutInput): Promise<CheckoutData> {
     const {
       organizationId,
-      planId,
-      employeeCount,
-      successUrl,
       userId,
+      planId,
+      tierId,
       billingCycle = "monthly",
+      successUrl,
     } = input;
 
     const [user] = await db
@@ -36,21 +40,16 @@ export abstract class CheckoutService {
 
     await SubscriptionService.ensureNoPaidSubscription(organizationId);
 
-    // Validate employee count and get pricing tier
-    PricingTierService.validateEmployeeCount(employeeCount);
+    const plan = await PlansService.getAvailableById(planId);
+    const tier = await PlansService.getTierById(tierId);
 
-    // Get plan details
-    const plan = await PlanService.getByIdForCheckout(planId);
-
-    // Get pricing tier with Pagarme plan (lazy creation)
-    const tier = await PricingTierService.getTierForCheckout(
-      planId,
-      employeeCount,
+    const pagarmePlanId = await PagarmePlanService.ensurePlan(
+      tierId,
       billingCycle
     );
 
-    const pagarmeCustomerId =
-      await CustomerService.getCustomerId(organizationId);
+    const { pagarmeCustomerId } =
+      await CustomerService.getOrCreateForCheckout(organizationId);
 
     const tierLabel = `${tier.minEmployees}-${tier.maxEmployees} funcionários`;
     const paymentLinkData: CreatePaymentLinkRequest = {
@@ -66,7 +65,7 @@ export abstract class CheckoutService {
         recurrences: [
           {
             start_in: 1,
-            plan_id: tier.pagarmePlanId,
+            plan_id: pagarmePlanId,
           },
         ],
       },
@@ -76,16 +75,12 @@ export abstract class CheckoutService {
         organization_id: organizationId,
         plan_id: planId,
         pricing_tier_id: tier.id,
-        employee_count: String(employeeCount),
         billing_cycle: billingCycle,
       },
-    };
-
-    if (pagarmeCustomerId) {
-      paymentLinkData.customer_settings = {
+      customer_settings: {
         customer_id: pagarmeCustomerId,
-      };
-    }
+      },
+    };
 
     const paymentLink = await Retry.withRetry(
       () =>
@@ -93,7 +88,7 @@ export abstract class CheckoutService {
           paymentLinkData,
           `checkout-${organizationId}-${planId}-${tier.id}-${billingCycle}-${Date.now()}`
         ),
-      { maxAttempts: 3, delayMs: 1000 }
+      PAGARME_RETRY_CONFIG.WRITE
     );
 
     const expiresAt = new Date();
@@ -104,14 +99,12 @@ export abstract class CheckoutService {
       organizationId,
       planId,
       pricingTierId: tier.id,
-      employeeCount,
       billingCycle,
       paymentLinkId: paymentLink.id,
       status: "pending",
       expiresAt,
     });
 
-    // Send checkout link email
     const [emailData] = await db
       .select({
         userName: schema.users.name,
@@ -127,7 +120,6 @@ export abstract class CheckoutService {
       .limit(1);
 
     if (emailData) {
-      const { sendCheckoutLinkEmail } = await import("@/lib/email");
       await sendCheckoutLinkEmail({
         to: emailData.userEmail,
         userName: emailData.userName,

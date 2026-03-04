@@ -1,25 +1,22 @@
 import { beforeAll, describe, expect, spyOn, test } from "bun:test";
 import { env } from "@/env";
-import { createTestApp, type TestApp } from "@/test/helpers/app";
-import { seedPlans } from "@/test/helpers/seed";
-import { skipIntegration } from "@/test/helpers/skip-integration";
-import {
-  createActiveSubscription,
-  createTestSubscription,
-} from "@/test/helpers/subscription";
-import {
-  createTestUser,
-  createTestUserWithOrganization,
-} from "@/test/helpers/user";
+import { OrganizationFactory } from "@/test/factories/organization.factory";
+import { PlanFactory } from "@/test/factories/payments/plan.factory";
+import { SubscriptionFactory } from "@/test/factories/payments/subscription.factory";
+import { UserFactory } from "@/test/factories/user.factory";
+import { createTestApp, type TestApp } from "@/test/support/app";
+import { skipIntegration } from "@/test/support/skip-integration";
 
 const BASE_URL = env.API_URL;
 
 describe("GET /v1/payments/billing/invoices/:id/download", () => {
   let app: TestApp;
+  let trialPlanId: string;
 
   beforeAll(async () => {
     app = createTestApp();
-    await seedPlans();
+    const { plan } = await PlanFactory.createTrial();
+    trialPlanId = plan.id;
   });
 
   test("should reject unauthenticated requests", async () => {
@@ -33,7 +30,7 @@ describe("GET /v1/payments/billing/invoices/:id/download", () => {
   });
 
   test("should reject user without active organization", async () => {
-    const { headers } = await createTestUser({ emailVerified: true });
+    const { headers } = await UserFactory.create();
 
     const response = await app.handle(
       new Request(`${BASE_URL}/v1/payments/billing/invoices/inv_123/download`, {
@@ -48,9 +45,7 @@ describe("GET /v1/payments/billing/invoices/:id/download", () => {
   });
 
   test("should return 404 when organization has no subscription", async () => {
-    const { headers } = await createTestUserWithOrganization({
-      emailVerified: true,
-    });
+    const { headers } = await UserFactory.createWithOrganization();
 
     const response = await app.handle(
       new Request(`${BASE_URL}/v1/payments/billing/invoices/inv_123/download`, {
@@ -67,14 +62,12 @@ describe("GET /v1/payments/billing/invoices/:id/download", () => {
   test.skipIf(skipIntegration)(
     "should return 404 for non-existent invoice in Pagarme",
     async () => {
-      const { headers, organizationId } = await createTestUserWithOrganization({
-        emailVerified: true,
-      });
+      const userResult = await UserFactory.createWithOrganization();
 
-      await createActiveSubscription(
-        organizationId,
-        "test-plan-diamond",
-        "sub_KeLr0VRSY0SZQ74O"
+      await SubscriptionFactory.createActive(
+        userResult.organizationId,
+        trialPlanId,
+        { pagarmeSubscriptionId: "sub_KeLr0VRSY0SZQ74O" }
       );
 
       // Try to download a non-existent invoice - Pagarme will return 404
@@ -83,7 +76,7 @@ describe("GET /v1/payments/billing/invoices/:id/download", () => {
           `${BASE_URL}/v1/payments/billing/invoices/inv_nonexistent/download`,
           {
             method: "GET",
-            headers,
+            headers: userResult.headers,
           }
         )
       );
@@ -96,14 +89,11 @@ describe("GET /v1/payments/billing/invoices/:id/download", () => {
   test.skipIf(skipIntegration)(
     "should allow trial subscription to attempt invoice download",
     async () => {
-      const { headers, organizationId } = await createTestUserWithOrganization({
-        emailVerified: true,
-      });
+      const userResult = await UserFactory.createWithOrganization();
 
-      await createTestSubscription(
-        organizationId,
-        "test-plan-diamond",
-        "trial"
+      await SubscriptionFactory.createTrial(
+        userResult.organizationId,
+        trialPlanId
       );
 
       // Trial subscriptions have no pagarmeSubscriptionId
@@ -113,7 +103,7 @@ describe("GET /v1/payments/billing/invoices/:id/download", () => {
           `${BASE_URL}/v1/payments/billing/invoices/inv_123/download`,
           {
             method: "GET",
-            headers,
+            headers: userResult.headers,
           }
         )
       );
@@ -128,19 +118,16 @@ describe("GET /v1/payments/billing/invoices/:id/download", () => {
     "manager",
     "supervisor",
   ] as const)("should reject %s member from downloading invoice", async (role) => {
-    const { addMemberToOrganization } = await import(
-      "@/test/helpers/organization"
+    const ownerResult = await UserFactory.createWithOrganization();
+
+    await SubscriptionFactory.createTrial(
+      ownerResult.organizationId,
+      trialPlanId
     );
 
-    const { organizationId } = await createTestUserWithOrganization({
-      emailVerified: true,
-    });
-
-    await createTestSubscription(organizationId, "test-plan-diamond", "trial");
-
-    const memberResult = await createTestUser({ emailVerified: true });
-    await addMemberToOrganization(memberResult, {
-      organizationId,
+    const memberResult = await UserFactory.create();
+    await OrganizationFactory.addMember(memberResult, {
+      organizationId: ownerResult.organizationId,
       role,
     });
 
@@ -159,14 +146,12 @@ describe("GET /v1/payments/billing/invoices/:id/download", () => {
   test("should handle Pagarme API connection failure", async () => {
     const { PagarmeClient } = await import("../../pagarme/client");
 
-    const { headers, organizationId } = await createTestUserWithOrganization({
-      emailVerified: true,
-    });
+    const userResult = await UserFactory.createWithOrganization();
 
-    await createActiveSubscription(
-      organizationId,
-      "test-plan-diamond",
-      "sub_test_123"
+    await SubscriptionFactory.createActive(
+      userResult.organizationId,
+      trialPlanId,
+      { pagarmeSubscriptionId: "sub_test_123" }
     );
 
     // Mock ONLY for simulating connection failure - impossible to reproduce reliably
@@ -178,7 +163,7 @@ describe("GET /v1/payments/billing/invoices/:id/download", () => {
     const response = await app.handle(
       new Request(`${BASE_URL}/v1/payments/billing/invoices/inv_123/download`, {
         method: "GET",
-        headers,
+        headers: userResult.headers,
       })
     );
 

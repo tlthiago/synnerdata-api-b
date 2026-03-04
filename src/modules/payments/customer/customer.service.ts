@@ -1,88 +1,75 @@
-import { eq } from "drizzle-orm";
-import { db } from "@/db";
-import { schema } from "@/db/schema";
 import { Retry } from "@/lib/utils/retry";
+import { BillingService } from "@/modules/payments/billing/billing.service";
 import {
+  BillingProfileNotFoundError,
   CustomerCreationError,
-  CustomerNotFoundError,
-  MissingBillingDataError,
 } from "@/modules/payments/errors";
-import { PagarmeClient } from "@/modules/payments/pagarme/client";
+import {
+  PAGARME_RETRY_CONFIG,
+  PagarmeClient,
+} from "@/modules/payments/pagarme/client";
 import type {
-  BillingData,
   CreateCustomerInput,
   ListCustomersData,
   ListCustomersInput,
 } from "./customer.model";
 
 export abstract class CustomerService {
-  private static async findProfileByOrganizationId(organizationId: string) {
-    const [profile] = await db
-      .select()
-      .from(schema.organizationProfiles)
-      .where(eq(schema.organizationProfiles.organizationId, organizationId))
-      .limit(1);
-
-    return profile ?? null;
-  }
-
+  /**
+   * Gets or creates a Pagarme customer for checkout.
+   *
+   * Uses idempotency key with Pagarme and atomic DB update to prevent:
+   * - Duplicate customers in Pagarme (via idempotency key)
+   * - Race conditions in local DB (via setCustomerIdIfNull)
+   */
   static async getOrCreateForCheckout(
-    organizationId: string,
-    billingData?: BillingData
+    organizationId: string
   ): Promise<{ pagarmeCustomerId: string }> {
-    const profile =
-      await CustomerService.findProfileByOrganizationId(organizationId);
+    const billingProfile = await BillingService.getProfile(organizationId);
 
-    if (!profile) {
-      throw new CustomerNotFoundError(organizationId);
+    if (!billingProfile) {
+      throw new BillingProfileNotFoundError(organizationId);
     }
 
-    const document = billingData?.document ?? profile.taxId;
-    const phone = billingData?.phone ?? profile.phone ?? profile.mobile;
-    const email = billingData?.billingEmail ?? profile.email;
-
-    const missingFields: string[] = [];
-    if (!document) {
-      missingFields.push("document (CNPJ)");
-    }
-    if (!phone) {
-      missingFields.push("phone");
+    if (billingProfile.pagarmeCustomerId) {
+      return { pagarmeCustomerId: billingProfile.pagarmeCustomerId };
     }
 
-    if (missingFields.length > 0) {
-      throw new MissingBillingDataError(missingFields);
-    }
-
-    if (
-      billingData?.document ||
-      billingData?.phone ||
-      billingData?.billingEmail
-    ) {
-      await db
-        .update(schema.organizationProfiles)
-        .set({
-          taxId: billingData?.document ?? profile.taxId,
-          phone: billingData?.phone ?? profile.phone,
-          email: billingData?.billingEmail ?? profile.email,
-        })
-        .where(eq(schema.organizationProfiles.organizationId, organizationId));
-    }
-
-    if (profile.pagarmeCustomerId) {
-      return { pagarmeCustomerId: profile.pagarmeCustomerId };
-    }
-
+    // Create customer in Pagarme (idempotency key prevents duplicate customers)
     const customer = await CustomerService.create({
       organizationId,
-      name: profile.tradeName,
-      email: email ?? "",
-      document: document as string,
-      phone: phone as string,
+      name: billingProfile.legalName,
+      email: billingProfile.email,
+      document: billingProfile.taxId,
+      phone: billingProfile.phone,
     });
+
+    // Atomically save customer ID only if not already set by another request
+    const wasSet = await BillingService.setCustomerIdIfNull(
+      organizationId,
+      customer.pagarmeCustomerId
+    );
+
+    if (!wasSet) {
+      // Another request already set the customer ID, fetch and return it
+      const existingCustomerId =
+        await BillingService.getCustomerId(organizationId);
+      if (existingCustomerId) {
+        return { pagarmeCustomerId: existingCustomerId };
+      }
+      // This shouldn't happen, but handle gracefully
+      throw new CustomerCreationError(
+        "Failed to get or set customer ID after race condition"
+      );
+    }
 
     return { pagarmeCustomerId: customer.pagarmeCustomerId };
   }
 
+  /**
+   * Creates a customer in Pagarme.
+   * Note: Does NOT persist the customer ID - caller is responsible for saving it.
+   */
   static async create(
     input: CreateCustomerInput
   ): Promise<{ pagarmeCustomerId: string }> {
@@ -120,13 +107,8 @@ export abstract class CustomerService {
             },
             `create-customer-${organizationId}`
           ),
-        { maxAttempts: 3, delayMs: 1000 }
+        PAGARME_RETRY_CONFIG.WRITE
       );
-
-      await db
-        .update(schema.organizationProfiles)
-        .set({ pagarmeCustomerId: pagarmeCustomer.id })
-        .where(eq(schema.organizationProfiles.organizationId, organizationId));
 
       return { pagarmeCustomerId: pagarmeCustomer.id };
     } catch (error) {
@@ -136,10 +118,7 @@ export abstract class CustomerService {
   }
 
   static async getCustomerId(organizationId: string): Promise<string | null> {
-    const profile =
-      await CustomerService.findProfileByOrganizationId(organizationId);
-
-    return profile?.pagarmeCustomerId ?? null;
+    return await BillingService.getCustomerId(organizationId);
   }
 
   static async list(input: ListCustomersInput): Promise<ListCustomersData> {
@@ -152,7 +131,7 @@ export abstract class CustomerService {
           page: input.page,
           size: input.size,
         }),
-      { maxAttempts: 3, delayMs: 500 }
+      PAGARME_RETRY_CONFIG.READ
     );
 
     return {

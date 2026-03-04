@@ -44,3 +44,13 @@ yarn-error.log*
 **/*.log
 package-lock.json
 **/*.bun
+
+# docs
+/docs
+
+# worktrees
+.worktrees/
+.claude/worktrees/
+
+# claude prompts
+.claude/prompts/

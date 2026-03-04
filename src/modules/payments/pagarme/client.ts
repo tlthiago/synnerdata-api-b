@@ -2,6 +2,7 @@ import { env } from "@/env";
 import {
   CheckoutError,
   PagarmeApiError,
+  PagarmeConnectionError,
   PagarmeTimeoutError,
 } from "@/modules/payments/errors";
 import type {
@@ -13,6 +14,7 @@ import type {
   CreateSubscriptionRequest,
   ListCustomersResponse,
   ListInvoicesResponse,
+  ListSubscriptionsResponse,
   PagarmeApiErrorResponse,
   PagarmeCheckout,
   PagarmeCustomer,
@@ -21,6 +23,7 @@ import type {
   PagarmePaymentLink,
   PagarmePlan,
   PagarmeSubscription,
+  UpdateSubscriptionItemRequest,
 } from "./pagarme.types";
 
 const PAGARME_BASE_URL = env.PAGARME_BASE_URL;
@@ -29,6 +32,36 @@ const PAGARME_PAYMENTLINKS_URL = env.PAGARME_SECRET_KEY.startsWith("sk_test_")
   : env.PAGARME_BASE_URL;
 
 const REQUEST_TIMEOUT_MS = 30_000;
+
+const CONNECTION_ERROR_PATTERNS = [
+  "socket connection was closed",
+  "connection refused",
+  "ECONNRESET",
+  "ECONNREFUSED",
+  "ETIMEDOUT",
+  "EHOSTUNREACH",
+  "ENETUNREACH",
+  "fetch failed",
+];
+
+function isConnectionError(error: Error): boolean {
+  const message = error.message.toLowerCase();
+  return CONNECTION_ERROR_PATTERNS.some((pattern) =>
+    message.includes(pattern.toLowerCase())
+  );
+}
+
+/**
+ * Standardized retry configuration for Pagarme API calls.
+ * Use PAGARME_RETRY_READ for read operations (GET) and
+ * PAGARME_RETRY_WRITE for write operations (POST/PUT/PATCH).
+ */
+export const PAGARME_RETRY_CONFIG = {
+  /** For read operations (listing, fetching) - more retries, shorter delay */
+  READ: { maxAttempts: 3, delayMs: 500 },
+  /** For write operations (create, update) - fewer retries, longer delay */
+  WRITE: { maxAttempts: 3, delayMs: 1000 },
+} as const;
 
 export abstract class PagarmeClient {
   private static get headers() {
@@ -78,6 +111,9 @@ export abstract class PagarmeClient {
     } catch (error) {
       if (error instanceof Error && error.name === "AbortError") {
         throw new PagarmeTimeoutError(path);
+      }
+      if (error instanceof Error && isConnectionError(error)) {
+        throw new PagarmeConnectionError(path, error.message);
       }
       throw error;
     } finally {
@@ -153,6 +189,29 @@ export abstract class PagarmeClient {
     return PagarmeClient.request("GET", `/subscriptions/${subscriptionId}`);
   }
 
+  static async getSubscriptions(params: {
+    planId?: string;
+    status?: string;
+    page?: number;
+    size?: number;
+  }): Promise<ListSubscriptionsResponse> {
+    const searchParams = new URLSearchParams();
+
+    if (params.planId) {
+      searchParams.set("plan_id", params.planId);
+    }
+    if (params.status) {
+      searchParams.set("status", params.status);
+    }
+    searchParams.set("page", String(params.page ?? 1));
+    searchParams.set("size", String(params.size ?? 20));
+
+    return PagarmeClient.request(
+      "GET",
+      `/subscriptions?${searchParams.toString()}`
+    );
+  }
+
   static async cancelSubscription(
     subscriptionId: string,
     cancelPendingInvoices = true,
@@ -173,6 +232,19 @@ export abstract class PagarmeClient {
       "PATCH",
       `/subscriptions/${subscriptionId}/card`,
       { body: { card_id: cardId }, idempotencyKey }
+    );
+  }
+
+  static async updateSubscriptionItem(
+    subscriptionId: string,
+    itemId: string,
+    data: UpdateSubscriptionItemRequest,
+    idempotencyKey?: string
+  ): Promise<PagarmeSubscription> {
+    return PagarmeClient.request(
+      "PUT",
+      `/subscriptions/${subscriptionId}/items/${itemId}`,
+      { body: data, idempotencyKey }
     );
   }
 
@@ -279,6 +351,12 @@ export abstract class PagarmeClient {
     data: Partial<CreatePlanRequest>
   ): Promise<PagarmePlan> {
     return PagarmeClient.request("PUT", `/plans/${planId}`, { body: data });
+  }
+
+  static async deactivatePlan(planId: string): Promise<PagarmePlan> {
+    return PagarmeClient.request("PUT", `/plans/${planId}`, {
+      body: { status: "inactive" },
+    });
   }
 
   static async createPaymentLink(

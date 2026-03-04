@@ -3,14 +3,15 @@ import { expect, test } from "@playwright/test";
 import { eq } from "drizzle-orm";
 import { db } from "@/db";
 import { schema } from "@/db/schema";
-import { proPlan } from "@/test/fixtures/plans";
-import { createTestApp } from "@/test/helpers/app";
-import { seedPlans } from "@/test/helpers/seed";
+import { BillingProfileFactory } from "@/test/factories/payments/billing-profile.factory";
 import {
-  createTestSubscription,
-  waitForSubscriptionActive,
-} from "@/test/helpers/subscription";
-import { createTestUserWithOrganization } from "@/test/helpers/user";
+  type CreatePlanResult,
+  PlanFactory,
+} from "@/test/factories/payments/plan.factory";
+import { SubscriptionFactory } from "@/test/factories/payments/subscription.factory";
+import { UserFactory } from "@/test/factories/user.factory";
+import { createTestApp } from "@/test/support/app";
+import { waitForSubscriptionActive } from "@/test/support/wait";
 
 const TUNNEL_URL = process.env.TUNNEL_URL;
 const PAGARME_URL_REGEX = /pagar\.me/;
@@ -25,13 +26,16 @@ const TEST_CARD = {
   cvv: "123",
 };
 
+let goldPlanResult: CreatePlanResult;
+
 test.describe("Checkout + Webhook E2E Flow", () => {
   test.beforeAll(async () => {
     if (!TUNNEL_URL) {
       console.log("TUNNEL_URL not set - skipping webhook E2E tests");
       return;
     }
-    await seedPlans();
+    // Create plans dynamically using factories
+    goldPlanResult = await PlanFactory.createPaid("gold");
   });
 
   test("should complete checkout and activate subscription via webhook", async ({
@@ -42,19 +46,20 @@ test.describe("Checkout + Webhook E2E Flow", () => {
 
     test.setTimeout(120_000); // 2 minutes for full flow
 
-    if (!proPlan) {
-      throw new Error("Pro plan not found in fixtures");
-    }
-
     // 1. Setup: Create user with trial subscription
     const { user, session, organizationId } =
-      await createTestUserWithOrganization({ emailVerified: true });
+      await UserFactory.createWithOrganization({ emailVerified: true });
 
-    if (!organizationId) {
-      throw new Error("Organization not created for test user");
-    }
+    // Create billing profile (required for checkout)
+    await BillingProfileFactory.create({ organizationId });
 
-    await createTestSubscription(organizationId, proPlan.id, "trial");
+    // Get first tier for the plan
+    const tier = goldPlanResult.tiers[0];
+
+    await SubscriptionFactory.createTrial(
+      organizationId,
+      goldPlanResult.plan.id
+    );
 
     // 2. Create checkout with tunnel URL for webhook
     const app = createTestApp();
@@ -66,8 +71,8 @@ test.describe("Checkout + Webhook E2E Flow", () => {
           Cookie: `better-auth.session_token=${session.token}`,
         },
         body: JSON.stringify({
-          planId: proPlan.id,
-          employeeCount: 10,
+          planId: goldPlanResult.plan.id,
+          tierId: tier.id,
           successUrl: `${TUNNEL_URL}/checkout/success`,
         }),
       })

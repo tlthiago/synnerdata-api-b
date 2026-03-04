@@ -1,25 +1,28 @@
 import { beforeAll, describe, expect, test } from "bun:test";
 import { env } from "@/env";
-import { createTestApp, type TestApp } from "@/test/helpers/app";
-import { seedPlans } from "@/test/helpers/seed";
+import { OrganizationFactory } from "@/test/factories/organization.factory";
 import {
-  createActiveSubscription,
-  createCanceledSubscription,
-  createTestSubscription,
-} from "@/test/helpers/subscription";
-import {
-  createTestUser,
-  createTestUserWithOrganization,
-} from "@/test/helpers/user";
+  type CreatePlanResult,
+  PlanFactory,
+} from "@/test/factories/payments/plan.factory";
+import { SubscriptionFactory } from "@/test/factories/payments/subscription.factory";
+import { UserFactory } from "@/test/factories/user.factory";
+import { createTestApp, type TestApp } from "@/test/support/app";
 
 const BASE_URL = env.API_URL;
+
+let diamondPlanResult: CreatePlanResult;
+let trialPlanResult: CreatePlanResult;
 
 describe("GET /v1/payments/subscription", () => {
   let app: TestApp;
 
   beforeAll(async () => {
     app = createTestApp();
-    await seedPlans();
+    [diamondPlanResult, trialPlanResult] = await Promise.all([
+      PlanFactory.createPaid("diamond"),
+      PlanFactory.createTrial(),
+    ]);
   });
 
   test("should reject unauthenticated requests", async () => {
@@ -33,7 +36,7 @@ describe("GET /v1/payments/subscription", () => {
   });
 
   test("should reject for organization without subscription", async () => {
-    const { headers } = await createTestUserWithOrganization({
+    const { headers } = await UserFactory.createWithOrganization({
       emailVerified: true,
     });
 
@@ -50,11 +53,16 @@ describe("GET /v1/payments/subscription", () => {
   });
 
   test("should return subscription with plan details for trial", async () => {
-    const { headers, organizationId } = await createTestUserWithOrganization({
-      emailVerified: true,
-    });
+    const { headers, organizationId } =
+      await UserFactory.createWithOrganization({
+        emailVerified: true,
+      });
 
-    await createTestSubscription(organizationId, "test-plan-diamond", "trial");
+    // Use trial plan for proper trial behavior
+    await SubscriptionFactory.create(organizationId, trialPlanResult.plan.id, {
+      status: "active",
+      trialDays: 14,
+    });
 
     const response = await app.handle(
       new Request(`${BASE_URL}/v1/payments/subscription`, {
@@ -69,20 +77,30 @@ describe("GET /v1/payments/subscription", () => {
     expect(body.success).toBe(true);
     expect(body.data.id).toBeDefined();
     expect(body.data.organizationId).toBe(organizationId);
-    expect(body.data.status).toBe("trial");
+    // Status in DB is "active" - trial is determined by isTrial
+    expect(body.data.status).toBe("active");
+    expect(body.data.isTrial).toBe(true);
     expect(body.data.plan).toBeDefined();
-    expect(body.data.plan.id).toBe("test-plan-diamond");
-    expect(body.data.plan.name).toBe("diamond");
-    expect(body.data.plan.displayName).toBe("Test Diamond");
-    expect(body.data.plan.limits).toBeDefined();
+    expect(body.data.plan.id).toBe(trialPlanResult.plan.id);
+    expect(body.data.plan.name).toBe(trialPlanResult.plan.name);
+    expect(body.data.plan.displayName).toBe(trialPlanResult.plan.displayName);
+    expect(body.data.plan.features).toBeDefined();
+    // Trial subscriptions created without pricingTierId should return null
+    expect(body.data.pricingTier).toBeNull();
   });
 
-  test("should return subscription with plan details for active", async () => {
-    const { headers, organizationId } = await createTestUserWithOrganization({
-      emailVerified: true,
-    });
+  test("should return subscription with plan details and pricingTier for active", async () => {
+    const { headers, organizationId } =
+      await UserFactory.createWithOrganization({
+        emailVerified: true,
+      });
 
-    await createActiveSubscription(organizationId, "test-plan-diamond");
+    const tier = PlanFactory.getFirstTier(diamondPlanResult);
+    await SubscriptionFactory.createActive(
+      organizationId,
+      diamondPlanResult.plan.id,
+      { pricingTierId: tier.id }
+    );
 
     const response = await app.handle(
       new Request(`${BASE_URL}/v1/payments/subscription`, {
@@ -97,15 +115,24 @@ describe("GET /v1/payments/subscription", () => {
     expect(body.data.status).toBe("active");
     expect(body.data.currentPeriodStart).toBeDefined();
     expect(body.data.currentPeriodEnd).toBeDefined();
+    // Should return pricing tier details
+    expect(body.data.pricingTier).toBeDefined();
+    expect(body.data.pricingTier.id).toBe(tier.id);
+    expect(body.data.pricingTier.minEmployees).toBe(tier.minEmployees);
+    expect(body.data.pricingTier.maxEmployees).toBe(tier.maxEmployees);
+    expect(body.data.pricingTier.priceMonthly).toBe(tier.priceMonthly);
+    expect(body.data.pricingTier.priceYearly).toBe(tier.priceYearly);
   });
 
   test("should return correct trial dates and status", async () => {
-    const { headers, organizationId } = await createTestUserWithOrganization({
-      emailVerified: true,
-    });
+    const { headers, organizationId } =
+      await UserFactory.createWithOrganization({
+        emailVerified: true,
+      });
 
-    await createTestSubscription(organizationId, "test-plan-diamond", {
-      status: "trial",
+    // Use trial plan for proper trial behavior
+    await SubscriptionFactory.create(organizationId, trialPlanResult.plan.id, {
+      status: "active",
       trialDays: 14,
     });
 
@@ -119,21 +146,25 @@ describe("GET /v1/payments/subscription", () => {
     expect(response.status).toBe(200);
 
     const body = await response.json();
-    expect(body.data.status).toBe("trial");
+    // Status in DB is "active" - trial is determined by isTrial
+    expect(body.data.status).toBe("active");
+    expect(body.data.isTrial).toBe(true);
     expect(body.data.trialStart).toBeDefined();
     expect(body.data.trialEnd).toBeDefined();
     expect(body.data.trialUsed).toBe(false);
   });
 
   test("should return correct billing period for active subscription", async () => {
-    const { headers, organizationId } = await createTestUserWithOrganization({
-      emailVerified: true,
-    });
+    const { headers, organizationId } =
+      await UserFactory.createWithOrganization({
+        emailVerified: true,
+      });
 
-    await createActiveSubscription(
+    const tier = PlanFactory.getFirstTier(diamondPlanResult);
+    await SubscriptionFactory.createActive(
       organizationId,
-      "test-plan-diamond",
-      "sub_test123"
+      diamondPlanResult.plan.id,
+      { pagarmeSubscriptionId: "sub_test123", pricingTierId: tier.id }
     );
 
     const response = await app.handle(
@@ -149,14 +180,45 @@ describe("GET /v1/payments/subscription", () => {
     expect(body.data.currentPeriodStart).toBeString();
     expect(body.data.currentPeriodEnd).toBeString();
     expect(body.data.trialUsed).toBe(true);
+    expect(body.data.pricingTier).toBeDefined();
+    expect(body.data.pricingTier.id).toBe(tier.id);
+  });
+
+  test("should return pricingTier as null when subscription has no tier", async () => {
+    const { headers, organizationId } =
+      await UserFactory.createWithOrganization({
+        emailVerified: true,
+      });
+
+    // Create subscription WITHOUT pricingTierId (simulates legacy migration)
+    await SubscriptionFactory.createActive(
+      organizationId,
+      diamondPlanResult.plan.id
+      // No pricingTierId passed
+    );
+
+    const response = await app.handle(
+      new Request(`${BASE_URL}/v1/payments/subscription`, {
+        method: "GET",
+        headers,
+      })
+    );
+
+    expect(response.status).toBe(200);
+    const body = await response.json();
+    expect(body.data.pricingTier).toBeNull();
   });
 
   test("should return cancelAtPeriodEnd and canceledAt when canceled", async () => {
-    const { headers, organizationId } = await createTestUserWithOrganization({
-      emailVerified: true,
-    });
+    const { headers, organizationId } =
+      await UserFactory.createWithOrganization({
+        emailVerified: true,
+      });
 
-    await createCanceledSubscription(organizationId, "test-plan-diamond");
+    await SubscriptionFactory.createCanceled(
+      organizationId,
+      diamondPlanResult.plan.id
+    );
 
     const response = await app.handle(
       new Request(`${BASE_URL}/v1/payments/subscription`, {
@@ -172,11 +234,15 @@ describe("GET /v1/payments/subscription", () => {
   });
 
   test("should return seats count", async () => {
-    const { headers, organizationId } = await createTestUserWithOrganization({
-      emailVerified: true,
-    });
+    const { headers, organizationId } =
+      await UserFactory.createWithOrganization({
+        emailVerified: true,
+      });
 
-    await createTestSubscription(organizationId, "test-plan-diamond", "trial");
+    await SubscriptionFactory.createTrial(
+      organizationId,
+      diamondPlanResult.plan.id
+    );
 
     const response = await app.handle(
       new Request(`${BASE_URL}/v1/payments/subscription`, {
@@ -193,19 +259,19 @@ describe("GET /v1/payments/subscription", () => {
   });
 
   test("should allow viewer member to read subscription", async () => {
-    const { addMemberToOrganization } = await import(
-      "@/test/helpers/organization"
-    );
-
-    const { organizationId } = await createTestUserWithOrganization({
+    const { organizationId } = await UserFactory.createWithOrganization({
       emailVerified: true,
     });
 
-    await createTestSubscription(organizationId, "test-plan-diamond", "trial");
+    // Use trial plan for proper trial behavior
+    await SubscriptionFactory.create(organizationId, trialPlanResult.plan.id, {
+      status: "active",
+      trialDays: 14,
+    });
 
-    const memberResult = await createTestUser({ emailVerified: true });
+    const memberResult = await UserFactory.create({ emailVerified: true });
 
-    await addMemberToOrganization(memberResult, {
+    await OrganizationFactory.addMember(memberResult, {
       organizationId,
       role: "viewer",
     });
@@ -219,6 +285,8 @@ describe("GET /v1/payments/subscription", () => {
 
     expect(response.status).toBe(200);
     const body = await response.json();
-    expect(body.data.status).toBe("trial");
+    // Status in DB is "active" - trial is determined by isTrial
+    expect(body.data.status).toBe("active");
+    expect(body.data.isTrial).toBe(true);
   });
 });

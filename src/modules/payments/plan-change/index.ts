@@ -1,4 +1,5 @@
 import { Elysia } from "elysia";
+import { isProduction } from "@/env";
 import { betterAuthPlugin } from "@/lib/auth-plugin";
 import { wrapSuccess } from "@/lib/responses/envelope";
 import {
@@ -9,11 +10,11 @@ import {
 } from "@/lib/responses/response.types";
 import {
   cancelScheduledChangeResponseSchema,
-  changeBillingCycleResponseSchema,
-  changeBillingCycleSchema,
-  changePlanResponseSchema,
-  changePlanSchema,
+  changeSubscriptionResponseSchema,
+  changeSubscriptionSchema,
   getScheduledChangeResponseSchema,
+  previewChangeResponseSchema,
+  previewChangeSchema,
 } from "./plan-change.model";
 import { PlanChangeService } from "./plan-change.service";
 
@@ -24,10 +25,10 @@ export const planChangeController = new Elysia({
 })
   .use(betterAuthPlugin)
   .post(
-    "/change-plan",
+    "/change",
     async ({ user, session, body }) =>
       wrapSuccess(
-        await PlanChangeService.changePlan({
+        await PlanChangeService.changeSubscription({
           ...body,
           userId: user.id,
           organizationId: session.activeOrganizationId as string,
@@ -38,48 +39,19 @@ export const planChangeController = new Elysia({
         permissions: { subscription: ["update"] },
         requireOrganization: true,
       },
-      body: changePlanSchema,
+      body: changeSubscriptionSchema,
       response: {
-        200: changePlanResponseSchema,
+        200: changeSubscriptionResponseSchema,
         422: validationErrorSchema,
         401: unauthorizedErrorSchema,
         403: forbiddenErrorSchema,
         404: notFoundErrorSchema,
       },
       detail: {
-        summary: "Change subscription plan",
+        hide: isProduction,
+        summary: "Change subscription",
         description:
-          "Changes the subscription to a different plan. Upgrades are processed immediately via payment link. Downgrades are scheduled for the end of the current billing period.",
-      },
-    }
-  )
-  .post(
-    "/change-billing-cycle",
-    async ({ user, session, body }) =>
-      wrapSuccess(
-        await PlanChangeService.changeBillingCycle({
-          ...body,
-          userId: user.id,
-          organizationId: session.activeOrganizationId as string,
-        })
-      ),
-    {
-      auth: {
-        permissions: { subscription: ["update"] },
-        requireOrganization: true,
-      },
-      body: changeBillingCycleSchema,
-      response: {
-        200: changeBillingCycleResponseSchema,
-        422: validationErrorSchema,
-        401: unauthorizedErrorSchema,
-        403: forbiddenErrorSchema,
-        404: notFoundErrorSchema,
-      },
-      detail: {
-        summary: "Change billing cycle",
-        description:
-          "Changes the billing cycle between monthly and yearly. Monthly to yearly is processed immediately via payment link. Yearly to monthly is scheduled for the end of the current billing period.",
+          "Unified endpoint to change plan, billing cycle, and/or employee count. Upgrades are processed immediately via payment link. Downgrades are scheduled for the end of the current billing period.",
       },
     }
   )
@@ -105,6 +77,7 @@ export const planChangeController = new Elysia({
         404: notFoundErrorSchema,
       },
       detail: {
+        hide: isProduction,
         summary: "Cancel scheduled plan change",
         description:
           "Cancels a scheduled plan change (downgrade). The current plan will continue after the current billing period.",
@@ -132,9 +105,40 @@ export const planChangeController = new Elysia({
         404: notFoundErrorSchema,
       },
       detail: {
+        hide: isProduction,
         summary: "Get scheduled plan change",
         description:
           "Returns information about any scheduled plan change, including the pending plan and scheduled date.",
+      },
+    }
+  )
+  .post(
+    "/preview-change",
+    async ({ session, body }) =>
+      wrapSuccess(
+        await PlanChangeService.previewChange({
+          ...body,
+          organizationId: session.activeOrganizationId as string,
+        })
+      ),
+    {
+      auth: {
+        permissions: { subscription: ["read"] },
+        requireOrganization: true,
+      },
+      body: previewChangeSchema,
+      response: {
+        200: previewChangeResponseSchema,
+        422: validationErrorSchema,
+        401: unauthorizedErrorSchema,
+        403: forbiddenErrorSchema,
+        404: notFoundErrorSchema,
+      },
+      detail: {
+        hide: isProduction,
+        summary: "Preview subscription change",
+        description:
+          "Returns a preview of what would happen if the subscription change was executed. Does not make any changes. Useful for confirmation modals.",
       },
     }
   );

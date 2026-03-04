@@ -2,7 +2,7 @@ import "dotenv/config";
 import { z } from "zod";
 
 const envSchema = z.object({
-  PORT: z.number().default(3333),
+  PORT: z.coerce.number().default(3333),
   CORS_ORIGIN: z.string().default("http://localhost:3000"),
   DATABASE_URL: z.url().startsWith("postgresql://"),
   BETTER_AUTH_SECRET: z.string(),
@@ -16,7 +16,9 @@ const envSchema = z.object({
   PAGARME_WEBHOOK_PASSWORD: z.string().min(1),
   SMTP_HOST: z.string().default("localhost"),
   SMTP_PORT: z.coerce.number().default(1025),
-  SMTP_FROM: z.email().default("noreply@synnerdata.com"),
+  SMTP_USER: z.string().optional(),
+  SMTP_PASSWORD: z.string().optional(),
+  SMTP_FROM: z.string().default("noreply@synnerdata.com"),
   // Admin emails - users with these emails will be assigned admin roles on signup
   SUPER_ADMIN_EMAILS: z.string().default(""),
   ADMIN_EMAILS: z.string().default(""),
@@ -28,3 +30,5 @@ const envSchema = z.object({
 });
 
 export const env = envSchema.parse(process.env);
+
+export const isProduction = process.env.NODE_ENV === "production";

@@ -68,8 +68,39 @@ src/
 │   └── cron-plugin.ts          # Jobs agendados
 │
 ├── modules/                    # Módulos de domínio
-│   ├── auth/                   # Autenticação
-│   └── payments/               # Sistema de pagamentos (Pagar.me)
+│   ├── auth/                   # Autenticação (Email OTP, roles, trial lifecycle)
+│   ├── organizations/          # Estrutura organizacional
+│   │   ├── profile/            # Perfil e dados fiscais da organização
+│   │   ├── branches/           # Filiais
+│   │   ├── sectors/            # Setores/departamentos
+│   │   ├── cost-centers/       # Centros de custo
+│   │   ├── job-positions/      # Cargos
+│   │   ├── job-classifications/ # CBOs
+│   │   ├── projects/           # Projetos com alocação de funcionários
+│   │   └── ppe-items/          # Catálogo de EPIs
+│   ├── employees/              # Cadastro e gestão de funcionários
+│   ├── occurrences/            # Eventos de funcionários
+│   │   ├── absences/           # Ausências
+│   │   ├── accidents/          # Acidentes de trabalho
+│   │   ├── vacations/          # Férias
+│   │   ├── medical-certificates/ # Atestados médicos
+│   │   ├── warnings/           # Advertências disciplinares
+│   │   ├── terminations/       # Desligamentos
+│   │   ├── ppe-deliveries/     # Entregas de EPI
+│   │   ├── labor-lawsuits/     # Processos trabalhistas
+│   │   ├── promotions/         # Promoções
+│   │   └── cpf-analyses/       # Análises de CPF
+│   ├── payments/               # Sistema de pagamentos (Pagar.me)
+│   │   ├── plans/              # Planos e pricing tiers
+│   │   ├── checkout/           # Sessões de pagamento
+│   │   ├── subscription/       # Lifecycle de assinaturas
+│   │   ├── plan-change/        # Upgrades e downgrades
+│   │   ├── billing/            # Perfil de cobrança, faturas, cartões
+│   │   ├── webhook/            # Eventos Pagar.me
+│   │   ├── customer/           # Clientes do provedor
+│   │   └── jobs/               # Jobs agendados
+│   ├── audit/                  # Log de ações para compliance
+│   └── api-keys/               # Chaves de API para integrações
 │
 ├── test/                       # Helpers e fixtures de teste
 │   ├── fixtures/               # Dados de teste
@@ -134,30 +165,17 @@ SMTP_PASS=
 
 ---
 
-## Módulos Planejados
+## Módulos
 
-| Domínio | Módulo | Status |
-|---------|--------|--------|
-| organization | organization | Planejado |
-| organization | branches | Planejado |
-| organization | departments | Planejado |
-| organization | cost-centers | Planejado |
-| organization | projects | Planejado |
-| hr-config | cbo | Planejado |
-| hr-config | ppe | Planejado |
-| hr-config | positions | Planejado |
-| employees | employee | Planejado |
-| employees | documents | Planejado |
-| occurrences | warnings | Planejado |
-| occurrences | accidents | Planejado |
-| occurrences | lawsuits | Planejado |
-| occurrences | background-checks | Planejado |
-| occurrences | medical-leaves | Planejado |
-| occurrences | ppe-deliveries | Planejado |
-| occurrences | absences | Planejado |
-| occurrences | vacations | Planejado |
-| occurrences | promotions | Planejado |
-| occurrences | terminations | Planejado |
+| Domínio | Módulos | Status |
+|---------|---------|--------|
+| auth | auth | Implementado |
+| organizations | profile, branches, sectors, cost-centers, job-positions, job-classifications, projects, ppe-items | Implementado |
+| employees | employees | Implementado |
+| occurrences | absences, accidents, vacations, medical-certificates, warnings, terminations, ppe-deliveries, labor-lawsuits, promotions, cpf-analyses | Implementado |
+| payments | plans, checkout, subscription, plan-change, billing, webhook, customer, jobs | Implementado |
+| audit | audit | Implementado |
+| api-keys | api-keys | Implementado |
 
 ---
 

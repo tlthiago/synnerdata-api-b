@@ -49,6 +49,14 @@ export type PaymentEvents = {
     subscription: OrgSubscription;
     canceledPlanId: string;
   };
+  "subscription.priceAdjusted": {
+    subscription: OrgSubscription;
+    oldPrice: number;
+    newPrice: number;
+    reason: string;
+    adjustmentType: "individual" | "bulk";
+    adminId: string;
+  };
 };
 
 // ============================================================

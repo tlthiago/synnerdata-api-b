@@ -1,12 +1,6 @@
 import { z } from "zod";
 import { successResponseSchema } from "@/lib/responses/response.types";
 
-export const billingDataSchema = z.object({
-  document: z.string().min(14).max(18).optional().describe("CNPJ"),
-  phone: z.string().min(10).max(15).optional().describe("Phone number"),
-  billingEmail: z.email().optional().describe("Billing email"),
-});
-
 export const listCustomersSchema = z.object({
   name: z.string().optional().describe("Filter by customer name"),
   email: z.string().optional().describe("Filter by customer email"),
@@ -60,22 +54,11 @@ export const listCustomersResponseSchema = successResponseSchema(
   listCustomersDataSchema
 );
 
-export type BillingData = z.infer<typeof billingDataSchema>;
 export type ListCustomersInput = z.infer<typeof listCustomersSchema>;
 export type CustomerData = z.infer<typeof customerDataSchema>;
 export type ListCustomersResponse = z.infer<typeof listCustomersResponseSchema>;
 
-// Data-only type for service layer
 export type ListCustomersData = z.infer<typeof listCustomersDataSchema>;
-
-export type OrganizationProfileData = {
-  organizationId: string;
-  tradeName: string;
-  taxId: string | null;
-  phone: string | null;
-  email: string | null;
-  pagarmeCustomerId: string | null;
-};
 
 export type CreateCustomerInput = {
   organizationId: string;

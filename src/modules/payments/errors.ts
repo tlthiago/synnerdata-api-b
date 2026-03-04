@@ -120,6 +120,18 @@ export class PlanNotAvailableError extends PaymentError {
   }
 }
 
+export class TrialPlanAsBaseError extends PaymentError {
+  status = 400;
+
+  constructor(planId: string) {
+    super(
+      `Trial plans cannot be used as base for custom checkout: ${planId}`,
+      "TRIAL_PLAN_AS_BASE",
+      { planId }
+    );
+  }
+}
+
 export class YearlyBillingNotAvailableError extends PaymentError {
   status = 400;
 
@@ -252,6 +264,21 @@ export class PagarmeTimeoutError extends PaymentError {
   }
 }
 
+export class PagarmeConnectionError extends PaymentError {
+  status = 502;
+
+  constructor(endpoint: string, reason: string) {
+    super(
+      "Não foi possível conectar ao serviço de pagamento. Tente novamente em alguns instantes.",
+      "PAGARME_CONNECTION_ERROR",
+      {
+        endpoint,
+        reason,
+      }
+    );
+  }
+}
+
 export class SamePlanError extends PaymentError {
   status = 400;
 
@@ -321,11 +348,23 @@ export class EmployeeCountRequiredError extends PaymentError {
 export class PricingTierNotFoundError extends PaymentError {
   status = 404;
 
-  constructor(planId: string, employeeCount: number) {
+  constructor(planId: string, employeeRange: string) {
     super(
-      `No pricing tier found for ${employeeCount} employees in plan ${planId}`,
+      `No pricing tier found for range "${employeeRange}" in plan ${planId}`,
       "PRICING_TIER_NOT_FOUND",
-      { planId, employeeCount }
+      { planId, employeeRange }
+    );
+  }
+}
+
+export class InvalidEmployeeRangeError extends PaymentError {
+  status = 400;
+
+  constructor(employeeRange: string) {
+    super(
+      `Invalid employee range format: "${employeeRange}". Expected format: "min-max" (e.g., "0-10")`,
+      "INVALID_EMPLOYEE_RANGE",
+      { employeeRange }
     );
   }
 }
@@ -338,6 +377,285 @@ export class FeatureNotAvailableError extends PaymentError {
       `Feature "${featureName}" is not available in your current plan`,
       "FEATURE_NOT_AVAILABLE",
       { featureName }
+    );
+  }
+}
+
+export class EmployeeLimitReachedError extends PaymentError {
+  status = 400;
+
+  constructor(current: number, limit: number) {
+    super(
+      `Limite de funcionários atingido (${current}/${limit}). Faça upgrade para cadastrar mais.`,
+      "EMPLOYEE_LIMIT_REACHED",
+      { current, limit }
+    );
+  }
+}
+
+// 2.3 - No change requested (same configuration)
+export class NoChangeRequestedError extends PaymentError {
+  status = 400;
+
+  constructor() {
+    super(
+      "A configuração selecionada é igual à sua assinatura atual.",
+      "NO_CHANGE_REQUESTED"
+    );
+  }
+}
+
+// 2.3b - Cannot change to a private (custom) plan via self-service
+export class CannotChangeToPrivatePlanError extends PaymentError {
+  status = 400;
+
+  constructor(planId: string) {
+    super(
+      "Planos privados não estão disponíveis para mudança self-service. Entre em contato com o suporte.",
+      "CANNOT_CHANGE_TO_PRIVATE_PLAN",
+      { planId }
+    );
+  }
+}
+
+// 2.4 - Employee count exceeds new plan limit on downgrade
+export class EmployeeCountExceedsNewPlanLimitError extends PaymentError {
+  status = 400;
+
+  constructor(currentCount: number, newLimit: number) {
+    const toRemove = currentCount - newLimit;
+    super(
+      `Você tem ${currentCount} funcionários cadastrados. O plano selecionado permite máximo ${newLimit}. Remova ${toRemove} funcionário(s) para continuar.`,
+      "EMPLOYEE_COUNT_EXCEEDS_NEW_PLAN_LIMIT",
+      { currentCount, newLimit, toRemove }
+    );
+  }
+}
+
+// Plans Module - Tier Errors
+
+export class TrialPlanNotFoundError extends PaymentError {
+  status = 500;
+
+  constructor() {
+    super(
+      "Trial plan not found. Please run database seed.",
+      "TRIAL_PLAN_NOT_FOUND"
+    );
+  }
+}
+
+export class TrialPlanMisconfiguredError extends PaymentError {
+  status = 500;
+
+  constructor() {
+    super(
+      "Trial plan has no pricing tiers. Please verify the database seed.",
+      "TRIAL_PLAN_MISCONFIGURED"
+    );
+  }
+}
+
+export class TrialNotCancellableError extends PaymentError {
+  status = 400;
+
+  constructor(organizationId: string) {
+    super(
+      "Trial subscriptions cannot be canceled. The trial expires naturally.",
+      "TRIAL_NOT_CANCELLABLE",
+      { organizationId }
+    );
+  }
+}
+
+export class BillingNotAvailableForTrialError extends PaymentError {
+  status = 400;
+
+  constructor(organizationId: string) {
+    super(
+      "Billing operations are not available for trial subscriptions",
+      "BILLING_NOT_AVAILABLE_FOR_TRIAL",
+      { organizationId }
+    );
+  }
+}
+
+export class InvalidTierCountError extends PaymentError {
+  status = 422;
+
+  constructor(provided: number, minimum: number) {
+    super(
+      `At least ${minimum} pricing tier(s) required, but received ${provided}.`,
+      "INVALID_TIER_COUNT",
+      { provided, minimum }
+    );
+  }
+}
+
+export class InvalidTierRangeError extends PaymentError {
+  status = 422;
+
+  constructor(
+    index: number,
+    provided: { min: number; max: number },
+    expected: { min: number; max: number }
+  ) {
+    super(
+      `Tier at index ${index} has invalid range. Expected ${expected.min}-${expected.max}, got ${provided.min}-${provided.max}.`,
+      "INVALID_TIER_RANGE",
+      { index, provided, expected }
+    );
+  }
+}
+
+export class TierNegativeMinError extends PaymentError {
+  status = 422;
+
+  constructor(index: number, minEmployees: number) {
+    super(
+      `Tier at index ${index} has negative minEmployees (${minEmployees}). Must be >= 0.`,
+      "TIER_NEGATIVE_MIN",
+      { index, minEmployees }
+    );
+  }
+}
+
+export class TierMinExceedsMaxError extends PaymentError {
+  status = 422;
+
+  constructor(index: number, min: number, max: number) {
+    super(
+      `Tier at index ${index} has minEmployees (${min}) > maxEmployees (${max}).`,
+      "TIER_MIN_EXCEEDS_MAX",
+      { index, min, max }
+    );
+  }
+}
+
+export class TierOverlapError extends PaymentError {
+  status = 422;
+
+  constructor(index: number, previousMax: number, currentMin: number) {
+    super(
+      `Tier at index ${index} overlaps with previous tier: previous max is ${previousMax}, current min is ${currentMin}.`,
+      "TIER_OVERLAP",
+      { index, previousMax, currentMin }
+    );
+  }
+}
+
+export class TierGapError extends PaymentError {
+  status = 422;
+
+  constructor(index: number, expectedMin: number, actualMin: number) {
+    super(
+      `Gap between tiers at index ${index - 1} and ${index}: expected min ${expectedMin}, got ${actualMin}.`,
+      "TIER_GAP",
+      { index, expectedMin, actualMin }
+    );
+  }
+}
+
+export class TierNotFoundError extends PaymentError {
+  status = 404;
+
+  constructor(tierId: string, planId?: string) {
+    const message = planId
+      ? `Tier "${tierId}" not found in plan "${planId}".`
+      : `Tier "${tierId}" not found.`;
+    super(message, "TIER_NOT_FOUND", {
+      tierId,
+      ...(planId && { planId }),
+    });
+  }
+}
+
+export class TiersInUseError extends PaymentError {
+  status = 409;
+
+  constructor(
+    activeSubscriptions: number,
+    pendingCheckouts: number,
+    pendingChanges: number
+  ) {
+    super(
+      `Cannot delete tiers: ${activeSubscriptions} active subscription(s), ${pendingCheckouts} pending checkout(s), ${pendingChanges} pending plan change(s) reference current tiers.`,
+      "TIERS_IN_USE",
+      { activeSubscriptions, pendingCheckouts, pendingChanges }
+    );
+  }
+}
+
+// Feature Errors
+
+export class InvalidFeatureIdsError extends PaymentError {
+  status = 422;
+
+  constructor(invalidIds: string[]) {
+    super(
+      `Features not found or inactive: ${invalidIds.join(", ")}`,
+      "INVALID_FEATURE_IDS",
+      { invalidIds }
+    );
+  }
+}
+
+export class FeatureNotFoundError extends PaymentError {
+  status = 404;
+
+  constructor(featureId: string) {
+    super(`Feature not found: ${featureId}`, "FEATURE_NOT_FOUND", {
+      featureId,
+    });
+  }
+}
+
+export class FeatureAlreadyExistsError extends PaymentError {
+  status = 409;
+
+  constructor(featureId: string) {
+    super(
+      `Feature with id "${featureId}" already exists`,
+      "FEATURE_ALREADY_EXISTS",
+      { featureId }
+    );
+  }
+}
+
+// Billing Profile Errors
+
+export class BillingProfileNotFoundError extends PaymentError {
+  status = 404;
+
+  constructor(organizationId: string) {
+    super(
+      `Perfil de cobrança não encontrado para a organização: ${organizationId}`,
+      "BILLING_PROFILE_NOT_FOUND",
+      { organizationId }
+    );
+  }
+}
+
+export class BillingProfileAlreadyExistsError extends PaymentError {
+  status = 409;
+
+  constructor(organizationId: string) {
+    super(
+      `Perfil de cobrança já existe para a organização: ${organizationId}`,
+      "BILLING_PROFILE_ALREADY_EXISTS",
+      { organizationId }
+    );
+  }
+}
+
+export class BillingProfileRequiredError extends PaymentError {
+  status = 400;
+
+  constructor(organizationId: string) {
+    super(
+      `Billing profile is required for checkout. Organization ${organizationId} has no billing profile and no billing data was provided.`,
+      "BILLING_PROFILE_REQUIRED",
+      { organizationId }
     );
   }
 }

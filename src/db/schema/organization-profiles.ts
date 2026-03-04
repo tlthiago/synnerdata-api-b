@@ -26,8 +26,8 @@ export const organizationProfiles = pgTable(
       .notNull()
       .references(() => organizations.id, { onDelete: "cascade" }),
     tradeName: text("trade_name").notNull(),
-    legalName: text("legal_name").notNull(),
-    taxId: text("tax_id").notNull().unique(),
+    legalName: text("legal_name"),
+    taxId: text("tax_id").unique(),
     street: text("street"),
     number: text("number"),
     complement: text("complement"),
@@ -37,7 +37,7 @@ export const organizationProfiles = pgTable(
     zipCode: text("zip_code"),
     email: text("email"),
     phone: text("phone"),
-    mobile: text("mobile").notNull(),
+    mobile: text("mobile"),
     taxRegime: text("tax_regime"),
     stateRegistration: text("state_registration"),
     mainActivityCode: text("main_activity_code"),
@@ -58,6 +58,10 @@ export const organizationProfiles = pgTable(
       .defaultNow()
       .$onUpdate(() => new Date())
       .notNull(),
+    createdBy: text("created_by"),
+    updatedBy: text("updated_by"),
+    deletedAt: timestamp("deleted_at", { withTimezone: true }),
+    deletedBy: text("deleted_by"),
   },
   (table) => [
     index("organization_profiles_organization_id_idx").on(table.organizationId),
@@ -66,6 +70,9 @@ export const organizationProfiles = pgTable(
     index("organization_profiles_industry_idx").on(table.industry),
   ]
 );
+
+export type OrganizationProfile = typeof organizationProfiles.$inferSelect;
+export type NewOrganizationProfile = typeof organizationProfiles.$inferInsert;
 
 export const organizationProfileRelations = relations(
   organizationProfiles,

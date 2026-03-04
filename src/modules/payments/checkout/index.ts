@@ -1,4 +1,5 @@
 import { Elysia } from "elysia";
+import { isProduction } from "@/env";
 import { betterAuthPlugin } from "@/lib/auth-plugin";
 import { wrapSuccess } from "@/lib/responses/envelope";
 import {
@@ -43,6 +44,7 @@ export const checkoutController = new Elysia({
         404: notFoundErrorSchema,
       },
       detail: {
+        hide: isProduction,
         summary: "Create checkout session for upgrade",
         description:
           "Creates a payment link for the user to upgrade their subscription plan. Requires an active organization and subscription update permission.",

@@ -12,11 +12,13 @@ import { schema } from "@/db/schema";
 import { env } from "@/env";
 import { JobsService } from "@/modules/payments/jobs/jobs.service";
 import { SubscriptionService } from "@/modules/payments/subscription/subscription.service";
-import { proPlan } from "@/test/fixtures/plans";
-import { createTestApp, type TestApp } from "@/test/helpers/app";
-import { seedPlans } from "@/test/helpers/seed";
-import { createActiveSubscription } from "@/test/helpers/subscription";
-import { createTestUserWithOrganization } from "@/test/helpers/user";
+import {
+  type CreatePlanResult,
+  PlanFactory,
+} from "@/test/factories/payments/plan.factory";
+import { SubscriptionFactory } from "@/test/factories/payments/subscription.factory";
+import { UserFactory } from "@/test/factories/user.factory";
+import { createTestApp, type TestApp } from "@/test/support/app";
 
 const BASE_URL = env.API_URL;
 
@@ -24,10 +26,11 @@ describe("Soft Cancel Use Case: Cancel → Restore → Cancel → Job Processes"
   let app: TestApp;
   let sessionHeaders: Record<string, string>;
   let organizationId: string;
+  let goldPlanResult: CreatePlanResult;
 
   beforeAll(async () => {
     app = createTestApp();
-    await seedPlans();
+    goldPlanResult = await PlanFactory.createPaid("gold");
   });
 
   afterAll(async () => {
@@ -44,7 +47,7 @@ describe("Soft Cancel Use Case: Cancel → Restore → Cancel → Job Processes"
 
   describe("Fase 1: Setup - Subscription Ativa", () => {
     test("should create authenticated user with organization", async () => {
-      const result = await createTestUserWithOrganization({
+      const result = await UserFactory.createWithOrganization({
         emailVerified: true,
       });
 
@@ -56,10 +59,6 @@ describe("Soft Cancel Use Case: Cancel → Restore → Cancel → Job Processes"
     });
 
     test("should create active subscription with currentPeriodEnd in 30 days", async () => {
-      if (!proPlan) {
-        throw new Error("Pro plan not found in fixtures");
-      }
-
       // Delete any existing subscriptions
       await db
         .delete(schema.orgSubscriptions)
@@ -67,7 +66,10 @@ describe("Soft Cancel Use Case: Cancel → Restore → Cancel → Job Processes"
 
       // Create without pagarmeSubscriptionId - simulates local subscription
       // Job will skip Pagar.me call when pagarmeSubscriptionId is null
-      await createActiveSubscription(organizationId, proPlan.id);
+      await SubscriptionFactory.createActive(
+        organizationId,
+        goldPlanResult.plan.id
+      );
 
       const [subscription] = await db
         .select()

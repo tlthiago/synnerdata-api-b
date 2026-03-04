@@ -1,44 +1,36 @@
-# Build stage
-FROM oven/bun:1 AS build
+# Install dependencies
+FROM oven/bun:1-alpine AS install
 
 WORKDIR /app
 
-# Cache de dependências
 COPY package.json bun.lock ./
-RUN bun install --frozen-lockfile
 
-# Copia código fonte
+RUN mkdir -p /temp/prod && \
+    cp package.json bun.lock /temp/prod/ && \
+    cd /temp/prod && \
+    bun install --frozen-lockfile --production --ignore-scripts
+
+# Release stage
+FROM oven/bun:1-alpine
+
+RUN apk add --no-cache curl
+
+WORKDIR /app
+
+COPY --from=install /temp/prod/node_modules ./node_modules
 COPY ./src ./src
 COPY ./tsconfig.json ./
+COPY ./package.json ./
+COPY ./scripts/entrypoint.sh ./scripts/
+RUN chmod +x scripts/entrypoint.sh
 
 ENV NODE_ENV=production
 
-# Compila para binário standalone
-RUN bun build \
-    --compile \
-    --minify-whitespace \
-    --minify-syntax \
-    --target bun \
-    --outfile server \
-    ./src/index.ts
+USER bun
 
-# Release stage - Debian slim para compatibilidade com libpq (PostgreSQL)
-FROM debian:bookworm-slim
+EXPOSE 3333
 
-# Instala dependências necessárias para o driver pg
-RUN apt-get update && apt-get install -y --no-install-recommends \
-    libssl3 \
-    ca-certificates \
-    curl \
-    && rm -rf /var/lib/apt/lists/*
+HEALTHCHECK --interval=10s --timeout=5s --retries=5 --start-period=30s \
+  CMD curl -f http://localhost:${PORT:-3333}/health/live || exit 1
 
-WORKDIR /app
-
-# Copia binário compilado
-COPY --from=build /app/server server
-
-ENV NODE_ENV=production
-
-EXPOSE 3000
-
-CMD ["./server"]
+CMD ["./scripts/entrypoint.sh"]
