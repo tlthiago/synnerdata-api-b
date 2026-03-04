@@ -22,9 +22,9 @@ import { logger } from "@/lib/logger";
 import { AuditService } from "@/modules/audit/audit.service";
 import { SubscriptionService } from "@/modules/payments/subscription/subscription.service";
 import {
-  sendAccountActivationEmail,
   sendOrganizationInvitationEmail,
   sendPasswordResetEmail,
+  sendProvisionActivationEmail,
   sendTwoFactorOTPEmail,
   sendVerificationEmail as sendVerificationEmailFn,
   sendWelcomeEmail,
@@ -303,10 +303,19 @@ export const auth = betterAuth({
         const encodedEmail = encodeURIComponent(user.email);
         const activationUrl = `${env.APP_URL}/definir-senha?token=${token}&email=${encodedEmail}`;
 
-        await sendAccountActivationEmail({
+        // Fetch organization name for personalized email
+        const [org] = await db
+          .select({ name: schema.organizations.name })
+          .from(schema.organizations)
+          .where(eq(schema.organizations.id, provision.organizationId))
+          .limit(1);
+
+        await sendProvisionActivationEmail({
           email: user.email,
           url: activationUrl,
           userName: user.name,
+          organizationName: org?.name ?? "sua organização",
+          isTrial: provision.type === "trial",
         });
         await db
           .update(schema.adminOrgProvisions)

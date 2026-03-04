@@ -51,15 +51,36 @@ Quando `maxEmployees` é informado, um pricing tier dedicado é criado (preço 0
 
 ## Organization Data
 
-O schema de criação do trial aceita dois nomes distintos:
+Ambos os endpoints (trial e checkout) aceitam um objeto `organization` com dois nomes distintos:
 
 - `organization.name` — nome real da organização → salvo em `organizations.name`
 - `organization.tradeName` — nome fantasia → salvo em `organization_profiles.tradeName`
+
+### Trial
 
 Campos do profile:
 - `taxId`, `email` — obrigatórios
 - `phone` — opcional. Quando informado, é copiado para `mobile` via `enrichProfile`
 - `legalName`, endereço completo (`street`, `number`, `complement`, `neighborhood`, `city`, `state`, `zipCode`) — opcionais
+
+### Checkout
+
+Campos do profile — **todos obrigatórios** (billing profile precisa):
+- `legalName`, `taxId`, `email`, `phone` — dados fiscais
+- `street`, `number`, `neighborhood`, `city`, `state`, `zipCode` — endereço
+- `complement` — opcional
+
+O serviço mapeia os dados de `organization` para:
+1. **Org profile** via `OrganizationService.enrichProfile()` (preenche campos null)
+2. **Billing data** para `AdminCheckoutService.create()` (cria billing profile + customer Pagar.me)
+
+## Checkout: successUrl e Polling
+
+- `successUrl` é construída automaticamente: `APP_URL/ativacao?email=<ownerEmail>`
+- O admin **não** define a URL — o backend monta baseado no email do owner
+- `minEmployees` é fixo em `0` (sem faixa, como trial)
+- Frontend usa endpoint público de polling (`GET /v1/public/provision-status?email=<email>`) para verificar quando a ativação está pronta
+- Email de ativação é enviado automaticamente pelo listener `subscription.activated` como fallback
 
 ## Response: `subscription` object
 

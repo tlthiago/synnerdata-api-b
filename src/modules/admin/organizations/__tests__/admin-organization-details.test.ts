@@ -3,6 +3,8 @@ import { eq } from "drizzle-orm";
 import { db } from "@/db";
 import { schema } from "@/db/schema";
 import { env } from "@/env";
+import { PlanFactory } from "@/test/factories/payments/plan.factory";
+import { SubscriptionFactory } from "@/test/factories/payments/subscription.factory";
 import { createTestApp, type TestApp } from "@/test/helpers/app";
 import {
   addMemberToOrganization,
@@ -153,6 +155,38 @@ describe("GET /v1/admin/organizations/:id", () => {
     expect(body.data.memberCount).toBe(0);
     expect(body.data.members).toHaveLength(0);
     expect(body.data.subscription).toBeNull();
+  });
+
+  test("should return subscription details with pricing info", async () => {
+    const { headers } = await createTestAdminUser();
+    const organization = await createTestOrganization();
+
+    const { plan } = await PlanFactory.createPaid("gold");
+    const subscriptionId = await SubscriptionFactory.createActive(
+      organization.id,
+      plan.id,
+      { billingCycle: "monthly" }
+    );
+
+    const response = await app.handle(
+      new Request(`${BASE_URL}/v1/admin/organizations/${organization.id}`, {
+        method: "GET",
+        headers,
+      })
+    );
+
+    expect(response.status).toBe(200);
+    const body = await response.json();
+    expect(body.success).toBe(true);
+
+    const { subscription } = body.data;
+    expect(subscription).not.toBeNull();
+    expect(subscription.id).toBe(subscriptionId);
+    expect(subscription.planName).toBe(plan.displayName);
+    expect(subscription.status).toBe("active");
+    expect(subscription.isTrial).toBe(false);
+    expect(subscription.billingCycle).toBe("monthly");
+    expect(subscription.isCustomPrice).toBe(false);
   });
 });
 

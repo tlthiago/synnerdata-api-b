@@ -6,8 +6,6 @@ import {
 import { entityReferenceSchema } from "@/lib/schemas/relationships";
 import { isValidCNPJ } from "@/lib/validation/documents";
 
-const isProduction = process.env.NODE_ENV === "production";
-
 const SLUG_REGEX = /^[a-z0-9-]+$/;
 
 // ============================================================
@@ -33,9 +31,12 @@ export const billingDataSchema = z.object({
 
 export const provisionSubscriptionSchema = z.object({
   status: z.string(),
+  planName: z.string().nullable(),
   trialDays: z.number().nullable(),
   trialEnd: z.string().nullable(),
   maxEmployees: z.number().nullable(),
+  billingCycle: z.string().nullable(),
+  customPriceMonthly: z.number().nullable(),
 });
 
 export const provisionDataSchema = z.object({
@@ -132,42 +133,58 @@ export type CreateProvisionTrialInput = CreateProvisionTrial & {
 // CHECKOUT
 // ============================================================
 
-export const createProvisionCheckoutSchema = z
-  .object({
-    ownerName: z.string().min(2).max(100).describe("Name of the owner"),
-    ownerEmail: z.email().describe("Email of the owner"),
-    organizationName: z.string().min(1).describe("Organization name"),
-    organizationSlug: z
-      .string()
-      .regex(
-        SLUG_REGEX,
-        "Slug must contain only lowercase letters, numbers, and hyphens"
-      )
-      .describe("Organization slug"),
-    basePlanId: z.string().min(1).describe("Base plan ID"),
-    minEmployees: z.number().int().min(0).describe("Minimum employees"),
-    maxEmployees: z.number().int().min(1).describe("Maximum employees"),
-    billingCycle: z
-      .enum(["monthly", "yearly"])
-      .default("monthly")
-      .describe("Billing cycle"),
-    customPriceMonthly: z
-      .number()
-      .int()
-      .min(100, "Minimum price is 100 centavos (R$ 1.00)")
-      .describe("Custom monthly price in centavos"),
-    successUrl: (isProduction ? z.httpUrl() : z.url()).describe(
-      "URL to redirect after successful payment"
-    ),
-    billing: billingDataSchema.describe(
-      "Billing data — required for new org without billing profile"
-    ),
-    notes: z.string().max(500).optional().describe("Admin notes"),
-  })
-  .refine((data) => data.maxEmployees > data.minEmployees, {
-    message: "maxEmployees must be greater than minEmployees",
-    path: ["maxEmployees"],
-  });
+export const createProvisionCheckoutSchema = z.object({
+  ownerName: z.string().min(2).max(100).describe("Name of the owner"),
+  ownerEmail: z.email().describe("Email of the owner"),
+  organization: z
+    .object({
+      name: z.string().min(1).describe("Nome real da organizacao"),
+      tradeName: z.string().min(1).describe("Nome fantasia"),
+      legalName: z.string().min(1).describe("Razao social"),
+      taxId: z
+        .string()
+        .refine((value) => isValidCNPJ(value), { message: "CNPJ invalido" })
+        .describe("CNPJ (14 digitos)"),
+      email: z.email().describe("Email comercial da organizacao"),
+      phone: z
+        .string()
+        .min(10)
+        .max(15)
+        .describe("Telefone comercial (10-15 digitos)"),
+      street: z.string().min(1).describe("Logradouro"),
+      number: z.string().min(1).describe("Numero"),
+      complement: z.string().optional().describe("Complemento"),
+      neighborhood: z.string().min(1).describe("Bairro"),
+      city: z.string().min(1).describe("Cidade"),
+      state: z.string().length(2).describe("UF (2 chars)"),
+      zipCode: z.string().length(8).describe("CEP (8 digitos)"),
+    })
+    .describe("Organization profile and billing data"),
+  organizationSlug: z
+    .string()
+    .regex(
+      SLUG_REGEX,
+      "Slug must contain only lowercase letters, numbers, and hyphens"
+    )
+    .describe("Organization slug"),
+  basePlanId: z.string().min(1).describe("Base plan ID"),
+  maxEmployees: z
+    .number()
+    .int()
+    .min(1)
+    .max(1000)
+    .describe("Maximum employees for the custom tier"),
+  billingCycle: z
+    .enum(["monthly", "yearly"])
+    .default("monthly")
+    .describe("Billing cycle"),
+  customPriceMonthly: z
+    .number()
+    .int()
+    .min(100, "Minimum price is 100 centavos (R$ 1.00)")
+    .describe("Custom monthly price in centavos"),
+  notes: z.string().max(500).optional().describe("Admin notes"),
+});
 
 export const createProvisionCheckoutResponseSchema =
   successResponseSchema(provisionDataSchema);

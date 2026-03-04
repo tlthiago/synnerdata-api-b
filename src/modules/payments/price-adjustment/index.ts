@@ -89,10 +89,7 @@ export const priceAdjustmentController = new Elysia({
         subscriptionId: params.subscriptionId,
         ...query,
       });
-      return {
-        success: true as const,
-        ...result,
-      };
+      return { success: true as const, ...result };
     },
     {
       auth: { requireAdmin: true },

@@ -22,12 +22,13 @@ Listagem, detalhes e configuração de organizações. Admin-only.
 - `page` (int >= 1, default: 1)
 - `limit` (int 1-100, default: 20)
 - `search` (string, opcional) — busca por nome ou nome fantasia
+- `subscriptionStatus` (string, opcional) — filtra por status virtual de assinatura, valores separados por vírgula: `trial`, `active`, `past_due`, `canceled`, `expired`. `trial` = status active + plano isTrial; `active` = status active + plano não-trial
 
 ## Dados retornados
 
 ### List item
 
-`id`, `name`, `slug`, `createdAt`, `tradeName`, `taxId`, `hasPowerBiUrl`, `memberCount`, `status`
+`id`, `name`, `slug`, `createdAt`, `tradeName`, `taxId`, `hasPowerBiUrl`, `memberCount`, `status`, `subscriptionStatus`
 
 ### Details
 

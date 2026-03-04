@@ -94,7 +94,7 @@ export abstract class PagarmePlanService {
       () =>
         PagarmeClient.createPlan(
           {
-            name: `custom-${plan.name}-${tierRange}-${timestamp}`,
+            name: `c-${plan.name}-${tierRange}-${timestamp}`.slice(0, 64),
             description: `Custom: ${plan.displayName} (${tierRange} funcionários)`,
             currency: "BRL",
             interval,

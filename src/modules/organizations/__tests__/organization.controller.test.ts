@@ -165,7 +165,7 @@ describe("PUT /v1/organizations/profile", () => {
     expect(org.name).toBe("Updated Company Name");
   });
 
-  test("should reject non-owner from updating profile", async () => {
+  test("should allow manager to update profile", async () => {
     const { organizationId } = await createTestUserWithOrganization({
       emailVerified: true,
     });
@@ -174,6 +174,60 @@ describe("PUT /v1/organizations/profile", () => {
     await addMemberToOrganization(memberResult, {
       organizationId,
       role: "manager",
+    });
+
+    const response = await app.handle(
+      new Request(`${BASE_URL}/v1/organizations/profile`, {
+        method: "PUT",
+        headers: {
+          ...memberResult.headers,
+          "Content-Type": "application/json",
+        },
+        body: JSON.stringify({ tradeName: "Manager Update" }),
+      })
+    );
+
+    expect(response.status).toBe(200);
+    const body = await response.json();
+    expect(body.data.tradeName).toBe("Manager Update");
+  });
+
+  test("should reject viewer from updating profile", async () => {
+    const { organizationId } = await createTestUserWithOrganization({
+      emailVerified: true,
+    });
+
+    const memberResult = await createTestUser({ emailVerified: true });
+    await addMemberToOrganization(memberResult, {
+      organizationId,
+      role: "viewer",
+    });
+
+    const response = await app.handle(
+      new Request(`${BASE_URL}/v1/organizations/profile`, {
+        method: "PUT",
+        headers: {
+          ...memberResult.headers,
+          "Content-Type": "application/json",
+        },
+        body: JSON.stringify({ tradeName: "Attempted Update" }),
+      })
+    );
+
+    expect(response.status).toBe(403);
+    const body = await response.json();
+    expect(body.error.code).toBe("FORBIDDEN");
+  });
+
+  test("should reject supervisor from updating profile", async () => {
+    const { organizationId } = await createTestUserWithOrganization({
+      emailVerified: true,
+    });
+
+    const memberResult = await createTestUser({ emailVerified: true });
+    await addMemberToOrganization(memberResult, {
+      organizationId,
+      role: "supervisor",
     });
 
     const response = await app.handle(
