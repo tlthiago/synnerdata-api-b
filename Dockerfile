@@ -21,6 +21,8 @@ COPY --from=install /temp/prod/node_modules ./node_modules
 COPY ./src ./src
 COPY ./tsconfig.json ./
 COPY ./package.json ./
+COPY ./scripts/entrypoint.sh ./scripts/
+RUN chmod +x scripts/entrypoint.sh
 
 ENV NODE_ENV=production
 
@@ -28,4 +30,7 @@ USER bun
 
 EXPOSE 3333
 
-CMD ["bun", "run", "src/index.ts"]
+HEALTHCHECK --interval=10s --timeout=5s --retries=5 --start-period=30s \
+  CMD curl -f http://localhost:${PORT:-3333}/health/live || exit 1
+
+CMD ["./scripts/entrypoint.sh"]

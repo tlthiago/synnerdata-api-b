@@ -1,10 +1,9 @@
 import { cors } from "@elysiajs/cors";
 import { openapi } from "@elysiajs/openapi";
-import { migrate } from "drizzle-orm/node-postgres/migrator";
 import { Elysia } from "elysia";
 import { rateLimit } from "elysia-rate-limit";
 import { z } from "zod";
-import { db, pool } from "./db";
+import { pool } from "./db";
 import { env } from "./env";
 import { betterAuthPlugin, OpenAPI } from "./lib/auth-plugin";
 import { parseOrigins } from "./lib/cors";
@@ -23,26 +22,6 @@ import { registerPaymentListeners } from "./modules/payments/hooks/listeners";
 import { publicController } from "./modules/public";
 
 const isProduction = process.env.NODE_ENV === "production";
-
-// Run database migrations in production before starting the server
-if (isProduction) {
-  try {
-    const start = performance.now();
-    await migrate(db, { migrationsFolder: "./src/db/migrations" });
-    const duration = Math.round(performance.now() - start);
-    logger.info({
-      type: "db:migrate",
-      message: `Database migrations completed in ${duration}ms`,
-    });
-  } catch (error) {
-    logger.error({
-      type: "db:migrate",
-      message: "Failed to run database migrations — server will not start",
-      error,
-    });
-    process.exit(1);
-  }
-}
 
 const corsOrigins = parseOrigins(env.CORS_ORIGIN);
 
