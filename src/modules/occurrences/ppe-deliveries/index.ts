@@ -1,4 +1,5 @@
 import { Elysia } from "elysia";
+import { isProduction } from "@/env";
 import { betterAuthPlugin } from "@/lib/auth-plugin";
 import { wrapSuccess } from "@/lib/responses/envelope";
 import {
@@ -56,6 +57,7 @@ export const ppeDeliveryController = new Elysia({
         422: validationErrorSchema,
       },
       detail: {
+        hide: isProduction,
         summary: "Create PPE delivery",
         description:
           "Creates a new PPE delivery record for an employee in the active organization",
@@ -113,6 +115,7 @@ export const ppeDeliveryController = new Elysia({
         404: notFoundErrorSchema,
       },
       detail: {
+        hide: isProduction,
         summary: "Get PPE delivery",
         description: "Gets a specific PPE delivery by ID",
       },
@@ -147,6 +150,7 @@ export const ppeDeliveryController = new Elysia({
         422: validationErrorSchema,
       },
       detail: {
+        hide: isProduction,
         summary: "Update PPE delivery",
         description: "Updates a specific PPE delivery by ID",
       },
@@ -176,6 +180,7 @@ export const ppeDeliveryController = new Elysia({
         404: notFoundErrorSchema,
       },
       detail: {
+        hide: isProduction,
         summary: "Delete PPE delivery",
         description: "Soft deletes a specific PPE delivery by ID",
       },
@@ -210,6 +215,7 @@ export const ppeDeliveryController = new Elysia({
         422: validationErrorSchema,
       },
       detail: {
+        hide: isProduction,
         summary: "Add PPE item to delivery",
         description: "Associates a PPE item with a delivery",
       },
@@ -238,6 +244,7 @@ export const ppeDeliveryController = new Elysia({
         404: notFoundErrorSchema,
       },
       detail: {
+        hide: isProduction,
         summary: "List PPE items for delivery",
         description: "Lists all PPE items associated with a delivery",
       },
@@ -268,6 +275,7 @@ export const ppeDeliveryController = new Elysia({
         404: notFoundErrorSchema,
       },
       detail: {
+        hide: isProduction,
         summary: "Remove PPE item from delivery",
         description: "Removes a PPE item association from a delivery",
       },

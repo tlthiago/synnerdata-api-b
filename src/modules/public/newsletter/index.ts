@@ -1,4 +1,5 @@
 import { Elysia } from "elysia";
+import { isProduction } from "@/env";
 import { wrapMessage } from "@/lib/responses/envelope";
 import {
   conflictErrorSchema,
@@ -26,6 +27,7 @@ export const newsletterController = new Elysia({
       422: validationErrorSchema,
     },
     detail: {
+      hide: isProduction,
       summary: "Inscrever na newsletter",
       description: "Inscreve um email na newsletter. Não requer autenticação.",
     },

@@ -1,4 +1,5 @@
 import { Elysia } from "elysia";
+import { isProduction } from "@/env";
 import { betterAuthPlugin } from "@/lib/auth-plugin";
 import { wrapSuccess } from "@/lib/responses/envelope";
 import {
@@ -31,6 +32,7 @@ export const featuresPublicController = new Elysia({
     422: validationErrorSchema,
   },
   detail: {
+    hide: isProduction,
     summary: "List active features",
     description:
       "Returns all active features with metadata for the pricing page. No authentication required.",
@@ -51,6 +53,7 @@ export const featuresProtectedController = new Elysia({
       403: forbiddenErrorSchema,
     },
     detail: {
+      hide: isProduction,
       summary: "List all features (Admin)",
       description:
         "Returns all features (active and inactive) with the count of plans using each feature. Requires admin privileges.",
@@ -71,6 +74,7 @@ export const featuresProtectedController = new Elysia({
         403: forbiddenErrorSchema,
       },
       detail: {
+        hide: isProduction,
         summary: "Create a feature",
         description:
           "Creates a new feature. The ID is a snake_case identifier used as a contract in code. Requires admin privileges.",
@@ -95,6 +99,7 @@ export const featuresProtectedController = new Elysia({
         404: notFoundErrorSchema,
       },
       detail: {
+        hide: isProduction,
         summary: "Update a feature",
         description:
           "Updates metadata of an existing feature. Cannot change the ID. Requires admin privileges.",
@@ -116,6 +121,7 @@ export const featuresProtectedController = new Elysia({
         404: notFoundErrorSchema,
       },
       detail: {
+        hide: isProduction,
         summary: "Delete/deactivate a feature",
         description:
           "If the feature is not associated with any plan, performs a hard delete. Otherwise, deactivates it (isActive = false). Requires admin privileges.",

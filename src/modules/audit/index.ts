@@ -1,4 +1,5 @@
 import { Elysia } from "elysia";
+import { isProduction } from "@/env";
 import { betterAuthPlugin } from "@/lib/auth-plugin";
 import { wrapSuccess } from "@/lib/responses/envelope";
 import {
@@ -46,6 +47,7 @@ export const auditController = new Elysia({
         403: forbiddenErrorSchema,
       },
       detail: {
+        hide: isProduction,
         summary: "Get audit logs",
         description:
           "Returns audit logs for the organization. Only the organization owner can access this endpoint. Supports filtering by resource, date range, and pagination.",
@@ -70,6 +72,7 @@ export const auditController = new Elysia({
         403: forbiddenErrorSchema,
       },
       detail: {
+        hide: isProduction,
         summary: "Get resource audit history",
         description:
           "Returns the full audit history for a specific resource. Only the organization owner can access this endpoint.",

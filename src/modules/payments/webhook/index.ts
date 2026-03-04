@@ -1,4 +1,5 @@
 import { Elysia } from "elysia";
+import { isProduction } from "@/env";
 import {
   unauthorizedErrorSchema,
   validationErrorSchema,
@@ -28,6 +29,7 @@ export const webhookController = new Elysia({
       401: unauthorizedErrorSchema,
     },
     detail: {
+      hide: isProduction,
       summary: "Process Pagarme webhook",
       description:
         "Receives and processes webhook events from Pagarme payment provider.",

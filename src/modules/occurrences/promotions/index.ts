@@ -1,4 +1,5 @@
 import { Elysia } from "elysia";
+import { isProduction } from "@/env";
 import { betterAuthPlugin } from "@/lib/auth-plugin";
 import { wrapSuccess } from "@/lib/responses/envelope";
 import {
@@ -48,6 +49,7 @@ export const promotionController = new Elysia({
         422: validationErrorSchema,
       },
       detail: {
+        hide: isProduction,
         summary: "Create promotion",
         description: "Creates a new promotion record for an employee",
       },
@@ -97,6 +99,7 @@ export const promotionController = new Elysia({
         404: notFoundErrorSchema,
       },
       detail: {
+        hide: isProduction,
         summary: "Get promotion",
         description: "Gets a specific promotion by ID",
       },
@@ -130,6 +133,7 @@ export const promotionController = new Elysia({
         422: validationErrorSchema,
       },
       detail: {
+        hide: isProduction,
         summary: "Update promotion",
         description: "Updates a specific promotion by ID",
       },
@@ -158,6 +162,7 @@ export const promotionController = new Elysia({
         404: notFoundErrorSchema,
       },
       detail: {
+        hide: isProduction,
         summary: "Delete promotion",
         description: "Soft deletes a specific promotion by ID",
       },

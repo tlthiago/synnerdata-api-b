@@ -1,4 +1,5 @@
 import { Elysia } from "elysia";
+import { isProduction } from "@/env";
 import { betterAuthPlugin } from "@/lib/auth-plugin";
 import { wrapSuccess } from "@/lib/responses/envelope";
 import {
@@ -50,6 +51,7 @@ export const laborLawsuitController = new Elysia({
         422: validationErrorSchema,
       },
       detail: {
+        hide: isProduction,
         summary: "Create labor lawsuit",
         description:
           "Creates a new labor lawsuit record for the active organization",
@@ -105,6 +107,7 @@ export const laborLawsuitController = new Elysia({
         404: notFoundErrorSchema,
       },
       detail: {
+        hide: isProduction,
         summary: "Get labor lawsuit",
         description: "Gets a specific labor lawsuit by ID",
       },
@@ -138,6 +141,7 @@ export const laborLawsuitController = new Elysia({
         422: validationErrorSchema,
       },
       detail: {
+        hide: isProduction,
         summary: "Update labor lawsuit",
         description: "Updates a specific labor lawsuit by ID",
       },
@@ -166,6 +170,7 @@ export const laborLawsuitController = new Elysia({
         404: notFoundErrorSchema,
       },
       detail: {
+        hide: isProduction,
         summary: "Delete labor lawsuit",
         description: "Soft deletes a specific labor lawsuit by ID",
       },

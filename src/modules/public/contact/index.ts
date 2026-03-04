@@ -1,4 +1,5 @@
 import { Elysia } from "elysia";
+import { isProduction } from "@/env";
 import { wrapMessage } from "@/lib/responses/envelope";
 import {
   messageOnlyResponseSchema,
@@ -24,6 +25,7 @@ export const contactController = new Elysia({
       422: validationErrorSchema,
     },
     detail: {
+      hide: isProduction,
       summary: "Enviar mensagem de contato",
       description:
         "Envia uma mensagem de contato por email. Não requer autenticação.",

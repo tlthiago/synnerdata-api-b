@@ -1,4 +1,5 @@
 import { Elysia } from "elysia";
+import { isProduction } from "@/env";
 import { betterAuthPlugin } from "@/lib/auth-plugin";
 import { wrapSuccess } from "@/lib/responses/envelope";
 import {
@@ -49,6 +50,7 @@ export const absenceController = new Elysia({
         422: validationErrorSchema,
       },
       detail: {
+        hide: isProduction,
         summary: "Create absence",
         description: "Creates a new absence record for an employee",
       },
@@ -100,6 +102,7 @@ export const absenceController = new Elysia({
         404: notFoundErrorSchema,
       },
       detail: {
+        hide: isProduction,
         summary: "Get absence",
         description: "Gets a specific absence record by ID",
       },
@@ -134,6 +137,7 @@ export const absenceController = new Elysia({
         422: validationErrorSchema,
       },
       detail: {
+        hide: isProduction,
         summary: "Update absence",
         description: "Updates a specific absence record by ID",
       },
@@ -163,6 +167,7 @@ export const absenceController = new Elysia({
         404: notFoundErrorSchema,
       },
       detail: {
+        hide: isProduction,
         summary: "Delete absence",
         description: "Soft deletes a specific absence record by ID",
       },

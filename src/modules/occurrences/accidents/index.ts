@@ -1,4 +1,5 @@
 import { Elysia } from "elysia";
+import { isProduction } from "@/env";
 import { betterAuthPlugin } from "@/lib/auth-plugin";
 import { wrapSuccess } from "@/lib/responses/envelope";
 import {
@@ -50,6 +51,7 @@ export const accidentController = new Elysia({
         422: validationErrorSchema,
       },
       detail: {
+        hide: isProduction,
         summary: "Create accident",
         description: "Creates a new work accident for the active organization",
       },
@@ -101,6 +103,7 @@ export const accidentController = new Elysia({
         404: notFoundErrorSchema,
       },
       detail: {
+        hide: isProduction,
         summary: "Get accident",
         description: "Gets a specific work accident by ID",
       },
@@ -135,6 +138,7 @@ export const accidentController = new Elysia({
         422: validationErrorSchema,
       },
       detail: {
+        hide: isProduction,
         summary: "Update accident",
         description: "Updates a specific work accident by ID",
       },
@@ -164,6 +168,7 @@ export const accidentController = new Elysia({
         404: notFoundErrorSchema,
       },
       detail: {
+        hide: isProduction,
         summary: "Delete accident",
         description: "Soft deletes a specific work accident by ID",
       },

@@ -1,4 +1,5 @@
 import { Elysia, t } from "elysia";
+import { isProduction } from "@/env";
 import { betterAuthPlugin } from "@/lib/auth-plugin";
 import { wrapSuccess } from "@/lib/responses/envelope";
 import {
@@ -55,6 +56,7 @@ export const employeeController = new Elysia({
         403: forbiddenErrorSchema,
       },
       detail: {
+        hide: isProduction,
         summary: "Download import template",
         description:
           "Downloads the .xlsx template for bulk employee import, populated with organization data",
@@ -91,6 +93,7 @@ export const employeeController = new Elysia({
         422: validationErrorSchema,
       },
       detail: {
+        hide: isProduction,
         summary: "Import employees from Excel",
         description:
           "Imports employees from a .xlsx file. Valid rows are imported, invalid rows are reported.",
@@ -121,6 +124,7 @@ export const employeeController = new Elysia({
         422: validationErrorSchema,
       },
       detail: {
+        hide: isProduction,
         summary: "Create employee",
         description: "Creates a new employee for the active organization",
       },
@@ -204,6 +208,7 @@ export const employeeController = new Elysia({
         422: validationErrorSchema,
       },
       detail: {
+        hide: isProduction,
         summary: "Update employee",
         description: "Updates a specific employee by ID",
       },
@@ -238,6 +243,7 @@ export const employeeController = new Elysia({
         422: validationErrorSchema,
       },
       detail: {
+        hide: isProduction,
         summary: "Update employee status",
         description: "Updates the status of a specific employee",
       },
@@ -266,6 +272,7 @@ export const employeeController = new Elysia({
         404: notFoundErrorSchema,
       },
       detail: {
+        hide: isProduction,
         summary: "Delete employee",
         description: "Soft deletes a specific employee by ID",
       },

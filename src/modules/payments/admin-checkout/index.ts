@@ -1,4 +1,5 @@
 import { Elysia } from "elysia";
+import { isProduction } from "@/env";
 import { betterAuthPlugin } from "@/lib/auth-plugin";
 import { wrapSuccess } from "@/lib/responses/envelope";
 import {
@@ -39,6 +40,7 @@ export const adminCheckoutController = new Elysia({
         404: notFoundErrorSchema,
       },
       detail: {
+        hide: isProduction,
         summary: "Create admin checkout with custom price",
         description:
           "Admin-only endpoint to generate a payment link with a custom (negotiated) price for a specific organization. Creates a dedicated Pagar.me plan with the custom price.",

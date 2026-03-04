@@ -30,3 +30,5 @@ const envSchema = z.object({
 });
 
 export const env = envSchema.parse(process.env);
+
+export const isProduction = process.env.NODE_ENV === "production";

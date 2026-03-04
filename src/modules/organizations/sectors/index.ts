@@ -1,4 +1,5 @@
 import { Elysia } from "elysia";
+import { isProduction } from "@/env";
 import { betterAuthPlugin } from "@/lib/auth-plugin";
 import { wrapSuccess } from "@/lib/responses/envelope";
 import {
@@ -48,6 +49,7 @@ export const sectorController = new Elysia({
         422: validationErrorSchema,
       },
       detail: {
+        hide: isProduction,
         summary: "Create sector",
         description: "Creates a new sector for the active organization",
       },
@@ -97,6 +99,7 @@ export const sectorController = new Elysia({
         404: notFoundErrorSchema,
       },
       detail: {
+        hide: isProduction,
         summary: "Get sector",
         description: "Gets a specific sector by ID",
       },
@@ -130,6 +133,7 @@ export const sectorController = new Elysia({
         422: validationErrorSchema,
       },
       detail: {
+        hide: isProduction,
         summary: "Update sector",
         description: "Updates a specific sector by ID",
       },
@@ -158,6 +162,7 @@ export const sectorController = new Elysia({
         404: notFoundErrorSchema,
       },
       detail: {
+        hide: isProduction,
         summary: "Delete sector",
         description: "Soft deletes a specific sector by ID",
       },

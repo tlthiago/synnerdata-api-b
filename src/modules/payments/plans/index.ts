@@ -1,4 +1,5 @@
 import { Elysia } from "elysia";
+import { isProduction } from "@/env";
 import { betterAuthPlugin } from "@/lib/auth-plugin";
 import { wrapSuccess } from "@/lib/responses/envelope";
 import {
@@ -30,6 +31,7 @@ export const plansPublicController = new Elysia({
     422: validationErrorSchema,
   },
   detail: {
+    hide: isProduction,
     summary: "List available plans",
     description:
       "Returns all active and public plans with their pricing tiers.",
@@ -50,6 +52,7 @@ export const plansProtectedController = new Elysia({
       403: forbiddenErrorSchema,
     },
     detail: {
+      hide: isProduction,
       summary: "List all plans (Admin)",
       description:
         "Returns all plans including inactive and private ones. Requires admin privileges.",
@@ -69,6 +72,7 @@ export const plansProtectedController = new Elysia({
         404: notFoundErrorSchema,
       },
       detail: {
+        hide: isProduction,
         summary: "Get plan details (Admin)",
         description:
           "Returns details of a specific plan with its pricing tiers. Requires admin privileges.",
@@ -89,6 +93,7 @@ export const plansProtectedController = new Elysia({
         404: notFoundErrorSchema,
       },
       detail: {
+        hide: isProduction,
         summary: "List archived pricing tiers (Admin)",
         description:
           "Returns archived pricing tiers for a plan with the count of active subscriptions still referencing each tier. Requires admin privileges.",
@@ -105,6 +110,7 @@ export const plansProtectedController = new Elysia({
       403: forbiddenErrorSchema,
     },
     detail: {
+      hide: isProduction,
       summary: "Create a new plan",
       description:
         "Creates a new subscription plan with pricing tiers. Requires admin privileges. Non-trial plans must include exactly 10 pricing tiers matching the fixed employee ranges.",
@@ -126,6 +132,7 @@ export const plansProtectedController = new Elysia({
         404: notFoundErrorSchema,
       },
       detail: {
+        hide: isProduction,
         summary: "Update a plan",
         description:
           "Updates an existing subscription plan. Optionally replaces all pricing tiers. Requires admin privileges.",
@@ -146,6 +153,7 @@ export const plansProtectedController = new Elysia({
         404: notFoundErrorSchema,
       },
       detail: {
+        hide: isProduction,
         summary: "Delete a plan",
         description:
           "Deletes a subscription plan and its pricing tiers. Cannot delete plans with active subscriptions. Requires admin privileges.",

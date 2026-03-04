@@ -1,4 +1,5 @@
 import { Elysia } from "elysia";
+import { isProduction } from "@/env";
 import { betterAuthPlugin } from "@/lib/auth-plugin";
 import { wrapSuccess } from "@/lib/responses/envelope";
 import {
@@ -49,6 +50,7 @@ export const warningController = new Elysia({
         422: validationErrorSchema,
       },
       detail: {
+        hide: isProduction,
         summary: "Create warning",
         description: "Creates a new warning for the active organization",
       },
@@ -100,6 +102,7 @@ export const warningController = new Elysia({
         404: notFoundErrorSchema,
       },
       detail: {
+        hide: isProduction,
         summary: "Get warning",
         description: "Gets a specific warning by ID",
       },
@@ -134,6 +137,7 @@ export const warningController = new Elysia({
         422: validationErrorSchema,
       },
       detail: {
+        hide: isProduction,
         summary: "Update warning",
         description: "Updates a specific warning by ID",
       },
@@ -163,6 +167,7 @@ export const warningController = new Elysia({
         404: notFoundErrorSchema,
       },
       detail: {
+        hide: isProduction,
         summary: "Delete warning",
         description: "Soft deletes a specific warning by ID",
       },

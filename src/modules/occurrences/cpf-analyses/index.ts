@@ -1,4 +1,5 @@
 import { Elysia } from "elysia";
+import { isProduction } from "@/env";
 import { betterAuthPlugin } from "@/lib/auth-plugin";
 import { wrapSuccess } from "@/lib/responses/envelope";
 import {
@@ -49,6 +50,7 @@ export const cpfAnalysisController = new Elysia({
         422: validationErrorSchema,
       },
       detail: {
+        hide: isProduction,
         summary: "Create CPF analysis",
         description: "Creates a new CPF analysis for the active organization",
       },
@@ -98,6 +100,7 @@ export const cpfAnalysisController = new Elysia({
         404: notFoundErrorSchema,
       },
       detail: {
+        hide: isProduction,
         summary: "Get CPF analysis",
         description: "Gets a specific CPF analysis by ID",
       },
@@ -131,6 +134,7 @@ export const cpfAnalysisController = new Elysia({
         422: validationErrorSchema,
       },
       detail: {
+        hide: isProduction,
         summary: "Update CPF analysis",
         description: "Updates a specific CPF analysis by ID",
       },
@@ -159,6 +163,7 @@ export const cpfAnalysisController = new Elysia({
         404: notFoundErrorSchema,
       },
       detail: {
+        hide: isProduction,
         summary: "Delete CPF analysis",
         description: "Soft deletes a specific CPF analysis by ID",
       },

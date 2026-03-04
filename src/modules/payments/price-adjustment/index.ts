@@ -1,4 +1,5 @@
 import { Elysia } from "elysia";
+import { isProduction } from "@/env";
 import { betterAuthPlugin } from "@/lib/auth-plugin";
 import { wrapSuccess } from "@/lib/responses/envelope";
 import {
@@ -47,6 +48,7 @@ export const priceAdjustmentController = new Elysia({
         404: notFoundErrorSchema,
       },
       detail: {
+        hide: isProduction,
         summary: "Adjust price for individual subscription",
         description:
           "Admin-only endpoint to adjust the price for a specific subscription. Creates a dedicated Pagar.me plan and updates the subscription price. Takes effect from the next billing cycle.",
@@ -73,6 +75,7 @@ export const priceAdjustmentController = new Elysia({
         404: notFoundErrorSchema,
       },
       detail: {
+        hide: isProduction,
         summary: "Bulk price adjustment by tier",
         description:
           "Admin-only endpoint to adjust prices for all active subscriptions on a specific tier and billing cycle. Updates the catalog plan in Pagar.me, local tier prices, and all affected subscriptions.",
@@ -102,6 +105,7 @@ export const priceAdjustmentController = new Elysia({
         404: notFoundErrorSchema,
       },
       detail: {
+        hide: isProduction,
         summary: "Get price adjustment history",
         description:
           "Returns the price adjustment history for a specific subscription, ordered by most recent first.",

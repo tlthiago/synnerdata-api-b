@@ -1,4 +1,5 @@
 import { Elysia } from "elysia";
+import { isProduction } from "@/env";
 import { betterAuthPlugin } from "@/lib/auth-plugin";
 import { wrapSuccess } from "@/lib/responses/envelope";
 import {
@@ -50,6 +51,7 @@ export const branchController = new Elysia({
         422: validationErrorSchema,
       },
       detail: {
+        hide: isProduction,
         summary: "Create branch",
         description: "Creates a new branch for the active organization",
       },
@@ -99,6 +101,7 @@ export const branchController = new Elysia({
         404: notFoundErrorSchema,
       },
       detail: {
+        hide: isProduction,
         summary: "Get branch",
         description: "Gets a specific branch by ID",
       },
@@ -133,6 +136,7 @@ export const branchController = new Elysia({
         422: validationErrorSchema,
       },
       detail: {
+        hide: isProduction,
         summary: "Update branch",
         description: "Updates a specific branch by ID",
       },
@@ -161,6 +165,7 @@ export const branchController = new Elysia({
         404: notFoundErrorSchema,
       },
       detail: {
+        hide: isProduction,
         summary: "Delete branch",
         description: "Soft deletes a specific branch by ID",
       },

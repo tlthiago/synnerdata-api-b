@@ -1,4 +1,5 @@
 import { Elysia } from "elysia";
+import { isProduction } from "@/env";
 import { betterAuthPlugin } from "@/lib/auth-plugin";
 import { wrapSuccess } from "@/lib/responses/envelope";
 import {
@@ -54,6 +55,7 @@ export const projectController = new Elysia({
         422: validationErrorSchema,
       },
       detail: {
+        hide: isProduction,
         summary: "Create project",
         description:
           "Creates a new project for the active organization. Optionally assign employees on creation.",
@@ -104,6 +106,7 @@ export const projectController = new Elysia({
         404: notFoundErrorSchema,
       },
       detail: {
+        hide: isProduction,
         summary: "Get project",
         description: "Gets a specific project by ID",
       },
@@ -137,6 +140,7 @@ export const projectController = new Elysia({
         422: validationErrorSchema,
       },
       detail: {
+        hide: isProduction,
         summary: "Update project",
         description: "Updates a specific project by ID",
       },
@@ -165,6 +169,7 @@ export const projectController = new Elysia({
         404: notFoundErrorSchema,
       },
       detail: {
+        hide: isProduction,
         summary: "Delete project",
         description: "Soft deletes a specific project by ID",
       },
@@ -193,6 +198,7 @@ export const projectController = new Elysia({
         404: notFoundErrorSchema,
       },
       detail: {
+        hide: isProduction,
         summary: "List project employees",
         description: "Lists all employees assigned to a project",
       },
@@ -225,6 +231,7 @@ export const projectController = new Elysia({
         422: validationErrorSchema,
       },
       detail: {
+        hide: isProduction,
         summary: "Add employee to project",
         description: "Assigns an employee to a project",
       },
@@ -254,6 +261,7 @@ export const projectController = new Elysia({
         404: notFoundErrorSchema,
       },
       detail: {
+        hide: isProduction,
         summary: "Remove employee from project",
         description: "Removes an employee assignment from a project",
       },

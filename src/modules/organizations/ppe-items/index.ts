@@ -1,4 +1,5 @@
 import { Elysia } from "elysia";
+import { isProduction } from "@/env";
 import { betterAuthPlugin } from "@/lib/auth-plugin";
 import { wrapSuccess } from "@/lib/responses/envelope";
 import {
@@ -53,6 +54,7 @@ export const ppeItemController = new Elysia({
         422: validationErrorSchema,
       },
       detail: {
+        hide: isProduction,
         summary: "Create PPE item",
         description: "Creates a new PPE item for the active organization",
       },
@@ -102,6 +104,7 @@ export const ppeItemController = new Elysia({
         404: notFoundErrorSchema,
       },
       detail: {
+        hide: isProduction,
         summary: "Get PPE item",
         description: "Gets a specific PPE item by ID",
       },
@@ -135,6 +138,7 @@ export const ppeItemController = new Elysia({
         422: validationErrorSchema,
       },
       detail: {
+        hide: isProduction,
         summary: "Update PPE item",
         description: "Updates a specific PPE item by ID",
       },
@@ -163,6 +167,7 @@ export const ppeItemController = new Elysia({
         404: notFoundErrorSchema,
       },
       detail: {
+        hide: isProduction,
         summary: "Delete PPE item",
         description: "Soft deletes a specific PPE item by ID",
       },
@@ -196,6 +201,7 @@ export const ppeItemController = new Elysia({
         422: validationErrorSchema,
       },
       detail: {
+        hide: isProduction,
         summary: "Add job position to PPE item",
         description: "Associates a job position with a PPE item",
       },
@@ -223,6 +229,7 @@ export const ppeItemController = new Elysia({
         404: notFoundErrorSchema,
       },
       detail: {
+        hide: isProduction,
         summary: "List job positions for PPE item",
         description: "Lists all job positions associated with a PPE item",
       },
@@ -252,6 +259,7 @@ export const ppeItemController = new Elysia({
         404: notFoundErrorSchema,
       },
       detail: {
+        hide: isProduction,
         summary: "Remove job position from PPE item",
         description: "Removes a job position association from a PPE item",
       },

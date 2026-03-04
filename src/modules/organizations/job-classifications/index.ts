@@ -1,4 +1,5 @@
 import { Elysia } from "elysia";
+import { isProduction } from "@/env";
 import { betterAuthPlugin } from "@/lib/auth-plugin";
 import { wrapSuccess } from "@/lib/responses/envelope";
 import {
@@ -48,6 +49,7 @@ export const jobClassificationController = new Elysia({
         422: validationErrorSchema,
       },
       detail: {
+        hide: isProduction,
         summary: "Create job classification",
         description:
           "Creates a new job classification (CBO) for the active organization",
@@ -101,6 +103,7 @@ export const jobClassificationController = new Elysia({
         404: notFoundErrorSchema,
       },
       detail: {
+        hide: isProduction,
         summary: "Get job classification",
         description: "Gets a specific job classification (CBO) by ID",
       },
@@ -134,6 +137,7 @@ export const jobClassificationController = new Elysia({
         422: validationErrorSchema,
       },
       detail: {
+        hide: isProduction,
         summary: "Update job classification",
         description: "Updates a specific job classification (CBO) by ID",
       },
@@ -162,6 +166,7 @@ export const jobClassificationController = new Elysia({
         404: notFoundErrorSchema,
       },
       detail: {
+        hide: isProduction,
         summary: "Delete job classification",
         description: "Soft deletes a specific job classification (CBO) by ID",
       },

@@ -1,4 +1,5 @@
 import { Elysia } from "elysia";
+import { isProduction } from "@/env";
 import { betterAuthPlugin } from "@/lib/auth-plugin";
 import { wrapSuccess } from "@/lib/responses/envelope";
 import {
@@ -42,6 +43,7 @@ export const customerController = new Elysia({
         403: forbiddenErrorSchema,
       },
       detail: {
+        hide: isProduction,
         summary: "List customers from Pagarme",
         description:
           "Lists all customers from the payment provider with optional filters.",

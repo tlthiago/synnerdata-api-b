@@ -1,4 +1,5 @@
 import { Elysia } from "elysia";
+import { isProduction } from "@/env";
 import { betterAuthPlugin } from "@/lib/auth-plugin";
 import { wrapSuccess } from "@/lib/responses/envelope";
 import {
@@ -48,6 +49,7 @@ export const costCenterController = new Elysia({
         422: validationErrorSchema,
       },
       detail: {
+        hide: isProduction,
         summary: "Create cost center",
         description: "Creates a new cost center for the active organization",
       },
@@ -97,6 +99,7 @@ export const costCenterController = new Elysia({
         404: notFoundErrorSchema,
       },
       detail: {
+        hide: isProduction,
         summary: "Get cost center",
         description: "Gets a specific cost center by ID",
       },
@@ -130,6 +133,7 @@ export const costCenterController = new Elysia({
         422: validationErrorSchema,
       },
       detail: {
+        hide: isProduction,
         summary: "Update cost center",
         description: "Updates a specific cost center by ID",
       },
@@ -158,6 +162,7 @@ export const costCenterController = new Elysia({
         404: notFoundErrorSchema,
       },
       detail: {
+        hide: isProduction,
         summary: "Delete cost center",
         description: "Soft deletes a specific cost center by ID",
       },

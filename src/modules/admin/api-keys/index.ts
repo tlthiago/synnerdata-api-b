@@ -1,4 +1,5 @@
 import { Elysia } from "elysia";
+import { isProduction } from "@/env";
 import { betterAuthPlugin } from "@/lib/auth-plugin";
 import { wrapSuccess } from "@/lib/responses/envelope";
 import {
@@ -39,6 +40,7 @@ export const apiKeysController = new Elysia({
         403: forbiddenErrorSchema,
       },
       detail: {
+        hide: isProduction,
         summary: "Create API Key",
         description:
           "Create a new API key for external service integration. Only admins can create keys. The key value is only returned on creation.",
@@ -60,6 +62,7 @@ export const apiKeysController = new Elysia({
         403: forbiddenErrorSchema,
       },
       detail: {
+        hide: isProduction,
         summary: "List API Keys",
         description:
           "List all API keys. Optionally filter by organizationId to see keys for a specific organization.",
@@ -80,6 +83,7 @@ export const apiKeysController = new Elysia({
         404: notFoundErrorSchema,
       },
       detail: {
+        hide: isProduction,
         summary: "Get API Key",
         description:
           "Get details of a specific API key. The key value is never returned after creation.",
@@ -100,6 +104,7 @@ export const apiKeysController = new Elysia({
         404: notFoundErrorSchema,
       },
       detail: {
+        hide: isProduction,
         summary: "Revoke API Key",
         description:
           "Disable an API key without deleting it. The key can be re-enabled later if needed.",
@@ -120,6 +125,7 @@ export const apiKeysController = new Elysia({
         404: notFoundErrorSchema,
       },
       detail: {
+        hide: isProduction,
         summary: "Delete API Key",
         description:
           "Permanently delete an API key. This action cannot be undone.",

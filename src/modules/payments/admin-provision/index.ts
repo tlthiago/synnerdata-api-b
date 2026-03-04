@@ -1,5 +1,6 @@
 import { Elysia } from "elysia";
 import { z } from "zod";
+import { isProduction } from "@/env";
 import { betterAuthPlugin } from "@/lib/auth-plugin";
 import { wrapSuccess } from "@/lib/responses/envelope";
 import {
@@ -54,6 +55,7 @@ export const adminProvisionController = new Elysia({
         409: conflictErrorSchema,
       },
       detail: {
+        hide: isProduction,
         summary: "Provision organization with trial",
         description:
           "Admin-only endpoint to create a user + organization with a 14-day trial. Owner receives an activation email.",
@@ -84,6 +86,7 @@ export const adminProvisionController = new Elysia({
         409: conflictErrorSchema,
       },
       detail: {
+        hide: isProduction,
         summary: "Provision organization with checkout",
         description:
           "Admin-only endpoint to create a user + organization with a Pagarme payment link. Owner receives checkout link email.",
@@ -106,6 +109,7 @@ export const adminProvisionController = new Elysia({
         403: forbiddenErrorSchema,
       },
       detail: {
+        hide: isProduction,
         summary: "List provisions",
         description:
           "Admin-only endpoint to list all provisioned organizations.",
@@ -129,6 +133,7 @@ export const adminProvisionController = new Elysia({
         404: notFoundErrorSchema,
       },
       detail: {
+        hide: isProduction,
         summary: "Resend activation email",
         description:
           "Admin-only endpoint to resend the account activation email for a provisioned user.",
@@ -152,6 +157,7 @@ export const adminProvisionController = new Elysia({
         404: notFoundErrorSchema,
       },
       detail: {
+        hide: isProduction,
         summary: "Regenerate checkout link",
         description:
           "Admin-only endpoint to regenerate an expired Pagarme checkout link.",
@@ -175,6 +181,7 @@ export const adminProvisionController = new Elysia({
         404: notFoundErrorSchema,
       },
       detail: {
+        hide: isProduction,
         summary: "Delete provision",
         description:
           "Admin-only endpoint to delete a provisioned organization and user. Hard deletes org/user, soft-deletes provision for audit.",

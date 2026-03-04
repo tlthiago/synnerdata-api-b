@@ -1,4 +1,5 @@
 import { Elysia } from "elysia";
+import { isProduction } from "@/env";
 import { betterAuthPlugin } from "@/lib/auth-plugin";
 import { wrapSuccess } from "@/lib/responses/envelope";
 import {
@@ -50,6 +51,7 @@ export const terminationController = new Elysia({
         422: validationErrorSchema,
       },
       detail: {
+        hide: isProduction,
         summary: "Create termination",
         description:
           "Creates a new termination record for an employee in the active organization",
@@ -102,6 +104,7 @@ export const terminationController = new Elysia({
         404: notFoundErrorSchema,
       },
       detail: {
+        hide: isProduction,
         summary: "Get termination",
         description: "Gets a specific termination by ID",
       },
@@ -136,6 +139,7 @@ export const terminationController = new Elysia({
         422: validationErrorSchema,
       },
       detail: {
+        hide: isProduction,
         summary: "Update termination",
         description: "Updates a specific termination by ID",
       },
@@ -165,6 +169,7 @@ export const terminationController = new Elysia({
         404: notFoundErrorSchema,
       },
       detail: {
+        hide: isProduction,
         summary: "Delete termination",
         description: "Soft deletes a specific termination by ID",
       },

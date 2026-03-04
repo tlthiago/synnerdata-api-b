@@ -1,4 +1,5 @@
 import { Elysia } from "elysia";
+import { isProduction } from "@/env";
 import { betterAuthPlugin } from "@/lib/auth-plugin";
 import { wrapSuccess } from "@/lib/responses/envelope";
 import {
@@ -28,6 +29,7 @@ export const orphanedPlansController = new Elysia({
         403: forbiddenErrorSchema,
       },
       detail: {
+        hide: isProduction,
         summary: "List orphaned Pagar.me plans",
         description:
           "Lists all Pagar.me plans that are no longer referenced by any active pricing tier.",
@@ -45,6 +47,7 @@ export const orphanedPlansController = new Elysia({
         403: forbiddenErrorSchema,
       },
       detail: {
+        hide: isProduction,
         summary: "Cleanup orphaned Pagar.me plans",
         description:
           "Deactivates orphaned Pagar.me plans that have no active subscriptions. Plans with active subscriptions are kept.",

@@ -1,4 +1,5 @@
 import { Elysia } from "elysia";
+import { isProduction } from "@/env";
 import { betterAuthPlugin } from "@/lib/auth-plugin";
 import { wrapSuccess } from "@/lib/responses/envelope";
 import {
@@ -46,6 +47,7 @@ export const subscriptionController = new Elysia({
         404: notFoundErrorSchema,
       },
       detail: {
+        hide: isProduction,
         summary: "Get organization subscription",
         description:
           "Returns the subscription details for the active organization, including plan information, trial status, and billing period.",
@@ -71,6 +73,7 @@ export const subscriptionController = new Elysia({
         403: forbiddenErrorSchema,
       },
       detail: {
+        hide: isProduction,
         summary: "Get organization capabilities",
         description:
           "Returns the organization's subscription status, current plan, and all available features with access information.",
@@ -103,6 +106,7 @@ export const subscriptionController = new Elysia({
         422: validationErrorSchema,
       },
       detail: {
+        hide: isProduction,
         summary: "Cancel subscription at period end",
         description:
           "Schedules the subscription to be canceled at the end of the current billing period. The subscription remains active until then. Trial subscriptions cannot be canceled. Optionally accepts a reason and comment for the cancellation.",
@@ -131,6 +135,7 @@ export const subscriptionController = new Elysia({
         404: notFoundErrorSchema,
       },
       detail: {
+        hide: isProduction,
         summary: "Restore canceled subscription",
         description:
           "Restores a subscription that was scheduled for cancellation, reactivating it before the period ends.",

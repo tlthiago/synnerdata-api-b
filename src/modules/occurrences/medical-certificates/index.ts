@@ -1,4 +1,5 @@
 import { Elysia } from "elysia";
+import { isProduction } from "@/env";
 import { betterAuthPlugin } from "@/lib/auth-plugin";
 import { wrapSuccess } from "@/lib/responses/envelope";
 import {
@@ -50,6 +51,7 @@ export const medicalCertificatesController = new Elysia({
         422: validationErrorSchema,
       },
       detail: {
+        hide: isProduction,
         summary: "Create medical certificate",
         description:
           "Creates a new medical certificate for the active organization",
@@ -105,6 +107,7 @@ export const medicalCertificatesController = new Elysia({
         404: notFoundErrorSchema,
       },
       detail: {
+        hide: isProduction,
         summary: "Get medical certificate",
         description: "Gets a specific medical certificate by ID",
       },
@@ -139,6 +142,7 @@ export const medicalCertificatesController = new Elysia({
         422: validationErrorSchema,
       },
       detail: {
+        hide: isProduction,
         summary: "Update medical certificate",
         description: "Updates a specific medical certificate by ID",
       },
@@ -168,6 +172,7 @@ export const medicalCertificatesController = new Elysia({
         404: notFoundErrorSchema,
       },
       detail: {
+        hide: isProduction,
         summary: "Delete medical certificate",
         description: "Soft deletes a specific medical certificate by ID",
       },

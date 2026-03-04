@@ -1,4 +1,5 @@
 import { Elysia } from "elysia";
+import { isProduction } from "@/env";
 import { betterAuthPlugin } from "@/lib/auth-plugin";
 import { wrapSuccess } from "@/lib/responses/envelope";
 import {
@@ -42,6 +43,7 @@ export const adminOrganizationsController = new Elysia({
         403: forbiddenErrorSchema,
       },
       detail: {
+        hide: isProduction,
         summary: "List all organizations",
         description:
           "List all organizations with pagination and search. Only admins can access this endpoint.",
@@ -62,6 +64,7 @@ export const adminOrganizationsController = new Elysia({
         404: notFoundErrorSchema,
       },
       detail: {
+        hide: isProduction,
         summary: "Get organization details",
         description:
           "Admin-only endpoint to get full details of an organization, including profile, members, and subscription.",
@@ -86,6 +89,7 @@ export const adminOrganizationsController = new Elysia({
         422: validationErrorSchema,
       },
       detail: {
+        hide: isProduction,
         summary: "Update Power BI URL",
         description:
           "Admin-only endpoint to set or remove the Power BI dashboard URL for an organization.",

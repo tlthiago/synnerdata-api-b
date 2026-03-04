@@ -1,4 +1,5 @@
 import { Elysia } from "elysia";
+import { isProduction } from "@/env";
 import { betterAuthPlugin } from "@/lib/auth-plugin";
 import { wrapSuccess } from "@/lib/responses/envelope";
 import {
@@ -47,6 +48,7 @@ export const planChangeController = new Elysia({
         404: notFoundErrorSchema,
       },
       detail: {
+        hide: isProduction,
         summary: "Change subscription",
         description:
           "Unified endpoint to change plan, billing cycle, and/or employee count. Upgrades are processed immediately via payment link. Downgrades are scheduled for the end of the current billing period.",
@@ -75,6 +77,7 @@ export const planChangeController = new Elysia({
         404: notFoundErrorSchema,
       },
       detail: {
+        hide: isProduction,
         summary: "Cancel scheduled plan change",
         description:
           "Cancels a scheduled plan change (downgrade). The current plan will continue after the current billing period.",
@@ -102,6 +105,7 @@ export const planChangeController = new Elysia({
         404: notFoundErrorSchema,
       },
       detail: {
+        hide: isProduction,
         summary: "Get scheduled plan change",
         description:
           "Returns information about any scheduled plan change, including the pending plan and scheduled date.",
@@ -131,6 +135,7 @@ export const planChangeController = new Elysia({
         404: notFoundErrorSchema,
       },
       detail: {
+        hide: isProduction,
         summary: "Preview subscription change",
         description:
           "Returns a preview of what would happen if the subscription change was executed. Does not make any changes. Useful for confirmation modals.",

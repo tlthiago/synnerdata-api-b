@@ -1,4 +1,5 @@
 import { Elysia } from "elysia";
+import { isProduction } from "@/env";
 import { betterAuthPlugin } from "@/lib/auth-plugin";
 import { wrapSuccess } from "@/lib/responses/envelope";
 import {
@@ -43,6 +44,7 @@ export const profileController = new Elysia({
         404: notFoundErrorSchema,
       },
       detail: {
+        hide: isProduction,
         summary: "Get organization profile",
         description: "Returns the profile of the active organization",
       },
@@ -73,6 +75,7 @@ export const profileController = new Elysia({
         422: validationErrorSchema,
       },
       detail: {
+        hide: isProduction,
         summary: "Update organization profile",
         description:
           "Updates the profile of the active organization. Only organization owners can update.",
@@ -98,6 +101,7 @@ export const profileController = new Elysia({
         403: forbiddenErrorSchema,
       },
       detail: {
+        hide: isProduction,
         summary: "Get billing status",
         description:
           "Returns whether the organization profile is complete for billing",
@@ -123,6 +127,7 @@ export const profileController = new Elysia({
         403: forbiddenErrorSchema,
       },
       detail: {
+        hide: isProduction,
         summary: "Get Power BI URL",
         description:
           "Returns the Power BI dashboard URL of the active organization, or null if not configured",

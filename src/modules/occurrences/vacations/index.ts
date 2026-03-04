@@ -1,4 +1,5 @@
 import { Elysia } from "elysia";
+import { isProduction } from "@/env";
 import { betterAuthPlugin } from "@/lib/auth-plugin";
 import { wrapSuccess } from "@/lib/responses/envelope";
 import {
@@ -48,6 +49,7 @@ export const vacationController = new Elysia({
         422: validationErrorSchema,
       },
       detail: {
+        hide: isProduction,
         summary: "Create vacation",
         description: "Creates a new vacation for the active organization",
       },
@@ -97,6 +99,7 @@ export const vacationController = new Elysia({
         404: notFoundErrorSchema,
       },
       detail: {
+        hide: isProduction,
         summary: "Get vacation",
         description: "Gets a specific vacation by ID",
       },
@@ -130,6 +133,7 @@ export const vacationController = new Elysia({
         422: validationErrorSchema,
       },
       detail: {
+        hide: isProduction,
         summary: "Update vacation",
         description: "Updates a specific vacation by ID",
       },
@@ -158,6 +162,7 @@ export const vacationController = new Elysia({
         404: notFoundErrorSchema,
       },
       detail: {
+        hide: isProduction,
         summary: "Delete vacation",
         description: "Soft deletes a specific vacation by ID",
       },

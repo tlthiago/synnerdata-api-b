@@ -1,4 +1,5 @@
 import { Elysia } from "elysia";
+import { isProduction } from "@/env";
 import { betterAuthPlugin } from "@/lib/auth-plugin";
 import { wrapSuccess } from "@/lib/responses/envelope";
 import {
@@ -48,6 +49,7 @@ export const jobPositionController = new Elysia({
         422: validationErrorSchema,
       },
       detail: {
+        hide: isProduction,
         summary: "Create job position",
         description: "Creates a new job position for the active organization",
       },
@@ -97,6 +99,7 @@ export const jobPositionController = new Elysia({
         404: notFoundErrorSchema,
       },
       detail: {
+        hide: isProduction,
         summary: "Get job position",
         description: "Gets a specific job position by ID",
       },
@@ -130,6 +133,7 @@ export const jobPositionController = new Elysia({
         422: validationErrorSchema,
       },
       detail: {
+        hide: isProduction,
         summary: "Update job position",
         description: "Updates a specific job position by ID",
       },
@@ -158,6 +162,7 @@ export const jobPositionController = new Elysia({
         404: notFoundErrorSchema,
       },
       detail: {
+        hide: isProduction,
         summary: "Delete job position",
         description: "Soft deletes a specific job position by ID",
       },

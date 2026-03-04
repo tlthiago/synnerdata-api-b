@@ -1,4 +1,5 @@
 import { Elysia } from "elysia";
+import { isProduction } from "@/env";
 import { betterAuthPlugin } from "@/lib/auth-plugin";
 import { wrapSuccess } from "@/lib/responses/envelope";
 import {
@@ -49,6 +50,7 @@ export const billingController = new Elysia({
         404: notFoundErrorSchema,
       },
       detail: {
+        hide: isProduction,
         summary: "Get billing profile",
         description: "Gets the billing profile for the current organization.",
       },
@@ -77,6 +79,7 @@ export const billingController = new Elysia({
         422: validationErrorSchema,
       },
       detail: {
+        hide: isProduction,
         summary: "Create billing profile",
         description: "Creates a billing profile for the current organization.",
       },
@@ -105,6 +108,7 @@ export const billingController = new Elysia({
         422: validationErrorSchema,
       },
       detail: {
+        hide: isProduction,
         summary: "Update billing profile",
         description:
           "Updates the billing profile for the current organization. Syncs with Pagarme if customer exists.",
@@ -135,6 +139,7 @@ export const billingController = new Elysia({
         422: validationErrorSchema,
       },
       detail: {
+        hide: isProduction,
         summary: "List invoices",
         description:
           "Lists all invoices for the organization's subscription. Returns paginated results. Returns 400 for trial subscriptions.",
@@ -164,6 +169,7 @@ export const billingController = new Elysia({
         404: notFoundErrorSchema,
       },
       detail: {
+        hide: isProduction,
         summary: "Download invoice",
         description: "Gets the download URL for a specific invoice.",
       },
@@ -193,6 +199,7 @@ export const billingController = new Elysia({
         422: validationErrorSchema,
       },
       detail: {
+        hide: isProduction,
         summary: "Update payment card",
         description:
           "Updates the credit card for the organization's subscription. The cardId should be obtained from Pagarme.js tokenization on the frontend. Returns 400 for trial subscriptions.",
@@ -219,6 +226,7 @@ export const billingController = new Elysia({
         404: notFoundErrorSchema,
       },
       detail: {
+        hide: isProduction,
         summary: "Get usage",
         description:
           "Returns current usage vs plan limits for the organization.",
