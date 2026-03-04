@@ -718,7 +718,7 @@ export const auth = betterAuth({
       rateLimit: {
         enabled: !isTest,
         timeWindow: 60 * 1000,
-        maxRequests: 100,
+        maxRequests: 200,
       },
       permissions: {
         defaultPermissions: {

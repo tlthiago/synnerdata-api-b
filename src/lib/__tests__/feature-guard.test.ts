@@ -14,7 +14,7 @@ import { SubscriptionFactory } from "@/test/factories/payments/subscription.fact
 import { UserFactory } from "@/test/factories/user.factory";
 import {
   createApiKeyHeaders,
-  createGlobalTestApiKey,
+  createOrgScopedTestApiKey,
 } from "@/test/helpers/api-key";
 
 const BASE_URL = env.API_URL;
@@ -511,7 +511,10 @@ describe("Feature Guard", () => {
         role: "owner",
       });
 
-      const apiKey = await createGlobalTestApiKey(adminResult.user.id);
+      const apiKey = await createOrgScopedTestApiKey(
+        adminResult.user.id,
+        organization.id
+      );
 
       const response = await app.handle(
         new Request(`${BASE_URL}/test/require-active-subscription`, {
@@ -519,9 +522,7 @@ describe("Feature Guard", () => {
         })
       );
 
-      // API keys may have different auth flow, so we accept success or auth error
-      // depending on how API key auth resolves the organization context
-      expect([200, 401, 403]).toContain(response.status);
+      expect(response.status).toBe(200);
     });
 
     test("should NOT bypass when allowAdminBypass is false", async () => {

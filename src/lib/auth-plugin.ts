@@ -89,19 +89,39 @@ function validateRoleRequirements(
   }
 }
 
-function isApiKeyAuthentication(session: AuthSession): boolean {
-  return !!(session as AuthSession & { apiKeyId?: string }).apiKeyId;
+function isApiKeyRequest(headers: Headers): boolean {
+  return !!headers.get("x-api-key");
 }
 
 function canBypassSubscriptionCheck(
   user: AuthUser,
-  session: AuthSession,
+  headers: Headers,
   allowBypass: boolean
 ): boolean {
   if (!allowBypass) {
     return false;
   }
-  return isSystemAdmin(user.role) || isApiKeyAuthentication(session);
+  return isSystemAdmin(user.role) || isApiKeyRequest(headers);
+}
+
+async function resolveApiKeyOrgContext(
+  headers: Headers
+): Promise<string | null> {
+  const apiKey = headers.get("x-api-key");
+  if (!apiKey) {
+    return null;
+  }
+
+  const result = await auth.api.verifyApiKey({
+    body: { key: apiKey },
+  });
+
+  if (!(result.valid && result.key?.metadata)) {
+    return null;
+  }
+
+  const metadata = result.key.metadata as { organizationId?: string | null };
+  return metadata.organizationId ?? null;
 }
 
 async function validateActiveSubscription(
@@ -176,6 +196,11 @@ async function validatePermissions(
   }
 
   if (options.permissions) {
+    // API keys have their own read-only permission model — skip org role check
+    if (isApiKeyRequest(headers)) {
+      return;
+    }
+
     // biome-ignore lint/suspicious/noExplicitAny: Better Auth API typing limitation
     const { success } = await (auth.api as any).hasPermission({
       headers,
@@ -201,6 +226,14 @@ export const betterAuthPlugin = new Elysia({ name: "better-auth" })
         const user = result.user as AuthUser;
         const session = result.session as AuthSession;
 
+        // Inject org context from API key metadata (mock session lacks activeOrganizationId)
+        if (isApiKeyRequest(headers) && !session.activeOrganizationId) {
+          const orgId = await resolveApiKeyOrgContext(headers);
+          if (orgId) {
+            session.activeOrganizationId = orgId;
+          }
+        }
+
         const parsed = parseOptions(options);
         if (!parsed) {
           return { user, session };
@@ -211,7 +244,7 @@ export const betterAuthPlugin = new Elysia({ name: "better-auth" })
 
         const canBypass = canBypassSubscriptionCheck(
           user,
-          session,
+          headers,
           parsed.allowAdminBypass
         );
         await validateSubscriptionAndFeatures(
