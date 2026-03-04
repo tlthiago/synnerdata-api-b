@@ -31,6 +31,13 @@ export const billingDataSchema = z.object({
   zipCode: z.string().length(8).describe("ZIP code (CEP)"),
 });
 
+export const provisionSubscriptionSchema = z.object({
+  status: z.string(),
+  trialDays: z.number().nullable(),
+  trialEnd: z.string().nullable(),
+  maxEmployees: z.number().nullable(),
+});
+
 export const provisionDataSchema = z.object({
   id: z.string(),
   userId: z.string(),
@@ -52,6 +59,7 @@ export const provisionDataSchema = z.object({
   notes: z.string().nullable(),
   createdBy: entityReferenceSchema.nullable(),
   createdAt: z.string(),
+  subscription: provisionSubscriptionSchema.nullable(),
 });
 
 // ============================================================
@@ -63,6 +71,7 @@ export const createProvisionTrialSchema = z.object({
   ownerEmail: z.email().describe("Email of the owner"),
   organization: z
     .object({
+      name: z.string().min(1).describe("Nome real da organizacao"),
       tradeName: z.string().min(1).describe("Nome fantasia"),
       taxId: z
         .string()
@@ -73,6 +82,7 @@ export const createProvisionTrialSchema = z.object({
         .string()
         .min(10)
         .max(15)
+        .optional()
         .describe("Telefone comercial (10-15 digitos)"),
       legalName: z.string().optional().describe("Razao social"),
       street: z.string().optional().describe("Logradouro"),
@@ -91,6 +101,20 @@ export const createProvisionTrialSchema = z.object({
       "Slug must contain only lowercase letters, numbers, and hyphens"
     )
     .describe("Organization slug"),
+  trialDays: z
+    .number()
+    .int()
+    .min(1)
+    .max(365)
+    .optional()
+    .describe("Custom trial duration in days (default: 14)"),
+  maxEmployees: z
+    .number()
+    .int()
+    .min(1)
+    .max(1000)
+    .optional()
+    .describe("Custom max employees (default: 10)"),
   notes: z.string().max(500).optional().describe("Admin notes"),
 });
 

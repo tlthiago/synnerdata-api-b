@@ -226,12 +226,6 @@ export function registerPaymentListeners() {
         return;
       }
 
-      // Unblock login
-      await db
-        .update(schema.users)
-        .set({ emailVerified: true })
-        .where(eq(schema.users.id, provision.userId));
-
       // Transition status
       await db
         .update(schema.adminOrgProvisions)

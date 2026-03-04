@@ -7,6 +7,7 @@ import { auth } from "@/lib/auth";
 import { sendCheckoutLinkEmail } from "@/lib/email";
 import { logger } from "@/lib/logger";
 import { AdminCheckoutService } from "@/modules/payments/admin-checkout/admin-checkout.service";
+import { PlansService } from "@/modules/payments/plans/plans.service";
 import { SubscriptionService } from "@/modules/payments/subscription/subscription.service";
 import type {
   CreateProvisionCheckoutInput,
@@ -26,6 +27,13 @@ import {
 
 const creatorUser = aliasedTable(schema.users, "creator_user");
 
+type SubscriptionInfo = {
+  status: string;
+  trialStart: Date | null;
+  trialEnd: Date | null;
+  maxEmployees: number | null;
+};
+
 type ProvisionQueryRow = {
   provision: typeof schema.adminOrgProvisions.$inferSelect;
   userName: string;
@@ -33,14 +41,41 @@ type ProvisionQueryRow = {
   orgName: string;
   creatorId: string | null;
   creatorName: string | null;
+  subscriptionStatus: string | null;
+  trialStart: Date | null;
+  trialEnd: Date | null;
+  maxEmployees: number | null;
 };
 
-function toProvisionData(
-  provision: typeof schema.adminOrgProvisions.$inferSelect,
-  user: { name: string; email: string },
-  org: { name: string },
-  createdByUser: { id: string; name: string } | null
-): ProvisionData {
+function buildSubscriptionData(sub: SubscriptionInfo | null) {
+  if (!sub) {
+    return null;
+  }
+
+  const trialDays =
+    sub.trialStart && sub.trialEnd
+      ? Math.round(
+          (sub.trialEnd.getTime() - sub.trialStart.getTime()) /
+            (1000 * 60 * 60 * 24)
+        )
+      : null;
+
+  return {
+    status: sub.status,
+    trialDays,
+    trialEnd: sub.trialEnd?.toISOString() ?? null,
+    maxEmployees: sub.maxEmployees,
+  };
+}
+
+function toProvisionData(params: {
+  provision: typeof schema.adminOrgProvisions.$inferSelect;
+  user: { name: string; email: string };
+  org: { name: string };
+  createdByUser: { id: string; name: string } | null;
+  subscription?: SubscriptionInfo | null;
+}): ProvisionData {
+  const { provision, user, org, createdByUser, subscription } = params;
   return {
     id: provision.id,
     userId: provision.userId,
@@ -57,6 +92,7 @@ function toProvisionData(
     notes: provision.notes,
     createdBy: createdByUser,
     createdAt: provision.createdAt.toISOString(),
+    subscription: buildSubscriptionData(subscription ?? null),
   };
 }
 
@@ -67,8 +103,10 @@ function toProvisionData(
  */
 async function createOrganizationForUser(params: {
   name: string;
+  tradeName?: string;
   slug: string;
   userId: string;
+  trialOptions?: { customPricingTierId?: string; customTrialDays?: number };
 }): Promise<{ id: string }> {
   const orgId = crypto.randomUUID();
   const memberId = crypto.randomUUID();
@@ -90,13 +128,16 @@ async function createOrganizationForUser(params: {
   });
 
   // Replicate afterCreateOrganization hook: create trial subscription
-  await SubscriptionService.createTrial(orgId);
+  await SubscriptionService.createTrial(orgId, params.trialOptions);
 
-  // Create minimal organization profile
+  // Create minimal organization profile (tradeName for profile, name for org table)
   const { OrganizationService } = await import(
     "@/modules/organizations/profile/organization.service"
   );
-  await OrganizationService.createMinimalProfile(orgId, params.name);
+  await OrganizationService.createMinimalProfile(
+    orgId,
+    params.tradeName ?? params.name
+  );
 
   return { id: orgId };
 }
@@ -114,6 +155,8 @@ export abstract class AdminProvisionService {
       ownerEmail,
       organization,
       organizationSlug,
+      trialDays,
+      maxEmployees,
       notes,
       adminUserId,
       adminUserName,
@@ -138,27 +181,47 @@ export abstract class AdminProvisionService {
     });
 
     try {
+      // Create custom pricing tier if needed
+      let trialOptions:
+        | { customPricingTierId?: string; customTrialDays?: number }
+        | undefined;
+
+      if (trialDays || maxEmployees) {
+        const trialPlan = await PlansService.getTrialPlan();
+        const customTierId = maxEmployees
+          ? await AdminProvisionService.createCustomTrialTier(
+              trialPlan.id,
+              maxEmployees
+            )
+          : undefined;
+
+        trialOptions = {
+          customPricingTierId: customTierId,
+          customTrialDays: trialDays,
+        };
+      }
+
       // 4. Create organization directly (bypasses allowUserToCreateOrganization)
       const createdOrg = await createOrganizationForUser({
-        name: organization.tradeName,
+        name: organization.name,
+        tradeName: organization.tradeName,
         slug: organizationSlug,
         userId: createdUser.id,
+        trialOptions,
       });
 
       // 5. Enrich org profile with provided data
       const { OrganizationService } = await import(
         "@/modules/organizations/profile/organization.service"
       );
-      const { tradeName: _tradeName, ...profileData } = organization;
+      const {
+        name: _name,
+        tradeName: _tradeName,
+        ...profileData
+      } = organization;
       await OrganizationService.enrichProfile(createdOrg.id, profileData);
 
-      // 6. Set emailVerified=true (trial does not require payment)
-      await db
-        .update(schema.users)
-        .set({ emailVerified: true })
-        .where(eq(schema.users.id, createdUser.id));
-
-      // 7. Insert provision record
+      // 6. Insert provision record
       const provisionId = `provision-${crypto.randomUUID()}`;
       await db.insert(schema.adminOrgProvisions).values({
         id: provisionId,
@@ -170,25 +233,29 @@ export abstract class AdminProvisionService {
         createdBy: adminUserId,
       });
 
-      // 8. Trigger activation email via requestPasswordReset
+      // 7. Trigger activation email via requestPasswordReset
       await auth.api.requestPasswordReset({
         body: { email: ownerEmail },
         headers,
       });
 
-      // 9. Return provision data
+      // 8. Return provision data
       const [provision] = await db
         .select()
         .from(schema.adminOrgProvisions)
         .where(eq(schema.adminOrgProvisions.id, provisionId))
         .limit(1);
 
-      return toProvisionData(
+      const subscriptionInfo =
+        await AdminProvisionService.fetchSubscriptionInfo(createdOrg.id);
+
+      return toProvisionData({
         provision,
-        { name: ownerName, email: ownerEmail },
-        { name: organization.tradeName },
-        { id: adminUserId, name: adminUserName }
-      );
+        user: { name: ownerName, email: ownerEmail },
+        org: { name: organization.name },
+        createdByUser: { id: adminUserId, name: adminUserName },
+        subscription: subscriptionInfo,
+      });
     } catch (error) {
       // Cleanup: delete user if org creation or subsequent steps fail
       await db
@@ -316,12 +383,16 @@ export abstract class AdminProvisionService {
         .where(eq(schema.adminOrgProvisions.id, provisionId))
         .limit(1);
 
-      return toProvisionData(
+      const subscriptionInfo =
+        await AdminProvisionService.fetchSubscriptionInfo(createdOrg.id);
+
+      return toProvisionData({
         provision,
-        { name: ownerName, email: ownerEmail },
-        { name: organizationName },
-        { id: adminUserId, name: adminUserName }
-      );
+        user: { name: ownerName, email: ownerEmail },
+        org: { name: organizationName },
+        createdByUser: { id: adminUserId, name: adminUserName },
+        subscription: subscriptionInfo,
+      });
     } catch (error) {
       // Cleanup: delete user (CASCADE deletes org, members, subscriptions)
       await db
@@ -372,6 +443,10 @@ export abstract class AdminProvisionService {
           orgName: schema.organizations.name,
           creatorId: creatorUser.id,
           creatorName: creatorUser.name,
+          subscriptionStatus: schema.orgSubscriptions.status,
+          trialStart: schema.orgSubscriptions.trialStart,
+          trialEnd: schema.orgSubscriptions.trialEnd,
+          maxEmployees: schema.planPricingTiers.maxEmployees,
         })
         .from(schema.adminOrgProvisions)
         .innerJoin(
@@ -386,6 +461,17 @@ export abstract class AdminProvisionService {
           creatorUser,
           eq(schema.adminOrgProvisions.createdBy, creatorUser.id)
         )
+        .leftJoin(
+          schema.orgSubscriptions,
+          eq(
+            schema.adminOrgProvisions.organizationId,
+            schema.orgSubscriptions.organizationId
+          )
+        )
+        .leftJoin(
+          schema.planPricingTiers,
+          eq(schema.orgSubscriptions.pricingTierId, schema.planPricingTiers.id)
+        )
         .where(whereClause)
         .orderBy(sql`${schema.adminOrgProvisions.createdAt} DESC`)
         .limit(limit)
@@ -397,14 +483,22 @@ export abstract class AdminProvisionService {
     ]);
 
     const data = (items as ProvisionQueryRow[]).map((item) =>
-      toProvisionData(
-        item.provision,
-        { name: item.userName, email: item.userEmail },
-        { name: item.orgName },
-        item.creatorId
+      toProvisionData({
+        provision: item.provision,
+        user: { name: item.userName, email: item.userEmail },
+        org: { name: item.orgName },
+        createdByUser: item.creatorId
           ? { id: item.creatorId, name: item.creatorName ?? "" }
-          : null
-      )
+          : null,
+        subscription: item.subscriptionStatus
+          ? {
+              status: item.subscriptionStatus,
+              trialStart: item.trialStart,
+              trialEnd: item.trialEnd,
+              maxEmployees: item.maxEmployees,
+            }
+          : null,
+      })
     );
 
     return {
@@ -464,16 +558,18 @@ export abstract class AdminProvisionService {
       .where(eq(schema.organizations.id, provision.organizationId))
       .limit(1);
 
-    const createdByUser = await AdminProvisionService.fetchCreatedByUser(
-      updated.createdBy
-    );
+    const [createdByUser, subscriptionInfo] = await Promise.all([
+      AdminProvisionService.fetchCreatedByUser(updated.createdBy),
+      AdminProvisionService.fetchSubscriptionInfo(provision.organizationId),
+    ]);
 
-    return toProvisionData(
-      updated,
-      { name: user.name, email: user.email },
-      { name: org?.name ?? "" },
-      createdByUser
-    );
+    return toProvisionData({
+      provision: updated,
+      user: { name: user.name, email: user.email },
+      org: { name: org?.name ?? "" },
+      createdByUser,
+      subscription: subscriptionInfo,
+    });
   }
 
   // ============================================================
@@ -673,16 +769,55 @@ export abstract class AdminProvisionService {
       .where(eq(schema.organizations.id, provision.organizationId))
       .limit(1);
 
-    const createdByUser = await AdminProvisionService.fetchCreatedByUser(
-      updated.createdBy
-    );
+    const [createdByUser, subscriptionInfo] = await Promise.all([
+      AdminProvisionService.fetchCreatedByUser(updated.createdBy),
+      AdminProvisionService.fetchSubscriptionInfo(provision.organizationId),
+    ]);
 
-    return toProvisionData(
-      updated,
-      { name: user?.name ?? "", email: user?.email ?? "" },
-      { name: org?.name ?? "" },
-      createdByUser
-    );
+    return toProvisionData({
+      provision: updated,
+      user: { name: user?.name ?? "", email: user?.email ?? "" },
+      org: { name: org?.name ?? "" },
+      createdByUser,
+      subscription: subscriptionInfo,
+    });
+  }
+
+  private static async createCustomTrialTier(
+    trialPlanId: string,
+    maxEmployees: number
+  ): Promise<string> {
+    const tierId = `tier-${crypto.randomUUID()}`;
+    await db.insert(schema.planPricingTiers).values({
+      id: tierId,
+      planId: trialPlanId,
+      minEmployees: 0,
+      maxEmployees,
+      priceMonthly: 0,
+      priceYearly: 0,
+    });
+    return tierId;
+  }
+
+  private static async fetchSubscriptionInfo(
+    organizationId: string
+  ): Promise<SubscriptionInfo | null> {
+    const [row] = await db
+      .select({
+        status: schema.orgSubscriptions.status,
+        trialStart: schema.orgSubscriptions.trialStart,
+        trialEnd: schema.orgSubscriptions.trialEnd,
+        maxEmployees: schema.planPricingTiers.maxEmployees,
+      })
+      .from(schema.orgSubscriptions)
+      .leftJoin(
+        schema.planPricingTiers,
+        eq(schema.orgSubscriptions.pricingTierId, schema.planPricingTiers.id)
+      )
+      .where(eq(schema.orgSubscriptions.organizationId, organizationId))
+      .limit(1);
+
+    return row ?? null;
   }
 
   private static async ensureEmailUnique(email: string): Promise<void> {

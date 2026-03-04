@@ -184,7 +184,10 @@ export abstract class SubscriptionMutationService {
    *
    * @param organizationId - The organization ID to create trial for
    */
-  static async createTrial(organizationId: string): Promise<void> {
+  static async createTrial(
+    organizationId: string,
+    options?: { customPricingTierId?: string; customTrialDays?: number }
+  ): Promise<void> {
     const existing = await findByOrganizationId(organizationId);
     if (existing) {
       const { logger } = await import("@/lib/logger");
@@ -208,7 +211,9 @@ export abstract class SubscriptionMutationService {
 
     const trialStart = new Date();
     const trialEnd = new Date();
-    trialEnd.setDate(trialEnd.getDate() + trialPlan.trialDays);
+    trialEnd.setDate(
+      trialEnd.getDate() + (options?.customTrialDays ?? trialPlan.trialDays)
+    );
 
     const [inserted] = await db
       .insert(schema.orgSubscriptions)
@@ -216,7 +221,8 @@ export abstract class SubscriptionMutationService {
         id: `subscription-${crypto.randomUUID()}`,
         organizationId,
         planId: trialPlan.id,
-        pricingTierId: trialPlan.pricingTiers[0].id,
+        pricingTierId:
+          options?.customPricingTierId ?? trialPlan.pricingTiers[0].id,
         status: "active",
         trialStart,
         trialEnd,
