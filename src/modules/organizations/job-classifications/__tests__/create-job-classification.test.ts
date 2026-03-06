@@ -211,12 +211,13 @@ describe("POST /v1/job-classifications", () => {
   });
 
   test("should create job classification with cboOccupationId and auto-fill name", async () => {
+    const uid = crypto.randomUUID().slice(0, 4);
     const cboId = `cbo-${crypto.randomUUID()}`;
     await db.insert(cboOccupations).values({
       id: cboId,
-      code: "2521-05",
+      code: `${uid}-01`,
       title: "Administrador",
-      familyCode: "2521",
+      familyCode: uid,
       familyTitle: "Administradores",
     });
 
@@ -239,12 +240,13 @@ describe("POST /v1/job-classifications", () => {
   });
 
   test("should create job classification with cboOccupationId and custom name override", async () => {
+    const uid = crypto.randomUUID().slice(0, 4);
     const cboId = `cbo-${crypto.randomUUID()}`;
     await db.insert(cboOccupations).values({
       id: cboId,
-      code: "2521-10",
+      code: `${uid}-02`,
       title: "Administrador de empresas",
-      familyCode: "2521",
+      familyCode: uid,
       familyTitle: "Administradores",
     });
 

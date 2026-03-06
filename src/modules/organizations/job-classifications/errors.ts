@@ -28,6 +28,18 @@ export class JobClassificationNotFoundError extends JobClassificationError {
   }
 }
 
+export class JobClassificationAlreadyExistsError extends JobClassificationError {
+  status = 409;
+
+  constructor(name: string) {
+    super(
+      `A job classification with the name "${name}" already exists`,
+      "JOB_CLASSIFICATION_ALREADY_EXISTS",
+      { name }
+    );
+  }
+}
+
 export class JobClassificationAlreadyDeletedError extends JobClassificationError {
   status = 404;
 

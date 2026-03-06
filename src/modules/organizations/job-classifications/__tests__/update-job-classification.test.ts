@@ -191,12 +191,13 @@ describe("PUT /v1/job-classifications/:id", () => {
   });
 
   test("should update job classification with cboOccupationId", async () => {
+    const uid = crypto.randomUUID().slice(0, 4);
     const cboId = `cbo-${crypto.randomUUID()}`;
     await db.insert(cboOccupations).values({
       id: cboId,
-      code: "3515-05",
+      code: `${uid}-03`,
       title: "Técnico em programação de computador",
-      familyCode: "3515",
+      familyCode: uid,
       familyTitle: "Técnicos em programação",
     });
 
@@ -223,12 +224,13 @@ describe("PUT /v1/job-classifications/:id", () => {
   });
 
   test("should clear cboOccupationId when set to null", async () => {
+    const uid = crypto.randomUUID().slice(0, 4);
     const cboId = `cbo-${crypto.randomUUID()}`;
     await db.insert(cboOccupations).values({
       id: cboId,
-      code: "3515-10",
+      code: `${uid}-04`,
       title: "Técnico em segurança de dados",
-      familyCode: "3515",
+      familyCode: uid,
       familyTitle: "Técnicos em programação",
     });
 
