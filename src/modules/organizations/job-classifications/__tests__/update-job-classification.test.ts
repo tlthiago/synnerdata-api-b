@@ -1,4 +1,6 @@
 import { beforeAll, describe, expect, test } from "bun:test";
+import { db } from "@/db";
+import { cboOccupations } from "@/db/schema/cbo-occupations";
 import { env } from "@/env";
 import { createTestApp, type TestApp } from "@/test/helpers/app";
 import {
@@ -186,5 +188,93 @@ describe("PUT /v1/job-classifications/:id", () => {
     expect(response.status).toBe(200);
     const body = await response.json();
     expect(body.data.name).toBe("Updated by Manager");
+  });
+
+  test("should update job classification with cboOccupationId", async () => {
+    const cboId = `cbo-${crypto.randomUUID()}`;
+    await db.insert(cboOccupations).values({
+      id: cboId,
+      code: "3515-05",
+      title: "Técnico em programação de computador",
+      familyCode: "3515",
+      familyTitle: "Técnicos em programação",
+    });
+
+    const { headers, organizationId, user } =
+      await createTestUserWithOrganization({ emailVerified: true });
+
+    const created = await JobClassificationService.create({
+      organizationId,
+      userId: user.id,
+      name: "Programador",
+    });
+
+    const response = await app.handle(
+      new Request(`${BASE_URL}/v1/job-classifications/${created.id}`, {
+        method: "PUT",
+        headers: { ...headers, "Content-Type": "application/json" },
+        body: JSON.stringify({ cboOccupationId: cboId }),
+      })
+    );
+
+    expect(response.status).toBe(200);
+    const body = await response.json();
+    expect(body.data.cboOccupationId).toBe(cboId);
+  });
+
+  test("should clear cboOccupationId when set to null", async () => {
+    const cboId = `cbo-${crypto.randomUUID()}`;
+    await db.insert(cboOccupations).values({
+      id: cboId,
+      code: "3515-10",
+      title: "Técnico em segurança de dados",
+      familyCode: "3515",
+      familyTitle: "Técnicos em programação",
+    });
+
+    const { headers, organizationId, user } =
+      await createTestUserWithOrganization({ emailVerified: true });
+
+    const created = await JobClassificationService.create({
+      organizationId,
+      userId: user.id,
+      name: "Segurança de Dados",
+      cboOccupationId: cboId,
+    });
+
+    const response = await app.handle(
+      new Request(`${BASE_URL}/v1/job-classifications/${created.id}`, {
+        method: "PUT",
+        headers: { ...headers, "Content-Type": "application/json" },
+        body: JSON.stringify({ cboOccupationId: null }),
+      })
+    );
+
+    expect(response.status).toBe(200);
+    const body = await response.json();
+    expect(body.data.cboOccupationId).toBeNull();
+  });
+
+  test("should reject invalid cboOccupationId on update", async () => {
+    const { headers, organizationId, user } =
+      await createTestUserWithOrganization({ emailVerified: true });
+
+    const created = await JobClassificationService.create({
+      organizationId,
+      userId: user.id,
+      name: "Test Classification",
+    });
+
+    const response = await app.handle(
+      new Request(`${BASE_URL}/v1/job-classifications/${created.id}`, {
+        method: "PUT",
+        headers: { ...headers, "Content-Type": "application/json" },
+        body: JSON.stringify({ cboOccupationId: "cbo-nonexistent" }),
+      })
+    );
+
+    expect(response.status).toBe(422);
+    const body = await response.json();
+    expect(body.error.code).toBe("INVALID_CBO_OCCUPATION");
   });
 });
