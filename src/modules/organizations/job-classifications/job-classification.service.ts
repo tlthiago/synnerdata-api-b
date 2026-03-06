@@ -1,8 +1,11 @@
 import { and, eq, isNull } from "drizzle-orm";
 import { db } from "@/db";
 import { schema } from "@/db/schema";
+import { CboOccupationService } from "@/modules/cbo-occupations/cbo-occupation.service";
 import {
+  InvalidCboOccupationError,
   JobClassificationAlreadyDeletedError,
+  JobClassificationError,
   JobClassificationNotFoundError,
 } from "./errors";
 import type {
@@ -55,6 +58,27 @@ export abstract class JobClassificationService {
   ): Promise<JobClassificationData> {
     const { organizationId, userId, ...data } = input;
 
+    let resolvedName = data.name;
+
+    if (data.cboOccupationId) {
+      const cbo = await CboOccupationService.findByIdOrThrow(
+        data.cboOccupationId
+      ).catch(() => {
+        throw new InvalidCboOccupationError(data.cboOccupationId as string);
+      });
+      if (!resolvedName) {
+        resolvedName = cbo.title;
+      }
+    }
+
+    if (!resolvedName) {
+      // This shouldn't happen due to Zod validation, but just in case
+      throw new JobClassificationError(
+        "Nome é obrigatório",
+        "VALIDATION_ERROR"
+      );
+    }
+
     const jobClassificationId = `job-classification-${crypto.randomUUID()}`;
 
     const [jobClassification] = await db
@@ -62,7 +86,8 @@ export abstract class JobClassificationService {
       .values({
         id: jobClassificationId,
         organizationId,
-        name: data.name,
+        name: resolvedName,
+        cboOccupationId: data.cboOccupationId ?? null,
         createdBy: userId,
       })
       .returning();
@@ -114,6 +139,14 @@ export abstract class JobClassificationService {
     );
     if (!existing) {
       throw new JobClassificationNotFoundError(id);
+    }
+
+    if (data.cboOccupationId !== undefined && data.cboOccupationId !== null) {
+      await CboOccupationService.findByIdOrThrow(data.cboOccupationId).catch(
+        () => {
+          throw new InvalidCboOccupationError(data.cboOccupationId as string);
+        }
+      );
     }
 
     const [updated] = await db

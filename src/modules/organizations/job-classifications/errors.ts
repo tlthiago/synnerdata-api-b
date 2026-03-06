@@ -41,3 +41,15 @@ export class JobClassificationAlreadyDeletedError extends JobClassificationError
     );
   }
 }
+
+export class InvalidCboOccupationError extends JobClassificationError {
+  status = 422;
+
+  constructor(cboOccupationId: string) {
+    super(
+      `CBO occupation not found: ${cboOccupationId}`,
+      "INVALID_CBO_OCCUPATION",
+      { cboOccupationId }
+    );
+  }
+}
