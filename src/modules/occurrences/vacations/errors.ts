@@ -53,9 +53,3 @@ export class VacationInvalidDateRangeError extends VacationError {
     );
   }
 }
-
-export class VacationInvalidDaysError extends VacationError {
-  constructor(message: string) {
-    super(message, "VACATION_INVALID_DAYS");
-  }
-}

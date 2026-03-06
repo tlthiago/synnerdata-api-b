@@ -27,4 +27,3 @@ Gestão de férias com controle de período aquisitivo e dias utilizados.
 - `VacationAlreadyDeletedError` (404)
 - `VacationInvalidEmployeeError` (404)
 - `VacationInvalidDateRangeError` (422)
-- `VacationInvalidDaysError` (422)
