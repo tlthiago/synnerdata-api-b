@@ -24,7 +24,7 @@ import { AcquisitionPeriodService } from "./acquisition-period.service";
 
 export const acquisitionPeriodController = new Elysia({
   name: "acquisition-periods",
-  prefix: "/v1/vacations/acquisition-periods",
+  prefix: "/acquisition-periods",
   detail: { tags: ["Occurrences - Vacation Acquisition Periods"] },
 })
   .use(betterAuthPlugin)
