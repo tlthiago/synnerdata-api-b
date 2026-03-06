@@ -50,6 +50,15 @@ export const WORK_SHIFT_LABELS: Record<string, string> = {
   FOUR_THREE: "4x3",
 };
 
+export const DISABILITY_TYPE_LABELS: Record<string, string> = {
+  AUDITIVA: "Auditiva",
+  VISUAL: "Visual",
+  FISICA: "Física",
+  INTELECTUAL: "Intelectual",
+  MENTAL: "Mental",
+  MULTIPLA: "Múltipla",
+};
+
 export const BOOLEAN_LABELS: Record<string, string> = {
   true: "Sim",
   false: "Não",
@@ -343,6 +352,20 @@ export const IMPORT_COLUMNS: ImportColumn[] = [
     required: true,
     section: "address",
   },
+  {
+    key: "latitude",
+    header: "Latitude",
+    width: 14,
+    required: false,
+    section: "address",
+  },
+  {
+    key: "longitude",
+    header: "Longitude",
+    width: 14,
+    required: false,
+    section: "address",
+  },
 
   // ── Employment ──
   {
@@ -460,6 +483,13 @@ export const IMPORT_COLUMNS: ImportColumn[] = [
     required: false,
     section: "benefits",
   },
+  {
+    key: "healthInsurance",
+    header: "Plano de saúde",
+    width: 18,
+    required: false,
+    section: "benefits",
+  },
 
   // ── Education ──
   {
@@ -487,6 +517,10 @@ export const IMPORT_COLUMNS: ImportColumn[] = [
     width: 22,
     required: false,
     section: "education",
+    dropdown: {
+      type: "inline",
+      values: inlineValues(DISABILITY_TYPE_LABELS),
+    },
   },
 
   // ── Family ──

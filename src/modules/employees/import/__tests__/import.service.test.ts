@@ -1,5 +1,8 @@
 import { beforeAll, describe, expect, test } from "bun:test";
+import { and, eq, isNull } from "drizzle-orm";
 import ExcelJS from "exceljs";
+import { db } from "@/db";
+import { schema } from "@/db/schema";
 import { generateCpf } from "@/test/helpers/faker";
 import { createTestJobClassification } from "@/test/helpers/job-classification";
 import { createTestJobPosition } from "@/test/helpers/job-position";
@@ -260,5 +263,57 @@ describe("ImportService.importFromFile", () => {
         userId: limitUserId,
       })
     ).rejects.toBeInstanceOf(EmployeeImportLimitExceededError);
+  });
+
+  test("generates vacation acquisition periods for imported employees", async () => {
+    const { registerEmployeeListeners } = await import(
+      "@/modules/employees/hooks/listeners"
+    );
+    registerEmployeeListeners();
+
+    const hireDate = "10/06/2024";
+    const rows = [validRow({ hireDate }), validRow({ hireDate })];
+    const buffer = await buildWorkbookWithRows(templateBuffer, rows);
+
+    const result = await ImportService.importFromFile({
+      buffer,
+      organizationId,
+      userId,
+    });
+
+    expect(result.imported).toBe(2);
+
+    // Wait for async event handlers to complete
+    await new Promise((resolve) => setTimeout(resolve, 2000));
+
+    // Find the imported employees by checking recently created ones
+    const recentEmployees = await db
+      .select({ id: schema.employees.id })
+      .from(schema.employees)
+      .where(
+        and(
+          eq(schema.employees.organizationId, organizationId),
+          eq(schema.employees.hireDate, "2024-06-10"),
+          isNull(schema.employees.deletedAt)
+        )
+      );
+
+    expect(recentEmployees.length).toBeGreaterThanOrEqual(2);
+
+    // Check that acquisition periods were generated for each employee
+    for (const emp of recentEmployees) {
+      const periods = await db
+        .select()
+        .from(schema.vacationAcquisitionPeriods)
+        .where(
+          and(
+            eq(schema.vacationAcquisitionPeriods.employeeId, emp.id),
+            isNull(schema.vacationAcquisitionPeriods.deletedAt)
+          )
+        );
+
+      expect(periods.length).toBeGreaterThanOrEqual(1);
+      expect(periods[0].acquisitionStart).toBe("2024-06-10");
+    }
   });
 });

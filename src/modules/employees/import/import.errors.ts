@@ -38,3 +38,14 @@ export class EmployeeImportEmptyFileError extends EmployeeError {
     );
   }
 }
+
+export class EmployeeImportTemplateMissingDataError extends EmployeeError {
+  status = 422;
+  constructor(missing: string[]) {
+    super(
+      `Cadastre pelo menos um registro em: ${missing.join(", ")}`,
+      "EMPLOYEE_IMPORT_TEMPLATE_MISSING_DATA",
+      { missing }
+    );
+  }
+}

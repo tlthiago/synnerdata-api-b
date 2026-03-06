@@ -292,12 +292,15 @@ describe("IMPORT_COLUMNS", () => {
     "fatherName",
     "militaryCertificate",
     "complement",
+    "latitude",
+    "longitude",
     "manager",
     "branchId",
     "costCenterId",
     "busCount",
     "mealAllowance",
     "transportAllowance",
+    "healthInsurance",
     "disabilityType",
     "childrenCount",
     "hasChildrenUnder21",
@@ -357,6 +360,7 @@ describe("IMPORT_COLUMNS", () => {
       "contractType",
       "educationLevel",
       "workShift",
+      "disabilityType",
     ];
     for (const key of enumKeys) {
       const col = IMPORT_COLUMNS.find((c) => c.key === key);
@@ -413,6 +417,7 @@ describe("IMPORT_COLUMNS", () => {
       "contractType",
       "educationLevel",
       "workShift",
+      "disabilityType",
       "hasSpecialNeeds",
       "hasChildren",
       "hasChildrenUnder21",

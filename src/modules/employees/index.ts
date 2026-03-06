@@ -54,6 +54,7 @@ export const employeeController = new Elysia({
       response: {
         401: unauthorizedErrorSchema,
         403: forbiddenErrorSchema,
+        422: validationErrorSchema,
       },
       detail: {
         hide: isProduction,

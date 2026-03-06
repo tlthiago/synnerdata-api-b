@@ -24,7 +24,7 @@ Alterado via `PATCH /:id/status` (endpoint dedicado, não pelo PUT geral)
 
 ## Data Conventions
 
-- Campos numéricos (salary, height, weight, weeklyHours, allowances) entram como `number` na API mas são armazenados como `string` no banco (colunas decimal)
+- Campos numéricos (salary, height, weight, weeklyHours, mealAllowance, transportAllowance, healthInsurance) entram como `number` na API mas são armazenados como `string` no banco (colunas decimal)
 - Documentos brasileiros: CPF (11 dígitos), PIS (11 dígitos), CTPS (número + série), CEP (8 dígitos), UF (2 chars)
 - Datas (birthDate, hireDate) não podem ser futuras
 
@@ -36,15 +36,18 @@ Alterado via `PATCH /:id/status` (endpoint dedicado, não pelo PUT geral)
 - workShift: `TWELVE_THIRTY_SIX` | `SIX_ONE` | `FIVE_TWO` | `FOUR_THREE`
 - educationLevel: `ELEMENTARY` | `HIGH_SCHOOL` | `BACHELOR` | `POST_GRADUATE` | `MASTER` | `DOCTORATE`
 - status: `ACTIVE` | `TERMINATED` | `ON_LEAVE` | `ON_VACATION` | `VACATION_SCHEDULED`
+- disabilityType: `AUDITIVA` | `VISUAL` | `FISICA` | `INTELECTUAL` | `MENTAL` | `MULTIPLA`
 
 ## Import (Bulk)
 
 - `GET /v1/employees/import/template` — downloads .xlsx template populado com dados da org
 - `POST /v1/employees/import` — importa funcionários via .xlsx (multipart/form-data)
+- Template exige pré-cadastro de pelo menos 1 registro em: setores, funções e CBOs (422 se ausente)
 - Template é per-organization (dropdowns dinâmicos de setores, cargos, CBOs, filiais, centros de custo)
 - Import parcial: linhas válidas inseridas, inválidas reportadas no response
 - Máx 500 linhas por arquivo
 - Respeita limite de funcionários do plano
+- Import emite `employee.created` sequencialmente para cada funcionário importado (gera períodos aquisitivos)
 - Audit log: action "create", resource "employee"
 - Enums usam labels PT-BR no template, mapeados de volta no import
 - FK fields (setor, cargo, CBO, filial, centro de custo) resolvidos por nome → ID

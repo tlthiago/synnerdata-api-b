@@ -124,6 +124,25 @@ export abstract class TemplateService {
           .orderBy(schema.costCenters.name),
       ]);
 
+    // Validate required entities have at least one record
+    const missing: string[] = [];
+    if (sectors.length === 0) {
+      missing.push("Setores");
+    }
+    if (jobPositions.length === 0) {
+      missing.push("Funções");
+    }
+    if (jobClassifications.length === 0) {
+      missing.push("CBOs");
+    }
+
+    if (missing.length > 0) {
+      const { EmployeeImportTemplateMissingDataError } = await import(
+        "./import.errors"
+      );
+      throw new EmployeeImportTemplateMissingDataError(missing);
+    }
+
     const workbook = new ExcelJS.Workbook();
 
     const entityData = {

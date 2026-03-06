@@ -298,4 +298,93 @@ describe("TemplateService.generate", () => {
       }
     }
   });
+
+  test("rejects when organization has no sectors", async () => {
+    const { organizationId, userId } = await createTestUserWithOrganization();
+
+    await createTestJobPosition({
+      organizationId,
+      userId,
+      name: "Cargo Missing",
+    });
+    await createTestJobClassification({
+      organizationId,
+      userId,
+      name: "CBO Missing",
+    });
+
+    const { EmployeeImportTemplateMissingDataError } = await import(
+      "../import.errors"
+    );
+
+    await expect(
+      TemplateService.generate(organizationId)
+    ).rejects.toBeInstanceOf(EmployeeImportTemplateMissingDataError);
+  });
+
+  test("rejects when organization has no job positions", async () => {
+    const { organizationId, userId } = await createTestUserWithOrganization();
+
+    await createTestSector({
+      organizationId,
+      userId,
+      name: "Setor Missing",
+    });
+    await createTestJobClassification({
+      organizationId,
+      userId,
+      name: "CBO Missing 2",
+    });
+
+    const { EmployeeImportTemplateMissingDataError } = await import(
+      "../import.errors"
+    );
+
+    await expect(
+      TemplateService.generate(organizationId)
+    ).rejects.toBeInstanceOf(EmployeeImportTemplateMissingDataError);
+  });
+
+  test("rejects when organization has no job classifications", async () => {
+    const { organizationId, userId } = await createTestUserWithOrganization();
+
+    await createTestSector({
+      organizationId,
+      userId,
+      name: "Setor Missing 2",
+    });
+    await createTestJobPosition({
+      organizationId,
+      userId,
+      name: "Cargo Missing 2",
+    });
+
+    const { EmployeeImportTemplateMissingDataError } = await import(
+      "../import.errors"
+    );
+
+    await expect(
+      TemplateService.generate(organizationId)
+    ).rejects.toBeInstanceOf(EmployeeImportTemplateMissingDataError);
+  });
+
+  test("lists all missing required entities in error", async () => {
+    const { organizationId } = await createTestUserWithOrganization();
+
+    try {
+      await TemplateService.generate(organizationId);
+      expect.unreachable("Should have thrown");
+    } catch (error) {
+      const { EmployeeImportTemplateMissingDataError } = await import(
+        "../import.errors"
+      );
+      expect(error).toBeInstanceOf(EmployeeImportTemplateMissingDataError);
+      const details = (
+        error as InstanceType<typeof EmployeeImportTemplateMissingDataError>
+      ).details as { missing: string[] };
+      expect(details.missing).toContain("Setores");
+      expect(details.missing).toContain("Funções");
+      expect(details.missing).toContain("CBOs");
+    }
+  });
 });
