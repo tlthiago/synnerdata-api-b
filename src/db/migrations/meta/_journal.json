@@ -131,8 +131,29 @@
     {
       "idx": 18,
       "version": "7",
+      "when": 1772816318667,
+      "tag": "0018_good_warbound",
+      "breakpoints": true
+    },
+    {
+      "idx": 19,
+      "version": "7",
+      "when": 1772816385944,
+      "tag": "0019_chunky_vin_gonzales",
+      "breakpoints": true
+    },
+    {
+      "idx": 20,
+      "version": "7",
       "when": 1772811939779,
-      "tag": "0018_third_selene",
+      "tag": "0020_third_selene",
+      "breakpoints": true
+    },
+    {
+      "idx": 21,
+      "version": "7",
+      "when": 1772820000000,
+      "tag": "0021_vacation_acquisition_periods",
       "breakpoints": true
     }
   ]

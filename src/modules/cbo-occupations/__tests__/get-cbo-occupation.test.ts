@@ -7,19 +7,17 @@ import { createTestUserWithOrganization } from "@/test/helpers/user";
 
 const BASE_URL = env.API_URL;
 
+const TEST_CBO_UID = crypto.randomUUID().slice(0, 4);
 const TEST_CBO_ID = `cbo-${crypto.randomUUID()}`;
 
 async function seedTestCboOccupation() {
-  await db
-    .insert(cboOccupations)
-    .values({
-      id: TEST_CBO_ID,
-      code: "3171-05",
-      title: "Técnico em programação de computadores",
-      familyCode: "3171",
-      familyTitle: "Técnicos em programação",
-    })
-    .onConflictDoNothing();
+  await db.insert(cboOccupations).values({
+    id: TEST_CBO_ID,
+    code: `${TEST_CBO_UID}-05`,
+    title: "Técnico em programação de computadores",
+    familyCode: TEST_CBO_UID,
+    familyTitle: "Técnicos em programação",
+  });
 }
 
 describe("GET /v1/cbo-occupations/:id", () => {
@@ -53,9 +51,9 @@ describe("GET /v1/cbo-occupations/:id", () => {
     const body = await response.json();
     expect(body.success).toBe(true);
     expect(body.data.id).toBe(TEST_CBO_ID);
-    expect(body.data.code).toBe("3171-05");
+    expect(body.data.code).toBe(`${TEST_CBO_UID}-05`);
     expect(body.data.title).toBe("Técnico em programação de computadores");
-    expect(body.data.familyCode).toBe("3171");
+    expect(body.data.familyCode).toBe(TEST_CBO_UID);
     expect(body.data.familyTitle).toBe("Técnicos em programação");
   });
 

@@ -1,6 +1,6 @@
 {
-  "id": "71ba922d-be43-4edd-82d8-190dc5f8ce90",
-  "prevId": "28a13966-cf48-408d-b4af-7e56438937dc",
+  "id": "ef14dbe7-2920-4daf-9dab-1e576b15bbb7",
+  "prevId": "71ba922d-be43-4edd-82d8-190dc5f8ce90",
   "version": "7",
   "dialect": "postgresql",
   "tables": {
@@ -6762,6 +6762,12 @@
           "primaryKey": false,
           "notNull": true
         },
+        "cbo_occupation_id": {
+          "name": "cbo_occupation_id",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": false
+        },
         "created_at": {
           "name": "created_at",
           "type": "timestamp with time zone",
@@ -6845,6 +6851,19 @@
             "id"
           ],
           "onDelete": "cascade",
+          "onUpdate": "no action"
+        },
+        "job_classifications_cbo_occupation_id_cbo_occupations_id_fk": {
+          "name": "job_classifications_cbo_occupation_id_cbo_occupations_id_fk",
+          "tableFrom": "job_classifications",
+          "tableTo": "cbo_occupations",
+          "columnsFrom": [
+            "cbo_occupation_id"
+          ],
+          "columnsTo": [
+            "id"
+          ],
+          "onDelete": "no action",
           "onUpdate": "no action"
         }
       },
