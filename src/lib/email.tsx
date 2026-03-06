@@ -8,6 +8,7 @@ import { TwoFactorOtpEmail } from "@/emails/templates/auth/two-factor-otp";
 import { VerificationEmail } from "@/emails/templates/auth/verification";
 import { WelcomeEmail } from "@/emails/templates/auth/welcome";
 import { ContactMessageEmail } from "@/emails/templates/contact/contact-message";
+import { AdminCancellationNoticeEmail } from "@/emails/templates/payments/admin-cancellation-notice";
 import { CancellationScheduledEmail } from "@/emails/templates/payments/cancellation-scheduled";
 import { CheckoutLinkEmail } from "@/emails/templates/payments/checkout-link";
 import { PaymentFailedEmail } from "@/emails/templates/payments/payment-failed";
@@ -404,6 +405,40 @@ export async function sendProvisionCheckoutLinkEmail(params: {
   await sendEmail({
     to: params.to,
     subject: `Bem-vindo ao Synnerdata — finalize o pagamento do Plano ${params.planName}`,
+    html,
+    text,
+  });
+}
+
+// ============================================================
+// ADMIN NOTIFICATION EMAILS
+// ============================================================
+
+export async function sendAdminCancellationNoticeEmail(params: {
+  organizationName: string;
+  planName: string;
+  ownerEmail: string;
+  canceledAt: Date;
+  reason?: string;
+  comment?: string;
+}) {
+  if (!env.SMTP_USER) {
+    return;
+  }
+
+  const { html, text } = await renderEmail(
+    <AdminCancellationNoticeEmail
+      canceledAt={params.canceledAt}
+      comment={params.comment}
+      organizationName={params.organizationName}
+      ownerEmail={params.ownerEmail}
+      planName={params.planName}
+      reason={params.reason}
+    />
+  );
+  await sendEmail({
+    to: env.SMTP_USER,
+    subject: `[Cancelamento] ${params.organizationName} — Plano ${params.planName}`,
     html,
     text,
   });
