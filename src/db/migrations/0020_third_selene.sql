@@ -1,2 +1,2 @@
-DROP INDEX "labor_lawsuits_process_number_idx";--> statement-breakpoint
+DROP INDEX IF EXISTS "labor_lawsuits_process_number_idx";--> statement-breakpoint
 CREATE UNIQUE INDEX "labor_lawsuits_process_number_unique_idx" ON "labor_lawsuits" USING btree ("process_number") WHERE deleted_at IS NULL;
