@@ -169,6 +169,13 @@
       "when": 1772870500000,
       "tag": "0023_disability-type-enum-and-health-insurance",
       "breakpoints": true
+    },
+    {
+      "idx": 24,
+      "version": "7",
+      "when": 1772829707153,
+      "tag": "0024_eminent_scourge",
+      "breakpoints": true
     }
   ]
 }
