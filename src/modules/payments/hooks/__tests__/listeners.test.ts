@@ -18,6 +18,7 @@ const mockSendUpgradeConfirmationEmail = mock(() => Promise.resolve());
 const mockSendCancellationScheduledEmail = mock(() => Promise.resolve());
 const mockSendSubscriptionCanceledEmail = mock(() => Promise.resolve());
 const mockSendPaymentFailedEmail = mock(() => Promise.resolve());
+const mockSendAdminCancellationNoticeEmail = mock(() => Promise.resolve());
 
 mock.module("@/lib/email", () => ({
   sendTrialExpiringEmail: mockSendTrialExpiringEmail,
@@ -26,6 +27,7 @@ mock.module("@/lib/email", () => ({
   sendCancellationScheduledEmail: mockSendCancellationScheduledEmail,
   sendSubscriptionCanceledEmail: mockSendSubscriptionCanceledEmail,
   sendPaymentFailedEmail: mockSendPaymentFailedEmail,
+  sendAdminCancellationNoticeEmail: mockSendAdminCancellationNoticeEmail,
 }));
 
 let diamondPlanResult: CreatePlanResult;
@@ -48,6 +50,7 @@ describe("Payment Listeners", () => {
     mockSendCancellationScheduledEmail.mockClear();
     mockSendSubscriptionCanceledEmail.mockClear();
     mockSendPaymentFailedEmail.mockClear();
+    mockSendAdminCancellationNoticeEmail.mockClear();
   });
 
   describe("trial.expiring listener", () => {
@@ -216,6 +219,112 @@ describe("Payment Listeners", () => {
       await new Promise((resolve) => setTimeout(resolve, 100));
 
       expect(mockSendCancellationScheduledEmail).not.toHaveBeenCalled();
+    });
+
+    test("should call sendAdminCancellationNoticeEmail with translated reason", async () => {
+      const { organizationId } = await UserFactory.createWithOrganization({
+        emailVerified: true,
+      });
+      await SubscriptionFactory.createActive(
+        organizationId,
+        diamondPlanResult.plan.id
+      );
+
+      const canceledAt = new Date();
+      await db
+        .update(schema.orgSubscriptions)
+        .set({
+          cancelAtPeriodEnd: true,
+          canceledAt,
+          cancelReason: "too_expensive",
+          cancelComment: "O valor está acima do orçamento",
+        })
+        .where(eq(schema.orgSubscriptions.organizationId, organizationId));
+
+      const [subscription] = await db
+        .select()
+        .from(schema.orgSubscriptions)
+        .where(eq(schema.orgSubscriptions.organizationId, organizationId))
+        .limit(1);
+
+      await PaymentHooks.emit("subscription.cancelScheduled", { subscription });
+
+      await new Promise((resolve) => setTimeout(resolve, 100));
+
+      expect(mockSendAdminCancellationNoticeEmail).toHaveBeenCalledTimes(1);
+      expect(mockSendAdminCancellationNoticeEmail).toHaveBeenCalledWith(
+        expect.objectContaining({
+          reason: "Muito caro",
+          comment: "O valor está acima do orçamento",
+        })
+      );
+    });
+
+    test("should call sendAdminCancellationNoticeEmail without reason when not provided", async () => {
+      const { organizationId } = await UserFactory.createWithOrganization({
+        emailVerified: true,
+      });
+      await SubscriptionFactory.createActive(
+        organizationId,
+        diamondPlanResult.plan.id
+      );
+
+      const [subscription] = await db
+        .select()
+        .from(schema.orgSubscriptions)
+        .where(eq(schema.orgSubscriptions.organizationId, organizationId))
+        .limit(1);
+
+      await PaymentHooks.emit("subscription.cancelScheduled", { subscription });
+
+      await new Promise((resolve) => setTimeout(resolve, 100));
+
+      expect(mockSendAdminCancellationNoticeEmail).toHaveBeenCalledTimes(1);
+      expect(mockSendAdminCancellationNoticeEmail).toHaveBeenCalledWith(
+        expect.objectContaining({
+          reason: undefined,
+          comment: undefined,
+        })
+      );
+    });
+
+    test("should not call sendAdminCancellationNoticeEmail if owner not found", async () => {
+      const subscription = {
+        id: "sub_test_admin",
+        organizationId: "non-existent-org",
+        planId: diamondPlanResult.plan.id,
+        status: "active" as const,
+        trialEnd: null,
+        trialStart: null,
+        trialUsed: false,
+        seats: 1,
+        pricingTierId: diamondPlanResult.tiers[0].id,
+        billingCycle: "monthly" as const,
+        currentPeriodStart: new Date(),
+        currentPeriodEnd: new Date(Date.now() + 30 * 24 * 60 * 60 * 1000),
+        pagarmeSubscriptionId: null,
+        pagarmeUpdatedAt: null,
+        cancelAtPeriodEnd: true,
+        canceledAt: new Date(),
+        cancelReason: "too_expensive",
+        cancelComment: null,
+        pastDueSince: null,
+        gracePeriodEnds: null,
+        pendingPlanId: null,
+        pendingBillingCycle: null,
+        pendingPricingTierId: null,
+        planChangeAt: null,
+        priceAtPurchase: null,
+        isCustomPrice: false,
+        createdAt: new Date(),
+        updatedAt: new Date(),
+      };
+
+      await PaymentHooks.emit("subscription.cancelScheduled", { subscription });
+
+      await new Promise((resolve) => setTimeout(resolve, 100));
+
+      expect(mockSendAdminCancellationNoticeEmail).not.toHaveBeenCalled();
     });
   });
 

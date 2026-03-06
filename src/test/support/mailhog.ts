@@ -491,6 +491,100 @@ export async function waitForContactEmail(
 }
 
 // ============================================================
+// ADMIN CANCELLATION NOTICE EMAIL
+// ============================================================
+
+export type AdminCancellationNoticeEmailData = {
+  subject: string;
+  organizationName: string;
+  planName: string;
+  reason: string | null;
+  comment: string | null;
+  body: string;
+};
+
+const ADMIN_CANCELLATION_SUBJECT_PATTERN = "[Cancelamento]";
+
+function isAdminCancellationNoticeEmail(message: MailHogMessage): boolean {
+  const subject = message.Content.Headers.Subject?.[0] ?? "";
+  return subject.includes(ADMIN_CANCELLATION_SUBJECT_PATTERN);
+}
+
+function extractFieldFromEmailBody(
+  htmlBody: string,
+  label: string
+): string | null {
+  const decodedBody = htmlBody.replace(/=3D/g, "=").replace(/=\r?\n/g, "");
+  const regex = new RegExp(
+    `<strong>${label}<\\/strong>[\\s\\S]*?<\\/td>\\s*<td[^>]*>([^<]+)<\\/td>`,
+    "i"
+  );
+  const match = decodedBody.match(regex);
+  return match?.[1]?.trim() ?? null;
+}
+
+async function tryGetAdminCancellationNoticeEmail(
+  email: string
+): Promise<AdminCancellationNoticeEmailData | null> {
+  const messages = await searchEmailsByRecipient(email);
+  const noticeEmail = messages.find(isAdminCancellationNoticeEmail);
+
+  if (!noticeEmail) {
+    return null;
+  }
+
+  const subject = noticeEmail.Content.Headers.Subject?.[0] ?? "";
+  const body = noticeEmail.Content.Body;
+
+  return {
+    subject,
+    organizationName: extractFieldFromEmailBody(body, "Organização") ?? "",
+    planName: extractFieldFromEmailBody(body, "Plano") ?? "",
+    reason: extractFieldFromEmailBody(body, "Motivo"),
+    comment: extractFieldFromEmailBody(body, "Observações do usuário"),
+    body,
+  };
+}
+
+export async function waitForAdminCancellationNoticeEmail(
+  email: string,
+  maxRetries = DEFAULT_MAX_RETRIES,
+  delayMs = DEFAULT_RETRY_DELAY_MS
+): Promise<AdminCancellationNoticeEmailData> {
+  for (let attempt = 1; attempt <= maxRetries; attempt++) {
+    try {
+      const emailData = await tryGetAdminCancellationNoticeEmail(email);
+
+      if (emailData) {
+        return emailData;
+      }
+
+      if (attempt >= maxRetries) {
+        throw new Error(
+          `No admin cancellation notice email found for ${email} after ${maxRetries} attempts.`
+        );
+      }
+
+      await delay(delayMs);
+    } catch (error) {
+      if (error instanceof TypeError && error.message.includes("fetch")) {
+        throwMailHogUnavailableError();
+      }
+
+      if (attempt >= maxRetries) {
+        throw error;
+      }
+
+      await delay(delayMs);
+    }
+  }
+
+  throw new Error(
+    `Admin cancellation notice email not found for ${email} after ${maxRetries} retries`
+  );
+}
+
+// ============================================================
 // CLEAR MAILBOX
 // ============================================================
 
