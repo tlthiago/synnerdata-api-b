@@ -1,12 +1,13 @@
-import { and, eq, isNull } from "drizzle-orm";
+import { and, eq, isNull, sql } from "drizzle-orm";
 import { db } from "@/db";
 import { schema } from "@/db/schema";
+import { ensureEmployeeNotTerminated } from "@/lib/helpers/employee-status";
 import {
   VacationAlreadyDeletedError,
   VacationInvalidDateRangeError,
-  VacationInvalidDaysError,
   VacationInvalidEmployeeError,
   VacationNotFoundError,
+  VacationOverlapError,
 } from "./errors";
 import type {
   CreateVacationInput,
@@ -30,10 +31,8 @@ export abstract class VacationService {
         },
         startDate: schema.vacations.startDate,
         endDate: schema.vacations.endDate,
-        daysTotal: schema.vacations.daysTotal,
         daysUsed: schema.vacations.daysUsed,
-        acquisitionPeriodStart: schema.vacations.acquisitionPeriodStart,
-        acquisitionPeriodEnd: schema.vacations.acquisitionPeriodEnd,
+        acquisitionPeriodId: schema.vacations.acquisitionPeriodId,
         status: schema.vacations.status,
         notes: schema.vacations.notes,
         createdAt: schema.vacations.createdAt,
@@ -72,10 +71,8 @@ export abstract class VacationService {
         },
         startDate: schema.vacations.startDate,
         endDate: schema.vacations.endDate,
-        daysTotal: schema.vacations.daysTotal,
         daysUsed: schema.vacations.daysUsed,
-        acquisitionPeriodStart: schema.vacations.acquisitionPeriodStart,
-        acquisitionPeriodEnd: schema.vacations.acquisitionPeriodEnd,
+        acquisitionPeriodId: schema.vacations.acquisitionPeriodId,
         status: schema.vacations.status,
         notes: schema.vacations.notes,
         createdAt: schema.vacations.createdAt,
@@ -131,17 +128,33 @@ export abstract class VacationService {
     }
   }
 
-  private static validateDays(daysUsed: number, daysTotal: number): void {
-    if (daysTotal <= 0) {
-      throw new VacationInvalidDaysError("Total days must be positive");
-    }
+  private static async ensureNoOverlap(params: {
+    organizationId: string;
+    employeeId: string;
+    startDate: string;
+    endDate: string;
+    excludeId?: string;
+  }): Promise<void> {
+    const { organizationId, employeeId, startDate, endDate, excludeId } =
+      params;
 
-    if (daysUsed < 0) {
-      throw new VacationInvalidDaysError("Days used cannot be negative");
-    }
+    const [existing] = await db
+      .select({ id: schema.vacations.id })
+      .from(schema.vacations)
+      .where(
+        and(
+          eq(schema.vacations.organizationId, organizationId),
+          eq(schema.vacations.employeeId, employeeId),
+          sql`${schema.vacations.startDate} <= ${endDate}`,
+          sql`${schema.vacations.endDate} >= ${startDate}`,
+          sql`${schema.vacations.status} != 'canceled'`,
+          isNull(schema.vacations.deletedAt)
+        )
+      )
+      .limit(1);
 
-    if (daysUsed > daysTotal) {
-      throw new VacationInvalidDaysError("Days used cannot exceed total days");
+    if (existing && existing.id !== excludeId) {
+      throw new VacationOverlapError(employeeId, startDate, endDate);
     }
   }
 
@@ -153,8 +166,54 @@ export abstract class VacationService {
       organizationId
     );
 
+    await ensureEmployeeNotTerminated(data.employeeId, organizationId);
+
     VacationService.validateDates(data.startDate, data.endDate);
-    VacationService.validateDays(data.daysUsed, data.daysTotal);
+
+    // Validate acquisition period
+    const { AcquisitionPeriodService } = await import(
+      "./acquisition-periods/acquisition-period.service"
+    );
+
+    const period = await AcquisitionPeriodService.findByIdOrThrow(
+      data.acquisitionPeriodId,
+      organizationId
+    );
+
+    // Period must belong to same employee
+    if (period.employee.id !== data.employeeId) {
+      throw new VacationInvalidEmployeeError(data.employeeId);
+    }
+
+    // Period must be available
+    if (period.status !== "available") {
+      const { AcquisitionPeriodNotAvailableError } = await import(
+        "./acquisition-periods/errors"
+      );
+      throw new AcquisitionPeriodNotAvailableError(
+        data.acquisitionPeriodId,
+        period.status
+      );
+    }
+
+    // daysUsed cannot exceed remaining days in period
+    if (data.daysUsed > period.daysRemaining) {
+      const { AcquisitionPeriodInsufficientDaysError } = await import(
+        "./acquisition-periods/errors"
+      );
+      throw new AcquisitionPeriodInsufficientDaysError(
+        data.acquisitionPeriodId,
+        data.daysUsed,
+        period.daysRemaining
+      );
+    }
+
+    await VacationService.ensureNoOverlap({
+      organizationId,
+      employeeId: data.employeeId,
+      startDate: data.startDate,
+      endDate: data.endDate,
+    });
 
     const vacationId = `vacation-${crypto.randomUUID()}`;
 
@@ -166,15 +225,24 @@ export abstract class VacationService {
         employeeId: data.employeeId,
         startDate: data.startDate,
         endDate: data.endDate,
-        daysTotal: data.daysTotal,
         daysUsed: data.daysUsed,
-        acquisitionPeriodStart: data.acquisitionPeriodStart,
-        acquisitionPeriodEnd: data.acquisitionPeriodEnd,
+        acquisitionPeriodId: data.acquisitionPeriodId,
         status: data.status,
         notes: data.notes,
         createdBy: userId,
       })
       .returning();
+
+    // Update days used on acquisition period
+    await db
+      .update(schema.vacationAcquisitionPeriods)
+      .set({
+        daysUsed: sql`${schema.vacationAcquisitionPeriods.daysUsed} + ${data.daysUsed}`,
+        status: sql`CASE WHEN ${schema.vacationAcquisitionPeriods.daysUsed} + ${data.daysUsed} >= ${schema.vacationAcquisitionPeriods.daysEntitled} THEN 'used'::acquisition_period_status ELSE ${schema.vacationAcquisitionPeriods.status} END`,
+      })
+      .where(
+        eq(schema.vacationAcquisitionPeriods.id, data.acquisitionPeriodId)
+      );
 
     return {
       id: vacation.id,
@@ -182,10 +250,8 @@ export abstract class VacationService {
       employee,
       startDate: vacation.startDate,
       endDate: vacation.endDate,
-      daysTotal: vacation.daysTotal,
       daysUsed: vacation.daysUsed,
-      acquisitionPeriodStart: vacation.acquisitionPeriodStart,
-      acquisitionPeriodEnd: vacation.acquisitionPeriodEnd,
+      acquisitionPeriodId: vacation.acquisitionPeriodId,
       status: vacation.status,
       notes: vacation.notes,
       createdAt: vacation.createdAt,
@@ -204,10 +270,8 @@ export abstract class VacationService {
         },
         startDate: schema.vacations.startDate,
         endDate: schema.vacations.endDate,
-        daysTotal: schema.vacations.daysTotal,
         daysUsed: schema.vacations.daysUsed,
-        acquisitionPeriodStart: schema.vacations.acquisitionPeriodStart,
-        acquisitionPeriodEnd: schema.vacations.acquisitionPeriodEnd,
+        acquisitionPeriodId: schema.vacations.acquisitionPeriodId,
         status: schema.vacations.status,
         notes: schema.vacations.notes,
         createdAt: schema.vacations.createdAt,
@@ -258,10 +322,17 @@ export abstract class VacationService {
       VacationService.validateDates(newStartDate, newEndDate);
     }
 
-    if (data.daysUsed !== undefined || data.daysTotal !== undefined) {
-      const newDaysUsed = data.daysUsed ?? existing.daysUsed;
-      const newDaysTotal = data.daysTotal ?? existing.daysTotal;
-      VacationService.validateDays(newDaysUsed, newDaysTotal);
+    if (data.startDate !== undefined || data.endDate !== undefined) {
+      const finalStartDate = data.startDate ?? existing.startDate;
+      const finalEndDate = data.endDate ?? existing.endDate;
+
+      await VacationService.ensureNoOverlap({
+        organizationId,
+        employeeId: existing.employee.id,
+        startDate: finalStartDate,
+        endDate: finalEndDate,
+        excludeId: id,
+      });
     }
 
     await db
@@ -311,6 +382,20 @@ export abstract class VacationService {
         )
       )
       .returning();
+
+    // Decrement days used on acquisition period
+    const vacationDaysUsed = existing.daysUsed;
+    if (vacationDaysUsed > 0) {
+      await db
+        .update(schema.vacationAcquisitionPeriods)
+        .set({
+          daysUsed: sql`GREATEST(${schema.vacationAcquisitionPeriods.daysUsed} - ${vacationDaysUsed}, 0)`,
+          status: sql`CASE WHEN ${schema.vacationAcquisitionPeriods.status}::text = 'used' THEN 'available'::acquisition_period_status ELSE ${schema.vacationAcquisitionPeriods.status} END`,
+        })
+        .where(
+          eq(schema.vacationAcquisitionPeriods.id, existing.acquisitionPeriodId)
+        );
+    }
 
     return {
       ...existing,

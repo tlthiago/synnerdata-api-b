@@ -1,4 +1,7 @@
 import { beforeAll, describe, expect, test } from "bun:test";
+import { eq } from "drizzle-orm";
+import { db } from "@/db";
+import { schema } from "@/db/schema";
 import { env } from "@/env";
 import { createTestApp, type TestApp } from "@/test/helpers/app";
 import { createTestEmployee } from "@/test/helpers/employee";
@@ -370,6 +373,166 @@ describe("POST /v1/promotions", () => {
     expect(body.data.newSalary).toBe("3600.00");
     expect(body.data.reason).toBe("Promoção por mérito");
     expect(body.data.notes).toBe("Excelente desempenho no último ano");
+  });
+
+  test("should reject duplicate promotion on same date", async () => {
+    const { headers, organizationId, user } =
+      await createTestUserWithOrganization({ emailVerified: true });
+
+    const { employee } = await createTestEmployee({
+      organizationId,
+      userId: user.id,
+    });
+
+    const prevPos1 = await createTestJobPosition({
+      organizationId,
+      userId: user.id,
+      name: "Analista Júnior",
+    });
+
+    const newPos1 = await createTestJobPosition({
+      organizationId,
+      userId: user.id,
+      name: "Analista Pleno",
+    });
+
+    const first = await app.handle(
+      new Request(`${BASE_URL}/v1/promotions`, {
+        method: "POST",
+        headers: { ...headers, "Content-Type": "application/json" },
+        body: JSON.stringify({
+          employeeId: employee.id,
+          previousJobPositionId: prevPos1.id,
+          newJobPositionId: newPos1.id,
+          promotionDate: "2024-02-20",
+          previousSalary: "3000.00",
+          newSalary: "3600.00",
+        }),
+      })
+    );
+    expect(first.status).toBe(200);
+
+    const prevPos2 = await createTestJobPosition({
+      organizationId,
+      userId: user.id,
+      name: "Analista Pleno B",
+    });
+
+    const newPos2 = await createTestJobPosition({
+      organizationId,
+      userId: user.id,
+      name: "Analista Sênior",
+    });
+
+    const second = await app.handle(
+      new Request(`${BASE_URL}/v1/promotions`, {
+        method: "POST",
+        headers: { ...headers, "Content-Type": "application/json" },
+        body: JSON.stringify({
+          employeeId: employee.id,
+          previousJobPositionId: prevPos2.id,
+          newJobPositionId: newPos2.id,
+          promotionDate: "2024-02-20",
+          previousSalary: "3600.00",
+          newSalary: "4200.00",
+        }),
+      })
+    );
+    expect(second.status).toBe(409);
+    const body = await second.json();
+    expect(body.error.code).toBe("PROMOTION_DUPLICATE_DATE");
+  });
+
+  test("should reject promotion for TERMINATED employee", async () => {
+    const { headers, organizationId, user } =
+      await createTestUserWithOrganization({ emailVerified: true });
+
+    const { employee } = await createTestEmployee({
+      organizationId,
+      userId: user.id,
+    });
+
+    await db
+      .update(schema.employees)
+      .set({ status: "TERMINATED" })
+      .where(eq(schema.employees.id, employee.id));
+
+    const previousJobPosition = await createTestJobPosition({
+      organizationId,
+      userId: user.id,
+      name: "Analista Júnior",
+    });
+
+    const newJobPosition = await createTestJobPosition({
+      organizationId,
+      userId: user.id,
+      name: "Analista Pleno",
+    });
+
+    const response = await app.handle(
+      new Request(`${BASE_URL}/v1/promotions`, {
+        method: "POST",
+        headers: { ...headers, "Content-Type": "application/json" },
+        body: JSON.stringify({
+          employeeId: employee.id,
+          previousJobPositionId: previousJobPosition.id,
+          newJobPositionId: newJobPosition.id,
+          promotionDate: "2024-01-15",
+          previousSalary: "3000.00",
+          newSalary: "3600.00",
+        }),
+      })
+    );
+
+    expect(response.status).toBe(422);
+    const body = await response.json();
+    expect(body.error.code).toBe("EMPLOYEE_TERMINATED");
+  });
+
+  test("should reject promotion for ON_VACATION employee", async () => {
+    const { headers, organizationId, user } =
+      await createTestUserWithOrganization({ emailVerified: true });
+
+    const { employee } = await createTestEmployee({
+      organizationId,
+      userId: user.id,
+    });
+
+    await db
+      .update(schema.employees)
+      .set({ status: "ON_VACATION" })
+      .where(eq(schema.employees.id, employee.id));
+
+    const previousJobPosition = await createTestJobPosition({
+      organizationId,
+      userId: user.id,
+      name: "Analista Júnior",
+    });
+
+    const newJobPosition = await createTestJobPosition({
+      organizationId,
+      userId: user.id,
+      name: "Analista Pleno",
+    });
+
+    const response = await app.handle(
+      new Request(`${BASE_URL}/v1/promotions`, {
+        method: "POST",
+        headers: { ...headers, "Content-Type": "application/json" },
+        body: JSON.stringify({
+          employeeId: employee.id,
+          previousJobPositionId: previousJobPosition.id,
+          newJobPositionId: newJobPosition.id,
+          promotionDate: "2024-01-15",
+          previousSalary: "3000.00",
+          newSalary: "3600.00",
+        }),
+      })
+    );
+
+    expect(response.status).toBe(422);
+    const body = await response.json();
+    expect(body.error.code).toBe("EMPLOYEE_ON_VACATION");
   });
 
   test("should allow manager to create promotion", async () => {

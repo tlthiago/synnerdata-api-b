@@ -50,6 +50,10 @@ export const updatePpeDeliverySchema = z.object({
     .max(200, "Nome deve ter no máximo 200 caracteres")
     .optional()
     .describe("Nome de quem entregou"),
+  ppeItemIds: z
+    .array(z.string().min(1))
+    .optional()
+    .describe("IDs dos EPIs — substitui a lista atual"),
 });
 
 export const addPpeItemSchema = z.object({

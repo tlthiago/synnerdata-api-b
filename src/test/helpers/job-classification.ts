@@ -22,7 +22,7 @@ export async function createTestJobClassification(
     userId,
     name:
       name ??
-      faker.helpers.arrayElement([
+      `${faker.helpers.arrayElement([
         "Analista de Sistemas",
         "Programador de Sistemas",
         "Administrador de Banco de Dados",
@@ -43,7 +43,7 @@ export async function createTestJobClassification(
         "Mecânico Industrial",
         "Soldador",
         "Motorista de Caminhão",
-      ]),
+      ])} ${crypto.randomUUID().slice(0, 8)}`,
   });
 }
 

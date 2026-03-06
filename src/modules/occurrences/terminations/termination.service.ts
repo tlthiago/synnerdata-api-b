@@ -3,6 +3,7 @@ import { db } from "@/db";
 import { schema } from "@/db/schema";
 import {
   TerminationAlreadyDeletedError,
+  TerminationAlreadyExistsError,
   TerminationInvalidEmployeeError,
   TerminationNotFoundError,
 } from "./errors";
@@ -122,12 +123,38 @@ export abstract class TerminationService {
     return employee;
   }
 
+  private static async ensureNoActiveTermination(
+    organizationId: string,
+    employeeId: string
+  ): Promise<void> {
+    const [existing] = await db
+      .select({ id: schema.terminations.id })
+      .from(schema.terminations)
+      .where(
+        and(
+          eq(schema.terminations.organizationId, organizationId),
+          eq(schema.terminations.employeeId, employeeId),
+          isNull(schema.terminations.deletedAt)
+        )
+      )
+      .limit(1);
+
+    if (existing) {
+      throw new TerminationAlreadyExistsError(employeeId);
+    }
+  }
+
   static async create(input: CreateTerminationInput): Promise<TerminationData> {
     const { organizationId, userId, employeeId, ...data } = input;
 
     const employee = await TerminationService.getEmployeeReference(
       employeeId,
       organizationId
+    );
+
+    await TerminationService.ensureNoActiveTermination(
+      organizationId,
+      employeeId
     );
 
     const terminationId = `termination-${crypto.randomUUID()}`;

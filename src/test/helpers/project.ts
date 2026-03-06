@@ -41,7 +41,7 @@ export async function createTestProject(
     userId,
     name:
       name ??
-      faker.helpers.arrayElement([
+      `${faker.helpers.arrayElement([
         "Construção Edifício Aurora",
         "Reforma Shopping Center",
         "Ampliação Fábrica São Paulo",
@@ -52,7 +52,7 @@ export async function createTestProject(
         "Infraestrutura Logística Norte",
         "Terraplanagem Condomínio Sul",
         "Acabamento Comercial Centro",
-      ]),
+      ])} ${crypto.randomUUID().slice(0, 8)}`,
     description:
       description ??
       faker.helpers.arrayElement([

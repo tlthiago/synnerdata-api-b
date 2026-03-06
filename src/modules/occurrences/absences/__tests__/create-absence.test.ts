@@ -1,5 +1,9 @@
 import { beforeAll, describe, expect, test } from "bun:test";
+import { eq } from "drizzle-orm";
+import { db } from "@/db";
+import { schema } from "@/db/schema";
 import { env } from "@/env";
+import { createTestAbsence } from "@/test/helpers/absence";
 import { createTestApp, type TestApp } from "@/test/helpers/app";
 import { createTestEmployee } from "@/test/helpers/employee";
 import {
@@ -260,5 +264,137 @@ describe("POST /v1/absences", () => {
     expect(response.status).toBe(403);
     const body = await response.json();
     expect(body.error.code).toBe("FORBIDDEN");
+  });
+
+  test("should reject overlapping absence with same type", async () => {
+    const { headers, organizationId, user } =
+      await createTestUserWithOrganization({ emailVerified: true });
+    const { employee } = await createTestEmployee({
+      organizationId,
+      userId: user.id,
+    });
+
+    await createTestAbsence({
+      organizationId,
+      userId: user.id,
+      employeeId: employee.id,
+      startDate: "2024-02-01",
+      endDate: "2024-02-10",
+      type: "justified",
+    });
+
+    const response = await app.handle(
+      new Request(`${BASE_URL}/v1/absences`, {
+        method: "POST",
+        headers: { ...headers, "Content-Type": "application/json" },
+        body: JSON.stringify({
+          employeeId: employee.id,
+          startDate: "2024-02-05",
+          endDate: "2024-02-15",
+          type: "justified",
+        }),
+      })
+    );
+
+    expect(response.status).toBe(409);
+    const body = await response.json();
+    expect(body.error.code).toBe("ABSENCE_OVERLAP");
+  });
+
+  test("should allow overlapping absence with different type", async () => {
+    const { headers, organizationId, user } =
+      await createTestUserWithOrganization({ emailVerified: true });
+    const { employee } = await createTestEmployee({
+      organizationId,
+      userId: user.id,
+    });
+
+    await createTestAbsence({
+      organizationId,
+      userId: user.id,
+      employeeId: employee.id,
+      startDate: "2024-03-01",
+      endDate: "2024-03-10",
+      type: "justified",
+    });
+
+    const response = await app.handle(
+      new Request(`${BASE_URL}/v1/absences`, {
+        method: "POST",
+        headers: { ...headers, "Content-Type": "application/json" },
+        body: JSON.stringify({
+          employeeId: employee.id,
+          startDate: "2024-03-05",
+          endDate: "2024-03-15",
+          type: "unjustified",
+        }),
+      })
+    );
+
+    expect(response.status).toBe(200);
+    const body = await response.json();
+    expect(body.success).toBe(true);
+  });
+
+  test("should reject when employee is TERMINATED", async () => {
+    const { headers, organizationId, user } =
+      await createTestUserWithOrganization({ emailVerified: true });
+    const { employee } = await createTestEmployee({
+      organizationId,
+      userId: user.id,
+    });
+
+    await db
+      .update(schema.employees)
+      .set({ status: "TERMINATED" })
+      .where(eq(schema.employees.id, employee.id));
+
+    const response = await app.handle(
+      new Request(`${BASE_URL}/v1/absences`, {
+        method: "POST",
+        headers: { ...headers, "Content-Type": "application/json" },
+        body: JSON.stringify({
+          employeeId: employee.id,
+          startDate: "2024-04-01",
+          endDate: "2024-04-01",
+          type: "justified",
+        }),
+      })
+    );
+
+    expect(response.status).toBe(422);
+    const body = await response.json();
+    expect(body.error.code).toBe("EMPLOYEE_TERMINATED");
+  });
+
+  test("should reject when employee is ON_VACATION", async () => {
+    const { headers, organizationId, user } =
+      await createTestUserWithOrganization({ emailVerified: true });
+    const { employee } = await createTestEmployee({
+      organizationId,
+      userId: user.id,
+    });
+
+    await db
+      .update(schema.employees)
+      .set({ status: "ON_VACATION" })
+      .where(eq(schema.employees.id, employee.id));
+
+    const response = await app.handle(
+      new Request(`${BASE_URL}/v1/absences`, {
+        method: "POST",
+        headers: { ...headers, "Content-Type": "application/json" },
+        body: JSON.stringify({
+          employeeId: employee.id,
+          startDate: "2024-05-01",
+          endDate: "2024-05-01",
+          type: "justified",
+        }),
+      })
+    );
+
+    expect(response.status).toBe(422);
+    const body = await response.json();
+    expect(body.error.code).toBe("EMPLOYEE_ON_VACATION");
   });
 });

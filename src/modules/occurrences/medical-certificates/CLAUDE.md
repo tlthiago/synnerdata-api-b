@@ -7,6 +7,8 @@ Registro de atestados médicos vinculados a ausências.
 - `startDate` deve ser ≤ `endDate`
 - `daysOff` deve ser ≥ 1 (inteiro)
 - Dados médicos opcionais: `cid` (max 10), `doctorName` (max 255), `doctorCrm` (max 20)
+- Overlap check no create: mesmo employee + datas sobrepostas (sem filtro de tipo) lança `MedicalCertificateOverlapError`
+- Employee deve estar ativo no create (`ensureEmployeeActive` — rejeita TERMINATED e ON_VACATION)
 - Listagem ordenada por `startDate`
 
 ## Fields
@@ -20,6 +22,9 @@ Registro de atestados médicos vinculados a ausências.
 
 - `MedicalCertificateNotFoundError` (404)
 - `MedicalCertificateAlreadyDeletedError` (404)
-- `InvalidDateRangeError` (422)
-- `InvalidDaysOffError` (422)
+- `MedicalCertificateInvalidDateRangeError` (422)
+- `MedicalCertificateInvalidDaysOffError` (422)
 - `MedicalCertificateInvalidEmployeeError` (422)
+- `MedicalCertificateOverlapError` (409) — same employee + overlapping dates
+- `EmployeeTerminatedError` (422) — shared, from `src/lib/errors/employee-status-errors.ts`
+- `EmployeeOnVacationError` (422) — shared, from `src/lib/errors/employee-status-errors.ts`

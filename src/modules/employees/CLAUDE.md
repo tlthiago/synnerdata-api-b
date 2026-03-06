@@ -51,6 +51,16 @@ Alterado via `PATCH /:id/status` (endpoint dedicado, não pelo PUT geral)
 - Datas no template: DD/MM/AAAA, parseadas para YYYY-MM-DD
 - CPF validado: formato + algoritmo + unicidade na org + unicidade no arquivo
 
+## Hooks System
+
+Event-driven hooks at `src/modules/employees/hooks/`:
+- **Events emitted:**
+  - `employee.created` — after successful create (payload: employeeId, organizationId, hireDate)
+  - `employee.hireDateUpdated` — after hireDate change in update (payload: employeeId, organizationId, oldHireDate, newHireDate)
+- **Listeners:** generate/recalculate vacation acquisition periods
+- **HireDate validation:** update() blocks hireDate changes if any acquisition period has daysUsed > 0 (409)
+- Registered in `src/index.ts` at app startup via `registerEmployeeListeners()`
+
 ### Sub-módulo Import
 
 - `import/import.constants.ts` — label maps PT-BR, definições de colunas, limites

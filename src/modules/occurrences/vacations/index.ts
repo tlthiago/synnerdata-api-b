@@ -3,11 +3,13 @@ import { isProduction } from "@/env";
 import { betterAuthPlugin } from "@/lib/auth-plugin";
 import { wrapSuccess } from "@/lib/responses/envelope";
 import {
+  conflictErrorSchema,
   forbiddenErrorSchema,
   notFoundErrorSchema,
   unauthorizedErrorSchema,
   validationErrorSchema,
 } from "@/lib/responses/response.types";
+import { acquisitionPeriodController } from "./acquisition-periods";
 import {
   createVacationResponseSchema,
   createVacationSchema,
@@ -26,6 +28,7 @@ export const vacationController = new Elysia({
   detail: { tags: ["Occurrences - Vacations"] },
 })
   .use(betterAuthPlugin)
+  .use(acquisitionPeriodController)
   .post(
     "/",
     async ({ session, body, user }) =>
@@ -46,6 +49,7 @@ export const vacationController = new Elysia({
         200: createVacationResponseSchema,
         401: unauthorizedErrorSchema,
         403: forbiddenErrorSchema,
+        409: conflictErrorSchema,
         422: validationErrorSchema,
       },
       detail: {
@@ -130,6 +134,7 @@ export const vacationController = new Elysia({
         401: unauthorizedErrorSchema,
         403: forbiddenErrorSchema,
         404: notFoundErrorSchema,
+        409: conflictErrorSchema,
         422: validationErrorSchema,
       },
       detail: {

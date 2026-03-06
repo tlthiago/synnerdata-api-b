@@ -106,8 +106,7 @@ describe("GET /v1/vacations/:id", () => {
       employeeId: employee.id,
       startDate: "2025-03-01",
       endDate: "2025-03-15",
-      daysTotal: 30,
-      daysUsed: 15,
+      daysUsed: 10,
       status: "scheduled",
       notes: "Test vacation",
     });
@@ -127,8 +126,8 @@ describe("GET /v1/vacations/:id", () => {
     expect(body.data.employee.id).toBe(employee.id);
     expect(body.data.employee.name).toBe(employee.name);
     expect(body.data.organizationId).toBe(organizationId);
-    expect(body.data.daysTotal).toBe(30);
-    expect(body.data.daysUsed).toBe(15);
+    expect(body.data.acquisitionPeriodId).toStartWith("acquisition-period-");
+    expect(body.data.daysUsed).toBe(10);
     expect(body.data.status).toBe("scheduled");
     expect(body.data.notes).toBe("Test vacation");
   });

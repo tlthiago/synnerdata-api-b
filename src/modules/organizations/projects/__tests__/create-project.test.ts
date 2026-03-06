@@ -7,6 +7,7 @@ import {
   createTestUser,
   createTestUserWithOrganization,
 } from "@/test/helpers/user";
+import { ProjectService } from "../project.service";
 
 const BASE_URL = env.API_URL;
 
@@ -337,5 +338,114 @@ describe("POST /v1/projects", () => {
     );
 
     expect(response.status).toBe(200);
+  });
+
+  test("should return 409 when creating project with duplicate name", async () => {
+    const { headers, organizationId, user } =
+      await createTestUserWithOrganization({
+        emailVerified: true,
+      });
+
+    await ProjectService.create({
+      organizationId,
+      userId: user.id,
+      name: "Projeto Duplicado",
+      description: "Descrição do projeto",
+      startDate: "2025-01-15",
+      cno: generateCno(),
+    });
+
+    const response = await app.handle(
+      new Request(`${BASE_URL}/v1/projects`, {
+        method: "POST",
+        headers: {
+          ...headers,
+          "Content-Type": "application/json",
+        },
+        body: JSON.stringify({
+          name: "Projeto Duplicado",
+          description: "Outra descrição",
+          startDate: "2025-02-01",
+          cno: generateCno(),
+        }),
+      })
+    );
+
+    expect(response.status).toBe(409);
+    const body = await response.json();
+    expect(body.error.code).toBe("PROJECT_NAME_ALREADY_EXISTS");
+  });
+
+  test("should return 409 when creating project with duplicate cno", async () => {
+    const { headers, organizationId, user } =
+      await createTestUserWithOrganization({
+        emailVerified: true,
+      });
+
+    const cno = generateCno();
+    await ProjectService.create({
+      organizationId,
+      userId: user.id,
+      name: "Projeto A",
+      description: "Descrição do projeto A",
+      startDate: "2025-01-15",
+      cno,
+    });
+
+    const response = await app.handle(
+      new Request(`${BASE_URL}/v1/projects`, {
+        method: "POST",
+        headers: {
+          ...headers,
+          "Content-Type": "application/json",
+        },
+        body: JSON.stringify({
+          name: "Projeto B",
+          description: "Descrição do projeto B",
+          startDate: "2025-02-01",
+          cno,
+        }),
+      })
+    );
+
+    expect(response.status).toBe(409);
+    const body = await response.json();
+    expect(body.error.code).toBe("PROJECT_CNO_ALREADY_EXISTS");
+  });
+
+  test("should return 409 when creating project with duplicate name (case-insensitive)", async () => {
+    const { headers, organizationId, user } =
+      await createTestUserWithOrganization({
+        emailVerified: true,
+      });
+
+    await ProjectService.create({
+      organizationId,
+      userId: user.id,
+      name: "Projeto Teste",
+      description: "Descrição do projeto",
+      startDate: "2025-01-15",
+      cno: generateCno(),
+    });
+
+    const response = await app.handle(
+      new Request(`${BASE_URL}/v1/projects`, {
+        method: "POST",
+        headers: {
+          ...headers,
+          "Content-Type": "application/json",
+        },
+        body: JSON.stringify({
+          name: "projeto teste",
+          description: "Outra descrição",
+          startDate: "2025-02-01",
+          cno: generateCno(),
+        }),
+      })
+    );
+
+    expect(response.status).toBe(409);
+    const body = await response.json();
+    expect(body.error.code).toBe("PROJECT_NAME_ALREADY_EXISTS");
   });
 });

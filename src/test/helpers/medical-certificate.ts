@@ -1,3 +1,4 @@
+import { calculateDaysBetween } from "@/lib/schemas/date-helpers";
 import type { MedicalCertificateData } from "@/modules/occurrences/medical-certificates/medical-certificates.model";
 import { MedicalCertificateService } from "@/modules/occurrences/medical-certificates/medical-certificates.service";
 import { faker } from "./faker";
@@ -18,9 +19,9 @@ type CreateTestMedicalCertificateOptions = {
   employeeId: string;
 } & MedicalCertificateOverrides;
 
-function generateDefaultDates() {
+function generateDefaultDates(daysOffOverride?: number) {
   const startDate = faker.date.recent({ days: 7 });
-  const daysOff = faker.number.int({ min: 1, max: 15 });
+  const daysOff = daysOffOverride ?? faker.number.int({ min: 1, max: 15 });
   const endDate = new Date(startDate);
   endDate.setDate(endDate.getDate() + daysOff - 1);
 
@@ -46,21 +47,36 @@ function generateCid() {
  * Uses faker with pt-BR locale for realistic Brazilian data.
  *
  * Requires an employeeId. If dates are not provided, generates realistic values.
+ * When daysOff is provided without dates, generates dates that match the daysOff value.
+ * When dates are provided without daysOff, calculates daysOff from the dates.
  */
 export async function createTestMedicalCertificate(
   options: CreateTestMedicalCertificateOptions
 ): Promise<MedicalCertificateData> {
   const { organizationId, userId, employeeId, ...overrides } = options;
 
-  const defaults = generateDefaultDates();
+  let startDate: string;
+  let endDate: string;
+  let daysOff: number;
+
+  if (overrides.startDate && overrides.endDate) {
+    startDate = overrides.startDate;
+    endDate = overrides.endDate;
+    daysOff = overrides.daysOff ?? calculateDaysBetween(startDate, endDate);
+  } else {
+    const defaults = generateDefaultDates(overrides.daysOff);
+    startDate = overrides.startDate ?? defaults.startDate;
+    endDate = overrides.endDate ?? defaults.endDate;
+    daysOff = overrides.daysOff ?? defaults.daysOff;
+  }
 
   return await MedicalCertificateService.create({
     organizationId,
     userId,
     employeeId,
-    startDate: overrides.startDate ?? defaults.startDate,
-    endDate: overrides.endDate ?? defaults.endDate,
-    daysOff: overrides.daysOff ?? defaults.daysOff,
+    startDate,
+    endDate,
+    daysOff,
     cid: overrides.cid ?? generateCid(),
     doctorName: overrides.doctorName ?? faker.person.fullName(),
     doctorCrm: overrides.doctorCrm ?? faker.string.numeric(6),

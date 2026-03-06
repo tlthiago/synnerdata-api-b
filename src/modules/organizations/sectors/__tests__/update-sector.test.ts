@@ -175,4 +175,98 @@ describe("PUT /v1/sectors/:id", () => {
     const body = await response.json();
     expect(body.data.name).toBe("Updated by Manager");
   });
+
+  test("should return 409 when updating sector to duplicate name", async () => {
+    const { headers, organizationId, user } =
+      await createTestUserWithOrganization({
+        emailVerified: true,
+      });
+
+    await SectorService.create({
+      organizationId,
+      userId: user.id,
+      name: "Setor A",
+    });
+
+    const sectorB = await SectorService.create({
+      organizationId,
+      userId: user.id,
+      name: "Setor B",
+    });
+
+    const response = await app.handle(
+      new Request(`${BASE_URL}/v1/sectors/${sectorB.id}`, {
+        method: "PUT",
+        headers: {
+          ...headers,
+          "Content-Type": "application/json",
+        },
+        body: JSON.stringify({ name: "Setor A" }),
+      })
+    );
+
+    expect(response.status).toBe(409);
+    const body = await response.json();
+    expect(body.error.code).toBe("SECTOR_ALREADY_EXISTS");
+  });
+
+  test("should return 409 when updating sector to duplicate name (case-insensitive)", async () => {
+    const { headers, organizationId, user } =
+      await createTestUserWithOrganization({
+        emailVerified: true,
+      });
+
+    await SectorService.create({
+      organizationId,
+      userId: user.id,
+      name: "Setor A",
+    });
+
+    const sectorB = await SectorService.create({
+      organizationId,
+      userId: user.id,
+      name: "Setor B",
+    });
+
+    const response = await app.handle(
+      new Request(`${BASE_URL}/v1/sectors/${sectorB.id}`, {
+        method: "PUT",
+        headers: {
+          ...headers,
+          "Content-Type": "application/json",
+        },
+        body: JSON.stringify({ name: "SETOR A" }),
+      })
+    );
+
+    expect(response.status).toBe(409);
+    const body = await response.json();
+    expect(body.error.code).toBe("SECTOR_ALREADY_EXISTS");
+  });
+
+  test("should allow updating sector to its own name", async () => {
+    const { headers, organizationId, user } =
+      await createTestUserWithOrganization({
+        emailVerified: true,
+      });
+
+    const sector = await SectorService.create({
+      organizationId,
+      userId: user.id,
+      name: "Setor Mesmo Nome",
+    });
+
+    const response = await app.handle(
+      new Request(`${BASE_URL}/v1/sectors/${sector.id}`, {
+        method: "PUT",
+        headers: {
+          ...headers,
+          "Content-Type": "application/json",
+        },
+        body: JSON.stringify({ name: "Setor Mesmo Nome" }),
+      })
+    );
+
+    expect(response.status).toBe(200);
+  });
 });

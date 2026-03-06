@@ -1,12 +1,14 @@
 import { aliasedTable, and, eq, isNull } from "drizzle-orm";
 import { db } from "@/db";
 import { schema } from "@/db/schema";
+import { ensureEmployeeActive } from "@/lib/helpers/employee-status";
 import type { EntityReference } from "@/lib/schemas/relationships";
 import { EmployeeService } from "@/modules/employees/employee.service";
 import { JobPositionService } from "@/modules/organizations/job-positions/job-position.service";
 import {
   InvalidPromotionDataError,
   PromotionAlreadyDeletedError,
+  PromotionDuplicateDateError,
   PromotionNotFoundError,
 } from "./errors";
 import type {
@@ -36,7 +38,8 @@ export abstract class PromotionService {
       .where(
         and(
           eq(schema.employees.id, employeeId),
-          eq(schema.employees.organizationId, organizationId)
+          eq(schema.employees.organizationId, organizationId),
+          isNull(schema.employees.deletedAt)
         )
       )
       .limit(1);
@@ -54,7 +57,8 @@ export abstract class PromotionService {
       .where(
         and(
           eq(schema.jobPositions.id, jobPositionId),
-          eq(schema.jobPositions.organizationId, organizationId)
+          eq(schema.jobPositions.organizationId, organizationId),
+          isNull(schema.jobPositions.deletedAt)
         )
       )
       .limit(1);
@@ -173,6 +177,47 @@ export abstract class PromotionService {
     return result ?? null;
   }
 
+  private static validateSalaryIncrease(
+    previousSalary: string,
+    newSalary: string
+  ): void {
+    const parsedPrevious = Number.parseFloat(previousSalary);
+    const parsedNew = Number.parseFloat(newSalary);
+
+    if (parsedNew <= parsedPrevious) {
+      throw new InvalidPromotionDataError(
+        "O novo salário deve ser maior que o salário anterior",
+        { previousSalary, newSalary }
+      );
+    }
+  }
+
+  private static async ensureNoDuplicateDate(params: {
+    organizationId: string;
+    employeeId: string;
+    promotionDate: string;
+    excludeId?: string;
+  }): Promise<void> {
+    const { organizationId, employeeId, promotionDate, excludeId } = params;
+
+    const [existing] = await db
+      .select({ id: schema.promotions.id })
+      .from(schema.promotions)
+      .where(
+        and(
+          eq(schema.promotions.organizationId, organizationId),
+          eq(schema.promotions.employeeId, employeeId),
+          eq(schema.promotions.promotionDate, promotionDate),
+          isNull(schema.promotions.deletedAt)
+        )
+      )
+      .limit(1);
+
+    if (existing && existing.id !== excludeId) {
+      throw new PromotionDuplicateDateError(employeeId, promotionDate);
+    }
+  }
+
   static async create(input: CreatePromotionInput): Promise<PromotionData> {
     const {
       organizationId,
@@ -189,6 +234,8 @@ export abstract class PromotionService {
 
     await EmployeeService.findByIdOrThrow(employeeId, organizationId);
 
+    await ensureEmployeeActive(employeeId, organizationId);
+
     await JobPositionService.findByIdOrThrow(
       previousJobPositionId,
       organizationId
@@ -202,15 +249,13 @@ export abstract class PromotionService {
       );
     }
 
-    const parsedPreviousSalary = Number.parseFloat(previousSalary);
-    const parsedNewSalary = Number.parseFloat(newSalary);
+    PromotionService.validateSalaryIncrease(previousSalary, newSalary);
 
-    if (parsedNewSalary <= parsedPreviousSalary) {
-      throw new InvalidPromotionDataError(
-        "O novo salário deve ser maior que o salário anterior",
-        { previousSalary, newSalary }
-      );
-    }
+    await PromotionService.ensureNoDuplicateDate({
+      organizationId,
+      employeeId,
+      promotionDate,
+    });
 
     const promotionId = `promotion-${crypto.randomUUID()}`;
 
@@ -370,22 +415,22 @@ export abstract class PromotionService {
     }
 
     if (data.previousSalary || data.newSalary) {
-      const parsedPreviousSalary = data.previousSalary
-        ? Number.parseFloat(data.previousSalary)
-        : Number.parseFloat(existing.previousSalary);
-      const parsedNewSalary = data.newSalary
-        ? Number.parseFloat(data.newSalary)
-        : Number.parseFloat(existing.newSalary);
+      const effectivePreviousSalary =
+        data.previousSalary ?? existing.previousSalary;
+      const effectiveNewSalary = data.newSalary ?? existing.newSalary;
+      PromotionService.validateSalaryIncrease(
+        effectivePreviousSalary,
+        effectiveNewSalary
+      );
+    }
 
-      if (parsedNewSalary <= parsedPreviousSalary) {
-        throw new InvalidPromotionDataError(
-          "O novo salário deve ser maior que o salário anterior",
-          {
-            previousSalary: parsedPreviousSalary.toString(),
-            newSalary: parsedNewSalary.toString(),
-          }
-        );
-      }
+    if (data.promotionDate !== undefined) {
+      await PromotionService.ensureNoDuplicateDate({
+        organizationId,
+        employeeId: existing.employee.id,
+        promotionDate: data.promotionDate,
+        excludeId: id,
+      });
     }
 
     await db

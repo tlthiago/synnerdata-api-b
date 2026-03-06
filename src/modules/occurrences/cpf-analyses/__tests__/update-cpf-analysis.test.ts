@@ -192,4 +192,40 @@ describe("PUT /v1/cpf-analyses/:id", () => {
     expect(body.success).toBe(true);
     expect(body.data.status).toBe("approved");
   });
+
+  test("should return 409 when updating analysisDate to a duplicate", async () => {
+    const { headers, organizationId, userId } =
+      await createTestUserWithOrganization({ emailVerified: true });
+
+    const { employee } = await createTestEmployee({
+      organizationId,
+      userId,
+    });
+
+    await createTestCpfAnalysis({
+      organizationId,
+      userId,
+      employeeId: employee.id,
+      analysisDate: "2024-03-01",
+    });
+
+    const analysis2 = await createTestCpfAnalysis({
+      organizationId,
+      userId,
+      employeeId: employee.id,
+      analysisDate: "2024-04-01",
+    });
+
+    const response = await app.handle(
+      new Request(`${BASE_URL}/v1/cpf-analyses/${analysis2.id}`, {
+        method: "PUT",
+        headers: { ...headers, "Content-Type": "application/json" },
+        body: JSON.stringify({ analysisDate: "2024-03-01" }),
+      })
+    );
+
+    expect(response.status).toBe(409);
+    const body = await response.json();
+    expect(body.error.code).toBe("CPF_ANALYSIS_DUPLICATE_DATE");
+  });
 });

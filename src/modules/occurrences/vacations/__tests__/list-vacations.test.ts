@@ -1,5 +1,6 @@
 import { beforeAll, describe, expect, test } from "bun:test";
 import { env } from "@/env";
+import { createTestAcquisitionPeriod } from "@/test/helpers/acquisition-period";
 import { createTestApp, type TestApp } from "@/test/helpers/app";
 import { createTestEmployee } from "@/test/helpers/employee";
 import {
@@ -72,16 +73,46 @@ describe("GET /v1/vacations", () => {
       userId: user.id,
     });
 
-    await createTestVacation({
+    const period1 = await createTestAcquisitionPeriod({
       organizationId,
       userId: user.id,
       employeeId: employee.id,
+      acquisitionStart: "2023-01-01",
+      acquisitionEnd: "2023-12-31",
+      concessionStart: "2024-01-01",
+      concessionEnd: "2024-12-31",
+      status: "available",
+    });
+
+    const period2 = await createTestAcquisitionPeriod({
+      organizationId,
+      userId: user.id,
+      employeeId: employee.id,
+      acquisitionStart: "2024-01-01",
+      acquisitionEnd: "2024-12-31",
+      concessionStart: "2025-01-01",
+      concessionEnd: "2025-12-31",
+      status: "available",
     });
 
     await createTestVacation({
       organizationId,
       userId: user.id,
       employeeId: employee.id,
+      startDate: "2025-01-01",
+      endDate: "2025-01-15",
+      daysUsed: 0,
+      acquisitionPeriodId: period1.id,
+    });
+
+    await createTestVacation({
+      organizationId,
+      userId: user.id,
+      employeeId: employee.id,
+      startDate: "2025-03-01",
+      endDate: "2025-03-15",
+      daysUsed: 0,
+      acquisitionPeriodId: period2.id,
     });
 
     const response = await app.handle(
@@ -113,16 +144,46 @@ describe("GET /v1/vacations", () => {
       userId: user.id,
     });
 
+    const period1 = await createTestAcquisitionPeriod({
+      organizationId,
+      userId: user.id,
+      employeeId: employee.id,
+      acquisitionStart: "2023-01-01",
+      acquisitionEnd: "2023-12-31",
+      concessionStart: "2024-01-01",
+      concessionEnd: "2024-12-31",
+      status: "available",
+    });
+
+    const period2 = await createTestAcquisitionPeriod({
+      organizationId,
+      userId: user.id,
+      employeeId: employee.id,
+      acquisitionStart: "2024-01-01",
+      acquisitionEnd: "2024-12-31",
+      concessionStart: "2025-01-01",
+      concessionEnd: "2025-12-31",
+      status: "available",
+    });
+
     const vacation1 = await createTestVacation({
       organizationId,
       userId: user.id,
       employeeId: employee.id,
+      startDate: "2025-04-01",
+      endDate: "2025-04-15",
+      daysUsed: 0,
+      acquisitionPeriodId: period1.id,
     });
 
     const vacation2 = await createTestVacation({
       organizationId,
       userId: user.id,
       employeeId: employee.id,
+      startDate: "2025-06-01",
+      endDate: "2025-06-15",
+      daysUsed: 0,
+      acquisitionPeriodId: period2.id,
     });
 
     await app.handle(

@@ -32,7 +32,9 @@ export async function createTestPpeItem(
 ): Promise<PpeItemData> {
   const { organizationId, userId, name, description, equipment } = options;
 
-  const selectedName = name ?? faker.helpers.arrayElement(PPE_NAMES);
+  const selectedName =
+    name ??
+    `${faker.helpers.arrayElement(PPE_NAMES)} ${crypto.randomUUID().slice(0, 8)}`;
 
   return await PpeItemService.create({
     organizationId,

@@ -55,3 +55,15 @@ export class LaborLawsuitInvalidDateOrderError extends LaborLawsuitError {
     super(message, "LABOR_LAWSUIT_INVALID_DATE_ORDER", details);
   }
 }
+
+export class LaborLawsuitProcessNumberAlreadyExistsError extends LaborLawsuitError {
+  status = 409;
+
+  constructor(processNumber: string) {
+    super(
+      `Process number already exists: ${processNumber}`,
+      "LABOR_LAWSUIT_PROCESS_NUMBER_ALREADY_EXISTS",
+      { processNumber }
+    );
+  }
+}

@@ -5,6 +5,7 @@ import {
   createTestUser,
   createTestUserWithOrganization,
 } from "@/test/helpers/user";
+import { JobPositionService } from "../job-position.service";
 
 const BASE_URL = env.API_URL;
 
@@ -209,5 +210,61 @@ describe("POST /v1/job-positions", () => {
     );
 
     expect(response.status).toBe(200);
+  });
+
+  test("should return 409 when creating job position with duplicate name", async () => {
+    const { headers, organizationId, user } =
+      await createTestUserWithOrganization({
+        emailVerified: true,
+      });
+
+    await JobPositionService.create({
+      organizationId,
+      userId: user.id,
+      name: "Cargo Duplicado",
+    });
+
+    const response = await app.handle(
+      new Request(`${BASE_URL}/v1/job-positions`, {
+        method: "POST",
+        headers: {
+          ...headers,
+          "Content-Type": "application/json",
+        },
+        body: JSON.stringify({ name: "Cargo Duplicado" }),
+      })
+    );
+
+    expect(response.status).toBe(409);
+    const body = await response.json();
+    expect(body.error.code).toBe("JOB_POSITION_ALREADY_EXISTS");
+  });
+
+  test("should return 409 when creating job position with duplicate name (case-insensitive)", async () => {
+    const { headers, organizationId, user } =
+      await createTestUserWithOrganization({
+        emailVerified: true,
+      });
+
+    await JobPositionService.create({
+      organizationId,
+      userId: user.id,
+      name: "Cargo Teste",
+    });
+
+    const response = await app.handle(
+      new Request(`${BASE_URL}/v1/job-positions`, {
+        method: "POST",
+        headers: {
+          ...headers,
+          "Content-Type": "application/json",
+        },
+        body: JSON.stringify({ name: "cargo teste" }),
+      })
+    );
+
+    expect(response.status).toBe(409);
+    const body = await response.json();
+    expect(body.error.code).toBe("JOB_POSITION_ALREADY_EXISTS");
   });
 });

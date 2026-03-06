@@ -1,4 +1,7 @@
 import { beforeAll, describe, expect, test } from "bun:test";
+import { eq } from "drizzle-orm";
+import { db } from "@/db";
+import { schema } from "@/db/schema";
 import { env } from "@/env";
 import { createTestApp, type TestApp } from "@/test/helpers/app";
 import { createTestEmployee } from "@/test/helpers/employee";
@@ -386,5 +389,79 @@ describe("POST /v1/ppe-deliveries", () => {
     expect(response.status).toBe(200);
     const body = await response.json();
     expect(body.data.id).toStartWith("ppe-delivery-");
+  });
+
+  test("should return 422 when employee is TERMINATED", async () => {
+    const { headers, organizationId, user } =
+      await createTestUserWithOrganization({
+        emailVerified: true,
+      });
+
+    const { employee } = await createTestEmployee({
+      organizationId,
+      userId: user.id,
+    });
+
+    await db
+      .update(schema.employees)
+      .set({ status: "TERMINATED" })
+      .where(eq(schema.employees.id, employee.id));
+
+    const response = await app.handle(
+      new Request(`${BASE_URL}/v1/ppe-deliveries`, {
+        method: "POST",
+        headers: {
+          ...headers,
+          "Content-Type": "application/json",
+        },
+        body: JSON.stringify({
+          employeeId: employee.id,
+          deliveryDate: "2025-12-26",
+          reason: "Admissão",
+          deliveredBy: "João Silva",
+        }),
+      })
+    );
+
+    expect(response.status).toBe(422);
+    const body = await response.json();
+    expect(body.error.code).toBe("EMPLOYEE_TERMINATED");
+  });
+
+  test("should return 422 when employee is ON_VACATION", async () => {
+    const { headers, organizationId, user } =
+      await createTestUserWithOrganization({
+        emailVerified: true,
+      });
+
+    const { employee } = await createTestEmployee({
+      organizationId,
+      userId: user.id,
+    });
+
+    await db
+      .update(schema.employees)
+      .set({ status: "ON_VACATION" })
+      .where(eq(schema.employees.id, employee.id));
+
+    const response = await app.handle(
+      new Request(`${BASE_URL}/v1/ppe-deliveries`, {
+        method: "POST",
+        headers: {
+          ...headers,
+          "Content-Type": "application/json",
+        },
+        body: JSON.stringify({
+          employeeId: employee.id,
+          deliveryDate: "2025-12-26",
+          reason: "Admissão",
+          deliveredBy: "João Silva",
+        }),
+      })
+    );
+
+    expect(response.status).toBe(422);
+    const body = await response.json();
+    expect(body.error.code).toBe("EMPLOYEE_ON_VACATION");
   });
 });

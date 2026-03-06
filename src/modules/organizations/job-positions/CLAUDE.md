@@ -4,7 +4,7 @@ Cargos da organização. Referenciado por employees (FK obrigatória) e por prom
 
 ## Business Rules
 
-- `name` (1-100 chars), `description` (max 500, opcional)
+- `name` (1-100 chars) — único por organização (case-insensitive, soft-delete-aware), `description` (max 500, opcional)
 - M2M com PPE items via `ppeJobPositions`
 - CRUD com soft delete
 
@@ -15,4 +15,5 @@ Cargos da organização. Referenciado por employees (FK obrigatória) e por prom
 ## Errors
 
 - `JobPositionNotFoundError` (404)
+- `JobPositionAlreadyExistsError` (409)
 - `JobPositionAlreadyDeletedError` (404)

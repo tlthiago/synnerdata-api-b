@@ -1,15 +1,23 @@
-# Vacations (Férias)
+# Vacations (Ferias)
 
-Gestão de férias com controle de período aquisitivo e dias utilizados.
+Gestao de ferias com controle de periodo aquisitivo e dias utilizados.
 
 ## Business Rules
 
-- `startDate` deve ser ≤ `endDate`
-- `daysTotal` deve ser > 0
-- `daysUsed` deve ser ≥ 0 e ≤ `daysTotal`
-- Período aquisitivo: `acquisitionPeriodStart` e `acquisitionPeriodEnd` definem quando os dias foram adquiridos
-- Status padrão: `scheduled`
+- `startDate` deve ser <= `endDate`
+- `daysUsed` deve ser > 0 e <= dias restantes no periodo aquisitivo (`daysRemaining`)
+- Periodo aquisitivo: referenciado via `acquisitionPeriodId` (tabela `vacation_acquisition_periods`)
+- Acquisition period deve pertencer ao mesmo employee e estar com status `available`
+- On vacation create: period's `daysUsed` incrementado; se totalmente usado, status -> `used`
+- On vacation delete: period's `daysUsed` decrementado; se era `used`, status -> `available`
+- Overlap check no create/update: mesmo employee + datas sobrepostas (excluindo ferias canceladas) lanca `VacationOverlapError`
+- Employee nao pode estar desligado no create (`ensureEmployeeNotTerminated` -- ON_VACATION e esperado/permitido)
+- Status padrao: `scheduled`
 - Listagem ordenada por `startDate`
+
+## Sub-module
+
+- `acquisition-periods/` -- Gestao de periodos aquisitivos (ver `acquisition-periods/CLAUDE.md`)
 
 ## Enums
 
@@ -17,8 +25,8 @@ Gestão de férias com controle de período aquisitivo e dias utilizados.
 
 ## Fields
 
-- `daysTotal`, `daysUsed` (inteiros)
-- `acquisitionPeriodStart`, `acquisitionPeriodEnd` (YYYY-MM-DD)
+- `daysUsed` (inteiro)
+- `acquisitionPeriodId` (referencia ao periodo aquisitivo)
 - `notes` (opcional)
 
 ## Errors
@@ -27,4 +35,7 @@ Gestão de férias com controle de período aquisitivo e dias utilizados.
 - `VacationAlreadyDeletedError` (404)
 - `VacationInvalidEmployeeError` (404)
 - `VacationInvalidDateRangeError` (422)
-- `VacationInvalidDaysError` (422)
+- `VacationOverlapError` (409) -- same employee + overlapping dates (excluding canceled)
+- `EmployeeTerminatedError` (422) -- shared, from `src/lib/errors/employee-status-errors.ts`
+- `AcquisitionPeriodNotAvailableError` (422) -- from acquisition-periods/errors
+- `AcquisitionPeriodInsufficientDaysError` (422) -- from acquisition-periods/errors

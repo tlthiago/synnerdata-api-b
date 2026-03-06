@@ -22,7 +22,7 @@ export async function createTestSector(
     userId,
     name:
       name ??
-      faker.helpers.arrayElement([
+      `${faker.helpers.arrayElement([
         "Recursos Humanos",
         "Financeiro",
         "Tecnologia da Informação",
@@ -38,7 +38,7 @@ export async function createTestSector(
         "Manutenção",
         "Segurança do Trabalho",
         "Atendimento ao Cliente",
-      ]),
+      ])} ${crypto.randomUUID().slice(0, 8)}`,
   });
 }
 

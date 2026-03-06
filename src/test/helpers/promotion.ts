@@ -50,7 +50,7 @@ async function resolveDependencies(
     const previousPosition = await createTestJobPosition({
       organizationId,
       userId,
-      name: "Analista Júnior",
+      name: `Analista Júnior ${crypto.randomUUID().slice(0, 8)}`,
     });
     previousJobPositionId = previousPosition.id;
   }
@@ -59,7 +59,7 @@ async function resolveDependencies(
     const newPosition = await createTestJobPosition({
       organizationId,
       userId,
-      name: "Analista Pleno",
+      name: `Analista Pleno ${crypto.randomUUID().slice(0, 8)}`,
     });
     newJobPositionId = newPosition.id;
   }

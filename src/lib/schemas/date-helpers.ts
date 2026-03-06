@@ -7,3 +7,13 @@ export const isFutureDate = (dateStr: string): boolean => {
 
 export const isFutureDatetime = (datetimeStr: string): boolean =>
   new Date(datetimeStr) > new Date();
+
+export const calculateDaysBetween = (
+  startDate: string,
+  endDate: string
+): number => {
+  const start = new Date(`${startDate}T00:00:00Z`);
+  const end = new Date(`${endDate}T00:00:00Z`);
+  const diffMs = end.getTime() - start.getTime();
+  return Math.round(diffMs / (1000 * 60 * 60 * 24)) + 1;
+};

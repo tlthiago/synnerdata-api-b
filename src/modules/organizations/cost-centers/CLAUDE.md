@@ -4,7 +4,7 @@ Centros de custo para alocação financeira. Referenciado por employees (FK opci
 
 ## Business Rules
 
-- `name` (1-100 chars) — sem constraint de unicidade
+- `name` (1-100 chars) — único por organização (case-insensitive, soft-delete-aware)
 - CRUD simples com soft delete
 
 ## Permissions
@@ -14,4 +14,5 @@ Centros de custo para alocação financeira. Referenciado por employees (FK opci
 ## Errors
 
 - `CostCenterNotFoundError` (404)
+- `CostCenterAlreadyExistsError` (409)
 - `CostCenterAlreadyDeletedError` (404)

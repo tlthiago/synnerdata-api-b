@@ -221,6 +221,64 @@ describe("PUT /v1/warnings/:id", () => {
     expect(body.data.employee.name).toBeString();
   });
 
+  test("should reject update when changing to duplicate date and type", async () => {
+    const { headers, organizationId, user } =
+      await createTestUserWithOrganization({
+        emailVerified: true,
+      });
+
+    const warning1 = await createTestWarning({
+      organizationId,
+      userId: user.id,
+      date: "2024-05-10",
+      type: "verbal",
+    });
+
+    const warning2 = await createTestWarning({
+      organizationId,
+      userId: user.id,
+      date: "2024-05-15",
+      type: "verbal",
+      employeeId: warning1.employee.id,
+    });
+
+    const response = await app.handle(
+      new Request(`${BASE_URL}/v1/warnings/${warning2.id}`, {
+        method: "PUT",
+        headers: { ...headers, "Content-Type": "application/json" },
+        body: JSON.stringify({ date: "2024-05-10" }),
+      })
+    );
+
+    expect(response.status).toBe(409);
+    const body = await response.json();
+    expect(body.error.code).toBe("WARNING_DUPLICATE");
+  });
+
+  test("should allow self-update without duplicate error", async () => {
+    const { headers, organizationId, user } =
+      await createTestUserWithOrganization({
+        emailVerified: true,
+      });
+
+    const warning = await createTestWarning({
+      organizationId,
+      userId: user.id,
+      date: "2024-05-20",
+      type: "written",
+    });
+
+    const response = await app.handle(
+      new Request(`${BASE_URL}/v1/warnings/${warning.id}`, {
+        method: "PUT",
+        headers: { ...headers, "Content-Type": "application/json" },
+        body: JSON.stringify({ date: "2024-05-20", reason: "Updated" }),
+      })
+    );
+
+    expect(response.status).toBe(200);
+  });
+
   test.each([
     "viewer",
     "supervisor",

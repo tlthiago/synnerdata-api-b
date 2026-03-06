@@ -22,6 +22,18 @@ export class JobPositionNotFoundError extends JobPositionError {
   }
 }
 
+export class JobPositionAlreadyExistsError extends JobPositionError {
+  status = 409;
+
+  constructor(name: string) {
+    super(
+      `A job position with the name "${name}" already exists`,
+      "JOB_POSITION_ALREADY_EXISTS",
+      { name }
+    );
+  }
+}
+
 export class JobPositionAlreadyDeletedError extends JobPositionError {
   status = 404;
 
