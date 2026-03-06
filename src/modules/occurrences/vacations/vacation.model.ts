@@ -62,6 +62,13 @@ export const idParamSchema = z.object({
   id: z.string().min(1).describe("ID das férias"),
 });
 
+export const employeeIdParamSchema = z.object({
+  employeeId: z
+    .string()
+    .min(1, "ID do funcionario e obrigatorio")
+    .describe("ID do funcionario"),
+});
+
 const vacationDataSchema = z.object({
   id: z.string().describe("ID das férias"),
   organizationId: z.string().describe("ID da organização"),

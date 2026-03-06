@@ -14,6 +14,7 @@ import {
   createVacationResponseSchema,
   createVacationSchema,
   deleteVacationResponseSchema,
+  employeeIdParamSchema,
   getVacationResponseSchema,
   idParamSchema,
   listVacationsResponseSchema,
@@ -78,6 +79,33 @@ export const vacationController = new Elysia({
       detail: {
         summary: "List vacations",
         description: "Lists all vacations for the active organization",
+      },
+    }
+  )
+  .get(
+    "/employee/:employeeId",
+    async ({ session, params }) =>
+      wrapSuccess(
+        await VacationService.findByEmployee(
+          session.activeOrganizationId as string,
+          params.employeeId
+        )
+      ),
+    {
+      auth: {
+        permissions: { vacation: ["read"] },
+        requireOrganization: true,
+      },
+      params: employeeIdParamSchema,
+      response: {
+        200: listVacationsResponseSchema,
+        401: unauthorizedErrorSchema,
+        403: forbiddenErrorSchema,
+      },
+      detail: {
+        summary: "List vacations by employee",
+        description:
+          "Lists all vacations for a specific employee in the active organization",
       },
     }
   )

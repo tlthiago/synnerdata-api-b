@@ -57,7 +57,7 @@ describe("AcquisitionPeriodService.generateForEmployee", () => {
 
     // Last period should be pending
     const last = periods.at(-1);
-    expect(last.status).toBe("pending");
+    expect(last?.status).toBe("pending");
 
     // All non-last periods should not be pending
     for (const p of periods.slice(0, -1)) {

@@ -293,6 +293,44 @@ export abstract class VacationService {
     return results as VacationData[];
   }
 
+  static async findByEmployee(
+    organizationId: string,
+    employeeId: string
+  ): Promise<VacationData[]> {
+    const results = await db
+      .select({
+        id: schema.vacations.id,
+        organizationId: schema.vacations.organizationId,
+        employee: {
+          id: schema.employees.id,
+          name: schema.employees.name,
+        },
+        startDate: schema.vacations.startDate,
+        endDate: schema.vacations.endDate,
+        daysUsed: schema.vacations.daysUsed,
+        acquisitionPeriodId: schema.vacations.acquisitionPeriodId,
+        status: schema.vacations.status,
+        notes: schema.vacations.notes,
+        createdAt: schema.vacations.createdAt,
+        updatedAt: schema.vacations.updatedAt,
+      })
+      .from(schema.vacations)
+      .innerJoin(
+        schema.employees,
+        eq(schema.vacations.employeeId, schema.employees.id)
+      )
+      .where(
+        and(
+          eq(schema.vacations.organizationId, organizationId),
+          eq(schema.vacations.employeeId, employeeId),
+          isNull(schema.vacations.deletedAt)
+        )
+      )
+      .orderBy(schema.vacations.startDate);
+
+    return results as VacationData[];
+  }
+
   static async findByIdOrThrow(
     id: string,
     organizationId: string

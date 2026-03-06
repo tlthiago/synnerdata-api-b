@@ -5,7 +5,7 @@ Gestao de ferias com controle de periodo aquisitivo e dias utilizados.
 ## Business Rules
 
 - `startDate` deve ser <= `endDate`
-- `daysUsed` deve ser > 0 e <= dias restantes no periodo aquisitivo (`daysRemaining`)
+- `daysUsed` deve ser >= 0 e <= dias restantes no periodo aquisitivo (`daysRemaining`). Nao e validado contra o intervalo de datas (`endDate - startDate`) -- intencional, pois ferias CLT podem ser fracionadas
 - Periodo aquisitivo: referenciado via `acquisitionPeriodId` (tabela `vacation_acquisition_periods`)
 - Acquisition period deve pertencer ao mesmo employee e estar com status `available`
 - On vacation create: period's `daysUsed` incrementado; se totalmente usado, status -> `used`
@@ -14,6 +14,7 @@ Gestao de ferias com controle de periodo aquisitivo e dias utilizados.
 - Employee nao pode estar desligado no create (`ensureEmployeeNotTerminated` -- ON_VACATION e esperado/permitido)
 - Status padrao: `scheduled`
 - Listagem ordenada por `startDate`
+- Listagem por funcionario via `GET /v1/vacations/employee/:employeeId` -- retorna historico completo de ferias do employee
 
 ## Sub-module
 
