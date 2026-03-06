@@ -10,6 +10,7 @@ import {
 } from "drizzle-orm/pg-core";
 import { organizations } from "./auth";
 import { employees } from "./employees";
+import { vacationAcquisitionPeriods } from "./vacation-acquisition-periods";
 
 export const vacationStatusEnum = pgEnum("vacation_status", [
   "scheduled",
@@ -31,11 +32,10 @@ export const vacations = pgTable(
 
     startDate: date("start_date").notNull(),
     endDate: date("end_date").notNull(),
-    daysTotal: integer("days_total").notNull(),
     daysUsed: integer("days_used").notNull(),
-
-    acquisitionPeriodStart: date("acquisition_period_start").notNull(),
-    acquisitionPeriodEnd: date("acquisition_period_end").notNull(),
+    acquisitionPeriodId: text("acquisition_period_id")
+      .notNull()
+      .references(() => vacationAcquisitionPeriods.id),
 
     status: vacationStatusEnum("status").default("scheduled").notNull(),
     notes: text("notes"),
@@ -69,6 +69,10 @@ export const vacationRelations = relations(vacations, ({ one }) => ({
   employee: one(employees, {
     fields: [vacations.employeeId],
     references: [employees.id],
+  }),
+  acquisitionPeriod: one(vacationAcquisitionPeriods, {
+    fields: [vacations.acquisitionPeriodId],
+    references: [vacationAcquisitionPeriods.id],
   }),
 }));
 
