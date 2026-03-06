@@ -279,4 +279,107 @@ describe("PUT /v1/job-classifications/:id", () => {
     const body = await response.json();
     expect(body.error.code).toBe("INVALID_CBO_OCCUPATION");
   });
+
+  test("should return 409 when updating job classification to duplicate name", async () => {
+    const { headers, organizationId, user } =
+      await createTestUserWithOrganization({
+        emailVerified: true,
+      });
+
+    await JobClassificationService.create({
+      organizationId,
+      userId: user.id,
+      name: "CBO A",
+    });
+
+    const jobClassificationB = await JobClassificationService.create({
+      organizationId,
+      userId: user.id,
+      name: "CBO B",
+    });
+
+    const response = await app.handle(
+      new Request(
+        `${BASE_URL}/v1/job-classifications/${jobClassificationB.id}`,
+        {
+          method: "PUT",
+          headers: {
+            ...headers,
+            "Content-Type": "application/json",
+          },
+          body: JSON.stringify({ name: "CBO A" }),
+        }
+      )
+    );
+
+    expect(response.status).toBe(409);
+    const body = await response.json();
+    expect(body.error.code).toBe("JOB_CLASSIFICATION_ALREADY_EXISTS");
+  });
+
+  test("should return 409 when updating job classification to duplicate name (case-insensitive)", async () => {
+    const { headers, organizationId, user } =
+      await createTestUserWithOrganization({
+        emailVerified: true,
+      });
+
+    await JobClassificationService.create({
+      organizationId,
+      userId: user.id,
+      name: "CBO A",
+    });
+
+    const jobClassificationB = await JobClassificationService.create({
+      organizationId,
+      userId: user.id,
+      name: "CBO B",
+    });
+
+    const response = await app.handle(
+      new Request(
+        `${BASE_URL}/v1/job-classifications/${jobClassificationB.id}`,
+        {
+          method: "PUT",
+          headers: {
+            ...headers,
+            "Content-Type": "application/json",
+          },
+          body: JSON.stringify({ name: "cbo a" }),
+        }
+      )
+    );
+
+    expect(response.status).toBe(409);
+    const body = await response.json();
+    expect(body.error.code).toBe("JOB_CLASSIFICATION_ALREADY_EXISTS");
+  });
+
+  test("should allow updating job classification to its own name", async () => {
+    const { headers, organizationId, user } =
+      await createTestUserWithOrganization({
+        emailVerified: true,
+      });
+
+    const jobClassification = await JobClassificationService.create({
+      organizationId,
+      userId: user.id,
+      name: "CBO Mesmo Nome",
+    });
+
+    const response = await app.handle(
+      new Request(
+        `${BASE_URL}/v1/job-classifications/${jobClassification.id}`,
+        {
+          method: "PUT",
+          headers: {
+            ...headers,
+            "Content-Type": "application/json",
+          },
+          body: JSON.stringify({ name: "CBO Mesmo Nome" }),
+        }
+      )
+    );
+
+    expect(response.status).toBe(200);
+  });
 });

@@ -4,7 +4,7 @@ Codigos CBO para compliance trabalhista brasileiro. Referenciado por employees (
 
 ## Business Rules
 
-- `name` (1-255 chars) — nome/codigo do CBO
+- `name` (1-255 chars) — nome/codigo do CBO, unico por organizacao (case-insensitive, soft-delete-aware)
 - CRUD simples com soft delete
 - `cboOccupationId` (optional, nullable FK) — references `cbo_occupations.id`
 - If `cboOccupationId` provided without `name`, auto-fills `name` from CBO title

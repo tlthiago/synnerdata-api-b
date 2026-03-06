@@ -7,6 +7,7 @@ import {
   createTestUser,
   createTestUserWithOrganization,
 } from "@/test/helpers/user";
+import { JobClassificationService } from "../job-classification.service";
 
 const BASE_URL = env.API_URL;
 
@@ -303,5 +304,61 @@ describe("POST /v1/job-classifications", () => {
     );
 
     expect(response.status).toBe(422);
+  });
+
+  test("should return 409 when creating job classification with duplicate name", async () => {
+    const { headers, organizationId, user } =
+      await createTestUserWithOrganization({
+        emailVerified: true,
+      });
+
+    await JobClassificationService.create({
+      organizationId,
+      userId: user.id,
+      name: "CBO Duplicado",
+    });
+
+    const response = await app.handle(
+      new Request(`${BASE_URL}/v1/job-classifications`, {
+        method: "POST",
+        headers: {
+          ...headers,
+          "Content-Type": "application/json",
+        },
+        body: JSON.stringify({ name: "CBO Duplicado" }),
+      })
+    );
+
+    expect(response.status).toBe(409);
+    const body = await response.json();
+    expect(body.error.code).toBe("JOB_CLASSIFICATION_ALREADY_EXISTS");
+  });
+
+  test("should return 409 when creating job classification with duplicate name (case-insensitive)", async () => {
+    const { headers, organizationId, user } =
+      await createTestUserWithOrganization({
+        emailVerified: true,
+      });
+
+    await JobClassificationService.create({
+      organizationId,
+      userId: user.id,
+      name: "CBO Teste",
+    });
+
+    const response = await app.handle(
+      new Request(`${BASE_URL}/v1/job-classifications`, {
+        method: "POST",
+        headers: {
+          ...headers,
+          "Content-Type": "application/json",
+        },
+        body: JSON.stringify({ name: "cbo teste" }),
+      })
+    );
+
+    expect(response.status).toBe(409);
+    const body = await response.json();
+    expect(body.error.code).toBe("JOB_CLASSIFICATION_ALREADY_EXISTS");
   });
 });

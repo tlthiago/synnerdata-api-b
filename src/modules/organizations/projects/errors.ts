@@ -1,70 +1,89 @@
 import { AppError } from "@/lib/errors/base-error";
 
-export class ProjectNotFoundError extends AppError {
-  status = 404;
-  code = "PROJECT_NOT_FOUND";
+export class ProjectError extends AppError {
+  status = 400;
+  code: string;
 
-  constructor(id: string) {
-    super(`Projeto não encontrado: ${id}`);
+  constructor(message: string, code = "PROJECT_ERROR", details?: unknown) {
+    super(message, details);
+    this.code = code;
   }
 }
 
-export class ProjectAlreadyDeletedError extends AppError {
+export class ProjectNotFoundError extends ProjectError {
   status = 404;
-  code = "PROJECT_ALREADY_DELETED";
 
-  constructor(id: string) {
-    super(`Projeto já foi excluído: ${id}`);
+  constructor(projectId: string) {
+    super(`Project not found: ${projectId}`, "PROJECT_NOT_FOUND", {
+      projectId,
+    });
   }
 }
 
-export class ProjectNameAlreadyExistsError extends AppError {
+export class ProjectAlreadyDeletedError extends ProjectError {
+  status = 404;
+
+  constructor(projectId: string) {
+    super(`Project already deleted: ${projectId}`, "PROJECT_ALREADY_DELETED", {
+      projectId,
+    });
+  }
+}
+
+export class ProjectNameAlreadyExistsError extends ProjectError {
   status = 409;
-  code = "PROJECT_NAME_ALREADY_EXISTS";
 
   constructor(name: string) {
-    super(`Já existe um projeto com o nome "${name}"`);
-    this.details = { name };
-  }
-}
-
-export class ProjectCnoAlreadyExistsError extends AppError {
-  status = 409;
-  code = "PROJECT_CNO_ALREADY_EXISTS";
-
-  constructor(cno: string) {
-    super(`Já existe um projeto com o CNO "${cno}"`);
-    this.details = { cno };
-  }
-}
-
-export class ProjectEmployeeNotFoundError extends AppError {
-  status = 404;
-  code = "EMPLOYEE_NOT_FOUND";
-
-  constructor(employeeId: string) {
-    super(`Funcionário não encontrado: ${employeeId}`);
-  }
-}
-
-export class ProjectEmployeeAlreadyExistsError extends AppError {
-  status = 409;
-  code = "PROJECT_EMPLOYEE_ALREADY_EXISTS";
-
-  constructor(projectId: string, employeeId: string) {
     super(
-      `Funcionário ${employeeId} já está vinculado ao projeto ${projectId}`
+      `A project with the name "${name}" already exists`,
+      "PROJECT_NAME_ALREADY_EXISTS",
+      { name }
     );
   }
 }
 
-export class ProjectEmployeeNotAssignedError extends AppError {
+export class ProjectCnoAlreadyExistsError extends ProjectError {
+  status = 409;
+
+  constructor(cno: string) {
+    super(
+      `A project with the CNO "${cno}" already exists`,
+      "PROJECT_CNO_ALREADY_EXISTS",
+      { cno }
+    );
+  }
+}
+
+export class ProjectEmployeeNotFoundError extends ProjectError {
   status = 404;
-  code = "PROJECT_EMPLOYEE_NOT_ASSIGNED";
+
+  constructor(employeeId: string) {
+    super(`Employee not found: ${employeeId}`, "EMPLOYEE_NOT_FOUND", {
+      employeeId,
+    });
+  }
+}
+
+export class ProjectEmployeeAlreadyExistsError extends ProjectError {
+  status = 409;
 
   constructor(projectId: string, employeeId: string) {
     super(
-      `Funcionário ${employeeId} não está vinculado ao projeto ${projectId}`
+      `Employee ${employeeId} is already assigned to project ${projectId}`,
+      "PROJECT_EMPLOYEE_ALREADY_EXISTS",
+      { projectId, employeeId }
+    );
+  }
+}
+
+export class ProjectEmployeeNotAssignedError extends ProjectError {
+  status = 404;
+
+  constructor(projectId: string, employeeId: string) {
+    super(
+      `Employee ${employeeId} is not assigned to project ${projectId}`,
+      "PROJECT_EMPLOYEE_NOT_ASSIGNED",
+      { projectId, employeeId }
     );
   }
 }

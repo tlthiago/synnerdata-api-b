@@ -1,16 +1,11 @@
 import { count, eq, ilike, or } from "drizzle-orm";
 import { db } from "@/db";
 import { cboOccupations } from "@/db/schema/cbo-occupations";
-import type { CboOccupationListData } from "./cbo-occupation.model";
+import type {
+  CboOccupationData,
+  CboOccupationListData,
+} from "./cbo-occupation.model";
 import { CboOccupationNotFoundError } from "./errors";
-
-const columns = {
-  id: cboOccupations.id,
-  code: cboOccupations.code,
-  title: cboOccupations.title,
-  familyCode: cboOccupations.familyCode,
-  familyTitle: cboOccupations.familyTitle,
-};
 
 export abstract class CboOccupationService {
   static async search(
@@ -18,8 +13,7 @@ export abstract class CboOccupationService {
     page: number,
     limit: number
   ): Promise<CboOccupationListData> {
-    const escapedSearch = search.replace(/[%_\\]/g, "\\$&");
-    const searchPattern = `%${escapedSearch}%`;
+    const searchPattern = `%${search}%`;
     const whereCondition = or(
       ilike(cboOccupations.code, searchPattern),
       ilike(cboOccupations.title, searchPattern)
@@ -30,7 +24,7 @@ export abstract class CboOccupationService {
     const [totalResult, items] = await Promise.all([
       db.select({ count: count() }).from(cboOccupations).where(whereCondition),
       db
-        .select(columns)
+        .select()
         .from(cboOccupations)
         .where(whereCondition)
         .orderBy(cboOccupations.code)
@@ -39,16 +33,16 @@ export abstract class CboOccupationService {
     ]);
 
     return {
-      items,
+      items: items as CboOccupationData[],
       total: totalResult[0]?.count ?? 0,
       page,
       limit,
     };
   }
 
-  static async findByIdOrThrow(id: string) {
+  static async findByIdOrThrow(id: string): Promise<CboOccupationData> {
     const [cboOccupation] = await db
-      .select(columns)
+      .select()
       .from(cboOccupations)
       .where(eq(cboOccupations.id, id))
       .limit(1);
@@ -57,6 +51,6 @@ export abstract class CboOccupationService {
       throw new CboOccupationNotFoundError(id);
     }
 
-    return cboOccupation;
+    return cboOccupation as CboOccupationData;
   }
 }
