@@ -2,6 +2,7 @@ import { and, eq, isNull } from "drizzle-orm";
 import { db } from "@/db";
 import { schema } from "@/db/schema";
 import { CboOccupationService } from "@/modules/cbo-occupations/cbo-occupation.service";
+import { CboOccupationNotFoundError } from "@/modules/cbo-occupations/errors";
 import {
   InvalidCboOccupationError,
   JobClassificationAlreadyDeletedError,
@@ -61,13 +62,18 @@ export abstract class JobClassificationService {
     let resolvedName = data.name;
 
     if (data.cboOccupationId) {
-      const cbo = await CboOccupationService.findByIdOrThrow(
-        data.cboOccupationId
-      ).catch(() => {
-        throw new InvalidCboOccupationError(data.cboOccupationId as string);
-      });
-      if (!resolvedName) {
-        resolvedName = cbo.title;
+      try {
+        const cbo = await CboOccupationService.findByIdOrThrow(
+          data.cboOccupationId
+        );
+        if (!resolvedName) {
+          resolvedName = cbo.title;
+        }
+      } catch (error) {
+        if (error instanceof CboOccupationNotFoundError) {
+          throw new InvalidCboOccupationError(data.cboOccupationId);
+        }
+        throw error;
       }
     }
 
@@ -142,11 +148,14 @@ export abstract class JobClassificationService {
     }
 
     if (data.cboOccupationId !== undefined && data.cboOccupationId !== null) {
-      await CboOccupationService.findByIdOrThrow(data.cboOccupationId).catch(
-        () => {
-          throw new InvalidCboOccupationError(data.cboOccupationId as string);
+      try {
+        await CboOccupationService.findByIdOrThrow(data.cboOccupationId);
+      } catch (error) {
+        if (error instanceof CboOccupationNotFoundError) {
+          throw new InvalidCboOccupationError(data.cboOccupationId);
         }
-      );
+        throw error;
+      }
     }
 
     const [updated] = await db
