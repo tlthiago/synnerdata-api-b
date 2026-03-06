@@ -127,6 +127,20 @@
       "when": 1772570256721,
       "tag": "0017_nappy_micromacro",
       "breakpoints": true
+    },
+    {
+      "idx": 18,
+      "version": "7",
+      "when": 1772816318667,
+      "tag": "0018_good_warbound",
+      "breakpoints": true
+    },
+    {
+      "idx": 19,
+      "version": "7",
+      "when": 1772816385944,
+      "tag": "0019_chunky_vin_gonzales",
+      "breakpoints": true
     }
   ]
 }

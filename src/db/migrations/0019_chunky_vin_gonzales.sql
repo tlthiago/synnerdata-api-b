@@ -1,0 +1,2 @@
+ALTER TABLE "job_classifications" ADD COLUMN "cbo_occupation_id" text;--> statement-breakpoint
+ALTER TABLE "job_classifications" ADD CONSTRAINT "job_classifications_cbo_occupation_id_cbo_occupations_id_fk" FOREIGN KEY ("cbo_occupation_id") REFERENCES "public"."cbo_occupations"("id") ON DELETE no action ON UPDATE no action;

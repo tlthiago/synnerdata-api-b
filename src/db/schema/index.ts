@@ -28,6 +28,7 @@ import {
 } from "./auth";
 import { billingProfileRelations, billingProfiles } from "./billing-profiles";
 import { branches, branchRelations } from "./branches";
+import { cboOccupations } from "./cbo-occupations";
 import { costCenterRelations, costCenters } from "./cost-centers";
 import { cpfAnalyses, cpfAnalysisRelations } from "./cpf-analyses";
 import { employeeRelations, employees } from "./employees";
@@ -101,6 +102,7 @@ export const schema = {
   organizationProfiles,
   billingProfiles,
   branches,
+  cboOccupations,
   sectors,
   costCenters,
   jobClassifications,
@@ -198,6 +200,7 @@ export type { Role, SystemRole } from "./auth";
 export { roleValues, systemRoleValues } from "./auth";
 export type { BillingProfile, NewBillingProfile } from "./billing-profiles";
 export type { Branch, NewBranch } from "./branches";
+export type { CboOccupation, NewCboOccupation } from "./cbo-occupations";
 export type { CostCenter, NewCostCenter } from "./cost-centers";
 export type { CpfAnalysis, NewCpfAnalysis } from "./cpf-analyses";
 export type { Employee, NewEmployee } from "./employees";

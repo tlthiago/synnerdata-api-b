@@ -1,6 +1,7 @@
 import { relations } from "drizzle-orm";
 import { index, pgTable, text, timestamp } from "drizzle-orm/pg-core";
 import { organizations } from "./auth";
+import { cboOccupations } from "./cbo-occupations";
 
 export const jobClassifications = pgTable(
   "job_classifications",
@@ -10,6 +11,9 @@ export const jobClassifications = pgTable(
       .notNull()
       .references(() => organizations.id, { onDelete: "cascade" }),
     name: text("name").notNull(),
+    cboOccupationId: text("cbo_occupation_id").references(
+      () => cboOccupations.id
+    ),
     createdAt: timestamp("created_at", { withTimezone: true })
       .defaultNow()
       .notNull(),
@@ -34,6 +38,10 @@ export const jobClassificationRelations = relations(
     organization: one(organizations, {
       fields: [jobClassifications.organizationId],
       references: [organizations.id],
+    }),
+    cboOccupation: one(cboOccupations, {
+      fields: [jobClassifications.cboOccupationId],
+      references: [cboOccupations.id],
     }),
   })
 );
