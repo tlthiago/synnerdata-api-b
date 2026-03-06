@@ -178,7 +178,7 @@ export abstract class WarningService {
     organizationId: string;
     employeeId: string;
     date: string;
-    type: string;
+    type: "verbal" | "written" | "suspension";
     excludeId?: string;
   }): Promise<void> {
     const { organizationId, employeeId, date, type, excludeId } = params;
