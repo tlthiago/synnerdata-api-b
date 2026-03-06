@@ -2,6 +2,8 @@
 
 Eventos e registros vinculados a funcionários. Toda ocorrência pertence a um employee que pertence a uma organization.
 
+Sub-modules include `vacations/acquisition-periods` for CLT vacation acquisition period management.
+
 ## Common Patterns (all submodules)
 
 - Todas as ocorrências referenciam `employeeId` (obrigatório) — employee deve existir, pertencer à organização e não estar deletado
@@ -22,6 +24,7 @@ Shared helpers at `src/lib/helpers/employee-status.ts` and errors at `src/lib/er
 
 - `ensureEmployeeActive` (rejects TERMINATED + ON_VACATION): absences, accidents, cpf-analyses, medical-certificates, promotions, warnings, ppe-deliveries
 - `ensureEmployeeNotTerminated` (rejects only TERMINATED, ON_VACATION allowed): vacations, labor-lawsuits
+- Vacations also validate acquisition period status (`available`) and sufficient `daysRemaining`
 - No status check: terminations
 
 Shared errors: `EmployeeTerminatedError` (422), `EmployeeOnVacationError` (422).
