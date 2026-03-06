@@ -242,4 +242,98 @@ describe("PUT /v1/job-positions/:id", () => {
 
     expect(response.status).toBe(200);
   });
+
+  test("should return 409 when updating job position to duplicate name", async () => {
+    const { headers, organizationId, user } =
+      await createTestUserWithOrganization({
+        emailVerified: true,
+      });
+
+    await JobPositionService.create({
+      organizationId,
+      userId: user.id,
+      name: "Cargo A",
+    });
+
+    const jobPositionB = await JobPositionService.create({
+      organizationId,
+      userId: user.id,
+      name: "Cargo B",
+    });
+
+    const response = await app.handle(
+      new Request(`${BASE_URL}/v1/job-positions/${jobPositionB.id}`, {
+        method: "PUT",
+        headers: {
+          ...headers,
+          "Content-Type": "application/json",
+        },
+        body: JSON.stringify({ name: "Cargo A" }),
+      })
+    );
+
+    expect(response.status).toBe(409);
+    const body = await response.json();
+    expect(body.error.code).toBe("JOB_POSITION_ALREADY_EXISTS");
+  });
+
+  test("should return 409 when updating job position to duplicate name (case-insensitive)", async () => {
+    const { headers, organizationId, user } =
+      await createTestUserWithOrganization({
+        emailVerified: true,
+      });
+
+    await JobPositionService.create({
+      organizationId,
+      userId: user.id,
+      name: "Cargo A",
+    });
+
+    const jobPositionB = await JobPositionService.create({
+      organizationId,
+      userId: user.id,
+      name: "Cargo B",
+    });
+
+    const response = await app.handle(
+      new Request(`${BASE_URL}/v1/job-positions/${jobPositionB.id}`, {
+        method: "PUT",
+        headers: {
+          ...headers,
+          "Content-Type": "application/json",
+        },
+        body: JSON.stringify({ name: "CARGO A" }),
+      })
+    );
+
+    expect(response.status).toBe(409);
+    const body = await response.json();
+    expect(body.error.code).toBe("JOB_POSITION_ALREADY_EXISTS");
+  });
+
+  test("should allow updating job position to its own name", async () => {
+    const { headers, organizationId, user } =
+      await createTestUserWithOrganization({
+        emailVerified: true,
+      });
+
+    const jobPosition = await JobPositionService.create({
+      organizationId,
+      userId: user.id,
+      name: "Cargo Mesmo Nome",
+    });
+
+    const response = await app.handle(
+      new Request(`${BASE_URL}/v1/job-positions/${jobPosition.id}`, {
+        method: "PUT",
+        headers: {
+          ...headers,
+          "Content-Type": "application/json",
+        },
+        body: JSON.stringify({ name: "Cargo Mesmo Nome" }),
+      })
+    );
+
+    expect(response.status).toBe(200);
+  });
 });

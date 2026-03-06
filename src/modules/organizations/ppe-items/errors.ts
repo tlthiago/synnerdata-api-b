@@ -20,6 +20,18 @@ export class PpeItemNotFoundError extends PpeItemError {
   }
 }
 
+export class PpeItemAlreadyExistsError extends PpeItemError {
+  status = 409;
+
+  constructor(name: string, equipment: string) {
+    super(
+      `A PPE item with the name "${name}" and equipment "${equipment}" already exists`,
+      "PPE_ITEM_ALREADY_EXISTS",
+      { name, equipment }
+    );
+  }
+}
+
 export class PpeItemAlreadyDeletedError extends PpeItemError {
   status = 404;
 

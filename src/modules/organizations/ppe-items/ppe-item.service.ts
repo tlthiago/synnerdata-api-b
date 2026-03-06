@@ -1,8 +1,9 @@
-import { and, eq, isNull } from "drizzle-orm";
+import { and, eq, isNull, sql } from "drizzle-orm";
 import { db } from "@/db";
 import { schema } from "@/db/schema";
 import {
   PpeItemAlreadyDeletedError,
+  PpeItemAlreadyExistsError,
   PpeItemNotFoundError,
   PpeJobPositionAlreadyExistsError,
   PpeJobPositionNotFoundError,
@@ -15,6 +16,30 @@ import type {
 } from "./ppe-item.model";
 
 export abstract class PpeItemService {
+  private static async ensureNameAndEquipmentNotExists(
+    organizationId: string,
+    name: string,
+    equipment: string,
+    excludeId?: string
+  ): Promise<void> {
+    const [existing] = await db
+      .select({ id: schema.ppeItems.id })
+      .from(schema.ppeItems)
+      .where(
+        and(
+          eq(schema.ppeItems.organizationId, organizationId),
+          sql`lower(${schema.ppeItems.name}) = lower(${name})`,
+          sql`lower(${schema.ppeItems.equipment}) = lower(${equipment})`,
+          isNull(schema.ppeItems.deletedAt)
+        )
+      )
+      .limit(1);
+
+    if (existing && existing.id !== excludeId) {
+      throw new PpeItemAlreadyExistsError(name, equipment);
+    }
+  }
+
   private static async findById(
     id: string,
     organizationId: string
@@ -54,6 +79,12 @@ export abstract class PpeItemService {
 
   static async create(input: CreatePpeItemInput): Promise<PpeItemData> {
     const { organizationId, userId, ...data } = input;
+
+    await PpeItemService.ensureNameAndEquipmentNotExists(
+      organizationId,
+      data.name,
+      data.equipment
+    );
 
     const ppeItemId = `ppe-item-${crypto.randomUUID()}`;
 
@@ -108,6 +139,17 @@ export abstract class PpeItemService {
     const existing = await PpeItemService.findById(id, organizationId);
     if (!existing) {
       throw new PpeItemNotFoundError(id);
+    }
+
+    if (data.name !== undefined || data.equipment !== undefined) {
+      const finalName = data.name ?? existing.name;
+      const finalEquipment = data.equipment ?? existing.equipment;
+      await PpeItemService.ensureNameAndEquipmentNotExists(
+        organizationId,
+        finalName,
+        finalEquipment,
+        id
+      );
     }
 
     const [updated] = await db

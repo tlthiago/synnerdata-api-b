@@ -16,6 +16,31 @@ Eventos e registros vinculados a funcionários. Toda ocorrência pertence a um e
 - Updates parciais validam datas contra valores existentes no DB via service
 - Helper compartilhado: `isFutureDate` e `isFutureDatetime` em `src/lib/schemas/date-helpers.ts`
 
+## Employee Status Validation on Create
+
+Shared helpers at `src/lib/helpers/employee-status.ts` and errors at `src/lib/errors/employee-status-errors.ts`.
+
+- `ensureEmployeeActive` (rejects TERMINATED + ON_VACATION): absences, accidents, cpf-analyses, medical-certificates, promotions, warnings, ppe-deliveries
+- `ensureEmployeeNotTerminated` (rejects only TERMINATED, ON_VACATION allowed): vacations, labor-lawsuits
+- No status check: terminations
+
+Shared errors: `EmployeeTerminatedError` (422), `EmployeeOnVacationError` (422).
+
+## Duplicate / Overlap Prevention on Create
+
+| Module | Validation | Scope | Error (409) |
+|---|---|---|---|
+| absences | Date overlap | same employee + same type | `AbsenceOverlapError` |
+| medical-certificates | Date overlap | same employee (no type filter) | `MedicalCertificateOverlapError` |
+| vacations | Date overlap | same employee (excluding canceled) | `VacationOverlapError` |
+| accidents | CAT unique | per organization (only when provided) | `AccidentCatAlreadyExistsError` |
+| cpf-analyses | Same date | same employee | `CpfAnalysisDuplicateDateError` |
+| promotions | Same date | same employee | `PromotionDuplicateDateError` |
+| warnings | Same date + type | same employee | `WarningDuplicateError` |
+| terminations | One active | per employee | `TerminationAlreadyExistsError` |
+| labor-lawsuits | processNumber unique | global (CNJ, unique index) | `LaborLawsuitProcessNumberAlreadyExistsError` |
+| ppe-deliveries | None | multiple deliveries per day are valid | — |
+
 ## Permissions
 
 - Maioria usa resource name específico: `{ absence: ["create"] }`, `{ accident: ["read"] }`

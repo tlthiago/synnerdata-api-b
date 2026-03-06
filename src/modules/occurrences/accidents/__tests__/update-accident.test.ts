@@ -304,4 +304,45 @@ describe("PUT /v1/accidents/:id", () => {
     const body = await response.json();
     expect(body.data.description).toBe("Atualização pelo manager");
   });
+
+  test("should return 409 when updating CAT to an existing one", async () => {
+    const { headers, organizationId, user } =
+      await createTestUserWithOrganization({
+        emailVerified: true,
+      });
+
+    const { employee } = await createTestEmployee({
+      organizationId,
+      userId: user.id,
+    });
+
+    await createTestAccident({
+      organizationId,
+      userId: user.id,
+      employeeId: employee.id,
+      cat: "CAT-EXISTING-001",
+    });
+
+    const accident2 = await createTestAccident({
+      organizationId,
+      userId: user.id,
+      employeeId: employee.id,
+      cat: "CAT-ORIGINAL-002",
+    });
+
+    const response = await app.handle(
+      new Request(`${BASE_URL}/v1/accidents/${accident2.id}`, {
+        method: "PUT",
+        headers: {
+          ...headers,
+          "Content-Type": "application/json",
+        },
+        body: JSON.stringify({ cat: "CAT-EXISTING-001" }),
+      })
+    );
+
+    expect(response.status).toBe(409);
+    const body = await response.json();
+    expect(body.error.code).toBe("ACCIDENT_CAT_ALREADY_EXISTS");
+  });
 });

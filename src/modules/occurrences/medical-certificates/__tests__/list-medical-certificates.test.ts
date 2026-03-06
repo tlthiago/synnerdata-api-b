@@ -72,11 +72,17 @@ describe("GET /v1/medical-certificates", () => {
       organizationId,
       userId,
       employeeId: employee.id,
+      startDate: "2024-01-01",
+      endDate: "2024-01-05",
+      daysOff: 5,
     });
     await createTestMedicalCertificate({
       organizationId,
       userId,
       employeeId: employee.id,
+      startDate: "2024-02-01",
+      endDate: "2024-02-05",
+      daysOff: 5,
     });
 
     const response = await app.handle(

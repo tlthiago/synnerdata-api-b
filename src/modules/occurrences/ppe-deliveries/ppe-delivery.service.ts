@@ -1,6 +1,7 @@
 import { and, eq, isNull } from "drizzle-orm";
 import { db } from "@/db";
 import { schema } from "@/db/schema";
+import { ensureEmployeeActive } from "@/lib/helpers/employee-status";
 import {
   PpeDeliveryAlreadyDeletedError,
   PpeDeliveryEmployeeNotFoundError,
@@ -160,6 +161,8 @@ export abstract class PpeDeliveryService {
       throw new PpeDeliveryEmployeeNotFoundError(data.employeeId);
     }
 
+    await ensureEmployeeActive(data.employeeId, organizationId);
+
     // Verify all PPE Items exist if provided
     if (ppeItemIds && ppeItemIds.length > 0) {
       for (const ppeItemId of ppeItemIds) {
@@ -267,7 +270,7 @@ export abstract class PpeDeliveryService {
     organizationId: string,
     input: UpdatePpeDeliveryInput
   ): Promise<PpeDeliveryData> {
-    const { userId, ...data } = input;
+    const { userId, ppeItemIds, ...data } = input;
 
     const existing = await PpeDeliveryService.findById(id, organizationId);
     if (!existing) {
@@ -288,7 +291,96 @@ export abstract class PpeDeliveryService {
       )
       .returning();
 
+    if (ppeItemIds !== undefined) {
+      await PpeDeliveryService.replacePpeItems(
+        id,
+        organizationId,
+        ppeItemIds,
+        userId
+      );
+    }
+
     return PpeDeliveryService.enrichDelivery(updated, organizationId);
+  }
+
+  private static async replacePpeItems(
+    ppeDeliveryId: string,
+    organizationId: string,
+    newPpeItemIds: string[],
+    userId: string
+  ): Promise<void> {
+    // Validate all new PPE items exist in the organization
+    for (const ppeItemId of newPpeItemIds) {
+      const [ppeItem] = await db
+        .select()
+        .from(schema.ppeItems)
+        .where(
+          and(
+            eq(schema.ppeItems.id, ppeItemId),
+            eq(schema.ppeItems.organizationId, organizationId),
+            isNull(schema.ppeItems.deletedAt)
+          )
+        )
+        .limit(1);
+
+      if (!ppeItem) {
+        throw new PpeDeliveryPpeItemNotFoundError(ppeItemId);
+      }
+    }
+
+    // Get current active items
+    const currentItems = await db
+      .select()
+      .from(schema.ppeDeliveryItems)
+      .where(
+        and(
+          eq(schema.ppeDeliveryItems.ppeDeliveryId, ppeDeliveryId),
+          eq(schema.ppeDeliveryItems.organizationId, organizationId),
+          isNull(schema.ppeDeliveryItems.deletedAt)
+        )
+      );
+
+    const currentIds = new Set(currentItems.map((i) => i.ppeItemId));
+    const newIds = new Set(newPpeItemIds);
+
+    // Soft delete items that are no longer in the list
+    for (const item of currentItems) {
+      if (!newIds.has(item.ppeItemId)) {
+        await db
+          .update(schema.ppeDeliveryItems)
+          .set({ deletedAt: new Date(), deletedBy: userId })
+          .where(eq(schema.ppeDeliveryItems.id, item.id));
+
+        await PpeDeliveryService.createLog({
+          ppeDeliveryId,
+          ppeItemId: item.ppeItemId,
+          action: "REMOVED",
+          userId,
+          description: "Removido via atualização da entrega",
+        });
+      }
+    }
+
+    // Add new items that don't exist yet
+    for (const ppeItemId of newPpeItemIds) {
+      if (!currentIds.has(ppeItemId)) {
+        await db.insert(schema.ppeDeliveryItems).values({
+          id: `ppe-delivery-item-${crypto.randomUUID()}`,
+          organizationId,
+          ppeDeliveryId,
+          ppeItemId,
+          createdBy: userId,
+        });
+
+        await PpeDeliveryService.createLog({
+          ppeDeliveryId,
+          ppeItemId,
+          action: "ADDED",
+          userId,
+          description: "Adicionado via atualização da entrega",
+        });
+      }
+    }
   }
 
   static async delete(

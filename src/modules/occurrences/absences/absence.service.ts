@@ -1,6 +1,7 @@
-import { and, eq, isNull } from "drizzle-orm";
+import { and, eq, isNull, sql } from "drizzle-orm";
 import { db } from "@/db";
 import { schema } from "@/db/schema";
+import { ensureEmployeeActive } from "@/lib/helpers/employee-status";
 import type {
   AbsenceData,
   CreateAbsenceInput,
@@ -12,6 +13,7 @@ import {
   AbsenceInvalidDateRangeError,
   AbsenceInvalidEmployeeError,
   AbsenceNotFoundError,
+  AbsenceOverlapError,
 } from "./errors";
 
 export abstract class AbsenceService {
@@ -118,6 +120,37 @@ export abstract class AbsenceService {
     return employee;
   }
 
+  private static async ensureNoOverlap(params: {
+    organizationId: string;
+    employeeId: string;
+    startDate: string;
+    endDate: string;
+    type: string;
+    excludeId?: string;
+  }): Promise<void> {
+    const { organizationId, employeeId, startDate, endDate, type, excludeId } =
+      params;
+
+    const [existing] = await db
+      .select({ id: schema.absences.id })
+      .from(schema.absences)
+      .where(
+        and(
+          eq(schema.absences.organizationId, organizationId),
+          eq(schema.absences.employeeId, employeeId),
+          eq(schema.absences.type, type),
+          sql`${schema.absences.startDate} <= ${endDate}`,
+          sql`${schema.absences.endDate} >= ${startDate}`,
+          isNull(schema.absences.deletedAt)
+        )
+      )
+      .limit(1);
+
+    if (existing && existing.id !== excludeId) {
+      throw new AbsenceOverlapError(employeeId, startDate, endDate);
+    }
+  }
+
   static async create(input: CreateAbsenceInput): Promise<AbsenceData> {
     const {
       organizationId,
@@ -138,6 +171,16 @@ export abstract class AbsenceService {
       employeeId,
       organizationId
     );
+
+    await ensureEmployeeActive(employeeId, organizationId);
+
+    await AbsenceService.ensureNoOverlap({
+      organizationId,
+      employeeId,
+      startDate,
+      endDate,
+      type,
+    });
 
     const absenceId = `absence-${crypto.randomUUID()}`;
 
@@ -228,9 +271,25 @@ export abstract class AbsenceService {
 
     const finalStartDate = startDate ?? existing.startDate;
     const finalEndDate = endDate ?? existing.endDate;
+    const finalType = data.type ?? existing.type;
 
     if (new Date(finalStartDate) > new Date(finalEndDate)) {
       throw new AbsenceInvalidDateRangeError();
+    }
+
+    if (
+      data.type !== undefined ||
+      startDate !== undefined ||
+      endDate !== undefined
+    ) {
+      await AbsenceService.ensureNoOverlap({
+        organizationId,
+        employeeId: existing.employee.id,
+        startDate: finalStartDate,
+        endDate: finalEndDate,
+        type: finalType,
+        excludeId: id,
+      });
     }
 
     await db

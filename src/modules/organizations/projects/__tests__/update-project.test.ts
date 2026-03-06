@@ -271,4 +271,132 @@ describe("PUT /v1/projects/:id", () => {
     const body = await response.json();
     expect(body.data.name).toBe("Manager Updated");
   });
+
+  test("should return 409 when updating project to duplicate name", async () => {
+    const { headers, organizationId, user } =
+      await createTestUserWithOrganization({
+        emailVerified: true,
+      });
+
+    await createTestProject({
+      organizationId,
+      userId: user.id,
+      name: "Projeto A",
+    });
+
+    const projectB = await createTestProject({
+      organizationId,
+      userId: user.id,
+      name: "Projeto B",
+    });
+
+    const response = await app.handle(
+      new Request(`${BASE_URL}/v1/projects/${projectB.id}`, {
+        method: "PUT",
+        headers: {
+          ...headers,
+          "Content-Type": "application/json",
+        },
+        body: JSON.stringify({ name: "Projeto A" }),
+      })
+    );
+
+    expect(response.status).toBe(409);
+    const body = await response.json();
+    expect(body.error.code).toBe("PROJECT_NAME_ALREADY_EXISTS");
+  });
+
+  test("should return 409 when updating project to duplicate name (case-insensitive)", async () => {
+    const { headers, organizationId, user } =
+      await createTestUserWithOrganization({
+        emailVerified: true,
+      });
+
+    await createTestProject({
+      organizationId,
+      userId: user.id,
+      name: "Projeto A",
+    });
+
+    const projectB = await createTestProject({
+      organizationId,
+      userId: user.id,
+      name: "Projeto B",
+    });
+
+    const response = await app.handle(
+      new Request(`${BASE_URL}/v1/projects/${projectB.id}`, {
+        method: "PUT",
+        headers: {
+          ...headers,
+          "Content-Type": "application/json",
+        },
+        body: JSON.stringify({ name: "PROJETO A" }),
+      })
+    );
+
+    expect(response.status).toBe(409);
+    const body = await response.json();
+    expect(body.error.code).toBe("PROJECT_NAME_ALREADY_EXISTS");
+  });
+
+  test("should return 409 when updating project to duplicate cno", async () => {
+    const { headers, organizationId, user } =
+      await createTestUserWithOrganization({
+        emailVerified: true,
+      });
+
+    const cno = generateCno();
+    await createTestProject({
+      organizationId,
+      userId: user.id,
+      cno,
+    });
+
+    const projectB = await createTestProject({
+      organizationId,
+      userId: user.id,
+    });
+
+    const response = await app.handle(
+      new Request(`${BASE_URL}/v1/projects/${projectB.id}`, {
+        method: "PUT",
+        headers: {
+          ...headers,
+          "Content-Type": "application/json",
+        },
+        body: JSON.stringify({ cno }),
+      })
+    );
+
+    expect(response.status).toBe(409);
+    const body = await response.json();
+    expect(body.error.code).toBe("PROJECT_CNO_ALREADY_EXISTS");
+  });
+
+  test("should allow updating project to its own name", async () => {
+    const { headers, organizationId, user } =
+      await createTestUserWithOrganization({
+        emailVerified: true,
+      });
+
+    const project = await createTestProject({
+      organizationId,
+      userId: user.id,
+      name: "Projeto Mesmo Nome",
+    });
+
+    const response = await app.handle(
+      new Request(`${BASE_URL}/v1/projects/${project.id}`, {
+        method: "PUT",
+        headers: {
+          ...headers,
+          "Content-Type": "application/json",
+        },
+        body: JSON.stringify({ name: "Projeto Mesmo Nome" }),
+      })
+    );
+
+    expect(response.status).toBe(200);
+  });
 });

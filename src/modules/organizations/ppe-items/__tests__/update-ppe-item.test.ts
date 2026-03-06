@@ -234,4 +234,106 @@ describe("PUT /v1/ppe-items/:id", () => {
     const body = await response.json();
     expect(body.data.name).toBe("Manager Updated");
   });
+
+  test("should return 409 when updating ppe item to duplicate name and equipment", async () => {
+    const { headers, organizationId, user } =
+      await createTestUserWithOrganization({
+        emailVerified: true,
+      });
+
+    await createTestPpeItem({
+      organizationId,
+      userId: user.id,
+      name: "EPI A",
+      equipment: "Equipamento A",
+    });
+
+    const ppeItemB = await createTestPpeItem({
+      organizationId,
+      userId: user.id,
+      name: "EPI B",
+      equipment: "Equipamento B",
+    });
+
+    const response = await app.handle(
+      new Request(`${BASE_URL}/v1/ppe-items/${ppeItemB.id}`, {
+        method: "PUT",
+        headers: {
+          ...headers,
+          "Content-Type": "application/json",
+        },
+        body: JSON.stringify({ name: "EPI A", equipment: "Equipamento A" }),
+      })
+    );
+
+    expect(response.status).toBe(409);
+    const body = await response.json();
+    expect(body.error.code).toBe("PPE_ITEM_ALREADY_EXISTS");
+  });
+
+  test("should return 409 when updating ppe item to duplicate name and equipment (case-insensitive)", async () => {
+    const { headers, organizationId, user } =
+      await createTestUserWithOrganization({
+        emailVerified: true,
+      });
+
+    await createTestPpeItem({
+      organizationId,
+      userId: user.id,
+      name: "EPI A",
+      equipment: "Equipamento A",
+    });
+
+    const ppeItemB = await createTestPpeItem({
+      organizationId,
+      userId: user.id,
+      name: "EPI B",
+      equipment: "Equipamento B",
+    });
+
+    const response = await app.handle(
+      new Request(`${BASE_URL}/v1/ppe-items/${ppeItemB.id}`, {
+        method: "PUT",
+        headers: {
+          ...headers,
+          "Content-Type": "application/json",
+        },
+        body: JSON.stringify({ name: "epi a", equipment: "Equipamento A" }),
+      })
+    );
+
+    expect(response.status).toBe(409);
+    const body = await response.json();
+    expect(body.error.code).toBe("PPE_ITEM_ALREADY_EXISTS");
+  });
+
+  test("should allow updating ppe item to its own name and equipment", async () => {
+    const { headers, organizationId, user } =
+      await createTestUserWithOrganization({
+        emailVerified: true,
+      });
+
+    const ppeItem = await createTestPpeItem({
+      organizationId,
+      userId: user.id,
+      name: "EPI Mesmo",
+      equipment: "Equipamento Mesmo",
+    });
+
+    const response = await app.handle(
+      new Request(`${BASE_URL}/v1/ppe-items/${ppeItem.id}`, {
+        method: "PUT",
+        headers: {
+          ...headers,
+          "Content-Type": "application/json",
+        },
+        body: JSON.stringify({
+          name: "EPI Mesmo",
+          equipment: "Equipamento Mesmo",
+        }),
+      })
+    );
+
+    expect(response.status).toBe(200);
+  });
 });

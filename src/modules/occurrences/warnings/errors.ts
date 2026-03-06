@@ -50,3 +50,15 @@ export class WarningAcknowledgedBeforeDateError extends WarningError {
     );
   }
 }
+
+export class WarningDuplicateError extends WarningError {
+  status = 409;
+
+  constructor(employeeId: string, date: string, type: string) {
+    super(
+      `Employee already has a ${type} warning on ${date}`,
+      "WARNING_DUPLICATE",
+      { employeeId, date, type }
+    );
+  }
+}

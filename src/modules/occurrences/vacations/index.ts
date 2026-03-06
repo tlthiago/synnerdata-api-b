@@ -3,6 +3,7 @@ import { isProduction } from "@/env";
 import { betterAuthPlugin } from "@/lib/auth-plugin";
 import { wrapSuccess } from "@/lib/responses/envelope";
 import {
+  conflictErrorSchema,
   forbiddenErrorSchema,
   notFoundErrorSchema,
   unauthorizedErrorSchema,
@@ -48,6 +49,7 @@ export const vacationController = new Elysia({
         200: createVacationResponseSchema,
         401: unauthorizedErrorSchema,
         403: forbiddenErrorSchema,
+        409: conflictErrorSchema,
         422: validationErrorSchema,
       },
       detail: {
@@ -132,6 +134,7 @@ export const vacationController = new Elysia({
         401: unauthorizedErrorSchema,
         403: forbiddenErrorSchema,
         404: notFoundErrorSchema,
+        409: conflictErrorSchema,
         422: validationErrorSchema,
       },
       detail: {

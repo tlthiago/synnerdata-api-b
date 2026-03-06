@@ -1,3 +1,4 @@
+import { calculateDaysBetween } from "@/lib/schemas/date-helpers";
 import type { VacationData } from "@/modules/occurrences/vacations/vacation.model";
 import { VacationService } from "@/modules/occurrences/vacations/vacation.service";
 import { faker } from "./faker";
@@ -43,15 +44,18 @@ export function createTestVacation(
   const { organizationId, userId, employeeId, ...overrides } = options;
 
   const dates = generateVacationDates();
-  const daysTotal = overrides.daysTotal ?? 30;
+  const startDate = overrides.startDate ?? dates.startDate;
+  const endDate = overrides.endDate ?? dates.endDate;
+  const daysTotal =
+    overrides.daysTotal ?? calculateDaysBetween(startDate, endDate);
   const daysUsed = overrides.daysUsed ?? 0;
 
   return VacationService.create({
     organizationId,
     userId,
     employeeId,
-    startDate: overrides.startDate ?? dates.startDate,
-    endDate: overrides.endDate ?? dates.endDate,
+    startDate,
+    endDate,
     daysTotal,
     daysUsed,
     acquisitionPeriodStart:

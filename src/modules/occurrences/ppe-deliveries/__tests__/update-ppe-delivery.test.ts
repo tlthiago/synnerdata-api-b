@@ -2,6 +2,7 @@ import { beforeAll, describe, expect, test } from "bun:test";
 import { env } from "@/env";
 import { createTestApp, type TestApp } from "@/test/helpers/app";
 import { createTestPpeDelivery } from "@/test/helpers/ppe-delivery";
+import { createTestPpeItem } from "@/test/helpers/ppe-item";
 import {
   createTestUser,
   createTestUserWithOrganization,
@@ -275,5 +276,218 @@ describe("PUT /v1/ppe-deliveries/:id", () => {
     expect(response.status).toBe(200);
     const body = await response.json();
     expect(body.data.reason).toBe("Atualizado pelo gerente");
+  });
+
+  test("should replace ppe items when ppeItemIds is provided", async () => {
+    const { headers, organizationId, user } =
+      await createTestUserWithOrganization({
+        emailVerified: true,
+      });
+
+    const oldItem = await createTestPpeItem({
+      organizationId,
+      userId: user.id,
+      name: "Capacete Antigo",
+    });
+
+    const delivery = await createTestPpeDelivery({
+      organizationId,
+      userId: user.id,
+      ppeItemIds: [oldItem.id],
+    });
+
+    expect(delivery.items.length).toBe(1);
+    expect(delivery.items[0].name).toBe("Capacete Antigo");
+
+    const newItem1 = await createTestPpeItem({
+      organizationId,
+      userId: user.id,
+      name: "Luvas Novas",
+    });
+
+    const newItem2 = await createTestPpeItem({
+      organizationId,
+      userId: user.id,
+      name: "Botas Novas",
+    });
+
+    const response = await app.handle(
+      new Request(`${BASE_URL}/v1/ppe-deliveries/${delivery.id}`, {
+        method: "PUT",
+        headers: {
+          ...headers,
+          "Content-Type": "application/json",
+        },
+        body: JSON.stringify({
+          ppeItemIds: [newItem1.id, newItem2.id],
+        }),
+      })
+    );
+
+    expect(response.status).toBe(200);
+    const body = await response.json();
+
+    expect(body.data.items.length).toBe(2);
+    const itemNames = body.data.items.map((i: { name: string }) => i.name);
+    expect(itemNames).toContain("Luvas Novas");
+    expect(itemNames).toContain("Botas Novas");
+    expect(itemNames).not.toContain("Capacete Antigo");
+  });
+
+  test("should keep existing items when ppeItemIds is not provided", async () => {
+    const { headers, organizationId, user } =
+      await createTestUserWithOrganization({
+        emailVerified: true,
+      });
+
+    const ppeItem = await createTestPpeItem({
+      organizationId,
+      userId: user.id,
+      name: "Capacete",
+    });
+
+    const delivery = await createTestPpeDelivery({
+      organizationId,
+      userId: user.id,
+      ppeItemIds: [ppeItem.id],
+    });
+
+    const response = await app.handle(
+      new Request(`${BASE_URL}/v1/ppe-deliveries/${delivery.id}`, {
+        method: "PUT",
+        headers: {
+          ...headers,
+          "Content-Type": "application/json",
+        },
+        body: JSON.stringify({
+          reason: "Motivo atualizado",
+        }),
+      })
+    );
+
+    expect(response.status).toBe(200);
+    const body = await response.json();
+
+    expect(body.data.reason).toBe("Motivo atualizado");
+    expect(body.data.items.length).toBe(1);
+    expect(body.data.items[0].name).toBe("Capacete");
+  });
+
+  test("should remove all items when ppeItemIds is empty array", async () => {
+    const { headers, organizationId, user } =
+      await createTestUserWithOrganization({
+        emailVerified: true,
+      });
+
+    const delivery = await createTestPpeDelivery({
+      organizationId,
+      userId: user.id,
+      ppeItemCount: 2,
+    });
+
+    expect(delivery.items.length).toBe(2);
+
+    const response = await app.handle(
+      new Request(`${BASE_URL}/v1/ppe-deliveries/${delivery.id}`, {
+        method: "PUT",
+        headers: {
+          ...headers,
+          "Content-Type": "application/json",
+        },
+        body: JSON.stringify({
+          ppeItemIds: [],
+        }),
+      })
+    );
+
+    expect(response.status).toBe(200);
+    const body = await response.json();
+
+    expect(body.data.items.length).toBe(0);
+  });
+
+  test("should keep items that remain and only add/remove diff", async () => {
+    const { headers, organizationId, user } =
+      await createTestUserWithOrganization({
+        emailVerified: true,
+      });
+
+    const itemA = await createTestPpeItem({
+      organizationId,
+      userId: user.id,
+      name: "Item A",
+    });
+
+    const itemB = await createTestPpeItem({
+      organizationId,
+      userId: user.id,
+      name: "Item B",
+    });
+
+    const itemC = await createTestPpeItem({
+      organizationId,
+      userId: user.id,
+      name: "Item C",
+    });
+
+    const delivery = await createTestPpeDelivery({
+      organizationId,
+      userId: user.id,
+      ppeItemIds: [itemA.id, itemB.id],
+    });
+
+    expect(delivery.items.length).toBe(2);
+
+    // Keep B, remove A, add C
+    const response = await app.handle(
+      new Request(`${BASE_URL}/v1/ppe-deliveries/${delivery.id}`, {
+        method: "PUT",
+        headers: {
+          ...headers,
+          "Content-Type": "application/json",
+        },
+        body: JSON.stringify({
+          ppeItemIds: [itemB.id, itemC.id],
+        }),
+      })
+    );
+
+    expect(response.status).toBe(200);
+    const body = await response.json();
+
+    expect(body.data.items.length).toBe(2);
+    const itemNames = body.data.items.map((i: { name: string }) => i.name);
+    expect(itemNames).toContain("Item B");
+    expect(itemNames).toContain("Item C");
+    expect(itemNames).not.toContain("Item A");
+  });
+
+  test("should return 404 for non-existent ppe item on update", async () => {
+    const { headers, organizationId, user } =
+      await createTestUserWithOrganization({
+        emailVerified: true,
+      });
+
+    const delivery = await createTestPpeDelivery({
+      organizationId,
+      userId: user.id,
+    });
+
+    const response = await app.handle(
+      new Request(`${BASE_URL}/v1/ppe-deliveries/${delivery.id}`, {
+        method: "PUT",
+        headers: {
+          ...headers,
+          "Content-Type": "application/json",
+        },
+        body: JSON.stringify({
+          ppeItemIds: ["ppe-item-nonexistent"],
+        }),
+      })
+    );
+
+    expect(response.status).toBe(404);
+    const body = await response.json();
+    expect(body.error.code).toBe("PPE_ITEM_NOT_FOUND");
   });
 });

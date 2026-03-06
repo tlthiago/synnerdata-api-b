@@ -50,3 +50,15 @@ export class AbsenceInvalidEmployeeError extends AbsenceError {
     });
   }
 }
+
+export class AbsenceOverlapError extends AbsenceError {
+  status = 409;
+
+  constructor(employeeId: string, startDate: string, endDate: string) {
+    super(
+      "Employee already has an absence overlapping this period",
+      "ABSENCE_OVERLAP",
+      { employeeId, startDate, endDate }
+    );
+  }
+}

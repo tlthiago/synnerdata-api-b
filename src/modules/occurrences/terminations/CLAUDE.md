@@ -7,6 +7,8 @@ Registro de desligamentos de funcionários.
 - `terminationDate` e `lastWorkingDay` não podem ser no futuro
 - `noticePeriodDays` (inteiro ≥ 0, opcional) + `noticePeriodWorked` (boolean, default false)
 - `reason` (max 1000), `notes` (max 2000) — opcionais
+- Um employee só pode ter um desligamento ativo (não deletado) — tentativa de criar segundo lança `TerminationAlreadyExistsError`
+- Sem verificação de status do employee no create (diferente dos demais sub-módulos)
 - Permissão usa resource genérico `occurrence`, não `termination`
 - Listagem ordenada por `terminationDate`
 
@@ -19,3 +21,4 @@ Registro de desligamentos de funcionários.
 - `TerminationNotFoundError` (404)
 - `TerminationAlreadyDeletedError` (404)
 - `TerminationInvalidEmployeeError` (422)
+- `TerminationAlreadyExistsError` (409) — one active termination per employee

@@ -4,7 +4,7 @@ Códigos CBO para compliance trabalhista brasileiro. Referenciado por employees 
 
 ## Business Rules
 
-- `name` (1-255 chars) — nome/código do CBO
+- `name` (1-255 chars) — nome/código do CBO, único por organização (case-insensitive, soft-delete-aware)
 - CRUD simples com soft delete
 
 ## Permissions
@@ -14,4 +14,5 @@ Códigos CBO para compliance trabalhista brasileiro. Referenciado por employees 
 ## Errors
 
 - `JobClassificationNotFoundError` (404)
+- `JobClassificationAlreadyExistsError` (409)
 - `JobClassificationAlreadyDeletedError` (404)

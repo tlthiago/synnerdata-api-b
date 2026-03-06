@@ -18,6 +18,26 @@ export class ProjectAlreadyDeletedError extends AppError {
   }
 }
 
+export class ProjectNameAlreadyExistsError extends AppError {
+  status = 409;
+  code = "PROJECT_NAME_ALREADY_EXISTS";
+
+  constructor(name: string) {
+    super(`Já existe um projeto com o nome "${name}"`);
+    this.details = { name };
+  }
+}
+
+export class ProjectCnoAlreadyExistsError extends AppError {
+  status = 409;
+  code = "PROJECT_CNO_ALREADY_EXISTS";
+
+  constructor(cno: string) {
+    super(`Já existe um projeto com o CNO "${cno}"`);
+    this.details = { cno };
+  }
+}
+
 export class ProjectEmployeeNotFoundError extends AppError {
   status = 404;
   code = "EMPLOYEE_NOT_FOUND";

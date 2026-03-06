@@ -5,6 +5,7 @@ import {
   createTestUser,
   createTestUserWithOrganization,
 } from "@/test/helpers/user";
+import { PpeItemService } from "../ppe-item.service";
 
 const BASE_URL = env.API_URL;
 
@@ -247,5 +248,105 @@ describe("POST /v1/ppe-items", () => {
     );
 
     expect(response.status).toBe(200);
+  });
+
+  test("should return 409 when creating ppe item with duplicate name and equipment", async () => {
+    const { headers, organizationId, user } =
+      await createTestUserWithOrganization({
+        emailVerified: true,
+      });
+
+    await PpeItemService.create({
+      organizationId,
+      userId: user.id,
+      name: "EPI Duplicado",
+      description: "Descrição do EPI",
+      equipment: "Equipamento Duplicado",
+    });
+
+    const response = await app.handle(
+      new Request(`${BASE_URL}/v1/ppe-items`, {
+        method: "POST",
+        headers: {
+          ...headers,
+          "Content-Type": "application/json",
+        },
+        body: JSON.stringify({
+          name: "EPI Duplicado",
+          description: "Outra descrição",
+          equipment: "Equipamento Duplicado",
+        }),
+      })
+    );
+
+    expect(response.status).toBe(409);
+    const body = await response.json();
+    expect(body.error.code).toBe("PPE_ITEM_ALREADY_EXISTS");
+  });
+
+  test("should allow creating ppe item with same name but different equipment", async () => {
+    const { headers, organizationId, user } =
+      await createTestUserWithOrganization({
+        emailVerified: true,
+      });
+
+    await PpeItemService.create({
+      organizationId,
+      userId: user.id,
+      name: "EPI Mesmo Nome",
+      description: "Descrição do EPI",
+      equipment: "Equipamento A",
+    });
+
+    const response = await app.handle(
+      new Request(`${BASE_URL}/v1/ppe-items`, {
+        method: "POST",
+        headers: {
+          ...headers,
+          "Content-Type": "application/json",
+        },
+        body: JSON.stringify({
+          name: "EPI Mesmo Nome",
+          description: "Outra descrição",
+          equipment: "Equipamento B",
+        }),
+      })
+    );
+
+    expect(response.status).toBe(200);
+  });
+
+  test("should return 409 when creating ppe item with duplicate name and equipment (case-insensitive)", async () => {
+    const { headers, organizationId, user } =
+      await createTestUserWithOrganization({
+        emailVerified: true,
+      });
+
+    await PpeItemService.create({
+      organizationId,
+      userId: user.id,
+      name: "EPI Teste",
+      description: "Descrição do EPI",
+      equipment: "Equipamento Teste",
+    });
+
+    const response = await app.handle(
+      new Request(`${BASE_URL}/v1/ppe-items`, {
+        method: "POST",
+        headers: {
+          ...headers,
+          "Content-Type": "application/json",
+        },
+        body: JSON.stringify({
+          name: "epi teste",
+          description: "Outra descrição",
+          equipment: "equipamento teste",
+        }),
+      })
+    );
+
+    expect(response.status).toBe(409);
+    const body = await response.json();
+    expect(body.error.code).toBe("PPE_ITEM_ALREADY_EXISTS");
   });
 });

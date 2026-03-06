@@ -20,6 +20,18 @@ export class CostCenterNotFoundError extends CostCenterError {
   }
 }
 
+export class CostCenterAlreadyExistsError extends CostCenterError {
+  status = 409;
+
+  constructor(name: string) {
+    super(
+      `A cost center with the name "${name}" already exists`,
+      "COST_CENTER_ALREADY_EXISTS",
+      { name }
+    );
+  }
+}
+
 export class CostCenterAlreadyDeletedError extends CostCenterError {
   status = 404;
 

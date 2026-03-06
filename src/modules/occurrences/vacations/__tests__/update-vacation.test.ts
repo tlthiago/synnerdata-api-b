@@ -138,6 +138,40 @@ describe("PUT /v1/vacations/:id", () => {
     expect(body.error.code).toBe("VACATION_NOT_FOUND");
   });
 
+  test("should reject when daysTotal does not match date range on update", async () => {
+    const { headers, organizationId, user } =
+      await createTestUserWithOrganization({
+        emailVerified: true,
+      });
+
+    const { employee } = await createTestEmployee({
+      organizationId,
+      userId: user.id,
+    });
+
+    const vacation = await createTestVacation({
+      organizationId,
+      userId: user.id,
+      employeeId: employee.id,
+    });
+
+    const response = await app.handle(
+      new Request(`${BASE_URL}/v1/vacations/${vacation.id}`, {
+        method: "PUT",
+        headers: { ...headers, "Content-Type": "application/json" },
+        body: JSON.stringify({
+          startDate: "2025-03-01",
+          endDate: "2025-03-10",
+          daysTotal: 30,
+        }),
+      })
+    );
+
+    expect(response.status).toBe(422);
+    const body = await response.json();
+    expect(body.error.code).toBe("VACATION_DAYS_TOTAL_MISMATCH");
+  });
+
   test("should update vacation successfully", async () => {
     const { headers, organizationId, user } =
       await createTestUserWithOrganization({
@@ -153,6 +187,8 @@ describe("PUT /v1/vacations/:id", () => {
       organizationId,
       userId: user.id,
       employeeId: employee.id,
+      startDate: "2025-01-01",
+      endDate: "2025-01-30",
       daysTotal: 30,
       daysUsed: 0,
       status: "scheduled",
@@ -236,6 +272,8 @@ describe("PUT /v1/vacations/:id", () => {
       organizationId,
       userId: user.id,
       employeeId: employee.id,
+      startDate: "2025-01-01",
+      endDate: "2025-01-30",
       daysTotal: 30,
       daysUsed: 0,
     });
@@ -261,5 +299,95 @@ describe("PUT /v1/vacations/:id", () => {
     const body = await response.json();
     expect(body.success).toBe(true);
     expect(body.data.daysUsed).toBe(5);
+  });
+
+  test("should reject overlapping vacation on update", async () => {
+    const { headers, organizationId, user } =
+      await createTestUserWithOrganization({
+        emailVerified: true,
+      });
+
+    const { employee } = await createTestEmployee({
+      organizationId,
+      userId: user.id,
+    });
+
+    await createTestVacation({
+      organizationId,
+      userId: user.id,
+      employeeId: employee.id,
+      startDate: "2025-06-01",
+      endDate: "2025-06-15",
+      daysTotal: 15,
+      daysUsed: 0,
+      status: "scheduled",
+    });
+
+    const vacation2 = await createTestVacation({
+      organizationId,
+      userId: user.id,
+      employeeId: employee.id,
+      startDate: "2025-06-20",
+      endDate: "2025-06-30",
+      daysTotal: 11,
+      daysUsed: 0,
+      status: "scheduled",
+    });
+
+    const response = await app.handle(
+      new Request(`${BASE_URL}/v1/vacations/${vacation2.id}`, {
+        method: "PUT",
+        headers: { ...headers, "Content-Type": "application/json" },
+        body: JSON.stringify({
+          startDate: "2025-06-10",
+          endDate: "2025-06-20",
+          daysTotal: 11,
+        }),
+      })
+    );
+
+    expect(response.status).toBe(409);
+    const body = await response.json();
+    expect(body.error.code).toBe("VACATION_OVERLAP");
+  });
+
+  test("should allow updating vacation without overlap (same record)", async () => {
+    const { headers, organizationId, user } =
+      await createTestUserWithOrganization({
+        emailVerified: true,
+      });
+
+    const { employee } = await createTestEmployee({
+      organizationId,
+      userId: user.id,
+    });
+
+    const vacation = await createTestVacation({
+      organizationId,
+      userId: user.id,
+      employeeId: employee.id,
+      startDate: "2025-07-01",
+      endDate: "2025-07-15",
+      daysTotal: 15,
+      daysUsed: 0,
+      status: "scheduled",
+    });
+
+    const response = await app.handle(
+      new Request(`${BASE_URL}/v1/vacations/${vacation.id}`, {
+        method: "PUT",
+        headers: { ...headers, "Content-Type": "application/json" },
+        body: JSON.stringify({
+          startDate: "2025-07-02",
+          endDate: "2025-07-11",
+          daysTotal: 10,
+          daysUsed: 0,
+        }),
+      })
+    );
+
+    expect(response.status).toBe(200);
+    const body = await response.json();
+    expect(body.success).toBe(true);
   });
 });

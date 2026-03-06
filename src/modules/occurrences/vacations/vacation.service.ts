@@ -1,11 +1,13 @@
 import { and, eq, isNull, sql } from "drizzle-orm";
 import { db } from "@/db";
 import { schema } from "@/db/schema";
+import { ensureEmployeeNotTerminated } from "@/lib/helpers/employee-status";
 import {
   VacationAlreadyDeletedError,
   VacationInvalidDateRangeError,
   VacationInvalidEmployeeError,
   VacationNotFoundError,
+  VacationOverlapError,
 } from "./errors";
 import type {
   CreateVacationInput,
@@ -126,6 +128,36 @@ export abstract class VacationService {
     }
   }
 
+  private static async ensureNoOverlap(params: {
+    organizationId: string;
+    employeeId: string;
+    startDate: string;
+    endDate: string;
+    excludeId?: string;
+  }): Promise<void> {
+    const { organizationId, employeeId, startDate, endDate, excludeId } =
+      params;
+
+    const [existing] = await db
+      .select({ id: schema.vacations.id })
+      .from(schema.vacations)
+      .where(
+        and(
+          eq(schema.vacations.organizationId, organizationId),
+          eq(schema.vacations.employeeId, employeeId),
+          sql`${schema.vacations.startDate} <= ${endDate}`,
+          sql`${schema.vacations.endDate} >= ${startDate}`,
+          sql`${schema.vacations.status} != 'canceled'`,
+          isNull(schema.vacations.deletedAt)
+        )
+      )
+      .limit(1);
+
+    if (existing && existing.id !== excludeId) {
+      throw new VacationOverlapError(employeeId, startDate, endDate);
+    }
+  }
+
   static async create(input: CreateVacationInput): Promise<VacationData> {
     const { organizationId, userId, ...data } = input;
 
@@ -133,6 +165,8 @@ export abstract class VacationService {
       data.employeeId,
       organizationId
     );
+
+    await ensureEmployeeNotTerminated(data.employeeId, organizationId);
 
     VacationService.validateDates(data.startDate, data.endDate);
 
@@ -173,6 +207,13 @@ export abstract class VacationService {
         period.daysRemaining
       );
     }
+
+    await VacationService.ensureNoOverlap({
+      organizationId,
+      employeeId: data.employeeId,
+      startDate: data.startDate,
+      endDate: data.endDate,
+    });
 
     const vacationId = `vacation-${crypto.randomUUID()}`;
 
@@ -279,6 +320,19 @@ export abstract class VacationService {
       const newStartDate = data.startDate ?? existing.startDate;
       const newEndDate = data.endDate ?? existing.endDate;
       VacationService.validateDates(newStartDate, newEndDate);
+    }
+
+    if (data.startDate !== undefined || data.endDate !== undefined) {
+      const finalStartDate = data.startDate ?? existing.startDate;
+      const finalEndDate = data.endDate ?? existing.endDate;
+
+      await VacationService.ensureNoOverlap({
+        organizationId,
+        employeeId: existing.employee.id,
+        startDate: finalStartDate,
+        endDate: finalEndDate,
+        excludeId: id,
+      });
     }
 
     await db

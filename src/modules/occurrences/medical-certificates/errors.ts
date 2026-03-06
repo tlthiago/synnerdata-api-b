@@ -38,7 +38,9 @@ export class MedicalCertificateAlreadyDeletedError extends MedicalCertificateErr
   }
 }
 
-export class InvalidDateRangeError extends MedicalCertificateError {
+export class MedicalCertificateInvalidDateRangeError extends MedicalCertificateError {
+  status = 422;
+
   constructor() {
     super(
       "Start date must be before or equal to end date",
@@ -47,9 +49,15 @@ export class InvalidDateRangeError extends MedicalCertificateError {
   }
 }
 
-export class InvalidDaysOffError extends MedicalCertificateError {
-  constructor() {
-    super("Days off must be a positive number", "INVALID_DAYS_OFF");
+export class MedicalCertificateInvalidDaysOffError extends MedicalCertificateError {
+  status = 422;
+
+  constructor(expected: number, received: number) {
+    super(
+      `Dias de afastamento informado (${received}) não corresponde ao intervalo de datas (${expected})`,
+      "INVALID_DAYS_OFF",
+      { expected, received }
+    );
   }
 }
 
@@ -63,6 +71,18 @@ export class MedicalCertificateInvalidEmployeeError extends MedicalCertificateEr
       {
         employeeId,
       }
+    );
+  }
+}
+
+export class MedicalCertificateOverlapError extends MedicalCertificateError {
+  status = 409;
+
+  constructor(employeeId: string, startDate: string, endDate: string) {
+    super(
+      "Employee already has a medical certificate overlapping this period",
+      "MEDICAL_CERTIFICATE_OVERLAP",
+      { employeeId, startDate, endDate }
     );
   }
 }

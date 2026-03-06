@@ -45,3 +45,15 @@ export class CpfAnalysisInvalidEmployeeError extends CpfAnalysisError {
     );
   }
 }
+
+export class CpfAnalysisDuplicateDateError extends CpfAnalysisError {
+  status = 409;
+
+  constructor(employeeId: string, analysisDate: string) {
+    super(
+      `CPF analysis already exists for employee ${employeeId} on ${analysisDate}`,
+      "CPF_ANALYSIS_DUPLICATE_DATE",
+      { employeeId, analysisDate }
+    );
+  }
+}

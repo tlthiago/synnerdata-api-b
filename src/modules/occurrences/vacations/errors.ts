@@ -45,11 +45,25 @@ export class VacationInvalidEmployeeError extends VacationError {
 }
 
 export class VacationInvalidDateRangeError extends VacationError {
+  status = 422;
+
   constructor(startDate: string, endDate: string) {
     super(
       "Start date must be before or equal to end date",
       "VACATION_INVALID_DATE_RANGE",
       { startDate, endDate }
+    );
+  }
+}
+
+export class VacationOverlapError extends VacationError {
+  status = 409;
+
+  constructor(employeeId: string, startDate: string, endDate: string) {
+    super(
+      "Employee already has a vacation overlapping this period",
+      "VACATION_OVERLAP",
+      { employeeId, startDate, endDate }
     );
   }
 }

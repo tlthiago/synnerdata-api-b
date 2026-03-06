@@ -1,7 +1,11 @@
 import { beforeAll, describe, expect, test } from "bun:test";
+import { eq } from "drizzle-orm";
+import { db } from "@/db";
+import { schema } from "@/db/schema";
 import { env } from "@/env";
 import { createTestApp, type TestApp } from "@/test/helpers/app";
 import { createTestEmployee } from "@/test/helpers/employee";
+import { createTestLaborLawsuit } from "@/test/helpers/labor-lawsuit";
 import {
   createTestUser,
   createTestUserWithOrganization,
@@ -9,8 +13,12 @@ import {
 
 const BASE_URL = env.API_URL;
 
-const validLawsuitData = {
-  processNumber: "0001234-56.2024.5.01.0001",
+function uniqueProcessNumber(): string {
+  const random = crypto.randomUUID().replace(/-/g, "").slice(0, 7);
+  return `${random}-00.2024.5.01.0001`;
+}
+
+const baseValidLawsuitData = {
   court: "1ª Vara do Trabalho do Rio de Janeiro",
   filingDate: "2024-01-10",
   knowledgeDate: "2024-01-15",
@@ -18,6 +26,10 @@ const validLawsuitData = {
   defendant: "Empresa XYZ Ltda",
   description: "Reclamação por verbas rescisórias",
 };
+
+function validLawsuitData() {
+  return { ...baseValidLawsuitData, processNumber: uniqueProcessNumber() };
+}
 
 describe("POST /v1/labor-lawsuits", () => {
   let app: TestApp;
@@ -31,7 +43,7 @@ describe("POST /v1/labor-lawsuits", () => {
       new Request(`${BASE_URL}/v1/labor-lawsuits`, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ ...validLawsuitData, employeeId: "emp-123" }),
+        body: JSON.stringify({ ...validLawsuitData(), employeeId: "emp-123" }),
       })
     );
 
@@ -48,7 +60,7 @@ describe("POST /v1/labor-lawsuits", () => {
           ...headers,
           "Content-Type": "application/json",
         },
-        body: JSON.stringify({ ...validLawsuitData, employeeId: "emp-123" }),
+        body: JSON.stringify({ ...validLawsuitData(), employeeId: "emp-123" }),
       })
     );
 
@@ -126,7 +138,7 @@ describe("POST /v1/labor-lawsuits", () => {
           "Content-Type": "application/json",
         },
         body: JSON.stringify({
-          ...validLawsuitData,
+          ...validLawsuitData(),
           employeeId: "invalid-employee-id",
         }),
       })
@@ -159,7 +171,7 @@ describe("POST /v1/labor-lawsuits", () => {
           "Content-Type": "application/json",
         },
         body: JSON.stringify({
-          ...validLawsuitData,
+          ...validLawsuitData(),
           employeeId: employee.id,
           filingDate: futureDate.toISOString().split("T")[0],
           knowledgeDate: futureDate.toISOString().split("T")[0],
@@ -189,7 +201,7 @@ describe("POST /v1/labor-lawsuits", () => {
           "Content-Type": "application/json",
         },
         body: JSON.stringify({
-          ...validLawsuitData,
+          ...validLawsuitData(),
           employeeId: employee.id,
           filingDate: "2024-06-15",
           knowledgeDate: "2024-06-10",
@@ -219,7 +231,7 @@ describe("POST /v1/labor-lawsuits", () => {
           "Content-Type": "application/json",
         },
         body: JSON.stringify({
-          ...validLawsuitData,
+          ...validLawsuitData(),
           employeeId: employee.id,
           filingDate: "2024-06-15",
           knowledgeDate: "2024-06-20",
@@ -242,6 +254,7 @@ describe("POST /v1/labor-lawsuits", () => {
       userId: user.id,
     });
 
+    const lawsuitData = validLawsuitData();
     const response = await app.handle(
       new Request(`${BASE_URL}/v1/labor-lawsuits`, {
         method: "POST",
@@ -250,7 +263,7 @@ describe("POST /v1/labor-lawsuits", () => {
           "Content-Type": "application/json",
         },
         body: JSON.stringify({
-          ...validLawsuitData,
+          ...lawsuitData,
           employeeId: employee.id,
         }),
       })
@@ -265,11 +278,11 @@ describe("POST /v1/labor-lawsuits", () => {
     expect(body.data.organizationId).toBe(organizationId);
     expect(body.data.employee).toBeObject();
     expect(body.data.employee.id).toBe(employee.id);
-    expect(body.data.processNumber).toBe(validLawsuitData.processNumber);
-    expect(body.data.court).toBe(validLawsuitData.court);
-    expect(body.data.plaintiff).toBe(validLawsuitData.plaintiff);
-    expect(body.data.defendant).toBe(validLawsuitData.defendant);
-    expect(body.data.description).toBe(validLawsuitData.description);
+    expect(body.data.processNumber).toBe(lawsuitData.processNumber);
+    expect(body.data.court).toBe(lawsuitData.court);
+    expect(body.data.plaintiff).toBe(lawsuitData.plaintiff);
+    expect(body.data.defendant).toBe(lawsuitData.defendant);
+    expect(body.data.description).toBe(lawsuitData.description);
   });
 
   test("should create lawsuit with all optional fields", async () => {
@@ -284,7 +297,7 @@ describe("POST /v1/labor-lawsuits", () => {
     });
 
     const fullData = {
-      ...validLawsuitData,
+      ...validLawsuitData(),
       employeeId: employee.id,
       plaintiffLawyer: "Dr. Pedro Almeida",
       defendantLawyer: "Dra. Ana Costa",
@@ -350,7 +363,7 @@ describe("POST /v1/labor-lawsuits", () => {
           "Content-Type": "application/json",
         },
         body: JSON.stringify({
-          ...validLawsuitData,
+          ...validLawsuitData(),
           employeeId: employee.id,
         }),
       })
@@ -389,12 +402,118 @@ describe("POST /v1/labor-lawsuits", () => {
           "Content-Type": "application/json",
         },
         body: JSON.stringify({
-          ...validLawsuitData,
+          ...validLawsuitData(),
           employeeId: employee.id,
         }),
       })
     );
 
     expect(response.status).toBe(200);
+  });
+
+  test("should return 409 when creating with duplicate processNumber", async () => {
+    const { headers, organizationId, user } =
+      await createTestUserWithOrganization({
+        emailVerified: true,
+      });
+
+    const { employee } = await createTestEmployee({
+      organizationId,
+      userId: user.id,
+    });
+
+    const existingLawsuit = await createTestLaborLawsuit({
+      organizationId,
+      userId: user.id,
+    });
+
+    const response = await app.handle(
+      new Request(`${BASE_URL}/v1/labor-lawsuits`, {
+        method: "POST",
+        headers: {
+          ...headers,
+          "Content-Type": "application/json",
+        },
+        body: JSON.stringify({
+          ...validLawsuitData(),
+          employeeId: employee.id,
+          processNumber: existingLawsuit.processNumber,
+        }),
+      })
+    );
+
+    expect(response.status).toBe(409);
+    const body = await response.json();
+    expect(body.error.code).toBe("LABOR_LAWSUIT_PROCESS_NUMBER_ALREADY_EXISTS");
+  });
+
+  test("should return 422 when employee is TERMINATED", async () => {
+    const { headers, organizationId, user } =
+      await createTestUserWithOrganization({
+        emailVerified: true,
+      });
+
+    const { employee } = await createTestEmployee({
+      organizationId,
+      userId: user.id,
+    });
+
+    await db
+      .update(schema.employees)
+      .set({ status: "TERMINATED" })
+      .where(eq(schema.employees.id, employee.id));
+
+    const response = await app.handle(
+      new Request(`${BASE_URL}/v1/labor-lawsuits`, {
+        method: "POST",
+        headers: {
+          ...headers,
+          "Content-Type": "application/json",
+        },
+        body: JSON.stringify({
+          ...validLawsuitData(),
+          employeeId: employee.id,
+        }),
+      })
+    );
+
+    expect(response.status).toBe(422);
+    const body = await response.json();
+    expect(body.error.code).toBe("EMPLOYEE_TERMINATED");
+  });
+
+  test("should allow creating lawsuit when employee is ON_VACATION", async () => {
+    const { headers, organizationId, user } =
+      await createTestUserWithOrganization({
+        emailVerified: true,
+      });
+
+    const { employee } = await createTestEmployee({
+      organizationId,
+      userId: user.id,
+    });
+
+    await db
+      .update(schema.employees)
+      .set({ status: "ON_VACATION" })
+      .where(eq(schema.employees.id, employee.id));
+
+    const response = await app.handle(
+      new Request(`${BASE_URL}/v1/labor-lawsuits`, {
+        method: "POST",
+        headers: {
+          ...headers,
+          "Content-Type": "application/json",
+        },
+        body: JSON.stringify({
+          ...validLawsuitData(),
+          employeeId: employee.id,
+        }),
+      })
+    );
+
+    expect(response.status).toBe(200);
+    const body = await response.json();
+    expect(body.success).toBe(true);
   });
 });

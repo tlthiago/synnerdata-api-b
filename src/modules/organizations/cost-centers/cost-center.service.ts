@@ -1,4 +1,4 @@
-import { and, eq, isNull } from "drizzle-orm";
+import { and, eq, isNull, sql } from "drizzle-orm";
 import { db } from "@/db";
 import { schema } from "@/db/schema";
 import type {
@@ -9,10 +9,33 @@ import type {
 } from "./cost-center.model";
 import {
   CostCenterAlreadyDeletedError,
+  CostCenterAlreadyExistsError,
   CostCenterNotFoundError,
 } from "./errors";
 
 export abstract class CostCenterService {
+  private static async ensureNameNotExists(
+    organizationId: string,
+    name: string,
+    excludeId?: string
+  ): Promise<void> {
+    const [existing] = await db
+      .select({ id: schema.costCenters.id })
+      .from(schema.costCenters)
+      .where(
+        and(
+          eq(schema.costCenters.organizationId, organizationId),
+          sql`lower(${schema.costCenters.name}) = lower(${name})`,
+          isNull(schema.costCenters.deletedAt)
+        )
+      )
+      .limit(1);
+
+    if (existing && existing.id !== excludeId) {
+      throw new CostCenterAlreadyExistsError(name);
+    }
+  }
+
   private static async findById(
     id: string,
     organizationId: string
@@ -52,6 +75,8 @@ export abstract class CostCenterService {
 
   static async create(input: CreateCostCenterInput): Promise<CostCenterData> {
     const { organizationId, userId, ...data } = input;
+
+    await CostCenterService.ensureNameNotExists(organizationId, data.name);
 
     const costCenterId = `cost-center-${crypto.randomUUID()}`;
 
@@ -104,6 +129,14 @@ export abstract class CostCenterService {
     const existing = await CostCenterService.findById(id, organizationId);
     if (!existing) {
       throw new CostCenterNotFoundError(id);
+    }
+
+    if (data.name !== undefined) {
+      await CostCenterService.ensureNameNotExists(
+        organizationId,
+        data.name,
+        id
+      );
     }
 
     const [updated] = await db

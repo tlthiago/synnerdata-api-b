@@ -1,7 +1,11 @@
-import { and, eq, isNull } from "drizzle-orm";
+import { and, eq, isNull, sql } from "drizzle-orm";
 import { db } from "@/db";
 import { schema } from "@/db/schema";
-import { SectorAlreadyDeletedError, SectorNotFoundError } from "./errors";
+import {
+  SectorAlreadyDeletedError,
+  SectorAlreadyExistsError,
+  SectorNotFoundError,
+} from "./errors";
 import type {
   CreateSectorInput,
   DeletedSectorData,
@@ -10,6 +14,28 @@ import type {
 } from "./sector.model";
 
 export abstract class SectorService {
+  private static async ensureNameNotExists(
+    organizationId: string,
+    name: string,
+    excludeId?: string
+  ): Promise<void> {
+    const [existing] = await db
+      .select({ id: schema.sectors.id })
+      .from(schema.sectors)
+      .where(
+        and(
+          eq(schema.sectors.organizationId, organizationId),
+          sql`lower(${schema.sectors.name}) = lower(${name})`,
+          isNull(schema.sectors.deletedAt)
+        )
+      )
+      .limit(1);
+
+    if (existing && existing.id !== excludeId) {
+      throw new SectorAlreadyExistsError(name);
+    }
+  }
+
   private static async findById(
     id: string,
     organizationId: string
@@ -49,6 +75,8 @@ export abstract class SectorService {
 
   static async create(input: CreateSectorInput): Promise<SectorData> {
     const { organizationId, userId, ...data } = input;
+
+    await SectorService.ensureNameNotExists(organizationId, data.name);
 
     const sectorId = `sector-${crypto.randomUUID()}`;
 
@@ -101,6 +129,10 @@ export abstract class SectorService {
     const existing = await SectorService.findById(id, organizationId);
     if (!existing) {
       throw new SectorNotFoundError(id);
+    }
+
+    if (data.name !== undefined) {
+      await SectorService.ensureNameNotExists(organizationId, data.name, id);
     }
 
     const [updated] = await db
