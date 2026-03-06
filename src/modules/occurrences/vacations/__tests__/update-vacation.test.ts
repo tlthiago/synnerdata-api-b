@@ -1,5 +1,6 @@
 import { beforeAll, describe, expect, test } from "bun:test";
 import { env } from "@/env";
+import { createTestAcquisitionPeriod } from "@/test/helpers/acquisition-period";
 import { createTestApp, type TestApp } from "@/test/helpers/app";
 import { createTestEmployee } from "@/test/helpers/employee";
 import {
@@ -138,40 +139,6 @@ describe("PUT /v1/vacations/:id", () => {
     expect(body.error.code).toBe("VACATION_NOT_FOUND");
   });
 
-  test("should reject when daysTotal does not match date range on update", async () => {
-    const { headers, organizationId, user } =
-      await createTestUserWithOrganization({
-        emailVerified: true,
-      });
-
-    const { employee } = await createTestEmployee({
-      organizationId,
-      userId: user.id,
-    });
-
-    const vacation = await createTestVacation({
-      organizationId,
-      userId: user.id,
-      employeeId: employee.id,
-    });
-
-    const response = await app.handle(
-      new Request(`${BASE_URL}/v1/vacations/${vacation.id}`, {
-        method: "PUT",
-        headers: { ...headers, "Content-Type": "application/json" },
-        body: JSON.stringify({
-          startDate: "2025-03-01",
-          endDate: "2025-03-10",
-          daysTotal: 30,
-        }),
-      })
-    );
-
-    expect(response.status).toBe(422);
-    const body = await response.json();
-    expect(body.error.code).toBe("VACATION_DAYS_TOTAL_MISMATCH");
-  });
-
   test("should update vacation successfully", async () => {
     const { headers, organizationId, user } =
       await createTestUserWithOrganization({
@@ -189,7 +156,6 @@ describe("PUT /v1/vacations/:id", () => {
       employeeId: employee.id,
       startDate: "2025-01-01",
       endDate: "2025-01-30",
-      daysTotal: 30,
       daysUsed: 0,
       status: "scheduled",
     });
@@ -216,43 +182,7 @@ describe("PUT /v1/vacations/:id", () => {
     expect(body.data.employee).toBeObject();
     expect(body.data.employee.id).toBeString();
     expect(body.data.employee.name).toBeString();
-  });
-
-  test("should reject future acquisitionPeriodStart on update", async () => {
-    const { headers, organizationId, user } =
-      await createTestUserWithOrganization({
-        emailVerified: true,
-      });
-
-    const { employee } = await createTestEmployee({
-      organizationId,
-      userId: user.id,
-    });
-
-    const vacation = await createTestVacation({
-      organizationId,
-      userId: user.id,
-      employeeId: employee.id,
-    });
-
-    const futureDate = new Date();
-    futureDate.setDate(futureDate.getDate() + 10);
-    const futureDateStr = futureDate.toISOString().split("T")[0];
-
-    const response = await app.handle(
-      new Request(`${BASE_URL}/v1/vacations/${vacation.id}`, {
-        method: "PUT",
-        headers: {
-          ...headers,
-          "Content-Type": "application/json",
-        },
-        body: JSON.stringify({
-          acquisitionPeriodStart: futureDateStr,
-        }),
-      })
-    );
-
-    expect(response.status).toBe(422);
+    expect(body.data.acquisitionPeriodId).toStartWith("acquisition-period-");
   });
 
   test("should allow manager to update vacation", async () => {
@@ -274,7 +204,6 @@ describe("PUT /v1/vacations/:id", () => {
       employeeId: employee.id,
       startDate: "2025-01-01",
       endDate: "2025-01-30",
-      daysTotal: 30,
       daysUsed: 0,
     });
 
@@ -312,15 +241,37 @@ describe("PUT /v1/vacations/:id", () => {
       userId: user.id,
     });
 
+    const period1 = await createTestAcquisitionPeriod({
+      organizationId,
+      userId: user.id,
+      employeeId: employee.id,
+      acquisitionStart: "2023-01-01",
+      acquisitionEnd: "2023-12-31",
+      concessionStart: "2024-01-01",
+      concessionEnd: "2024-12-31",
+      status: "available",
+    });
+
+    const period2 = await createTestAcquisitionPeriod({
+      organizationId,
+      userId: user.id,
+      employeeId: employee.id,
+      acquisitionStart: "2024-01-01",
+      acquisitionEnd: "2024-12-31",
+      concessionStart: "2025-01-01",
+      concessionEnd: "2025-12-31",
+      status: "available",
+    });
+
     await createTestVacation({
       organizationId,
       userId: user.id,
       employeeId: employee.id,
       startDate: "2025-06-01",
       endDate: "2025-06-15",
-      daysTotal: 15,
       daysUsed: 0,
       status: "scheduled",
+      acquisitionPeriodId: period1.id,
     });
 
     const vacation2 = await createTestVacation({
@@ -329,9 +280,9 @@ describe("PUT /v1/vacations/:id", () => {
       employeeId: employee.id,
       startDate: "2025-06-20",
       endDate: "2025-06-30",
-      daysTotal: 11,
       daysUsed: 0,
       status: "scheduled",
+      acquisitionPeriodId: period2.id,
     });
 
     const response = await app.handle(
@@ -341,7 +292,6 @@ describe("PUT /v1/vacations/:id", () => {
         body: JSON.stringify({
           startDate: "2025-06-10",
           endDate: "2025-06-20",
-          daysTotal: 11,
         }),
       })
     );
@@ -368,7 +318,6 @@ describe("PUT /v1/vacations/:id", () => {
       employeeId: employee.id,
       startDate: "2025-07-01",
       endDate: "2025-07-15",
-      daysTotal: 15,
       daysUsed: 0,
       status: "scheduled",
     });
@@ -380,7 +329,6 @@ describe("PUT /v1/vacations/:id", () => {
         body: JSON.stringify({
           startDate: "2025-07-02",
           endDate: "2025-07-11",
-          daysTotal: 10,
           daysUsed: 0,
         }),
       })
