@@ -61,6 +61,15 @@ export const employeeStatusEnum = pgEnum("employee_status", [
   "VACATION_SCHEDULED",
 ]);
 
+export const disabilityTypeEnum = pgEnum("disability_type", [
+  "AUDITIVA",
+  "VISUAL",
+  "FISICA",
+  "INTELECTUAL",
+  "MENTAL",
+  "MULTIPLA",
+]);
+
 export const employees = pgTable(
   "employees",
   {
@@ -135,11 +144,12 @@ export const employees = pgTable(
       precision: 10,
       scale: 2,
     }),
+    healthInsurance: decimal("health_insurance", { precision: 10, scale: 2 }),
 
     // Education and Special Needs
     educationLevel: educationLevelEnum("education_level").notNull(),
     hasSpecialNeeds: boolean("has_special_needs").notNull(),
-    disabilityType: text("disability_type"),
+    disabilityType: disabilityTypeEnum("disability_type"),
 
     // Family
     hasChildren: boolean("has_children").notNull(),

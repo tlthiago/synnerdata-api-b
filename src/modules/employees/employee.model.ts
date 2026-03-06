@@ -42,6 +42,14 @@ const employeeStatusValues = [
   "ON_VACATION",
   "VACATION_SCHEDULED",
 ] as const;
+const disabilityTypeValues = [
+  "AUDITIVA",
+  "VISUAL",
+  "FISICA",
+  "INTELECTUAL",
+  "MENTAL",
+  "MULTIPLA",
+] as const;
 
 export const createEmployeeSchema = z.object({
   // Personal Data
@@ -234,13 +242,17 @@ export const createEmployeeSchema = z.object({
     .min(0, "Vale transporte não pode ser negativo")
     .optional()
     .describe("Vale transporte"),
+  healthInsurance: z
+    .number()
+    .min(0, "Plano de saúde não pode ser negativo")
+    .optional()
+    .describe("Plano de saúde"),
 
   // Education and Special Needs
   educationLevel: z.enum(educationLevelValues).describe("Grau de instrução"),
   hasSpecialNeeds: z.boolean().describe("Possui necessidades especiais"),
   disabilityType: z
-    .string()
-    .max(255, "Tipo de deficiência deve ter no máximo 255 caracteres")
+    .enum(disabilityTypeValues)
     .optional()
     .describe("Tipo de deficiência"),
 
@@ -359,11 +371,15 @@ const employeeDataSchema = z.object({
   // Benefits
   mealAllowance: z.string().nullable().describe("Vale alimentação"),
   transportAllowance: z.string().nullable().describe("Vale transporte"),
+  healthInsurance: z.string().nullable().describe("Plano de saúde"),
 
   // Education and Special Needs
   educationLevel: z.enum(educationLevelValues).describe("Grau de instrução"),
   hasSpecialNeeds: z.boolean().describe("Possui necessidades especiais"),
-  disabilityType: z.string().nullable().describe("Tipo de deficiência"),
+  disabilityType: z
+    .enum(disabilityTypeValues)
+    .nullable()
+    .describe("Tipo de deficiência"),
 
   // Family
   hasChildren: z.boolean().describe("Possui filhos"),

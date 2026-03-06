@@ -66,6 +66,7 @@ type EmployeeOverrides = {
   busCount?: number;
   mealAllowance?: number;
   transportAllowance?: number;
+  healthInsurance?: number;
   educationLevel?:
     | "ELEMENTARY"
     | "HIGH_SCHOOL"
@@ -74,7 +75,13 @@ type EmployeeOverrides = {
     | "MASTER"
     | "DOCTORATE";
   hasSpecialNeeds?: boolean;
-  disabilityType?: string;
+  disabilityType?:
+    | "AUDITIVA"
+    | "VISUAL"
+    | "FISICA"
+    | "INTELECTUAL"
+    | "MENTAL"
+    | "MULTIPLA";
   hasChildren?: boolean;
   childrenCount?: number;
   hasChildrenUnder21?: boolean;
@@ -172,6 +179,7 @@ function generateEmploymentData(
     busCount: overrides.busCount,
     mealAllowance: overrides.mealAllowance,
     transportAllowance: overrides.transportAllowance,
+    healthInsurance: overrides.healthInsurance,
     educationLevel:
       overrides.educationLevel ??
       faker.helpers.arrayElement(["HIGH_SCHOOL", "BACHELOR"] as const),
