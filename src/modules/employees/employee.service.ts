@@ -497,6 +497,13 @@ export abstract class EmployeeService {
       })
       .returning();
 
+    const { EmployeeHooks } = await import("@/modules/employees/hooks");
+    EmployeeHooks.emit("employee.created", {
+      employeeId,
+      organizationId,
+      hireDate: data.hireDate,
+    });
+
     return EmployeeService.enrichEmployee(employee, organizationId);
   }
 
@@ -555,6 +562,13 @@ export abstract class EmployeeService {
 
     if (data.cpf && data.cpf !== existingRaw.cpf) {
       await EmployeeService.ensureCpfNotExists(data.cpf, organizationId, id);
+    }
+
+    if (data.hireDate && data.hireDate !== existingRaw.hireDate) {
+      const { AcquisitionPeriodService } = await import(
+        "@/modules/occurrences/vacations/acquisition-periods/acquisition-period.service"
+      );
+      await AcquisitionPeriodService.ensureRecalculationAllowed(id);
     }
 
     // Validate relationships if any FK is being updated
@@ -656,6 +670,16 @@ export abstract class EmployeeService {
         )
       )
       .returning();
+
+    if (data.hireDate && data.hireDate !== existingRaw.hireDate) {
+      const { EmployeeHooks } = await import("@/modules/employees/hooks");
+      EmployeeHooks.emit("employee.hireDateUpdated", {
+        employeeId: id,
+        organizationId,
+        oldHireDate: existingRaw.hireDate,
+        newHireDate: data.hireDate,
+      });
+    }
 
     return EmployeeService.enrichEmployee(updated, organizationId);
   }
