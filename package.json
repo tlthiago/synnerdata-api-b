@@ -71,7 +71,7 @@
     "lint-staged": "^16.2.7",
     "secretlint": "^11.2.5",
     "tsx": "^4.21.0",
-    "ultracite": "6.3.10"
+    "ultracite": "7.2.5"
   },
   "module": "src/index.js",
   "lint-staged": {
