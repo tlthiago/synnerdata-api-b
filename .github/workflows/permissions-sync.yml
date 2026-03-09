@@ -6,6 +6,9 @@ on:
     paths:
       - 'src/lib/permissions.ts'
 
+permissions:
+  contents: read
+
 jobs:
   check-sync:
     name: Check permissions sync
