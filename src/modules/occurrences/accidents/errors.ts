@@ -14,7 +14,7 @@ export class AccidentNotFoundError extends AccidentError {
   status = 404;
 
   constructor(accidentId: string) {
-    super(`Accident not found: ${accidentId}`, "ACCIDENT_NOT_FOUND", {
+    super(`Acidente não encontrado: ${accidentId}`, "ACCIDENT_NOT_FOUND", {
       accidentId,
     });
   }
@@ -24,11 +24,9 @@ export class AccidentAlreadyDeletedError extends AccidentError {
   status = 404;
 
   constructor(accidentId: string) {
-    super(
-      `Accident already deleted: ${accidentId}`,
-      "ACCIDENT_ALREADY_DELETED",
-      { accidentId }
-    );
+    super(`Acidente já deletado: ${accidentId}`, "ACCIDENT_ALREADY_DELETED", {
+      accidentId,
+    });
   }
 }
 
@@ -37,7 +35,7 @@ export class AccidentInvalidEmployeeError extends AccidentError {
 
   constructor(employeeId: string) {
     super(
-      `Employee not found or not in organization: ${employeeId}`,
+      `Funcionário não encontrado ou não pertence à organização: ${employeeId}`,
       "ACCIDENT_INVALID_EMPLOYEE",
       { employeeId }
     );
@@ -49,7 +47,7 @@ export class AccidentCatAlreadyExistsError extends AccidentError {
 
   constructor(cat: string) {
     super(
-      `An accident with CAT number "${cat}" already exists`,
+      `Já existe um acidente com o número de CAT "${cat}"`,
       "ACCIDENT_CAT_ALREADY_EXISTS",
       { cat }
     );

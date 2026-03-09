@@ -15,7 +15,7 @@ export class PpeDeliveryNotFoundError extends PpeDeliveryError {
 
   constructor(ppeDeliveryId: string) {
     super(
-      `PPE delivery not found: ${ppeDeliveryId}`,
+      `Entrega de EPI não encontrada: ${ppeDeliveryId}`,
       "PPE_DELIVERY_NOT_FOUND",
       { ppeDeliveryId }
     );
@@ -27,7 +27,7 @@ export class PpeDeliveryAlreadyDeletedError extends PpeDeliveryError {
 
   constructor(ppeDeliveryId: string) {
     super(
-      `PPE delivery already deleted: ${ppeDeliveryId}`,
+      `Entrega de EPI já deletada: ${ppeDeliveryId}`,
       "PPE_DELIVERY_ALREADY_DELETED",
       { ppeDeliveryId }
     );
@@ -38,10 +38,14 @@ export class PpeDeliveryItemNotFoundError extends PpeDeliveryError {
   status = 404;
 
   constructor(ppeDeliveryId: string, ppeItemId: string) {
-    super("PPE item association not found", "PPE_DELIVERY_ITEM_NOT_FOUND", {
-      ppeDeliveryId,
-      ppeItemId,
-    });
+    super(
+      "Associação de item de EPI não encontrada",
+      "PPE_DELIVERY_ITEM_NOT_FOUND",
+      {
+        ppeDeliveryId,
+        ppeItemId,
+      }
+    );
   }
 }
 
@@ -50,7 +54,7 @@ export class PpeDeliveryItemAlreadyExistsError extends PpeDeliveryError {
 
   constructor(ppeDeliveryId: string, ppeItemId: string) {
     super(
-      "PPE item already associated with this delivery",
+      "Item de EPI já associado a esta entrega",
       "PPE_DELIVERY_ITEM_ALREADY_EXISTS",
       { ppeDeliveryId, ppeItemId }
     );
@@ -61,7 +65,7 @@ export class PpeDeliveryEmployeeNotFoundError extends PpeDeliveryError {
   status = 404;
 
   constructor(employeeId: string) {
-    super(`Employee not found: ${employeeId}`, "EMPLOYEE_NOT_FOUND", {
+    super(`Funcionário não encontrado: ${employeeId}`, "EMPLOYEE_NOT_FOUND", {
       employeeId,
     });
   }
@@ -71,7 +75,7 @@ export class PpeDeliveryPpeItemNotFoundError extends PpeDeliveryError {
   status = 404;
 
   constructor(ppeItemId: string) {
-    super(`PPE item not found: ${ppeItemId}`, "PPE_ITEM_NOT_FOUND", {
+    super(`Item de EPI não encontrado: ${ppeItemId}`, "PPE_ITEM_NOT_FOUND", {
       ppeItemId,
     });
   }

@@ -171,7 +171,7 @@ describe("errorPlugin", () => {
       const body = await response.json();
       expect(body.success).toBe(false);
       expect(body.error.code).toBe("INTERNAL_ERROR");
-      expect(body.error.message).toBe("An unexpected error occurred");
+      expect(body.error.message).toBe("Ocorreu um erro inesperado");
       expect(body.error.stack).toBeUndefined();
       expect(body.error.details).toBeUndefined();
     });
@@ -196,7 +196,7 @@ describe("errorPlugin", () => {
       const body = await response.json();
       expect(body.success).toBe(false);
       expect(body.error.code).toBe("NOT_FOUND");
-      expect(body.error.message).toBe("Route not found");
+      expect(body.error.message).toBe("Rota não encontrada");
     });
   });
 

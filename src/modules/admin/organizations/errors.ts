@@ -10,6 +10,6 @@ export class OrganizationNotFoundError extends AdminOrganizationError {
   code = "ORGANIZATION_NOT_FOUND";
 
   constructor(organizationId: string) {
-    super(`Organization with id '${organizationId}' not found`);
+    super(`Organização não encontrada: ${organizationId}`);
   }
 }

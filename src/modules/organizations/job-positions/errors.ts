@@ -14,11 +14,9 @@ export class JobPositionNotFoundError extends JobPositionError {
   status = 404;
 
   constructor(jobPositionId: string) {
-    super(
-      `Job position not found: ${jobPositionId}`,
-      "JOB_POSITION_NOT_FOUND",
-      { jobPositionId }
-    );
+    super(`Cargo não encontrado: ${jobPositionId}`, "JOB_POSITION_NOT_FOUND", {
+      jobPositionId,
+    });
   }
 }
 
@@ -27,7 +25,7 @@ export class JobPositionAlreadyExistsError extends JobPositionError {
 
   constructor(name: string) {
     super(
-      `A job position with the name "${name}" already exists`,
+      `Cargo com o nome "${name}" já existe`,
       "JOB_POSITION_ALREADY_EXISTS",
       { name }
     );
@@ -39,7 +37,7 @@ export class JobPositionAlreadyDeletedError extends JobPositionError {
 
   constructor(jobPositionId: string) {
     super(
-      `Job position already deleted: ${jobPositionId}`,
+      `Cargo já deletado: ${jobPositionId}`,
       "JOB_POSITION_ALREADY_DELETED",
       { jobPositionId }
     );

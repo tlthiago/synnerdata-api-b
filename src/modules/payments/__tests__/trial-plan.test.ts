@@ -126,7 +126,7 @@ describe("Trial Plan", () => {
       expect(response.status).toBe(200);
 
       const body = await response.json();
-      const planIds = body.data.plans.map((p: { id: string }) => p.id);
+      const planIds = body.data.map((p: { id: string }) => p.id);
 
       expect(planIds).not.toContain(trialPlanResult.plan.id);
     });
@@ -145,7 +145,7 @@ describe("Trial Plan", () => {
       expect(response.status).toBe(200);
 
       const body = await response.json();
-      const planIds = body.data.plans.map((p: { id: string }) => p.id);
+      const planIds = body.data.map((p: { id: string }) => p.id);
 
       expect(planIds).toContain(goldPlanResult.plan.id);
       expect(planIds).toContain(diamondPlanResult.plan.id);

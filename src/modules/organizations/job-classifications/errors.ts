@@ -19,7 +19,7 @@ export class JobClassificationNotFoundError extends JobClassificationError {
 
   constructor(jobClassificationId: string) {
     super(
-      `Job classification not found: ${jobClassificationId}`,
+      `Classificação de cargo não encontrada: ${jobClassificationId}`,
       "JOB_CLASSIFICATION_NOT_FOUND",
       {
         jobClassificationId,
@@ -33,7 +33,7 @@ export class JobClassificationAlreadyExistsError extends JobClassificationError 
 
   constructor(name: string) {
     super(
-      `A job classification with the name "${name}" already exists`,
+      `Classificação de cargo com o nome "${name}" já existe`,
       "JOB_CLASSIFICATION_ALREADY_EXISTS",
       { name }
     );
@@ -45,7 +45,7 @@ export class JobClassificationAlreadyDeletedError extends JobClassificationError
 
   constructor(jobClassificationId: string) {
     super(
-      `Job classification already deleted: ${jobClassificationId}`,
+      `Classificação de cargo já deletada: ${jobClassificationId}`,
       "JOB_CLASSIFICATION_ALREADY_DELETED",
       {
         jobClassificationId,
@@ -59,7 +59,7 @@ export class InvalidCboOccupationError extends JobClassificationError {
 
   constructor(cboOccupationId: string) {
     super(
-      `CBO occupation not found: ${cboOccupationId}`,
+      `Ocupação CBO não encontrada: ${cboOccupationId}`,
       "INVALID_CBO_OCCUPATION",
       { cboOccupationId }
     );
