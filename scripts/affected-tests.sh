@@ -1,6 +1,6 @@
 #!/bin/sh
-# Detects test files affected by changes in the current PR.
-# Outputs test paths to run, or "ALL" if shared code was changed.
+# Detects test directories affected by changes in the current PR.
+# Always runs only scoped tests — full suite is covered by daily schedule.
 #
 # Usage: scripts/affected-tests.sh <base-branch>
 # Example: scripts/affected-tests.sh origin/preview
@@ -9,9 +9,6 @@ set -e
 
 BASE_BRANCH="${1:-origin/preview}"
 
-# Paths that trigger a full test run when changed
-SHARED_PATTERNS="^src/lib/ ^src/db/ ^src/env.ts ^src/index.ts ^src/test/ ^package.json ^bun.lock ^tsconfig.json"
-
 # Get changed files compared to base branch
 CHANGED_FILES=$(git diff --name-only "$BASE_BRANCH"...HEAD)
 
@@ -19,14 +16,6 @@ if [ -z "$CHANGED_FILES" ]; then
   echo "NO_TESTS"
   exit 0
 fi
-
-# Check if any shared path was modified
-for pattern in $SHARED_PATTERNS; do
-  if echo "$CHANGED_FILES" | grep -qE "$pattern"; then
-    echo "ALL"
-    exit 0
-  fi
-done
 
 # Extract unique module paths that have __tests__ directories
 TEST_DIRS=""
