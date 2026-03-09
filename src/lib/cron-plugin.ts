@@ -69,22 +69,4 @@ export const cronPlugin = new Elysia({ name: "cron-jobs" })
         });
       },
     })
-  )
-  .use(
-    cron({
-      name: "update-acquisition-period-statuses",
-      pattern: "0 12 * * *", // 12:00 UTC = 09:00 BRT
-      async run() {
-        const { AcquisitionPeriodService } = await import(
-          "@/modules/occurrences/vacations/acquisition-periods/acquisition-period.service"
-        );
-        const result = await AcquisitionPeriodService.updatePeriodStatuses();
-        logger.info({
-          type: "cron:update-acquisition-period-statuses",
-          activated: result.activated,
-          expired: result.expired,
-          generated: result.generated,
-        });
-      },
-    })
   );
