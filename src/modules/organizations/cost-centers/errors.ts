@@ -14,9 +14,13 @@ export class CostCenterNotFoundError extends CostCenterError {
   status = 404;
 
   constructor(costCenterId: string) {
-    super(`Cost center not found: ${costCenterId}`, "COST_CENTER_NOT_FOUND", {
-      costCenterId,
-    });
+    super(
+      `Centro de custo não encontrado: ${costCenterId}`,
+      "COST_CENTER_NOT_FOUND",
+      {
+        costCenterId,
+      }
+    );
   }
 }
 
@@ -25,7 +29,7 @@ export class CostCenterAlreadyExistsError extends CostCenterError {
 
   constructor(name: string) {
     super(
-      `A cost center with the name "${name}" already exists`,
+      `Centro de custo com o nome "${name}" já existe`,
       "COST_CENTER_ALREADY_EXISTS",
       { name }
     );
@@ -37,7 +41,7 @@ export class CostCenterAlreadyDeletedError extends CostCenterError {
 
   constructor(costCenterId: string) {
     super(
-      `Cost center already deleted: ${costCenterId}`,
+      `Centro de custo já deletado: ${costCenterId}`,
       "COST_CENTER_ALREADY_DELETED",
       {
         costCenterId,

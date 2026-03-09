@@ -14,7 +14,7 @@ export class ProfileNotFoundError extends OrganizationError {
   status = 404;
 
   constructor(organizationId: string) {
-    super(`Profile not found: ${organizationId}`, "PROFILE_NOT_FOUND", {
+    super(`Perfil não encontrado: ${organizationId}`, "PROFILE_NOT_FOUND", {
       organizationId,
     });
   }
@@ -32,11 +32,9 @@ export class BillingProfileIncompleteError extends OrganizationError {
 
 export class ProfileAlreadyExistsError extends OrganizationError {
   constructor(organizationId: string) {
-    super(
-      `Profile already exists: ${organizationId}`,
-      "PROFILE_ALREADY_EXISTS",
-      { organizationId }
-    );
+    super(`Perfil já existe: ${organizationId}`, "PROFILE_ALREADY_EXISTS", {
+      organizationId,
+    });
   }
 }
 

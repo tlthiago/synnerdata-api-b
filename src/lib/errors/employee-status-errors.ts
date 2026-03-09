@@ -5,7 +5,9 @@ export class EmployeeTerminatedError extends AppError {
   code = "EMPLOYEE_TERMINATED";
 
   constructor(employeeId: string) {
-    super(`Cannot create occurrence for terminated employee: ${employeeId}`);
+    super(
+      `Não é possível criar ocorrência para funcionário desligado: ${employeeId}`
+    );
     this.details = { employeeId };
   }
 }
@@ -15,7 +17,9 @@ export class EmployeeOnVacationError extends AppError {
   code = "EMPLOYEE_ON_VACATION";
 
   constructor(employeeId: string) {
-    super(`Cannot create occurrence for employee on vacation: ${employeeId}`);
+    super(
+      `Não é possível criar ocorrência para funcionário em férias: ${employeeId}`
+    );
     this.details = { employeeId };
   }
 }

@@ -7,6 +7,7 @@ import { healthPlugin } from "@/lib/health";
 import { loggerPlugin } from "@/lib/logger";
 import { adminController } from "@/modules/admin";
 import { auditController } from "@/modules/audit";
+import { cboOccupationController } from "@/modules/cbo-occupations";
 import { employeeController } from "@/modules/employees";
 import { occurrencesController } from "@/modules/occurrences";
 import { organizationController } from "@/modules/organizations";
@@ -27,6 +28,7 @@ export function createTestApp() {
     )
     .use(betterAuthPlugin)
     .use(adminController)
+    .use(cboOccupationController)
     .use(organizationController)
     .use(employeeController)
     .use(occurrencesController)

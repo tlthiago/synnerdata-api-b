@@ -4,7 +4,7 @@ export class SubscriptionRequiredError extends ForbiddenError {
   code = "SUBSCRIPTION_REQUIRED";
 
   constructor(status: string) {
-    super(`Subscription required. Current status: ${status}`);
+    super(`Assinatura necessária. Status atual: ${status}`);
   }
 }
 
@@ -14,8 +14,8 @@ export class FeatureNotAvailableError extends ForbiddenError {
   constructor(featureName: string, requiredPlan?: string) {
     super(
       requiredPlan
-        ? `Feature "${featureName}" requires plan ${requiredPlan}`
-        : `Feature "${featureName}" is not available in your current plan`
+        ? `Funcionalidade "${featureName}" requer o plano ${requiredPlan}`
+        : `Funcionalidade "${featureName}" não está disponível no seu plano atual`
     );
   }
 }
