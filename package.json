@@ -40,7 +40,7 @@
     "@react-email/components": "^1.0.8",
     "@sentry/bun": "^10.42.0",
     "better-auth": "^1.4.5",
-    "better-auth-localization": "^2.3.1",
+    "better-auth-localization": "^3.0.0",
     "dotenv": "^17.2.3",
     "drizzle-orm": "^0.45.0",
     "elysia": "^1.4.27",
