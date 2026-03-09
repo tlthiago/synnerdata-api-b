@@ -76,12 +76,8 @@ jobs:
           echo "Affected tests: $RESULT"
 
       - name: Run affected tests
-        if: github.event_name == 'pull_request' && steps.affected.outputs.tests != 'NO_TESTS' && steps.affected.outputs.tests != 'ALL'
+        if: github.event_name == 'pull_request' && steps.affected.outputs.tests != 'NO_TESTS'
         run: bun test ${{ steps.affected.outputs.tests }}
-
-      - name: Run all tests (shared code changed)
-        if: github.event_name == 'pull_request' && steps.affected.outputs.tests == 'ALL'
-        run: bun run test
 
       - name: Run full test suite (scheduled)
         if: github.event_name == 'schedule'
