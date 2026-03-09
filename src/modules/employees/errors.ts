@@ -14,7 +14,7 @@ export class EmployeeNotFoundError extends EmployeeError {
   status = 404;
 
   constructor(employeeId: string) {
-    super(`Employee not found: ${employeeId}`, "EMPLOYEE_NOT_FOUND", {
+    super(`Funcionário não encontrado: ${employeeId}`, "EMPLOYEE_NOT_FOUND", {
       employeeId,
     });
   }
@@ -25,7 +25,7 @@ export class EmployeeAlreadyDeletedError extends EmployeeError {
 
   constructor(employeeId: string) {
     super(
-      `Employee already deleted: ${employeeId}`,
+      `Funcionário já deletado: ${employeeId}`,
       "EMPLOYEE_ALREADY_DELETED",
       { employeeId }
     );

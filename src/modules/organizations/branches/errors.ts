@@ -14,7 +14,9 @@ export class BranchNotFoundError extends BranchError {
   status = 404;
 
   constructor(branchId: string) {
-    super(`Branch not found: ${branchId}`, "BRANCH_NOT_FOUND", { branchId });
+    super(`Filial não encontrada: ${branchId}`, "BRANCH_NOT_FOUND", {
+      branchId,
+    });
   }
 }
 
@@ -32,7 +34,7 @@ export class BranchAlreadyDeletedError extends BranchError {
   status = 404;
 
   constructor(branchId: string) {
-    super(`Branch already deleted: ${branchId}`, "BRANCH_ALREADY_DELETED", {
+    super(`Filial já deletada: ${branchId}`, "BRANCH_ALREADY_DELETED", {
       branchId,
     });
   }

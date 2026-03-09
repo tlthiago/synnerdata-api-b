@@ -19,7 +19,7 @@ export class SubscriptionNotAdjustableError extends PriceAdjustmentError {
 
   constructor(subscriptionId: string, reason: string) {
     super(
-      `Subscription ${subscriptionId} cannot be price-adjusted: ${reason}`,
+      `Assinatura ${subscriptionId} não pode ter preço reajustado: ${reason}`,
       "SUBSCRIPTION_NOT_ADJUSTABLE",
       { subscriptionId, reason }
     );
@@ -31,7 +31,7 @@ export class TierNotFoundForAdjustmentError extends PriceAdjustmentError {
 
   constructor(pricingTierId: string, planId: string) {
     super(
-      `Pricing tier ${pricingTierId} not found or does not belong to plan ${planId}`,
+      `Faixa de preço ${pricingTierId} não encontrada ou não pertence ao plano ${planId}`,
       "TIER_NOT_FOUND_FOR_ADJUSTMENT",
       { pricingTierId, planId }
     );

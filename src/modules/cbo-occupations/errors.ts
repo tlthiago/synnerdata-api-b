@@ -19,7 +19,7 @@ export class CboOccupationNotFoundError extends CboOccupationError {
 
   constructor(cboOccupationId: string) {
     super(
-      `CBO occupation not found: ${cboOccupationId}`,
+      `Ocupação CBO não encontrada: ${cboOccupationId}`,
       "CBO_OCCUPATION_NOT_FOUND",
       { cboOccupationId }
     );

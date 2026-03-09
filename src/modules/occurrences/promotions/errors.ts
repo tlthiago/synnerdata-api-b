@@ -14,7 +14,7 @@ export class PromotionNotFoundError extends PromotionError {
   status = 404;
 
   constructor(promotionId: string) {
-    super(`Promotion not found: ${promotionId}`, "PROMOTION_NOT_FOUND", {
+    super(`Promoção não encontrada: ${promotionId}`, "PROMOTION_NOT_FOUND", {
       promotionId,
     });
   }
@@ -24,11 +24,9 @@ export class PromotionAlreadyDeletedError extends PromotionError {
   status = 404;
 
   constructor(promotionId: string) {
-    super(
-      `Promotion already deleted: ${promotionId}`,
-      "PROMOTION_ALREADY_DELETED",
-      { promotionId }
-    );
+    super(`Promoção já deletada: ${promotionId}`, "PROMOTION_ALREADY_DELETED", {
+      promotionId,
+    });
   }
 }
 
@@ -43,7 +41,7 @@ export class PromotionDuplicateDateError extends PromotionError {
 
   constructor(employeeId: string, promotionDate: string) {
     super(
-      `Employee already has a promotion on ${promotionDate}`,
+      `Funcionário já possui uma promoção na data ${promotionDate}`,
       "PROMOTION_DUPLICATE_DATE",
       { employeeId, promotionDate }
     );
