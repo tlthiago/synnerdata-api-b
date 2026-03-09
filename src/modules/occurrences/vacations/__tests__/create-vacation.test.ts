@@ -134,6 +134,7 @@ describe("POST /v1/vacations", () => {
     const { employee } = await createTestEmployee({
       organizationId,
       userId: user.id,
+      hireDate: "2020-01-01",
     });
 
     const response = await app.handle(
@@ -162,6 +163,7 @@ describe("POST /v1/vacations", () => {
     const { employee } = await createTestEmployee({
       organizationId,
       userId: user.id,
+      hireDate: "2020-01-01",
     });
 
     const response = await app.handle(
@@ -190,6 +192,7 @@ describe("POST /v1/vacations", () => {
     const { employee } = await createTestEmployee({
       organizationId,
       userId: user.id,
+      hireDate: "2020-01-01",
     });
 
     const response = await app.handle(
@@ -233,6 +236,7 @@ describe("POST /v1/vacations", () => {
     const { employee } = await createTestEmployee({
       organizationId,
       userId: user.id,
+      hireDate: "2020-01-01",
     });
 
     const memberResult = await createTestUser({ emailVerified: true });
@@ -274,6 +278,7 @@ describe("POST /v1/vacations", () => {
     const { employee } = await createTestEmployee({
       organizationId,
       userId: user.id,
+      hireDate: "2020-01-01",
     });
 
     await createTestVacation({
@@ -314,6 +319,7 @@ describe("POST /v1/vacations", () => {
     const { employee } = await createTestEmployee({
       organizationId,
       userId: user.id,
+      hireDate: "2020-01-01",
     });
 
     await createTestVacation({
@@ -354,6 +360,7 @@ describe("POST /v1/vacations", () => {
     const { employee } = await createTestEmployee({
       organizationId,
       userId: user.id,
+      hireDate: "2020-01-01",
     });
 
     await db
@@ -389,6 +396,7 @@ describe("POST /v1/vacations", () => {
     const { employee } = await createTestEmployee({
       organizationId,
       userId: user.id,
+      hireDate: "2020-01-01",
     });
 
     await db
@@ -413,5 +421,104 @@ describe("POST /v1/vacations", () => {
     expect(response.status).toBe(200);
     const body = await response.json();
     expect(body.success).toBe(true);
+  });
+
+  test("should reject when startDate is before employee hireDate", async () => {
+    const { headers, organizationId, user } =
+      await createTestUserWithOrganization({
+        emailVerified: true,
+      });
+
+    const { employee } = await createTestEmployee({
+      organizationId,
+      userId: user.id,
+      hireDate: "2025-01-01",
+    });
+
+    const response = await app.handle(
+      new Request(`${BASE_URL}/v1/vacations`, {
+        method: "POST",
+        headers: { ...headers, "Content-Type": "application/json" },
+        body: JSON.stringify({
+          employeeId: employee.id,
+          startDate: "2024-12-20",
+          endDate: "2025-01-05",
+          daysEntitled: 17,
+          daysUsed: 0,
+        }),
+      })
+    );
+
+    expect(response.status).toBe(422);
+    const body = await response.json();
+    expect(body.error.code).toBe("VACATION_DATE_BEFORE_HIRE");
+  });
+
+  test("should reject when acquisition period is before hireDate", async () => {
+    const { headers, organizationId, user } =
+      await createTestUserWithOrganization({
+        emailVerified: true,
+      });
+
+    const { employee } = await createTestEmployee({
+      organizationId,
+      userId: user.id,
+      hireDate: "2025-01-01",
+    });
+
+    const response = await app.handle(
+      new Request(`${BASE_URL}/v1/vacations`, {
+        method: "POST",
+        headers: { ...headers, "Content-Type": "application/json" },
+        body: JSON.stringify({
+          employeeId: employee.id,
+          startDate: "2026-01-01",
+          endDate: "2026-01-15",
+          daysEntitled: 15,
+          daysUsed: 0,
+          acquisitionPeriodStart: "2024-06-01",
+          acquisitionPeriodEnd: "2025-05-31",
+        }),
+      })
+    );
+
+    expect(response.status).toBe(422);
+    const body = await response.json();
+    expect(body.error.code).toBe("VACATION_DATE_BEFORE_HIRE");
+  });
+
+  test("should reject when concessive period starts before acquisition period ends", async () => {
+    const { headers, organizationId, user } =
+      await createTestUserWithOrganization({
+        emailVerified: true,
+      });
+
+    const { employee } = await createTestEmployee({
+      organizationId,
+      userId: user.id,
+      hireDate: "2024-01-01",
+    });
+
+    const response = await app.handle(
+      new Request(`${BASE_URL}/v1/vacations`, {
+        method: "POST",
+        headers: { ...headers, "Content-Type": "application/json" },
+        body: JSON.stringify({
+          employeeId: employee.id,
+          startDate: "2025-06-01",
+          endDate: "2025-06-15",
+          daysEntitled: 15,
+          daysUsed: 0,
+          acquisitionPeriodStart: "2024-01-01",
+          acquisitionPeriodEnd: "2024-12-31",
+          concessivePeriodStart: "2024-12-01",
+          concessivePeriodEnd: "2025-11-30",
+        }),
+      })
+    );
+
+    expect(response.status).toBe(422);
+    const body = await response.json();
+    expect(body.error.code).toBe("VACATION_CONCESSIVE_BEFORE_ACQUISITION");
   });
 });

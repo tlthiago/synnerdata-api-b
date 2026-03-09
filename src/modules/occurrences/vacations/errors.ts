@@ -64,6 +64,30 @@ export class VacationInvalidDaysError extends VacationError {
   }
 }
 
+export class VacationDateBeforeHireError extends VacationError {
+  status = 422;
+
+  constructor(field: string, date: string, hireDate: string) {
+    super(
+      `Data ${field} (${date}) não pode ser anterior à data de admissão (${hireDate})`,
+      "VACATION_DATE_BEFORE_HIRE",
+      { field, date, hireDate }
+    );
+  }
+}
+
+export class VacationConcessiveBeforeAcquisitionError extends VacationError {
+  status = 422;
+
+  constructor(concessivePeriodStart: string, acquisitionPeriodEnd: string) {
+    super(
+      `Início do período concessivo (${concessivePeriodStart}) deve ser posterior ao fim do período aquisitivo (${acquisitionPeriodEnd})`,
+      "VACATION_CONCESSIVE_BEFORE_ACQUISITION",
+      { concessivePeriodStart, acquisitionPeriodEnd }
+    );
+  }
+}
+
 export class VacationOverlapError extends VacationError {
   status = 409;
 

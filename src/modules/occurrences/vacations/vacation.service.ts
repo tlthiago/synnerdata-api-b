@@ -5,6 +5,8 @@ import { ensureEmployeeNotTerminated } from "@/lib/helpers/employee-status";
 import { calculateDaysBetween } from "@/lib/schemas/date-helpers";
 import {
   VacationAlreadyDeletedError,
+  VacationConcessiveBeforeAcquisitionError,
+  VacationDateBeforeHireError,
   VacationInvalidDateRangeError,
   VacationInvalidDaysError,
   VacationInvalidEmployeeError,
@@ -94,11 +96,12 @@ export abstract class VacationService {
   private static async getEmployeeReference(
     employeeId: string,
     organizationId: string
-  ): Promise<{ id: string; name: string }> {
+  ): Promise<{ id: string; name: string; hireDate: string }> {
     const [employee] = await db
       .select({
         id: schema.employees.id,
         name: schema.employees.name,
+        hireDate: schema.employees.hireDate,
       })
       .from(schema.employees)
       .where(
@@ -138,6 +141,49 @@ export abstract class VacationService {
     if (daysUsed > daysEntitled) {
       throw new VacationInvalidDaysError(
         `Dias utilizados (${daysUsed}) não pode exceder dias (${daysEntitled})`
+      );
+    }
+  }
+
+  private static validateDatesNotBeforeHire(
+    hireDate: string,
+    dates: {
+      startDate: string;
+      endDate: string;
+      acquisitionPeriodStart?: string;
+      acquisitionPeriodEnd?: string;
+      concessivePeriodStart?: string;
+      concessivePeriodEnd?: string;
+    }
+  ): void {
+    const fields: [string, string | undefined][] = [
+      ["startDate", dates.startDate],
+      ["endDate", dates.endDate],
+      ["acquisitionPeriodStart", dates.acquisitionPeriodStart],
+      ["acquisitionPeriodEnd", dates.acquisitionPeriodEnd],
+      ["concessivePeriodStart", dates.concessivePeriodStart],
+      ["concessivePeriodEnd", dates.concessivePeriodEnd],
+    ];
+
+    for (const [field, value] of fields) {
+      if (value && value < hireDate) {
+        throw new VacationDateBeforeHireError(field, value, hireDate);
+      }
+    }
+  }
+
+  private static validateConcessiveAfterAcquisition(
+    acquisitionPeriodEnd?: string,
+    concessivePeriodStart?: string
+  ): void {
+    if (
+      acquisitionPeriodEnd &&
+      concessivePeriodStart &&
+      concessivePeriodStart <= acquisitionPeriodEnd
+    ) {
+      throw new VacationConcessiveBeforeAcquisitionError(
+        concessivePeriodStart,
+        acquisitionPeriodEnd
       );
     }
   }
@@ -183,6 +229,18 @@ export abstract class VacationService {
     await ensureEmployeeNotTerminated(data.employeeId, organizationId);
 
     VacationService.validateDates(data.startDate, data.endDate);
+    VacationService.validateDatesNotBeforeHire(employee.hireDate, {
+      startDate: data.startDate,
+      endDate: data.endDate,
+      acquisitionPeriodStart: data.acquisitionPeriodStart,
+      acquisitionPeriodEnd: data.acquisitionPeriodEnd,
+      concessivePeriodStart: data.concessivePeriodStart,
+      concessivePeriodEnd: data.concessivePeriodEnd,
+    });
+    VacationService.validateConcessiveAfterAcquisition(
+      data.acquisitionPeriodEnd,
+      data.concessivePeriodStart
+    );
     VacationService.validateDays(
       data.startDate,
       data.endDate,
@@ -288,6 +346,107 @@ export abstract class VacationService {
     return vacation;
   }
 
+  private static mergeWithExisting(
+    data: Omit<UpdateVacationInput, "userId">,
+    existing: VacationData
+  ) {
+    return {
+      startDate: data.startDate ?? existing.startDate,
+      endDate: data.endDate ?? existing.endDate,
+      daysEntitled: data.daysEntitled ?? existing.daysEntitled,
+      daysUsed: data.daysUsed ?? existing.daysUsed,
+      acquisitionPeriodStart:
+        data.acquisitionPeriodStart ??
+        existing.acquisitionPeriodStart ??
+        undefined,
+      acquisitionPeriodEnd:
+        data.acquisitionPeriodEnd ?? existing.acquisitionPeriodEnd ?? undefined,
+      concessivePeriodStart:
+        data.concessivePeriodStart ??
+        existing.concessivePeriodStart ??
+        undefined,
+      concessivePeriodEnd:
+        data.concessivePeriodEnd ?? existing.concessivePeriodEnd ?? undefined,
+    };
+  }
+
+  private static async validateUpdateDates(
+    data: Omit<UpdateVacationInput, "userId">,
+    merged: ReturnType<typeof VacationService.mergeWithExisting>,
+    existing: VacationData,
+    organizationId: string
+  ): Promise<void> {
+    if (data.startDate || data.endDate) {
+      VacationService.validateDates(merged.startDate, merged.endDate);
+    }
+
+    const hasDateChange =
+      data.startDate !== undefined ||
+      data.endDate !== undefined ||
+      data.acquisitionPeriodStart !== undefined ||
+      data.acquisitionPeriodEnd !== undefined ||
+      data.concessivePeriodStart !== undefined ||
+      data.concessivePeriodEnd !== undefined;
+
+    if (hasDateChange) {
+      const employee = await VacationService.getEmployeeReference(
+        existing.employee.id,
+        organizationId
+      );
+      VacationService.validateDatesNotBeforeHire(employee.hireDate, merged);
+    }
+
+    if (
+      data.acquisitionPeriodEnd !== undefined ||
+      data.concessivePeriodStart !== undefined
+    ) {
+      VacationService.validateConcessiveAfterAcquisition(
+        merged.acquisitionPeriodEnd,
+        merged.concessivePeriodStart
+      );
+    }
+  }
+
+  private static async validateUpdate(
+    data: Omit<UpdateVacationInput, "userId">,
+    existing: VacationData,
+    organizationId: string,
+    id: string
+  ): Promise<void> {
+    const merged = VacationService.mergeWithExisting(data, existing);
+
+    await VacationService.validateUpdateDates(
+      data,
+      merged,
+      existing,
+      organizationId
+    );
+
+    if (
+      data.startDate !== undefined ||
+      data.endDate !== undefined ||
+      data.daysEntitled !== undefined ||
+      data.daysUsed !== undefined
+    ) {
+      VacationService.validateDays(
+        merged.startDate,
+        merged.endDate,
+        merged.daysEntitled,
+        merged.daysUsed
+      );
+    }
+
+    if (data.startDate !== undefined || data.endDate !== undefined) {
+      await VacationService.ensureNoOverlap({
+        organizationId,
+        employeeId: existing.employee.id,
+        startDate: merged.startDate,
+        endDate: merged.endDate,
+        excludeId: id,
+      });
+    }
+  }
+
   static async update(
     id: string,
     organizationId: string,
@@ -300,38 +459,7 @@ export abstract class VacationService {
       throw new VacationNotFoundError(id);
     }
 
-    const finalStartDate = data.startDate ?? existing.startDate;
-    const finalEndDate = data.endDate ?? existing.endDate;
-    const finalDaysEntitled = data.daysEntitled ?? existing.daysEntitled;
-    const finalDaysUsed = data.daysUsed ?? existing.daysUsed;
-
-    if (data.startDate || data.endDate) {
-      VacationService.validateDates(finalStartDate, finalEndDate);
-    }
-
-    if (
-      data.startDate !== undefined ||
-      data.endDate !== undefined ||
-      data.daysEntitled !== undefined ||
-      data.daysUsed !== undefined
-    ) {
-      VacationService.validateDays(
-        finalStartDate,
-        finalEndDate,
-        finalDaysEntitled,
-        finalDaysUsed
-      );
-    }
-
-    if (data.startDate !== undefined || data.endDate !== undefined) {
-      await VacationService.ensureNoOverlap({
-        organizationId,
-        employeeId: existing.employee.id,
-        startDate: finalStartDate,
-        endDate: finalEndDate,
-        excludeId: id,
-      });
-    }
+    await VacationService.validateUpdate(data, existing, organizationId, id);
 
     await db
       .update(schema.vacations)

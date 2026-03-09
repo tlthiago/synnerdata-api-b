@@ -7,6 +7,9 @@ on:
     # Full suite daily at 06:00 BRT (09:00 UTC)
     - cron: "0 9 * * *"
 
+permissions:
+  contents: read
+
 jobs:
   test:
     name: ${{ github.event_name == 'schedule' && 'Full Test Suite' || 'Affected Tests' }}
