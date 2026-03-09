@@ -11,6 +11,9 @@ export const SHEET_NAME_DATA = "Dados";
 
 export const MAX_IMPORT_ROWS = 500;
 
+// ── Field key → PT-BR header map (for user-facing error messages) ───────────
+// Built lazily after IMPORT_COLUMNS is defined — see bottom of file.
+
 // ── PT-BR Enum Label Maps ────────────────────────────────────────────────────
 
 export const GENDER_LABELS: Record<string, string> = {
@@ -585,3 +588,9 @@ export const IMPORT_COLUMNS: ImportColumn[] = [
     section: "health",
   },
 ];
+
+// ── Field key → PT-BR header map ────────────────────────────────────────────
+
+export const FIELD_KEY_TO_HEADER: Record<string, string> = Object.fromEntries(
+  IMPORT_COLUMNS.map((col) => [col.key, col.header])
+);
