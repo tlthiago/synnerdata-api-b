@@ -85,10 +85,6 @@ import { projectRelations, projects } from "./projects";
 import { promotionRelations, promotions } from "./promotions";
 import { sectorRelations, sectors } from "./sectors";
 import { terminationRelations, terminations } from "./terminations";
-import {
-  vacationAcquisitionPeriodRelations,
-  vacationAcquisitionPeriods,
-} from "./vacation-acquisition-periods";
 import { vacationRelations, vacations } from "./vacations";
 import { warningRelations, warnings } from "./warnings";
 
@@ -125,7 +121,6 @@ export const schema = {
   cpfAnalyses,
   medicalCertificates,
   vacations,
-  vacationAcquisitionPeriods,
   warnings,
   promotions,
   terminations,
@@ -176,7 +171,6 @@ export const fullSchema = {
   cpfAnalysisRelations,
   medicalCertificateRelations,
   vacationRelations,
-  vacationAcquisitionPeriodRelations,
   warningRelations,
   promotionRelations,
   terminationRelations,
@@ -272,11 +266,6 @@ export type { NewPromotion, Promotion } from "./promotions";
 export type { NewSector, Sector } from "./sectors";
 export type { NewTermination, Termination } from "./terminations";
 export { terminationTypeEnum } from "./terminations";
-export type {
-  NewVacationAcquisitionPeriod,
-  VacationAcquisitionPeriod,
-} from "./vacation-acquisition-periods";
-export { acquisitionPeriodStatusEnum } from "./vacation-acquisition-periods";
 export type { NewVacation, Vacation } from "./vacations";
 export { vacationStatusEnum } from "./vacations";
 export type { NewWarning, Warning } from "./warnings";
