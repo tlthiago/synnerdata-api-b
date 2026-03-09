@@ -67,8 +67,4 @@ export const healthPlugin = new Elysia({
         description: "Simple endpoint for load balancer health checks.",
       },
     }
-  )
-  // TODO: remove after validating GlitchTip integration
-  .get("/sentry-test", () => {
-    throw new Error("GlitchTip test error — safe to ignore");
-  });
+  );
