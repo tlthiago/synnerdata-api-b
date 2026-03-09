@@ -1,0 +1,7 @@
+# minimatch / brace-expansion DoS vulnerabilities
+# Transitive deps from @sentry/bun → @opentelemetry → @fastify/otel → minimatch
+# Risk: DoS via crafted glob patterns — not exploitable in our API context
+CVE-2026-25547
+CVE-2026-26996
+CVE-2026-27903
+CVE-2026-27904
