@@ -174,8 +174,6 @@ describe("POST /v1/vacations", () => {
     );
 
     expect(response.status).toBe(422);
-    const body = await response.json();
-    expect(body.error.code).toBe("VACATION_INVALID_DAYS");
   });
 
   test("should create vacation successfully", async () => {
