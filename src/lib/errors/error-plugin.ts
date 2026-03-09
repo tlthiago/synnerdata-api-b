@@ -1,5 +1,6 @@
 import { Elysia } from "elysia";
 import { logger } from "@/lib/logger";
+import { captureException } from "@/lib/sentry";
 import { AppError } from "./base-error";
 
 const isDev = process.env.NODE_ENV !== "production";
@@ -48,8 +49,9 @@ export const errorPlugin = new Elysia({ name: "error-handler" })
   .onError({ as: "global" }, ({ code, error, set }) => {
     // Custom AppError instances
     if (error instanceof AppError) {
-      // Log server errors (5xx) even for known AppError subclasses
+      // Report 5xx AppErrors to Sentry/GlitchTip
       if (error.status >= 500) {
+        captureException(error);
         logger.error({
           type: "app:error:5xx",
           code: error.code,
@@ -87,7 +89,9 @@ export const errorPlugin = new Elysia({ name: "error-handler" })
       };
     }
 
-    // Unhandled errors — always log with full detail
+    // Unhandled errors — report to Sentry/GlitchTip and log with full detail
+    captureException(error);
+
     const errorDetail = formatErrorDetail(error);
     logger.error({ type: "unhandled:error", error: errorDetail });
 

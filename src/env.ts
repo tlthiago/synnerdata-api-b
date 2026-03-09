@@ -27,6 +27,8 @@ const envSchema = z.object({
   // PII Encryption key - 32 bytes hex (64 characters)
   // Generate with: openssl rand -hex 32
   PII_ENCRYPTION_KEY: z.string().length(64),
+  // Sentry/GlitchTip DSN for error tracking (optional — disabled when absent)
+  SENTRY_DSN: z.url().optional(),
 });
 
 export const env = envSchema.parse(process.env);

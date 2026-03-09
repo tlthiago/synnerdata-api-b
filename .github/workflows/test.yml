@@ -2,11 +2,14 @@ name: Test
 
 on:
   pull_request:
-    branches: ["main"]
+    branches: ["main", "preview"]
+  schedule:
+    # Full suite daily at 06:00 BRT (09:00 UTC)
+    - cron: "0 9 * * *"
 
 jobs:
   test:
-    name: Unit Tests
+    name: ${{ github.event_name == 'schedule' && 'Full Test Suite' || 'Affected Tests' }}
     runs-on: ubuntu-latest
     environment: CI/CD
 
@@ -51,6 +54,8 @@ jobs:
     steps:
       - name: Checkout
         uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
 
       - name: Setup Bun
         uses: oven-sh/setup-bun@v2
@@ -58,11 +63,26 @@ jobs:
       - name: Install dependencies
         run: bun install
 
-      - name: Setup database
-        run: bun run db:push
+      - name: Run migrations
+        run: bun run db:migrate
 
-      - name: Seed database
-        run: bun run db:seed
+      - name: Detect affected tests
+        if: github.event_name == 'pull_request'
+        id: affected
+        run: |
+          BASE_BRANCH="origin/${{ github.base_ref }}"
+          RESULT=$(bash scripts/affected-tests.sh "$BASE_BRANCH")
+          echo "tests=$RESULT" >> "$GITHUB_OUTPUT"
+          echo "Affected tests: $RESULT"
 
-      - name: Run tests
+      - name: Run affected tests
+        if: github.event_name == 'pull_request' && steps.affected.outputs.tests != 'NO_TESTS'
+        run: bun test ${{ steps.affected.outputs.tests }}
+
+      - name: Run full test suite (scheduled)
+        if: github.event_name == 'schedule'
         run: bun run test
+
+      - name: Skip (no tests affected)
+        if: github.event_name == 'pull_request' && steps.affected.outputs.tests == 'NO_TESTS'
+        run: echo "No test files affected by this PR — skipping."

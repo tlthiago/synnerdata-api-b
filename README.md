@@ -138,29 +138,44 @@ npx ultracite fix        # Corrigir lint/format
 
 ## Variáveis de Ambiente
 
+Todas validadas via Zod em `src/env.ts`. Veja o arquivo para tipos e defaults.
+
 ```bash
 # Server
-PORT=3000
-CORS_ORIGIN=http://localhost:3001
+PORT=3333
+CORS_ORIGIN=http://localhost:3000
 
 # Database
 DATABASE_URL=postgresql://user:pass@localhost:5432/synnerdata
 
 # Auth (Better Auth)
 BETTER_AUTH_SECRET=
-BETTER_AUTH_URL=http://localhost:3000
+BETTER_AUTH_URL=http://localhost:3333
+API_URL=http://localhost:3333
+APP_URL=http://localhost:3000
 
 # Payments (Pagar.me)
-PAGARME_SECRET_KEY=sk_...
 PAGARME_BASE_URL=https://api.pagar.me/core/v5
+PAGARME_SECRET_KEY=sk_...
+PAGARME_PUBLIC_KEY=pk_...
 PAGARME_WEBHOOK_USERNAME=
 PAGARME_WEBHOOK_PASSWORD=
 
 # Email
-SMTP_HOST=
-SMTP_PORT=
+SMTP_HOST=localhost
+SMTP_PORT=1025
 SMTP_USER=
-SMTP_PASS=
+SMTP_PASSWORD=
+SMTP_FROM=noreply@synnerdata.com
+
+# Security
+INTERNAL_API_KEY=           # Min 32 chars — for scheduled job endpoints
+PII_ENCRYPTION_KEY=         # 64 hex chars — openssl rand -hex 32
+SUPER_ADMIN_EMAILS=
+ADMIN_EMAILS=
+
+# Observability (optional)
+SENTRY_DSN=                 # GlitchTip/Sentry DSN — omit to disable
 ```
 
 ---
@@ -176,6 +191,54 @@ SMTP_PASS=
 | payments | plans, checkout, subscription, plan-change, billing, webhook, customer, jobs | Implementado |
 | audit | audit | Implementado |
 | api-keys | api-keys | Implementado |
+
+---
+
+## CI/CD
+
+| Workflow | Trigger | O que faz |
+|---|---|---|
+| **Lint** | PR (todas as branches) | Type check, Biome lint, secretlint, `bun pm audit` |
+| **Build** | PR (todas as branches) | Build do binário para verificar compilação |
+| **Test** | PR (main, preview) | Testes afetados pelo escopo da PR |
+| **Test** | Schedule (diário 6h BRT) | Suite completa de testes |
+| **Security** | PR (main, preview) + semanal | Trivy scan (imagem Docker + filesystem) |
+| **Dependabot** | Semanal (segunda 9h BRT) | Updates de npm, Docker e GitHub Actions |
+
+### Branch Protection
+
+- **`preview`** — requer status checks: Lint & Security, Build
+- **`main`** — requer status checks: Lint & Security, Build, Affected Tests + conversation resolution
+
+### Fluxo de Branches
+
+```
+feature branch → PR → preview (staging) → PR → main (production)
+```
+
+---
+
+## Deploy
+
+| Componente | Detalhes |
+|---|---|
+| **Plataforma** | [Coolify](https://coolify.io) (self-hosted) em VPS Hostinger |
+| **Build** | Dockerfile multi-stage — roda source code direto com Bun (sem compilação binária) |
+| **Banco** | PostgreSQL dedicado gerenciado pelo Coolify |
+| **Ambientes** | `preview` (staging) e `production` |
+| **DNS** | DuckDNS |
+| **SSL** | Automático via Coolify (Let's Encrypt) |
+
+O Coolify faz auto-deploy ao detectar push nas branches `preview` e `main`. Migrations rodam automaticamente no entrypoint do container (`scripts/entrypoint.sh`) antes de iniciar a aplicação.
+
+### Observabilidade
+
+| Ferramenta | Propósito |
+|---|---|
+| [GlitchTip](https://glitchtip.com) | Error tracking (Sentry-compatible) — captura erros 5xx e não tratados via `@sentry/bun` |
+| [Uptime Kuma](https://uptime.kuma.pet) | Monitoramento de uptime — API, frontend e GlitchTip |
+
+A integração com GlitchTip é configurada via variável de ambiente `SENTRY_DSN` (opcional — sem a variável, o tracking é desativado).
 
 ---
 

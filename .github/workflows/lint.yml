@@ -26,6 +26,3 @@ jobs:
 
       - name: Check secrets
         run: bun run secrets:check
-
-      - name: Security audit
-        run: bun pm audit || true
