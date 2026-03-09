@@ -47,7 +47,7 @@ Alterado via `PATCH /:id/status` (endpoint dedicado, não pelo PUT geral)
 - Import parcial: linhas válidas inseridas, inválidas reportadas no response
 - Máx 500 linhas por arquivo
 - Respeita limite de funcionários do plano
-- Import emite `employee.created` sequencialmente para cada funcionário importado (gera períodos aquisitivos)
+- Import emite `employee.created` sequencialmente para cada funcionário importado
 - Audit log: action "create", resource "employee"
 - Enums usam labels PT-BR no template, mapeados de volta no import
 - FK fields (setor, cargo, CBO, filial, centro de custo) resolvidos por nome → ID
@@ -60,8 +60,7 @@ Event-driven hooks at `src/modules/employees/hooks/`:
 - **Events emitted:**
   - `employee.created` — after successful create (payload: employeeId, organizationId, hireDate)
   - `employee.hireDateUpdated` — after hireDate change in update (payload: employeeId, organizationId, oldHireDate, newHireDate)
-- **Listeners:** generate/recalculate vacation acquisition periods
-- **HireDate validation:** update() blocks hireDate changes if any acquisition period has daysUsed > 0 (409)
+- **Listeners:** nenhum ativo no momento (estrutura mantida para extensibilidade)
 - Registered in `src/index.ts` at app startup via `registerEmployeeListeners()`
 
 ### Sub-módulo Import

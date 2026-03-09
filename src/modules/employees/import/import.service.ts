@@ -186,7 +186,7 @@ export abstract class ImportService {
         .insert(schema.employees)
         .values(insertValues as (typeof schema.employees.$inferInsert)[]);
 
-      // 8b. Emit employee.created events sequentially for acquisition period generation
+      // 8b. Emit employee.created events sequentially
       const { EmployeeHooks } = await import("@/modules/employees/hooks");
       for (const row of insertValues) {
         EmployeeHooks.emit("employee.created", {
