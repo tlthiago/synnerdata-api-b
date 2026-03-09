@@ -70,6 +70,7 @@ describe("GET /v1/vacations", () => {
     const { employee } = await createTestEmployee({
       organizationId,
       userId: user.id,
+      hireDate: "2020-01-01",
     });
 
     await createTestVacation({
@@ -118,6 +119,7 @@ describe("GET /v1/vacations", () => {
     const { employee } = await createTestEmployee({
       organizationId,
       userId: user.id,
+      hireDate: "2020-01-01",
     });
 
     const vacation1 = await createTestVacation({
@@ -172,11 +174,13 @@ describe("GET /v1/vacations", () => {
     const { employee: employee1 } = await createTestEmployee({
       organizationId: org1,
       userId: user1.id,
+      hireDate: "2020-01-01",
     });
 
     const { employee: employee2 } = await createTestEmployee({
       organizationId: org2,
       userId: user2.id,
+      hireDate: "2020-01-01",
     });
 
     await createTestVacation({
@@ -218,6 +222,7 @@ describe("GET /v1/vacations", () => {
     const { employee } = await createTestEmployee({
       organizationId,
       userId: user.id,
+      hireDate: "2020-01-01",
     });
 
     await createTestVacation({

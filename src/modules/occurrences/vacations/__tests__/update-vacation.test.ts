@@ -59,6 +59,7 @@ describe("PUT /v1/vacations/:id", () => {
     const { employee } = await createTestEmployee({
       organizationId,
       userId: user.id,
+      hireDate: "2020-01-01",
     });
 
     const vacation = await createTestVacation({
@@ -117,6 +118,7 @@ describe("PUT /v1/vacations/:id", () => {
     const { employee } = await createTestEmployee({
       organizationId: org2,
       userId: user2.id,
+      hireDate: "2020-01-01",
     });
 
     const vacation = await createTestVacation({
@@ -147,6 +149,7 @@ describe("PUT /v1/vacations/:id", () => {
     const { employee } = await createTestEmployee({
       organizationId,
       userId: user.id,
+      hireDate: "2020-01-01",
     });
 
     const vacation = await createTestVacation({
@@ -193,6 +196,7 @@ describe("PUT /v1/vacations/:id", () => {
     const { employee } = await createTestEmployee({
       organizationId,
       userId: user.id,
+      hireDate: "2020-01-01",
     });
 
     const vacation = await createTestVacation({
@@ -235,6 +239,7 @@ describe("PUT /v1/vacations/:id", () => {
     const { employee } = await createTestEmployee({
       organizationId,
       userId: user.id,
+      hireDate: "2020-01-01",
     });
 
     const vacation = await createTestVacation({
@@ -269,6 +274,7 @@ describe("PUT /v1/vacations/:id", () => {
     const { employee } = await createTestEmployee({
       organizationId,
       userId: user.id,
+      hireDate: "2020-01-01",
     });
 
     const vacation = await createTestVacation({
@@ -312,6 +318,7 @@ describe("PUT /v1/vacations/:id", () => {
     const { employee } = await createTestEmployee({
       organizationId,
       userId: user.id,
+      hireDate: "2020-01-01",
     });
 
     await createTestVacation({
@@ -359,6 +366,7 @@ describe("PUT /v1/vacations/:id", () => {
     const { employee } = await createTestEmployee({
       organizationId,
       userId: user.id,
+      hireDate: "2020-01-01",
     });
 
     const vacation = await createTestVacation({
@@ -387,5 +395,83 @@ describe("PUT /v1/vacations/:id", () => {
     expect(response.status).toBe(200);
     const body = await response.json();
     expect(body.success).toBe(true);
+  });
+
+  test("should reject when updating startDate to before hireDate", async () => {
+    const { headers, organizationId, user } =
+      await createTestUserWithOrganization({
+        emailVerified: true,
+      });
+
+    const { employee } = await createTestEmployee({
+      organizationId,
+      userId: user.id,
+      hireDate: "2025-01-01",
+    });
+
+    const vacation = await createTestVacation({
+      organizationId,
+      userId: user.id,
+      employeeId: employee.id,
+      startDate: "2025-02-01",
+      endDate: "2025-02-15",
+      daysUsed: 0,
+    });
+
+    const response = await app.handle(
+      new Request(`${BASE_URL}/v1/vacations/${vacation.id}`, {
+        method: "PUT",
+        headers: { ...headers, "Content-Type": "application/json" },
+        body: JSON.stringify({
+          startDate: "2024-12-20",
+          endDate: "2025-01-05",
+          daysEntitled: 17,
+        }),
+      })
+    );
+
+    expect(response.status).toBe(422);
+    const body = await response.json();
+    expect(body.error.code).toBe("VACATION_DATE_BEFORE_HIRE");
+  });
+
+  test("should reject when updating concessive period to before acquisition period", async () => {
+    const { headers, organizationId, user } =
+      await createTestUserWithOrganization({
+        emailVerified: true,
+      });
+
+    const { employee } = await createTestEmployee({
+      organizationId,
+      userId: user.id,
+      hireDate: "2024-01-01",
+    });
+
+    const vacation = await createTestVacation({
+      organizationId,
+      userId: user.id,
+      employeeId: employee.id,
+      startDate: "2025-06-01",
+      endDate: "2025-06-15",
+      daysUsed: 0,
+      acquisitionPeriodStart: "2024-01-01",
+      acquisitionPeriodEnd: "2024-12-31",
+      concessivePeriodStart: "2025-01-01",
+      concessivePeriodEnd: "2025-12-31",
+    });
+
+    const response = await app.handle(
+      new Request(`${BASE_URL}/v1/vacations/${vacation.id}`, {
+        method: "PUT",
+        headers: { ...headers, "Content-Type": "application/json" },
+        body: JSON.stringify({
+          concessivePeriodStart: "2024-06-01",
+        }),
+      })
+    );
+
+    expect(response.status).toBe(422);
+    const body = await response.json();
+    expect(body.error.code).toBe("VACATION_CONCESSIVE_BEFORE_ACQUISITION");
   });
 });
