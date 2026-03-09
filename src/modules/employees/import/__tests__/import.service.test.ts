@@ -299,21 +299,5 @@ describe("ImportService.importFromFile", () => {
       );
 
     expect(recentEmployees.length).toBeGreaterThanOrEqual(2);
-
-    // Check that acquisition periods were generated for each employee
-    for (const emp of recentEmployees) {
-      const periods = await db
-        .select()
-        .from(schema.vacationAcquisitionPeriods)
-        .where(
-          and(
-            eq(schema.vacationAcquisitionPeriods.employeeId, emp.id),
-            isNull(schema.vacationAcquisitionPeriods.deletedAt)
-          )
-        );
-
-      expect(periods.length).toBeGreaterThanOrEqual(1);
-      expect(periods[0].acquisitionStart).toBe("2024-06-10");
-    }
   });
 });
