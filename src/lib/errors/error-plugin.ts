@@ -84,7 +84,7 @@ export const errorPlugin = new Elysia({ name: "error-handler" })
         success: false as const,
         error: {
           code: "NOT_FOUND",
-          message: "Route not found",
+          message: "Rota não encontrada",
         },
       };
     }
@@ -107,7 +107,7 @@ export const errorPlugin = new Elysia({ name: "error-handler" })
       success: false as const,
       error: {
         code: "INTERNAL_ERROR",
-        message: "An unexpected error occurred",
+        message: "Ocorreu um erro inesperado",
         // In development, expose the real error to help debugging
         ...(isDev && { cause: errorDetail }),
       },

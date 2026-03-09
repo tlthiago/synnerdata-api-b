@@ -19,7 +19,7 @@ export class MedicalCertificateNotFoundError extends MedicalCertificateError {
 
   constructor(medicalCertificateId: string) {
     super(
-      `Medical certificate not found: ${medicalCertificateId}`,
+      `Atestado médico não encontrado: ${medicalCertificateId}`,
       "MEDICAL_CERTIFICATE_NOT_FOUND",
       { medicalCertificateId }
     );
@@ -31,7 +31,7 @@ export class MedicalCertificateAlreadyDeletedError extends MedicalCertificateErr
 
   constructor(medicalCertificateId: string) {
     super(
-      `Medical certificate already deleted: ${medicalCertificateId}`,
+      `Atestado médico já deletado: ${medicalCertificateId}`,
       "MEDICAL_CERTIFICATE_ALREADY_DELETED",
       { medicalCertificateId }
     );
@@ -43,7 +43,7 @@ export class MedicalCertificateInvalidDateRangeError extends MedicalCertificateE
 
   constructor() {
     super(
-      "Start date must be before or equal to end date",
+      "Data inicial deve ser anterior ou igual à data final",
       "INVALID_DATE_RANGE"
     );
   }
@@ -80,7 +80,7 @@ export class MedicalCertificateOverlapError extends MedicalCertificateError {
 
   constructor(employeeId: string, startDate: string, endDate: string) {
     super(
-      "Employee already has a medical certificate overlapping this period",
+      "Funcionário já possui um atestado médico sobrepondo este período",
       "MEDICAL_CERTIFICATE_OVERLAP",
       { employeeId, startDate, endDate }
     );

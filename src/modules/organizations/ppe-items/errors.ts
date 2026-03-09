@@ -14,7 +14,7 @@ export class PpeItemNotFoundError extends PpeItemError {
   status = 404;
 
   constructor(ppeItemId: string) {
-    super(`PPE item not found: ${ppeItemId}`, "PPE_ITEM_NOT_FOUND", {
+    super(`Item de EPI não encontrado: ${ppeItemId}`, "PPE_ITEM_NOT_FOUND", {
       ppeItemId,
     });
   }
@@ -25,7 +25,7 @@ export class PpeItemAlreadyExistsError extends PpeItemError {
 
   constructor(name: string, equipment: string) {
     super(
-      `A PPE item with the name "${name}" and equipment "${equipment}" already exists`,
+      `Item de EPI com o nome "${name}" e equipamento "${equipment}" já existe`,
       "PPE_ITEM_ALREADY_EXISTS",
       { name, equipment }
     );
@@ -36,11 +36,9 @@ export class PpeItemAlreadyDeletedError extends PpeItemError {
   status = 404;
 
   constructor(ppeItemId: string) {
-    super(
-      `PPE item already deleted: ${ppeItemId}`,
-      "PPE_ITEM_ALREADY_DELETED",
-      { ppeItemId }
-    );
+    super(`Item de EPI já deletado: ${ppeItemId}`, "PPE_ITEM_ALREADY_DELETED", {
+      ppeItemId,
+    });
   }
 }
 
@@ -48,7 +46,7 @@ export class PpeJobPositionNotFoundError extends PpeItemError {
   status = 404;
 
   constructor(ppeItemId: string, jobPositionId: string) {
-    super("Job position association not found", "PPE_JOB_POSITION_NOT_FOUND", {
+    super("Associação com cargo não encontrada", "PPE_JOB_POSITION_NOT_FOUND", {
       ppeItemId,
       jobPositionId,
     });
@@ -60,7 +58,7 @@ export class PpeJobPositionAlreadyExistsError extends PpeItemError {
 
   constructor(ppeItemId: string, jobPositionId: string) {
     super(
-      "Job position already associated with this PPE item",
+      "Cargo já associado a este item de EPI",
       "PPE_JOB_POSITION_ALREADY_EXISTS",
       { ppeItemId, jobPositionId }
     );

@@ -19,7 +19,7 @@ export class LaborLawsuitNotFoundError extends LaborLawsuitError {
 
   constructor(laborLawsuitId: string) {
     super(
-      `Labor lawsuit not found: ${laborLawsuitId}`,
+      `Processo trabalhista não encontrado: ${laborLawsuitId}`,
       "LABOR_LAWSUIT_NOT_FOUND",
       { laborLawsuitId }
     );
@@ -31,7 +31,7 @@ export class LaborLawsuitAlreadyDeletedError extends LaborLawsuitError {
 
   constructor(laborLawsuitId: string) {
     super(
-      `Labor lawsuit already deleted: ${laborLawsuitId}`,
+      `Processo trabalhista já deletado: ${laborLawsuitId}`,
       "LABOR_LAWSUIT_ALREADY_DELETED",
       { laborLawsuitId }
     );
@@ -42,7 +42,7 @@ export class LaborLawsuitEmployeeNotFoundError extends LaborLawsuitError {
   status = 404;
 
   constructor(employeeId: string) {
-    super(`Employee not found: ${employeeId}`, "EMPLOYEE_NOT_FOUND", {
+    super(`Funcionário não encontrado: ${employeeId}`, "EMPLOYEE_NOT_FOUND", {
       employeeId,
     });
   }
@@ -61,7 +61,7 @@ export class LaborLawsuitProcessNumberAlreadyExistsError extends LaborLawsuitErr
 
   constructor(processNumber: string) {
     super(
-      `Process number already exists: ${processNumber}`,
+      `Número do processo já existe: ${processNumber}`,
       "LABOR_LAWSUIT_PROCESS_NUMBER_ALREADY_EXISTS",
       { processNumber }
     );
