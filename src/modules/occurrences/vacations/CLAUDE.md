@@ -5,12 +5,13 @@ Gestao de ferias com periodos aquisitivo e concessivo inline e controle de dias.
 ## Business Rules
 
 - `startDate` deve ser <= `endDate`
-- `daysUsed` deve ser >= 0 e <= `daysEntitled`. Nao e validado contra o intervalo de datas (`endDate - startDate`) -- intencional, pois ferias CLT podem ser fracionadas
+- `daysEntitled` deve corresponder exatamente ao intervalo de datas (`endDate - startDate + 1`), validado via `calculateDaysBetween` no service
+- `daysUsed` deve ser >= 0 e <= `daysEntitled`
 - Periodos aquisitivo e concessivo: campos inline na tabela `vacations` (nao entidade separada)
   - `acquisitionPeriodStart` / `acquisitionPeriodEnd` (opcionais)
   - `concessivePeriodStart` / `concessivePeriodEnd` (opcionais)
   - Calculados a partir da data de admissao do employee (12 meses cada)
-- `daysEntitled`: dias de direito (default 30, CLT)
+- `daysEntitled`: dias (calculado pelo frontend como endDate - startDate, sem default)
 - Overlap check no create/update: mesmo employee + datas sobrepostas (excluindo ferias canceladas) lanca `VacationOverlapError`
 - Employee nao pode estar desligado no create (`ensureEmployeeNotTerminated` -- ON_VACATION e esperado/permitido)
 - Status padrao: `scheduled`
@@ -26,7 +27,7 @@ Gestao de ferias com periodos aquisitivo e concessivo inline e controle de dias.
 - `startDate`, `endDate` (datas das ferias)
 - `acquisitionPeriodStart`, `acquisitionPeriodEnd` (periodo aquisitivo, opcionais)
 - `concessivePeriodStart`, `concessivePeriodEnd` (periodo concessivo, opcionais)
-- `daysEntitled` (inteiro, default 30)
+- `daysEntitled` (inteiro, obrigatório, sem default)
 - `daysUsed` (inteiro)
 - `notes` (opcional)
 

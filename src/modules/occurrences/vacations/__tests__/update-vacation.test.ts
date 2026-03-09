@@ -251,7 +251,7 @@ describe("PUT /v1/vacations/:id", () => {
       new Request(`${BASE_URL}/v1/vacations/${vacation.id}`, {
         method: "PUT",
         headers: { ...headers, "Content-Type": "application/json" },
-        body: JSON.stringify({ daysEntitled: 5, daysUsed: 20 }),
+        body: JSON.stringify({ daysUsed: 31 }),
       })
     );
 
@@ -378,6 +378,7 @@ describe("PUT /v1/vacations/:id", () => {
         body: JSON.stringify({
           startDate: "2025-07-02",
           endDate: "2025-07-11",
+          daysEntitled: 10,
           daysUsed: 0,
         }),
       })

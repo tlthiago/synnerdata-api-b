@@ -2,6 +2,7 @@ import { and, eq, isNull, sql } from "drizzle-orm";
 import { db } from "@/db";
 import { schema } from "@/db/schema";
 import { ensureEmployeeNotTerminated } from "@/lib/helpers/employee-status";
+import { calculateDaysBetween } from "@/lib/schemas/date-helpers";
 import {
   VacationAlreadyDeletedError,
   VacationInvalidDateRangeError,
@@ -122,10 +123,21 @@ export abstract class VacationService {
     }
   }
 
-  private static validateDays(daysUsed: number, daysEntitled: number): void {
+  private static validateDays(
+    startDate: string,
+    endDate: string,
+    daysEntitled: number,
+    daysUsed: number
+  ): void {
+    const expected = calculateDaysBetween(startDate, endDate);
+    if (daysEntitled !== expected) {
+      throw new VacationInvalidDaysError(
+        `Dias (${daysEntitled}) deve corresponder ao intervalo de datas (${expected})`
+      );
+    }
     if (daysUsed > daysEntitled) {
       throw new VacationInvalidDaysError(
-        `Dias utilizados (${daysUsed}) não pode exceder dias de direito (${daysEntitled})`
+        `Dias utilizados (${daysUsed}) não pode exceder dias (${daysEntitled})`
       );
     }
   }
@@ -171,7 +183,12 @@ export abstract class VacationService {
     await ensureEmployeeNotTerminated(data.employeeId, organizationId);
 
     VacationService.validateDates(data.startDate, data.endDate);
-    VacationService.validateDays(data.daysUsed, data.daysEntitled);
+    VacationService.validateDays(
+      data.startDate,
+      data.endDate,
+      data.daysEntitled,
+      data.daysUsed
+    );
 
     await VacationService.ensureNoOverlap({
       organizationId,
@@ -283,20 +300,30 @@ export abstract class VacationService {
       throw new VacationNotFoundError(id);
     }
 
+    const finalStartDate = data.startDate ?? existing.startDate;
+    const finalEndDate = data.endDate ?? existing.endDate;
+    const finalDaysEntitled = data.daysEntitled ?? existing.daysEntitled;
+    const finalDaysUsed = data.daysUsed ?? existing.daysUsed;
+
     if (data.startDate || data.endDate) {
-      const newStartDate = data.startDate ?? existing.startDate;
-      const newEndDate = data.endDate ?? existing.endDate;
-      VacationService.validateDates(newStartDate, newEndDate);
+      VacationService.validateDates(finalStartDate, finalEndDate);
     }
 
-    const finalDaysUsed = data.daysUsed ?? existing.daysUsed;
-    const finalDaysEntitled = data.daysEntitled ?? existing.daysEntitled;
-    VacationService.validateDays(finalDaysUsed, finalDaysEntitled);
+    if (
+      data.startDate !== undefined ||
+      data.endDate !== undefined ||
+      data.daysEntitled !== undefined ||
+      data.daysUsed !== undefined
+    ) {
+      VacationService.validateDays(
+        finalStartDate,
+        finalEndDate,
+        finalDaysEntitled,
+        finalDaysUsed
+      );
+    }
 
     if (data.startDate !== undefined || data.endDate !== undefined) {
-      const finalStartDate = data.startDate ?? existing.startDate;
-      const finalEndDate = data.endDate ?? existing.endDate;
-
       await VacationService.ensureNoOverlap({
         organizationId,
         employeeId: existing.employee.id,
