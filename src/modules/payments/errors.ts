@@ -23,7 +23,7 @@ export class MissingBillingDataError extends PaymentError {
 
   constructor(missingFields: string[]) {
     super(
-      `Missing required billing data: ${missingFields.join(", ")}`,
+      `Dados de cobrança obrigatórios ausentes: ${missingFields.join(", ")}`,
       "MISSING_BILLING_DATA",
       { missingFields }
     );
@@ -34,7 +34,7 @@ export class EmailNotVerifiedError extends PaymentError {
   status = 400;
 
   constructor() {
-    super("Email must be verified before checkout", "EMAIL_NOT_VERIFIED");
+    super("E-mail deve ser verificado antes do checkout", "EMAIL_NOT_VERIFIED");
   }
 }
 
@@ -42,9 +42,13 @@ export class SubscriptionNotFoundError extends PaymentError {
   status = 404;
 
   constructor(identifier: string) {
-    super(`Subscription not found: ${identifier}`, "SUBSCRIPTION_NOT_FOUND", {
-      identifier,
-    });
+    super(
+      `Assinatura não encontrada: ${identifier}`,
+      "SUBSCRIPTION_NOT_FOUND",
+      {
+        identifier,
+      }
+    );
   }
 }
 
@@ -53,7 +57,7 @@ export class SubscriptionAlreadyActiveError extends PaymentError {
 
   constructor() {
     super(
-      "Organization already has an active subscription",
+      "Organização já possui uma assinatura ativa",
       "SUBSCRIPTION_ALREADY_ACTIVE"
     );
   }
@@ -64,7 +68,7 @@ export class SubscriptionNotCancelableError extends PaymentError {
 
   constructor(subscriptionStatus: string) {
     super(
-      `Cannot cancel subscription with status: ${subscriptionStatus}`,
+      `Não é possível cancelar assinatura com status: ${subscriptionStatus}`,
       "SUBSCRIPTION_NOT_CANCELABLE",
       { subscriptionStatus }
     );
@@ -76,7 +80,7 @@ export class SubscriptionNotRestorableError extends PaymentError {
 
   constructor() {
     super(
-      "Subscription can only be restored while pending cancellation",
+      "Assinatura só pode ser restaurada enquanto pendente de cancelamento",
       "SUBSCRIPTION_NOT_RESTORABLE"
     );
   }
@@ -87,7 +91,7 @@ export class TrialAlreadyUsedError extends PaymentError {
 
   constructor() {
     super(
-      "This organization has already used its trial period",
+      "Esta organização já utilizou seu período de avaliação",
       "TRIAL_ALREADY_USED"
     );
   }
@@ -98,7 +102,7 @@ export class TrialExpiredError extends PaymentError {
 
   constructor() {
     super(
-      "Trial period has expired. Please upgrade to continue.",
+      "Período de avaliação expirado. Faça upgrade para continuar.",
       "TRIAL_EXPIRED"
     );
   }
@@ -108,7 +112,7 @@ export class PlanNotFoundError extends PaymentError {
   status = 404;
 
   constructor(planId: string) {
-    super(`Plan not found: ${planId}`, "PLAN_NOT_FOUND", { planId });
+    super(`Plano não encontrado: ${planId}`, "PLAN_NOT_FOUND", { planId });
   }
 }
 
@@ -116,7 +120,7 @@ export class PlanNotAvailableError extends PaymentError {
   status = 400;
 
   constructor(planId: string) {
-    super(`Plan is not available: ${planId}`, "PLAN_NOT_AVAILABLE", { planId });
+    super(`Plano não disponível: ${planId}`, "PLAN_NOT_AVAILABLE", { planId });
   }
 }
 
@@ -125,7 +129,7 @@ export class TrialPlanAsBaseError extends PaymentError {
 
   constructor(planId: string) {
     super(
-      `Trial plans cannot be used as base for custom checkout: ${planId}`,
+      `Planos de avaliação não podem ser usados como base para checkout customizado: ${planId}`,
       "TRIAL_PLAN_AS_BASE",
       { planId }
     );
@@ -137,7 +141,7 @@ export class YearlyBillingNotAvailableError extends PaymentError {
 
   constructor(planId: string) {
     super(
-      `Yearly billing not available for plan: ${planId}`,
+      `Cobrança anual não disponível para o plano: ${planId}`,
       "YEARLY_BILLING_NOT_AVAILABLE",
       { planId }
     );
@@ -149,7 +153,7 @@ export class PlanNameAlreadyExistsError extends PaymentError {
 
   constructor(name: string) {
     super(
-      `Plan with name "${name}" already exists`,
+      `Já existe um plano com o nome "${name}"`,
       "PLAN_NAME_ALREADY_EXISTS",
       {
         name,
@@ -163,7 +167,7 @@ export class PlanHasActiveSubscriptionsError extends PaymentError {
 
   constructor(planId: string) {
     super(
-      `Cannot delete plan ${planId}: it has active subscriptions`,
+      `Não é possível excluir o plano ${planId}: possui assinaturas ativas`,
       "PLAN_HAS_ACTIVE_SUBSCRIPTIONS",
       { planId }
     );
@@ -175,7 +179,7 @@ export class OrganizationNotFoundError extends PaymentError {
 
   constructor(organizationId: string) {
     super(
-      `Organization not found: ${organizationId}`,
+      `Organização não encontrada: ${organizationId}`,
       "ORGANIZATION_NOT_FOUND",
       {
         organizationId,
@@ -188,7 +192,7 @@ export class NoActiveOrganizationError extends PaymentError {
   status = 400;
 
   constructor() {
-    super("No active organization in session", "NO_ACTIVE_ORGANIZATION");
+    super("Nenhuma organização ativa na sessão", "NO_ACTIVE_ORGANIZATION");
   }
 }
 
@@ -196,7 +200,7 @@ export class WebhookValidationError extends PaymentError {
   status = 401;
 
   constructor() {
-    super("Invalid webhook credentials", "INVALID_WEBHOOK_CREDENTIALS");
+    super("Credenciais de webhook inválidas", "INVALID_WEBHOOK_CREDENTIALS");
   }
 }
 
@@ -205,7 +209,7 @@ export class WebhookProcessingError extends PaymentError {
 
   constructor(eventType: string, reason: string) {
     super(
-      `Failed to process webhook event ${eventType}: ${reason}`,
+      `Falha ao processar evento de webhook ${eventType}: ${reason}`,
       "WEBHOOK_PROCESSING_ERROR",
       { eventType, reason }
     );
@@ -216,7 +220,7 @@ export class CustomerNotFoundError extends PaymentError {
   status = 404;
 
   constructor(identifier: string) {
-    super(`Customer not found: ${identifier}`, "CUSTOMER_NOT_FOUND", {
+    super(`Cliente não encontrado: ${identifier}`, "CUSTOMER_NOT_FOUND", {
       identifier,
     });
   }
@@ -226,7 +230,7 @@ export class CustomerCreationError extends PaymentError {
   status = 500;
 
   constructor(reason: string) {
-    super(`Failed to create customer: ${reason}`, "CUSTOMER_CREATION_ERROR", {
+    super(`Falha ao criar cliente: ${reason}`, "CUSTOMER_CREATION_ERROR", {
       reason,
     });
   }
@@ -236,7 +240,7 @@ export class InvoiceNotFoundError extends PaymentError {
   status = 404;
 
   constructor(invoiceId: string) {
-    super(`Invoice not found: ${invoiceId}`, "INVOICE_NOT_FOUND", {
+    super(`Fatura não encontrada: ${invoiceId}`, "INVOICE_NOT_FOUND", {
       invoiceId,
     });
   }
@@ -260,7 +264,9 @@ export class PagarmeTimeoutError extends PaymentError {
   status = 504;
 
   constructor(endpoint: string) {
-    super(`Pagarme API timeout: ${endpoint}`, "PAGARME_TIMEOUT", { endpoint });
+    super(`Timeout na API do Pagar.me: ${endpoint}`, "PAGARME_TIMEOUT", {
+      endpoint,
+    });
   }
 }
 
@@ -283,7 +289,7 @@ export class SamePlanError extends PaymentError {
   status = 400;
 
   constructor() {
-    super("Already subscribed to this plan", "SAME_PLAN");
+    super("Já inscrito neste plano", "SAME_PLAN");
   }
 }
 
@@ -291,7 +297,7 @@ export class SameBillingCycleError extends PaymentError {
   status = 400;
 
   constructor() {
-    super("Already on this billing cycle", "SAME_BILLING_CYCLE");
+    super("Já está neste ciclo de cobrança", "SAME_BILLING_CYCLE");
   }
 }
 
@@ -300,7 +306,7 @@ export class SubscriptionNotActiveError extends PaymentError {
 
   constructor() {
     super(
-      "Subscription must be active to change plans",
+      "Assinatura deve estar ativa para alterar planos",
       "SUBSCRIPTION_NOT_ACTIVE"
     );
   }
@@ -311,7 +317,7 @@ export class PlanChangeInProgressError extends PaymentError {
 
   constructor() {
     super(
-      "A plan change is already scheduled. Cancel it first to make a new change.",
+      "Já existe uma alteração de plano agendada. Cancele-a primeiro para fazer uma nova alteração.",
       "PLAN_CHANGE_IN_PROGRESS"
     );
   }
@@ -321,7 +327,10 @@ export class NoScheduledChangeError extends PaymentError {
   status = 400;
 
   constructor() {
-    super("No scheduled plan change to cancel", "NO_SCHEDULED_CHANGE");
+    super(
+      "Nenhuma alteração de plano agendada para cancelar",
+      "NO_SCHEDULED_CHANGE"
+    );
   }
 }
 
@@ -341,7 +350,10 @@ export class EmployeeCountRequiredError extends PaymentError {
   status = 400;
 
   constructor() {
-    super("Employee count is required for checkout", "EMPLOYEE_COUNT_REQUIRED");
+    super(
+      "Quantidade de funcionários é obrigatória para checkout",
+      "EMPLOYEE_COUNT_REQUIRED"
+    );
   }
 }
 
@@ -350,7 +362,7 @@ export class PricingTierNotFoundError extends PaymentError {
 
   constructor(planId: string, employeeRange: string) {
     super(
-      `No pricing tier found for range "${employeeRange}" in plan ${planId}`,
+      `Nenhuma faixa de preço encontrada para o intervalo "${employeeRange}" no plano ${planId}`,
       "PRICING_TIER_NOT_FOUND",
       { planId, employeeRange }
     );
@@ -362,7 +374,7 @@ export class InvalidEmployeeRangeError extends PaymentError {
 
   constructor(employeeRange: string) {
     super(
-      `Invalid employee range format: "${employeeRange}". Expected format: "min-max" (e.g., "0-10")`,
+      `Formato de faixa de funcionários inválido: "${employeeRange}". Formato esperado: "min-max" (ex.: "0-10")`,
       "INVALID_EMPLOYEE_RANGE",
       { employeeRange }
     );
@@ -374,7 +386,7 @@ export class FeatureNotAvailableError extends PaymentError {
 
   constructor(featureName: string) {
     super(
-      `Feature "${featureName}" is not available in your current plan`,
+      `Funcionalidade "${featureName}" não disponível no seu plano atual`,
       "FEATURE_NOT_AVAILABLE",
       { featureName }
     );
@@ -439,7 +451,7 @@ export class TrialPlanNotFoundError extends PaymentError {
 
   constructor() {
     super(
-      "Trial plan not found. Please run database seed.",
+      "Plano de avaliação não encontrado. Execute o seed do banco de dados.",
       "TRIAL_PLAN_NOT_FOUND"
     );
   }
@@ -450,7 +462,7 @@ export class TrialPlanMisconfiguredError extends PaymentError {
 
   constructor() {
     super(
-      "Trial plan has no pricing tiers. Please verify the database seed.",
+      "Plano de avaliação sem faixas de preço. Verifique o seed do banco de dados.",
       "TRIAL_PLAN_MISCONFIGURED"
     );
   }
@@ -461,7 +473,7 @@ export class TrialNotCancellableError extends PaymentError {
 
   constructor(organizationId: string) {
     super(
-      "Trial subscriptions cannot be canceled. The trial expires naturally.",
+      "Assinaturas de avaliação não podem ser canceladas. O período de avaliação expira naturalmente.",
       "TRIAL_NOT_CANCELLABLE",
       { organizationId }
     );
@@ -473,7 +485,7 @@ export class BillingNotAvailableForTrialError extends PaymentError {
 
   constructor(organizationId: string) {
     super(
-      "Billing operations are not available for trial subscriptions",
+      "Operações de cobrança não estão disponíveis para assinaturas de avaliação",
       "BILLING_NOT_AVAILABLE_FOR_TRIAL",
       { organizationId }
     );
@@ -485,7 +497,7 @@ export class InvalidTierCountError extends PaymentError {
 
   constructor(provided: number, minimum: number) {
     super(
-      `At least ${minimum} pricing tier(s) required, but received ${provided}.`,
+      `São necessárias pelo menos ${minimum} faixa(s) de preço, mas foram recebidas ${provided}.`,
       "INVALID_TIER_COUNT",
       { provided, minimum }
     );
@@ -501,7 +513,7 @@ export class InvalidTierRangeError extends PaymentError {
     expected: { min: number; max: number }
   ) {
     super(
-      `Tier at index ${index} has invalid range. Expected ${expected.min}-${expected.max}, got ${provided.min}-${provided.max}.`,
+      `Faixa no índice ${index} tem intervalo inválido. Esperado ${expected.min}-${expected.max}, recebido ${provided.min}-${provided.max}.`,
       "INVALID_TIER_RANGE",
       { index, provided, expected }
     );
@@ -513,7 +525,7 @@ export class TierNegativeMinError extends PaymentError {
 
   constructor(index: number, minEmployees: number) {
     super(
-      `Tier at index ${index} has negative minEmployees (${minEmployees}). Must be >= 0.`,
+      `Faixa no índice ${index} tem minEmployees negativo (${minEmployees}). Deve ser >= 0.`,
       "TIER_NEGATIVE_MIN",
       { index, minEmployees }
     );
@@ -525,7 +537,7 @@ export class TierMinExceedsMaxError extends PaymentError {
 
   constructor(index: number, min: number, max: number) {
     super(
-      `Tier at index ${index} has minEmployees (${min}) > maxEmployees (${max}).`,
+      `Faixa no índice ${index} tem minEmployees (${min}) > maxEmployees (${max}).`,
       "TIER_MIN_EXCEEDS_MAX",
       { index, min, max }
     );
@@ -537,7 +549,7 @@ export class TierOverlapError extends PaymentError {
 
   constructor(index: number, previousMax: number, currentMin: number) {
     super(
-      `Tier at index ${index} overlaps with previous tier: previous max is ${previousMax}, current min is ${currentMin}.`,
+      `Faixa no índice ${index} sobrepõe a faixa anterior: máximo anterior é ${previousMax}, mínimo atual é ${currentMin}.`,
       "TIER_OVERLAP",
       { index, previousMax, currentMin }
     );
@@ -549,7 +561,7 @@ export class TierGapError extends PaymentError {
 
   constructor(index: number, expectedMin: number, actualMin: number) {
     super(
-      `Gap between tiers at index ${index - 1} and ${index}: expected min ${expectedMin}, got ${actualMin}.`,
+      `Lacuna entre faixas nos índices ${index - 1} e ${index}: mínimo esperado ${expectedMin}, recebido ${actualMin}.`,
       "TIER_GAP",
       { index, expectedMin, actualMin }
     );
@@ -561,8 +573,8 @@ export class TierNotFoundError extends PaymentError {
 
   constructor(tierId: string, planId?: string) {
     const message = planId
-      ? `Tier "${tierId}" not found in plan "${planId}".`
-      : `Tier "${tierId}" not found.`;
+      ? `Faixa "${tierId}" não encontrada no plano "${planId}".`
+      : `Faixa "${tierId}" não encontrada.`;
     super(message, "TIER_NOT_FOUND", {
       tierId,
       ...(planId && { planId }),
@@ -579,7 +591,7 @@ export class TiersInUseError extends PaymentError {
     pendingChanges: number
   ) {
     super(
-      `Cannot delete tiers: ${activeSubscriptions} active subscription(s), ${pendingCheckouts} pending checkout(s), ${pendingChanges} pending plan change(s) reference current tiers.`,
+      `Não é possível excluir faixas: ${activeSubscriptions} assinatura(s) ativa(s), ${pendingCheckouts} checkout(s) pendente(s), ${pendingChanges} alteração(ões) de plano pendente(s) referenciam as faixas atuais.`,
       "TIERS_IN_USE",
       { activeSubscriptions, pendingCheckouts, pendingChanges }
     );
@@ -593,7 +605,7 @@ export class InvalidFeatureIdsError extends PaymentError {
 
   constructor(invalidIds: string[]) {
     super(
-      `Features not found or inactive: ${invalidIds.join(", ")}`,
+      `Funcionalidades não encontradas ou inativas: ${invalidIds.join(", ")}`,
       "INVALID_FEATURE_IDS",
       { invalidIds }
     );
@@ -604,7 +616,7 @@ export class FeatureNotFoundError extends PaymentError {
   status = 404;
 
   constructor(featureId: string) {
-    super(`Feature not found: ${featureId}`, "FEATURE_NOT_FOUND", {
+    super(`Funcionalidade não encontrada: ${featureId}`, "FEATURE_NOT_FOUND", {
       featureId,
     });
   }
@@ -615,7 +627,7 @@ export class FeatureAlreadyExistsError extends PaymentError {
 
   constructor(featureId: string) {
     super(
-      `Feature with id "${featureId}" already exists`,
+      `Funcionalidade com id "${featureId}" já existe`,
       "FEATURE_ALREADY_EXISTS",
       { featureId }
     );
@@ -653,7 +665,7 @@ export class BillingProfileRequiredError extends PaymentError {
 
   constructor(organizationId: string) {
     super(
-      `Billing profile is required for checkout. Organization ${organizationId} has no billing profile and no billing data was provided.`,
+      `Perfil de cobrança é obrigatório para checkout. Organização ${organizationId} não possui perfil de cobrança e nenhum dado de cobrança foi fornecido.`,
       "BILLING_PROFILE_REQUIRED",
       { organizationId }
     );

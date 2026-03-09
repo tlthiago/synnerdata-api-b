@@ -15,7 +15,7 @@ export class CpfAnalysisNotFoundError extends CpfAnalysisError {
 
   constructor(cpfAnalysisId: string) {
     super(
-      `CPF analysis not found: ${cpfAnalysisId}`,
+      `Análise de CPF não encontrada: ${cpfAnalysisId}`,
       "CPF_ANALYSIS_NOT_FOUND",
       { cpfAnalysisId }
     );
@@ -27,7 +27,7 @@ export class CpfAnalysisAlreadyDeletedError extends CpfAnalysisError {
 
   constructor(cpfAnalysisId: string) {
     super(
-      `CPF analysis already deleted: ${cpfAnalysisId}`,
+      `Análise de CPF já deletada: ${cpfAnalysisId}`,
       "CPF_ANALYSIS_ALREADY_DELETED",
       { cpfAnalysisId }
     );
@@ -51,7 +51,7 @@ export class CpfAnalysisDuplicateDateError extends CpfAnalysisError {
 
   constructor(employeeId: string, analysisDate: string) {
     super(
-      `CPF analysis already exists for employee ${employeeId} on ${analysisDate}`,
+      `Já existe uma análise de CPF para o funcionário ${employeeId} na data ${analysisDate}`,
       "CPF_ANALYSIS_DUPLICATE_DATE",
       { employeeId, analysisDate }
     );

@@ -3,9 +3,25 @@ import { env } from "@/env";
 import { PlanFactory } from "@/test/factories/payments/plan.factory";
 import { UserFactory } from "@/test/factories/user.factory";
 import { createTestApp, type TestApp } from "@/test/support/app";
+import { generateCnpj } from "@/test/support/faker";
 
 const BASE_URL = env.API_URL;
 const ENDPOINT = `${BASE_URL}/v1/payments/admin/provisions`;
+
+function buildPayload() {
+  const id = crypto.randomUUID().slice(0, 8);
+  return {
+    ownerName: `List Owner ${id}`,
+    ownerEmail: `list-owner-${id}@example.com`,
+    organization: {
+      name: `List Org ${id}`,
+      tradeName: `List Org ${id}`,
+      taxId: generateCnpj(),
+      email: `list-org-${id}@example.com`,
+    },
+    organizationSlug: `list-org-${id}`,
+  };
+}
 
 describe("GET /v1/payments/admin/provisions", () => {
   let app: TestApp;
@@ -39,21 +55,15 @@ describe("GET /v1/payments/admin/provisions", () => {
     const { headers } = await UserFactory.createAdmin();
 
     // Create a provision via the trial endpoint so we have data
-    const id = crypto.randomUUID().slice(0, 8);
-    const trialPayload = {
-      ownerName: `List Owner ${id}`,
-      ownerEmail: `list-owner-${id}@example.com`,
-      organizationName: `List Org ${id}`,
-      organizationSlug: `list-org-${id}`,
-    };
-
-    await app.handle(
+    const postResponse = await app.handle(
       new Request(`${BASE_URL}/v1/payments/admin/provisions/trial`, {
         method: "POST",
         headers: { ...headers, "Content-Type": "application/json" },
-        body: JSON.stringify(trialPayload),
+        body: JSON.stringify(buildPayload()),
       })
     );
+
+    expect(postResponse.status).toBe(200);
 
     const response = await app.handle(new Request(ENDPOINT, { headers }));
 
