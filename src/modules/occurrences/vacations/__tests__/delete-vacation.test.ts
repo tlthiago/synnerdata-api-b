@@ -116,7 +116,6 @@ describe("DELETE /v1/vacations/:id", () => {
     const vacation = await createTestVacation({
       organizationId: org2,
       userId: user2.id,
-      hireDate: "2020-01-01",
       employeeId: employee.id,
     });
 
