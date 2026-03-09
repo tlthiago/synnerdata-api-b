@@ -40,10 +40,9 @@ const vacationFieldsSchema = z.object({
     .describe("Fim do período concessivo (YYYY-MM-DD)"),
   daysEntitled: z
     .number()
-    .int("Dias de direito deve ser um número inteiro")
-    .positive("Dias de direito deve ser positivo")
-    .default(30)
-    .describe("Dias de direito"),
+    .int("Dias deve ser um número inteiro")
+    .positive("Dias deve ser positivo")
+    .describe("Dias"),
   daysUsed: z
     .number()
     .int("Dias utilizados deve ser um número inteiro")
@@ -175,7 +174,7 @@ const vacationDataSchema = z.object({
     .string()
     .nullable()
     .describe("Fim do período concessivo"),
-  daysEntitled: z.number().describe("Dias de direito"),
+  daysEntitled: z.number().describe("Dias"),
   daysUsed: z.number().describe("Dias utilizados"),
   status: z.enum(vacationStatuses).describe("Status das férias"),
   notes: z.string().nullable().describe("Observações"),

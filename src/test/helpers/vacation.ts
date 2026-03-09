@@ -48,7 +48,13 @@ export async function createTestVacation(
     acquisitionPeriodEnd: overrides.acquisitionPeriodEnd,
     concessivePeriodStart: overrides.concessivePeriodStart,
     concessivePeriodEnd: overrides.concessivePeriodEnd,
-    daysEntitled: overrides.daysEntitled ?? 30,
+    daysEntitled:
+      overrides.daysEntitled ??
+      Math.round(
+        (new Date(`${endDate}T00:00:00Z`).getTime() -
+          new Date(`${startDate}T00:00:00Z`).getTime()) /
+          (1000 * 60 * 60 * 24)
+      ) + 1,
     daysUsed: overrides.daysUsed ?? 0,
     status: overrides.status ?? "scheduled",
     notes: overrides.notes,

@@ -29,6 +29,7 @@ describe("POST /v1/vacations", () => {
           employeeId: "employee-123",
           startDate: "2025-01-01",
           endDate: "2025-01-15",
+          daysEntitled: 15,
           daysUsed: 15,
           status: "scheduled",
         }),
@@ -49,6 +50,7 @@ describe("POST /v1/vacations", () => {
           employeeId: "employee-123",
           startDate: "2025-01-01",
           endDate: "2025-01-15",
+          daysEntitled: 15,
           daysUsed: 15,
           status: "scheduled",
         }),
@@ -88,6 +90,7 @@ describe("POST /v1/vacations", () => {
           employeeId: "employee-123",
           startDate: "2025-01-01",
           endDate: "2025-01-15",
+          daysEntitled: 15,
           daysUsed: 15,
         }),
       })
@@ -111,6 +114,7 @@ describe("POST /v1/vacations", () => {
           employeeId: "employee-nonexistent",
           startDate: "2025-01-01",
           endDate: "2025-01-15",
+          daysEntitled: 15,
           daysUsed: 15,
         }),
       })
@@ -140,6 +144,7 @@ describe("POST /v1/vacations", () => {
           employeeId: employee.id,
           startDate: "2025-01-15",
           endDate: "2025-01-01",
+          daysEntitled: 15,
           daysUsed: 15,
         }),
       })
@@ -167,7 +172,7 @@ describe("POST /v1/vacations", () => {
           employeeId: employee.id,
           startDate: "2025-01-01",
           endDate: "2025-01-15",
-          daysEntitled: 10,
+          daysEntitled: 15,
           daysUsed: 20,
         }),
       })
@@ -195,7 +200,7 @@ describe("POST /v1/vacations", () => {
           employeeId: employee.id,
           startDate: "2025-01-01",
           endDate: "2025-01-15",
-          daysEntitled: 30,
+          daysEntitled: 15,
           daysUsed: 10,
           status: "scheduled",
           notes: "Summer vacation",
@@ -211,7 +216,7 @@ describe("POST /v1/vacations", () => {
     expect(body.data.employee.id).toBe(employee.id);
     expect(body.data.employee.name).toBe(employee.name);
     expect(body.data.organizationId).toBe(organizationId);
-    expect(body.data.daysEntitled).toBe(30);
+    expect(body.data.daysEntitled).toBe(15);
     expect(body.data.daysUsed).toBe(10);
     expect(body.data.status).toBe("scheduled");
     expect(body.data.notes).toBe("Summer vacation");
@@ -247,6 +252,7 @@ describe("POST /v1/vacations", () => {
           employeeId: employee.id,
           startDate: "2025-02-01",
           endDate: "2025-02-15",
+          daysEntitled: 15,
           daysUsed: 0,
         }),
       })
@@ -288,6 +294,7 @@ describe("POST /v1/vacations", () => {
           employeeId: employee.id,
           startDate: "2025-03-10",
           endDate: "2025-03-20",
+          daysEntitled: 11,
           daysUsed: 0,
         }),
       })
@@ -327,6 +334,7 @@ describe("POST /v1/vacations", () => {
           employeeId: employee.id,
           startDate: "2025-04-01",
           endDate: "2025-04-15",
+          daysEntitled: 15,
           daysUsed: 0,
         }),
       })
@@ -361,6 +369,7 @@ describe("POST /v1/vacations", () => {
           employeeId: employee.id,
           startDate: "2025-05-01",
           endDate: "2025-05-15",
+          daysEntitled: 15,
           daysUsed: 0,
         }),
       })
@@ -395,6 +404,7 @@ describe("POST /v1/vacations", () => {
           employeeId: employee.id,
           startDate: "2025-06-01",
           endDate: "2025-06-15",
+          daysEntitled: 15,
           daysUsed: 0,
         }),
       })

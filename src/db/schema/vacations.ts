@@ -37,7 +37,7 @@ export const vacations = pgTable(
     acquisitionPeriodEnd: date("acquisition_period_end"),
     concessivePeriodStart: date("concessive_period_start"),
     concessivePeriodEnd: date("concessive_period_end"),
-    daysEntitled: integer("days_entitled").notNull().default(30),
+    daysEntitled: integer("days_entitled").notNull(),
 
     status: vacationStatusEnum("status").default("scheduled").notNull(),
     notes: text("notes"),
