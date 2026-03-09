@@ -9,7 +9,6 @@ import {
   unauthorizedErrorSchema,
   validationErrorSchema,
 } from "@/lib/responses/response.types";
-import { acquisitionPeriodController } from "./acquisition-periods";
 import {
   createVacationResponseSchema,
   createVacationSchema,
@@ -29,7 +28,6 @@ export const vacationController = new Elysia({
   detail: { tags: ["Occurrences - Vacations"] },
 })
   .use(betterAuthPlugin)
-  .use(acquisitionPeriodController)
   .post(
     "/",
     async ({ session, body, user }) =>

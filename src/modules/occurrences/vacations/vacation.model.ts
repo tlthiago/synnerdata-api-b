@@ -18,10 +18,32 @@ const vacationFieldsSchema = z.object({
     .string()
     .date("Data de término deve ser uma data válida")
     .describe("Data de término das férias (YYYY-MM-DD)"),
-  acquisitionPeriodId: z
+  acquisitionPeriodStart: z
     .string()
-    .min(1, "ID do periodo aquisitivo e obrigatorio")
-    .describe("ID do periodo aquisitivo"),
+    .date("Data deve ser válida")
+    .optional()
+    .describe("Início do período aquisitivo (YYYY-MM-DD)"),
+  acquisitionPeriodEnd: z
+    .string()
+    .date("Data deve ser válida")
+    .optional()
+    .describe("Fim do período aquisitivo (YYYY-MM-DD)"),
+  concessivePeriodStart: z
+    .string()
+    .date("Data deve ser válida")
+    .optional()
+    .describe("Início do período concessivo (YYYY-MM-DD)"),
+  concessivePeriodEnd: z
+    .string()
+    .date("Data deve ser válida")
+    .optional()
+    .describe("Fim do período concessivo (YYYY-MM-DD)"),
+  daysEntitled: z
+    .number()
+    .int("Dias de direito deve ser um número inteiro")
+    .positive("Dias de direito deve ser positivo")
+    .default(30)
+    .describe("Dias de direito"),
   daysUsed: z
     .number()
     .int("Dias utilizados deve ser um número inteiro")
@@ -34,16 +56,42 @@ const vacationFieldsSchema = z.object({
   notes: z.string().optional().describe("Observações"),
 });
 
-export const createVacationSchema = vacationFieldsSchema.refine(
-  (data) => data.startDate <= data.endDate,
-  {
+export const createVacationSchema = vacationFieldsSchema
+  .refine((data) => data.startDate <= data.endDate, {
     message: "Data de início deve ser anterior ou igual à data de término",
     path: ["endDate"],
-  }
-);
+  })
+  .refine(
+    (data) => {
+      if (data.acquisitionPeriodStart && data.acquisitionPeriodEnd) {
+        return data.acquisitionPeriodStart <= data.acquisitionPeriodEnd;
+      }
+      return true;
+    },
+    {
+      message: "Início do período aquisitivo deve ser anterior ou igual ao fim",
+      path: ["acquisitionPeriodEnd"],
+    }
+  )
+  .refine(
+    (data) => {
+      if (data.concessivePeriodStart && data.concessivePeriodEnd) {
+        return data.concessivePeriodStart <= data.concessivePeriodEnd;
+      }
+      return true;
+    },
+    {
+      message: "Início do período concessivo deve ser anterior ou igual ao fim",
+      path: ["concessivePeriodEnd"],
+    }
+  )
+  .refine((data) => data.daysUsed <= data.daysEntitled, {
+    message: "Dias utilizados não pode exceder dias de direito",
+    path: ["daysUsed"],
+  });
 
 export const updateVacationSchema = vacationFieldsSchema
-  .omit({ employeeId: true, acquisitionPeriodId: true })
+  .omit({ employeeId: true })
   .partial()
   .refine(
     (data) => {
@@ -55,6 +103,42 @@ export const updateVacationSchema = vacationFieldsSchema
     {
       message: "Data de início deve ser anterior ou igual à data de término",
       path: ["endDate"],
+    }
+  )
+  .refine(
+    (data) => {
+      if (data.acquisitionPeriodStart && data.acquisitionPeriodEnd) {
+        return data.acquisitionPeriodStart <= data.acquisitionPeriodEnd;
+      }
+      return true;
+    },
+    {
+      message: "Início do período aquisitivo deve ser anterior ou igual ao fim",
+      path: ["acquisitionPeriodEnd"],
+    }
+  )
+  .refine(
+    (data) => {
+      if (data.concessivePeriodStart && data.concessivePeriodEnd) {
+        return data.concessivePeriodStart <= data.concessivePeriodEnd;
+      }
+      return true;
+    },
+    {
+      message: "Início do período concessivo deve ser anterior ou igual ao fim",
+      path: ["concessivePeriodEnd"],
+    }
+  )
+  .refine(
+    (data) => {
+      if (data.daysUsed !== undefined && data.daysEntitled !== undefined) {
+        return data.daysUsed <= data.daysEntitled;
+      }
+      return true;
+    },
+    {
+      message: "Dias utilizados não pode exceder dias de direito",
+      path: ["daysUsed"],
     }
   );
 
@@ -75,7 +159,23 @@ const vacationDataSchema = z.object({
   employee: entityReferenceSchema.describe("Funcionário"),
   startDate: z.string().describe("Data de início das férias"),
   endDate: z.string().describe("Data de término das férias"),
-  acquisitionPeriodId: z.string().describe("ID do periodo aquisitivo"),
+  acquisitionPeriodStart: z
+    .string()
+    .nullable()
+    .describe("Início do período aquisitivo"),
+  acquisitionPeriodEnd: z
+    .string()
+    .nullable()
+    .describe("Fim do período aquisitivo"),
+  concessivePeriodStart: z
+    .string()
+    .nullable()
+    .describe("Início do período concessivo"),
+  concessivePeriodEnd: z
+    .string()
+    .nullable()
+    .describe("Fim do período concessivo"),
+  daysEntitled: z.number().describe("Dias de direito"),
   daysUsed: z.number().describe("Dias utilizados"),
   status: z.enum(vacationStatuses).describe("Status das férias"),
   notes: z.string().nullable().describe("Observações"),

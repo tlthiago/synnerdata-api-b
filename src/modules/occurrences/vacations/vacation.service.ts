@@ -5,6 +5,7 @@ import { ensureEmployeeNotTerminated } from "@/lib/helpers/employee-status";
 import {
   VacationAlreadyDeletedError,
   VacationInvalidDateRangeError,
+  VacationInvalidDaysError,
   VacationInvalidEmployeeError,
   VacationNotFoundError,
   VacationOverlapError,
@@ -16,28 +17,34 @@ import type {
   VacationData,
 } from "./vacation.model";
 
+const SELECT_FIELDS = {
+  id: schema.vacations.id,
+  organizationId: schema.vacations.organizationId,
+  employee: {
+    id: schema.employees.id,
+    name: schema.employees.name,
+  },
+  startDate: schema.vacations.startDate,
+  endDate: schema.vacations.endDate,
+  acquisitionPeriodStart: schema.vacations.acquisitionPeriodStart,
+  acquisitionPeriodEnd: schema.vacations.acquisitionPeriodEnd,
+  concessivePeriodStart: schema.vacations.concessivePeriodStart,
+  concessivePeriodEnd: schema.vacations.concessivePeriodEnd,
+  daysEntitled: schema.vacations.daysEntitled,
+  daysUsed: schema.vacations.daysUsed,
+  status: schema.vacations.status,
+  notes: schema.vacations.notes,
+  createdAt: schema.vacations.createdAt,
+  updatedAt: schema.vacations.updatedAt,
+} as const;
+
 export abstract class VacationService {
   private static async findById(
     id: string,
     organizationId: string
   ): Promise<VacationData | null> {
     const [result] = await db
-      .select({
-        id: schema.vacations.id,
-        organizationId: schema.vacations.organizationId,
-        employee: {
-          id: schema.employees.id,
-          name: schema.employees.name,
-        },
-        startDate: schema.vacations.startDate,
-        endDate: schema.vacations.endDate,
-        daysUsed: schema.vacations.daysUsed,
-        acquisitionPeriodId: schema.vacations.acquisitionPeriodId,
-        status: schema.vacations.status,
-        notes: schema.vacations.notes,
-        createdAt: schema.vacations.createdAt,
-        updatedAt: schema.vacations.updatedAt,
-      })
+      .select(SELECT_FIELDS)
       .from(schema.vacations)
       .innerJoin(
         schema.employees,
@@ -63,20 +70,7 @@ export abstract class VacationService {
   > {
     const [result] = await db
       .select({
-        id: schema.vacations.id,
-        organizationId: schema.vacations.organizationId,
-        employee: {
-          id: schema.employees.id,
-          name: schema.employees.name,
-        },
-        startDate: schema.vacations.startDate,
-        endDate: schema.vacations.endDate,
-        daysUsed: schema.vacations.daysUsed,
-        acquisitionPeriodId: schema.vacations.acquisitionPeriodId,
-        status: schema.vacations.status,
-        notes: schema.vacations.notes,
-        createdAt: schema.vacations.createdAt,
-        updatedAt: schema.vacations.updatedAt,
+        ...SELECT_FIELDS,
         deletedAt: schema.vacations.deletedAt,
         deletedBy: schema.vacations.deletedBy,
       })
@@ -128,6 +122,14 @@ export abstract class VacationService {
     }
   }
 
+  private static validateDays(daysUsed: number, daysEntitled: number): void {
+    if (daysUsed > daysEntitled) {
+      throw new VacationInvalidDaysError(
+        `Dias utilizados (${daysUsed}) não pode exceder dias de direito (${daysEntitled})`
+      );
+    }
+  }
+
   private static async ensureNoOverlap(params: {
     organizationId: string;
     employeeId: string;
@@ -169,44 +171,7 @@ export abstract class VacationService {
     await ensureEmployeeNotTerminated(data.employeeId, organizationId);
 
     VacationService.validateDates(data.startDate, data.endDate);
-
-    // Validate acquisition period
-    const { AcquisitionPeriodService } = await import(
-      "./acquisition-periods/acquisition-period.service"
-    );
-
-    const period = await AcquisitionPeriodService.findByIdOrThrow(
-      data.acquisitionPeriodId,
-      organizationId
-    );
-
-    // Period must belong to same employee
-    if (period.employee.id !== data.employeeId) {
-      throw new VacationInvalidEmployeeError(data.employeeId);
-    }
-
-    // Period must be available
-    if (period.status !== "available") {
-      const { AcquisitionPeriodNotAvailableError } = await import(
-        "./acquisition-periods/errors"
-      );
-      throw new AcquisitionPeriodNotAvailableError(
-        data.acquisitionPeriodId,
-        period.status
-      );
-    }
-
-    // daysUsed cannot exceed remaining days in period
-    if (data.daysUsed > period.daysRemaining) {
-      const { AcquisitionPeriodInsufficientDaysError } = await import(
-        "./acquisition-periods/errors"
-      );
-      throw new AcquisitionPeriodInsufficientDaysError(
-        data.acquisitionPeriodId,
-        data.daysUsed,
-        period.daysRemaining
-      );
-    }
+    VacationService.validateDays(data.daysUsed, data.daysEntitled);
 
     await VacationService.ensureNoOverlap({
       organizationId,
@@ -217,66 +182,45 @@ export abstract class VacationService {
 
     const vacationId = `vacation-${crypto.randomUUID()}`;
 
-    const [vacation] = await db
-      .insert(schema.vacations)
-      .values({
-        id: vacationId,
-        organizationId,
-        employeeId: data.employeeId,
-        startDate: data.startDate,
-        endDate: data.endDate,
-        daysUsed: data.daysUsed,
-        acquisitionPeriodId: data.acquisitionPeriodId,
-        status: data.status,
-        notes: data.notes,
-        createdBy: userId,
-      })
-      .returning();
-
-    // Update days used on acquisition period
-    await db
-      .update(schema.vacationAcquisitionPeriods)
-      .set({
-        daysUsed: sql`${schema.vacationAcquisitionPeriods.daysUsed} + ${data.daysUsed}`,
-        status: sql`CASE WHEN ${schema.vacationAcquisitionPeriods.daysUsed} + ${data.daysUsed} >= ${schema.vacationAcquisitionPeriods.daysEntitled} THEN 'used'::acquisition_period_status ELSE ${schema.vacationAcquisitionPeriods.status} END`,
-      })
-      .where(
-        eq(schema.vacationAcquisitionPeriods.id, data.acquisitionPeriodId)
-      );
+    await db.insert(schema.vacations).values({
+      id: vacationId,
+      organizationId,
+      employeeId: data.employeeId,
+      startDate: data.startDate,
+      endDate: data.endDate,
+      acquisitionPeriodStart: data.acquisitionPeriodStart,
+      acquisitionPeriodEnd: data.acquisitionPeriodEnd,
+      concessivePeriodStart: data.concessivePeriodStart,
+      concessivePeriodEnd: data.concessivePeriodEnd,
+      daysEntitled: data.daysEntitled,
+      daysUsed: data.daysUsed,
+      status: data.status,
+      notes: data.notes,
+      createdBy: userId,
+    });
 
     return {
-      id: vacation.id,
-      organizationId: vacation.organizationId,
+      id: vacationId,
+      organizationId,
       employee,
-      startDate: vacation.startDate,
-      endDate: vacation.endDate,
-      daysUsed: vacation.daysUsed,
-      acquisitionPeriodId: vacation.acquisitionPeriodId,
-      status: vacation.status,
-      notes: vacation.notes,
-      createdAt: vacation.createdAt,
-      updatedAt: vacation.updatedAt,
+      startDate: data.startDate,
+      endDate: data.endDate,
+      acquisitionPeriodStart: data.acquisitionPeriodStart ?? null,
+      acquisitionPeriodEnd: data.acquisitionPeriodEnd ?? null,
+      concessivePeriodStart: data.concessivePeriodStart ?? null,
+      concessivePeriodEnd: data.concessivePeriodEnd ?? null,
+      daysEntitled: data.daysEntitled,
+      daysUsed: data.daysUsed,
+      status: data.status,
+      notes: data.notes ?? null,
+      createdAt: new Date(),
+      updatedAt: new Date(),
     } as VacationData;
   }
 
   static async findAll(organizationId: string): Promise<VacationData[]> {
     const results = await db
-      .select({
-        id: schema.vacations.id,
-        organizationId: schema.vacations.organizationId,
-        employee: {
-          id: schema.employees.id,
-          name: schema.employees.name,
-        },
-        startDate: schema.vacations.startDate,
-        endDate: schema.vacations.endDate,
-        daysUsed: schema.vacations.daysUsed,
-        acquisitionPeriodId: schema.vacations.acquisitionPeriodId,
-        status: schema.vacations.status,
-        notes: schema.vacations.notes,
-        createdAt: schema.vacations.createdAt,
-        updatedAt: schema.vacations.updatedAt,
-      })
+      .select(SELECT_FIELDS)
       .from(schema.vacations)
       .innerJoin(
         schema.employees,
@@ -298,22 +242,7 @@ export abstract class VacationService {
     employeeId: string
   ): Promise<VacationData[]> {
     const results = await db
-      .select({
-        id: schema.vacations.id,
-        organizationId: schema.vacations.organizationId,
-        employee: {
-          id: schema.employees.id,
-          name: schema.employees.name,
-        },
-        startDate: schema.vacations.startDate,
-        endDate: schema.vacations.endDate,
-        daysUsed: schema.vacations.daysUsed,
-        acquisitionPeriodId: schema.vacations.acquisitionPeriodId,
-        status: schema.vacations.status,
-        notes: schema.vacations.notes,
-        createdAt: schema.vacations.createdAt,
-        updatedAt: schema.vacations.updatedAt,
-      })
+      .select(SELECT_FIELDS)
       .from(schema.vacations)
       .innerJoin(
         schema.employees,
@@ -359,6 +288,10 @@ export abstract class VacationService {
       const newEndDate = data.endDate ?? existing.endDate;
       VacationService.validateDates(newStartDate, newEndDate);
     }
+
+    const finalDaysUsed = data.daysUsed ?? existing.daysUsed;
+    const finalDaysEntitled = data.daysEntitled ?? existing.daysEntitled;
+    VacationService.validateDays(finalDaysUsed, finalDaysEntitled);
 
     if (data.startDate !== undefined || data.endDate !== undefined) {
       const finalStartDate = data.startDate ?? existing.startDate;
@@ -420,20 +353,6 @@ export abstract class VacationService {
         )
       )
       .returning();
-
-    // Decrement days used on acquisition period
-    const vacationDaysUsed = existing.daysUsed;
-    if (vacationDaysUsed > 0) {
-      await db
-        .update(schema.vacationAcquisitionPeriods)
-        .set({
-          daysUsed: sql`GREATEST(${schema.vacationAcquisitionPeriods.daysUsed} - ${vacationDaysUsed}, 0)`,
-          status: sql`CASE WHEN ${schema.vacationAcquisitionPeriods.status}::text = 'used' THEN 'available'::acquisition_period_status ELSE ${schema.vacationAcquisitionPeriods.status} END`,
-        })
-        .where(
-          eq(schema.vacationAcquisitionPeriods.id, existing.acquisitionPeriodId)
-        );
-    }
 
     return {
       ...existing,
