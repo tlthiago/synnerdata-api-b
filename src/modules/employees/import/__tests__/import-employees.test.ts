@@ -287,7 +287,7 @@ describe("POST /v1/employees/import", () => {
     expect(body.data.failed).toBeGreaterThanOrEqual(1);
 
     const cpfError = body.data.errors.find(
-      (e: { field: string }) => e.field === "cpf"
+      (e: { field: string }) => e.field === "CPF"
     );
     expect(cpfError).toBeDefined();
   });
