@@ -181,7 +181,7 @@ describe("ImportService.importFromFile", () => {
     expect(result.failed).toBeGreaterThanOrEqual(1);
     expect(result.errors.length).toBeGreaterThanOrEqual(1);
 
-    const cpfError = result.errors.find((e) => e.field === "cpf");
+    const cpfError = result.errors.find((e) => e.field === "CPF");
     expect(cpfError).toBeDefined();
   });
 
@@ -201,10 +201,43 @@ describe("ImportService.importFromFile", () => {
     expect(result.failed).toBe(1);
 
     const dupError = result.errors.find(
-      (e) => e.field === "cpf" && e.message.includes("duplicado")
+      (e) => e.field === "CPF" && e.message.includes("duplicado")
     );
     expect(dupError).toBeDefined();
     expect(dupError?.row).toBe(3); // second row (row 3 in Excel since header is row 1)
+  });
+
+  test("translates error field keys to PT-BR column headers", async () => {
+    const rows = [
+      validRow({
+        birthDate: "data-invalida",
+        gender: "invalido",
+        salary: "abc",
+        sectorId: "Setor Inexistente",
+      }),
+    ];
+    const buffer = await buildWorkbookWithRows(templateBuffer, rows);
+
+    const result = await ImportService.importFromFile({
+      buffer,
+      organizationId,
+      userId,
+    });
+
+    expect(result.imported).toBe(0);
+    expect(result.failed).toBeGreaterThanOrEqual(1);
+
+    const fieldNames = result.errors.map((e) => e.field);
+    expect(fieldNames).toContain("Data de nascimento");
+    expect(fieldNames).toContain("Sexo");
+    expect(fieldNames).toContain("Salário");
+    expect(fieldNames).toContain("Setor");
+
+    // Must NOT contain the internal English keys
+    expect(fieldNames).not.toContain("birthDate");
+    expect(fieldNames).not.toContain("gender");
+    expect(fieldNames).not.toContain("salary");
+    expect(fieldNames).not.toContain("sectorId");
   });
 
   test("rejects empty file", async () => {
