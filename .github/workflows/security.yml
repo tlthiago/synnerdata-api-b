@@ -26,20 +26,3 @@ jobs:
           exit-code: "1"
           severity: "CRITICAL,HIGH"
           ignore-unfixed: true
-
-  trivy-fs:
-    name: Trivy Filesystem Scan
-    runs-on: ubuntu-latest
-    steps:
-      - name: Checkout
-        uses: actions/checkout@v4
-
-      - name: Run Trivy filesystem scanner
-        uses: aquasecurity/trivy-action@master
-        with:
-          scan-type: "fs"
-          scan-ref: "."
-          format: "table"
-          exit-code: "1"
-          severity: "CRITICAL,HIGH"
-          ignore-unfixed: true
