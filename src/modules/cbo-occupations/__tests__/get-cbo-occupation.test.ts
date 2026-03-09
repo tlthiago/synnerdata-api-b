@@ -14,10 +14,10 @@ async function seedTestCboOccupation() {
     .insert(cboOccupations)
     .values({
       id: TEST_CBO_ID,
-      code: "3171-05",
-      title: "Técnico em programação de computadores",
-      familyCode: "3171",
-      familyTitle: "Técnicos em programação",
+      code: "9999-99",
+      title: "Test CBO Occupation",
+      familyCode: "9999",
+      familyTitle: "Test CBO Family",
     })
     .onConflictDoNothing();
 }
@@ -53,10 +53,10 @@ describe("GET /v1/cbo-occupations/:id", () => {
     const body = await response.json();
     expect(body.success).toBe(true);
     expect(body.data.id).toBe(TEST_CBO_ID);
-    expect(body.data.code).toBe("3171-05");
-    expect(body.data.title).toBe("Técnico em programação de computadores");
-    expect(body.data.familyCode).toBe("3171");
-    expect(body.data.familyTitle).toBe("Técnicos em programação");
+    expect(body.data.code).toBe("9999-99");
+    expect(body.data.title).toBe("Test CBO Occupation");
+    expect(body.data.familyCode).toBe("9999");
+    expect(body.data.familyTitle).toBe("Test CBO Family");
   });
 
   test("should return 404 for non-existent ID", async () => {
