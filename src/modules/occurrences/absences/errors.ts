@@ -14,7 +14,7 @@ export class AbsenceNotFoundError extends AbsenceError {
   status = 404;
 
   constructor(absenceId: string) {
-    super(`Absence not found: ${absenceId}`, "ABSENCE_NOT_FOUND", {
+    super(`Ausência não encontrada: ${absenceId}`, "ABSENCE_NOT_FOUND", {
       absenceId,
     });
   }
@@ -24,7 +24,7 @@ export class AbsenceAlreadyDeletedError extends AbsenceError {
   status = 404;
 
   constructor(absenceId: string) {
-    super(`Absence already deleted: ${absenceId}`, "ABSENCE_ALREADY_DELETED", {
+    super(`Ausência já deletada: ${absenceId}`, "ABSENCE_ALREADY_DELETED", {
       absenceId,
     });
   }
@@ -56,7 +56,7 @@ export class AbsenceOverlapError extends AbsenceError {
 
   constructor(employeeId: string, startDate: string, endDate: string) {
     super(
-      "Employee already has an absence overlapping this period",
+      "Funcionário já possui uma ausência sobrepondo este período",
       "ABSENCE_OVERLAP",
       { employeeId, startDate, endDate }
     );

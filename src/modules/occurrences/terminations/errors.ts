@@ -14,9 +14,13 @@ export class TerminationNotFoundError extends TerminationError {
   status = 404;
 
   constructor(terminationId: string) {
-    super(`Termination not found: ${terminationId}`, "TERMINATION_NOT_FOUND", {
-      terminationId,
-    });
+    super(
+      `Desligamento não encontrado: ${terminationId}`,
+      "TERMINATION_NOT_FOUND",
+      {
+        terminationId,
+      }
+    );
   }
 }
 
@@ -25,7 +29,7 @@ export class TerminationAlreadyDeletedError extends TerminationError {
 
   constructor(terminationId: string) {
     super(
-      `Termination already deleted: ${terminationId}`,
+      `Desligamento já deletado: ${terminationId}`,
       "TERMINATION_ALREADY_DELETED",
       {
         terminationId,
@@ -38,7 +42,7 @@ export class EmployeeNotFoundError extends TerminationError {
   status = 404;
 
   constructor(employeeId: string) {
-    super(`Employee not found: ${employeeId}`, "EMPLOYEE_NOT_FOUND", {
+    super(`Funcionário não encontrado: ${employeeId}`, "EMPLOYEE_NOT_FOUND", {
       employeeId,
     });
   }
@@ -49,7 +53,7 @@ export class EmployeeNotInOrganizationError extends TerminationError {
 
   constructor(employeeId: string, organizationId: string) {
     super(
-      `Employee ${employeeId} does not belong to organization ${organizationId}`,
+      `Funcionário ${employeeId} não pertence à organização ${organizationId}`,
       "EMPLOYEE_NOT_IN_ORGANIZATION",
       {
         employeeId,
@@ -78,7 +82,7 @@ export class TerminationAlreadyExistsError extends TerminationError {
 
   constructor(employeeId: string) {
     super(
-      "Employee already has an active termination record",
+      "Funcionário já possui um registro de desligamento ativo",
       "TERMINATION_ALREADY_EXISTS",
       { employeeId }
     );

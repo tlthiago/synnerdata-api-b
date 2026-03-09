@@ -14,7 +14,7 @@ export class VacationNotFoundError extends VacationError {
   status = 404;
 
   constructor(vacationId: string) {
-    super(`Vacation not found: ${vacationId}`, "VACATION_NOT_FOUND", {
+    super(`Férias não encontradas: ${vacationId}`, "VACATION_NOT_FOUND", {
       vacationId,
     });
   }
@@ -24,11 +24,9 @@ export class VacationAlreadyDeletedError extends VacationError {
   status = 404;
 
   constructor(vacationId: string) {
-    super(
-      `Vacation already deleted: ${vacationId}`,
-      "VACATION_ALREADY_DELETED",
-      { vacationId }
-    );
+    super(`Férias já deletadas: ${vacationId}`, "VACATION_ALREADY_DELETED", {
+      vacationId,
+    });
   }
 }
 
@@ -37,7 +35,7 @@ export class VacationInvalidEmployeeError extends VacationError {
 
   constructor(employeeId: string) {
     super(
-      `Employee not found or not in organization: ${employeeId}`,
+      `Funcionário não encontrado ou não pertence à organização: ${employeeId}`,
       "VACATION_INVALID_EMPLOYEE",
       { employeeId }
     );
@@ -49,7 +47,7 @@ export class VacationInvalidDateRangeError extends VacationError {
 
   constructor(startDate: string, endDate: string) {
     super(
-      "Start date must be before or equal to end date",
+      "Data inicial deve ser anterior ou igual à data final",
       "VACATION_INVALID_DATE_RANGE",
       { startDate, endDate }
     );
@@ -93,7 +91,7 @@ export class VacationOverlapError extends VacationError {
 
   constructor(employeeId: string, startDate: string, endDate: string) {
     super(
-      "Employee already has a vacation overlapping this period",
+      "Funcionário já possui férias sobrepondo este período",
       "VACATION_OVERLAP",
       { employeeId, startDate, endDate }
     );

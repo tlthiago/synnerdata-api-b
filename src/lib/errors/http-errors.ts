@@ -6,7 +6,9 @@ export class NotFoundError extends AppError {
 
   constructor(resource: string, id?: string) {
     super(
-      id ? `${resource} with id '${id}' not found` : `${resource} not found`
+      id
+        ? `${resource} com id '${id}' não encontrado(a)`
+        : `${resource} não encontrado(a)`
     );
   }
 }
@@ -15,7 +17,7 @@ export class UnauthorizedError extends AppError {
   status = 401 as const;
   code = "UNAUTHORIZED";
 
-  constructor(message = "Authentication required") {
+  constructor(message = "Autenticação necessária") {
     super(message);
   }
 }
@@ -24,7 +26,7 @@ export class ForbiddenError extends AppError {
   status = 403 as const;
   code = "FORBIDDEN";
 
-  constructor(message = "Access denied") {
+  constructor(message = "Acesso negado") {
     super(message);
   }
 }
@@ -43,7 +45,7 @@ export class InternalError extends AppError {
   status = 500 as const;
   code = "INTERNAL_ERROR";
 
-  constructor(message = "An unexpected error occurred") {
+  constructor(message = "Ocorreu um erro inesperado") {
     super(message);
   }
 }
@@ -52,7 +54,7 @@ export class RateLimitedError extends AppError {
   status = 429 as const;
   code = "RATE_LIMITED";
 
-  constructor(message = "Too many requests") {
+  constructor(message = "Muitas requisições. Tente novamente mais tarde") {
     super(message);
   }
 }

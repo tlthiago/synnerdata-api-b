@@ -6,6 +6,7 @@ import { AuditService } from "@/modules/audit/audit.service";
 import type { CreateEmployee } from "@/modules/employees/employee.model";
 import { LimitsService } from "@/modules/payments/limits/limits.service";
 import {
+  FIELD_KEY_TO_HEADER,
   IMPORT_COLUMNS,
   MAX_IMPORT_ROWS,
   SHEET_NAME_EMPLOYEES,
@@ -208,11 +209,17 @@ export abstract class ImportService {
       },
     });
 
+    // 10. Translate field keys to PT-BR headers for user-facing errors
+    const translatedErrors = errors.map((err) => ({
+      ...err,
+      field: FIELD_KEY_TO_HEADER[err.field] ?? err.field,
+    }));
+
     return {
       total: rows.length,
       imported: validRows.length,
-      failed: errors.length,
-      errors,
+      failed: translatedErrors.length,
+      errors: translatedErrors,
     };
   }
 

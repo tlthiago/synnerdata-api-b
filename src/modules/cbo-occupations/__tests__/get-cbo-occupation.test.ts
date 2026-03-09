@@ -7,6 +7,7 @@ import { createTestUserWithOrganization } from "@/test/helpers/user";
 
 const BASE_URL = env.API_URL;
 
+const TEST_CBO_CODE = `99-${crypto.randomUUID().slice(0, 4)}`;
 const TEST_CBO_ID = `cbo-${crypto.randomUUID()}`;
 
 async function seedTestCboOccupation() {
@@ -14,7 +15,7 @@ async function seedTestCboOccupation() {
     .insert(cboOccupations)
     .values({
       id: TEST_CBO_ID,
-      code: "9999-99",
+      code: TEST_CBO_CODE,
       title: "Test CBO Occupation",
       familyCode: "9999",
       familyTitle: "Test CBO Family",
@@ -53,7 +54,7 @@ describe("GET /v1/cbo-occupations/:id", () => {
     const body = await response.json();
     expect(body.success).toBe(true);
     expect(body.data.id).toBe(TEST_CBO_ID);
-    expect(body.data.code).toBe("9999-99");
+    expect(body.data.code).toBe(TEST_CBO_CODE);
     expect(body.data.title).toBe("Test CBO Occupation");
     expect(body.data.familyCode).toBe("9999");
     expect(body.data.familyTitle).toBe("Test CBO Family");

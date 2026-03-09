@@ -14,7 +14,7 @@ export class WarningNotFoundError extends WarningError {
   status = 404;
 
   constructor(warningId: string) {
-    super(`Warning not found: ${warningId}`, "WARNING_NOT_FOUND", {
+    super(`Advertência não encontrada: ${warningId}`, "WARNING_NOT_FOUND", {
       warningId,
     });
   }
@@ -24,7 +24,7 @@ export class WarningAlreadyDeletedError extends WarningError {
   status = 404;
 
   constructor(warningId: string) {
-    super(`Warning already deleted: ${warningId}`, "WARNING_ALREADY_DELETED", {
+    super(`Advertência já deletada: ${warningId}`, "WARNING_ALREADY_DELETED", {
       warningId,
     });
   }
@@ -56,7 +56,7 @@ export class WarningDuplicateError extends WarningError {
 
   constructor(employeeId: string, date: string, type: string) {
     super(
-      `Employee already has a ${type} warning on ${date}`,
+      `Funcionário já possui uma advertência do tipo ${type} na data ${date}`,
       "WARNING_DUPLICATE",
       { employeeId, date, type }
     );
