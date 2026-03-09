@@ -180,13 +180,6 @@
     {
       "idx": 25,
       "version": "7",
-      "when": 1773057733713,
-      "tag": "0025_vacation_inline_periods",
-      "breakpoints": true
-    },
-    {
-      "idx": 26,
-      "version": "7",
       "when": 1773058070745,
       "tag": "0026_crazy_wendell_rand",
       "breakpoints": true
