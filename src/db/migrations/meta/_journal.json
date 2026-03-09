@@ -127,6 +127,69 @@
       "when": 1772570256721,
       "tag": "0017_nappy_micromacro",
       "breakpoints": true
+    },
+    {
+      "idx": 18,
+      "version": "7",
+      "when": 1772816318667,
+      "tag": "0018_good_warbound",
+      "breakpoints": true
+    },
+    {
+      "idx": 19,
+      "version": "7",
+      "when": 1772816385944,
+      "tag": "0019_chunky_vin_gonzales",
+      "breakpoints": true
+    },
+    {
+      "idx": 20,
+      "version": "7",
+      "when": 1772811939779,
+      "tag": "0020_third_selene",
+      "breakpoints": true
+    },
+    {
+      "idx": 21,
+      "version": "7",
+      "when": 1772820000000,
+      "tag": "0021_vacation_acquisition_periods",
+      "breakpoints": true
+    },
+    {
+      "idx": 22,
+      "version": "7",
+      "when": 1772870400000,
+      "tag": "0022_seed-cbo-occupations",
+      "breakpoints": true
+    },
+    {
+      "idx": 23,
+      "version": "7",
+      "when": 1772870500000,
+      "tag": "0023_disability-type-enum-and-health-insurance",
+      "breakpoints": true
+    },
+    {
+      "idx": 24,
+      "version": "7",
+      "when": 1772829707153,
+      "tag": "0024_eminent_scourge",
+      "breakpoints": true
+    },
+    {
+      "idx": 25,
+      "version": "7",
+      "when": 1773058070745,
+      "tag": "0026_crazy_wendell_rand",
+      "breakpoints": true
+    },
+    {
+      "idx": 26,
+      "version": "7",
+      "when": 1773069821829,
+      "tag": "0027_absurd_eternals",
+      "breakpoints": true
     }
   ]
 }

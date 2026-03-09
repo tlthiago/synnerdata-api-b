@@ -2,6 +2,7 @@ import { beforeAll, describe, expect, test } from "bun:test";
 import { env } from "@/env";
 import { createTestAbsence } from "@/test/helpers/absence";
 import { createTestApp, type TestApp } from "@/test/helpers/app";
+import { createTestEmployee } from "@/test/helpers/employee";
 import { createTestUserWithOrganization } from "@/test/helpers/user";
 
 const BASE_URL = env.API_URL;
@@ -82,5 +83,80 @@ describe("PUT /v1/absences/:id", () => {
     );
 
     expect(response.status).toBe(404);
+  });
+
+  test("should reject overlapping absence on update with same type", async () => {
+    const { headers, organizationId, user } =
+      await createTestUserWithOrganization({ emailVerified: true });
+    const { employee } = await createTestEmployee({
+      organizationId,
+      userId: user.id,
+    });
+
+    await createTestAbsence({
+      organizationId,
+      userId: user.id,
+      employeeId: employee.id,
+      startDate: "2024-06-01",
+      endDate: "2024-06-10",
+      type: "justified",
+    });
+
+    const absence2 = await createTestAbsence({
+      organizationId,
+      userId: user.id,
+      employeeId: employee.id,
+      startDate: "2024-06-20",
+      endDate: "2024-06-25",
+      type: "justified",
+    });
+
+    const response = await app.handle(
+      new Request(`${BASE_URL}/v1/absences/${absence2.id}`, {
+        method: "PUT",
+        headers: { ...headers, "Content-Type": "application/json" },
+        body: JSON.stringify({
+          startDate: "2024-06-05",
+          endDate: "2024-06-15",
+        }),
+      })
+    );
+
+    expect(response.status).toBe(409);
+    const body = await response.json();
+    expect(body.error.code).toBe("ABSENCE_OVERLAP");
+  });
+
+  test("should allow updating absence without overlap (same record)", async () => {
+    const { headers, organizationId, user } =
+      await createTestUserWithOrganization({ emailVerified: true });
+    const { employee } = await createTestEmployee({
+      organizationId,
+      userId: user.id,
+    });
+
+    const absence = await createTestAbsence({
+      organizationId,
+      userId: user.id,
+      employeeId: employee.id,
+      startDate: "2024-07-01",
+      endDate: "2024-07-10",
+      type: "justified",
+    });
+
+    const response = await app.handle(
+      new Request(`${BASE_URL}/v1/absences/${absence.id}`, {
+        method: "PUT",
+        headers: { ...headers, "Content-Type": "application/json" },
+        body: JSON.stringify({
+          startDate: "2024-07-02",
+          endDate: "2024-07-08",
+        }),
+      })
+    );
+
+    expect(response.status).toBe(200);
+    const body = await response.json();
+    expect(body.success).toBe(true);
   });
 });

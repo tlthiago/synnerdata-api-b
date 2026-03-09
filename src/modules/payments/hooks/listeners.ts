@@ -2,6 +2,7 @@ import { and, eq } from "drizzle-orm";
 import { db } from "@/db";
 import { schema } from "@/db/schema";
 import {
+  sendAdminCancellationNoticeEmail,
   sendCancellationScheduledEmail,
   sendPaymentFailedEmail,
   sendPriceAdjustmentEmail,
@@ -226,12 +227,6 @@ export function registerPaymentListeners() {
         return;
       }
 
-      // Unblock login
-      await db
-        .update(schema.users)
-        .set({ emailVerified: true })
-        .where(eq(schema.users.id, provision.userId));
-
       // Transition status
       await db
         .update(schema.adminOrgProvisions)
@@ -282,6 +277,56 @@ export function registerPaymentListeners() {
       logger.error({
         type: "payment:listener:error",
         event: "subscription.cancelScheduled",
+        error: error instanceof Error ? error.message : String(error),
+      });
+    }
+  });
+
+  // subscription.cancelScheduled → sendAdminCancellationNoticeEmail
+  PaymentHooks.on("subscription.cancelScheduled", async (payload) => {
+    try {
+      const { subscription } = payload;
+      const ownerEmail = await getOrganizationOwnerEmail(
+        subscription.organizationId
+      );
+      if (!ownerEmail) {
+        return;
+      }
+
+      const orgName = await getOrganizationName(subscription.organizationId);
+      const planName = await getPlanDisplayName(subscription.planId);
+      if (!planName) {
+        return;
+      }
+
+      const cancelReasonLabels: Record<string, string> = {
+        too_expensive: "Muito caro",
+        not_using_enough: "Não uso o suficiente",
+        missing_features: "Funcionalidades faltando",
+        switching_to_competitor: "Mudando para concorrente",
+        company_closing: "Empresa encerrando",
+        temporary_pause: "Pausa temporária",
+        bad_experience: "Experiência ruim",
+        other: "Outro",
+      };
+
+      const reasonLabel = subscription.cancelReason
+        ? (cancelReasonLabels[subscription.cancelReason] ??
+          subscription.cancelReason)
+        : undefined;
+
+      await sendAdminCancellationNoticeEmail({
+        organizationName: orgName ?? "Organização desconhecida",
+        planName,
+        ownerEmail,
+        canceledAt: subscription.canceledAt ?? new Date(),
+        reason: reasonLabel,
+        comment: subscription.cancelComment ?? undefined,
+      });
+    } catch (error) {
+      logger.error({
+        type: "payment:listener:error",
+        event: "subscription.cancelScheduled:admin-notice",
         error: error instanceof Error ? error.message : String(error),
       });
     }

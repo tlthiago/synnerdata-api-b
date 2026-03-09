@@ -1,4 +1,7 @@
 import { beforeAll, describe, expect, test } from "bun:test";
+import { eq } from "drizzle-orm";
+import { db } from "@/db";
+import { schema } from "@/db/schema";
 import { env } from "@/env";
 import { createTestApp, type TestApp } from "@/test/helpers/app";
 import { createTestEmployee } from "@/test/helpers/employee";
@@ -236,6 +239,149 @@ describe("POST /v1/warnings", () => {
     expect(body.data.type).toBe(validWarningData.type);
     expect(body.data.reason).toBe(validWarningData.reason);
     expect(body.data.acknowledged).toBe(false);
+  });
+
+  test("should reject duplicate warning with same date and type", async () => {
+    const { headers, organizationId, user } =
+      await createTestUserWithOrganization({
+        emailVerified: true,
+      });
+
+    const { employee } = await createTestEmployee({
+      organizationId,
+      userId: user.id,
+    });
+
+    const warningData = {
+      employeeId: employee.id,
+      date: "2024-03-10",
+      type: "written",
+      reason: "First warning",
+    };
+
+    const first = await app.handle(
+      new Request(`${BASE_URL}/v1/warnings`, {
+        method: "POST",
+        headers: { ...headers, "Content-Type": "application/json" },
+        body: JSON.stringify(warningData),
+      })
+    );
+    expect(first.status).toBe(200);
+
+    const second = await app.handle(
+      new Request(`${BASE_URL}/v1/warnings`, {
+        method: "POST",
+        headers: { ...headers, "Content-Type": "application/json" },
+        body: JSON.stringify({ ...warningData, reason: "Second warning" }),
+      })
+    );
+    expect(second.status).toBe(409);
+    const body = await second.json();
+    expect(body.error.code).toBe("WARNING_DUPLICATE");
+  });
+
+  test("should allow same date with different type", async () => {
+    const { headers, organizationId, user } =
+      await createTestUserWithOrganization({
+        emailVerified: true,
+      });
+
+    const { employee } = await createTestEmployee({
+      organizationId,
+      userId: user.id,
+    });
+
+    const first = await app.handle(
+      new Request(`${BASE_URL}/v1/warnings`, {
+        method: "POST",
+        headers: { ...headers, "Content-Type": "application/json" },
+        body: JSON.stringify({
+          employeeId: employee.id,
+          date: "2024-04-10",
+          type: "verbal",
+          reason: "Verbal warning",
+        }),
+      })
+    );
+    expect(first.status).toBe(200);
+
+    const second = await app.handle(
+      new Request(`${BASE_URL}/v1/warnings`, {
+        method: "POST",
+        headers: { ...headers, "Content-Type": "application/json" },
+        body: JSON.stringify({
+          employeeId: employee.id,
+          date: "2024-04-10",
+          type: "written",
+          reason: "Written warning",
+        }),
+      })
+    );
+    expect(second.status).toBe(200);
+  });
+
+  test("should reject warning for TERMINATED employee", async () => {
+    const { headers, organizationId, user } =
+      await createTestUserWithOrganization({
+        emailVerified: true,
+      });
+
+    const { employee } = await createTestEmployee({
+      organizationId,
+      userId: user.id,
+    });
+
+    await db
+      .update(schema.employees)
+      .set({ status: "TERMINATED" })
+      .where(eq(schema.employees.id, employee.id));
+
+    const response = await app.handle(
+      new Request(`${BASE_URL}/v1/warnings`, {
+        method: "POST",
+        headers: { ...headers, "Content-Type": "application/json" },
+        body: JSON.stringify({
+          ...validWarningData,
+          employeeId: employee.id,
+        }),
+      })
+    );
+
+    expect(response.status).toBe(422);
+    const body = await response.json();
+    expect(body.error.code).toBe("EMPLOYEE_TERMINATED");
+  });
+
+  test("should reject warning for ON_VACATION employee", async () => {
+    const { headers, organizationId, user } =
+      await createTestUserWithOrganization({
+        emailVerified: true,
+      });
+
+    const { employee } = await createTestEmployee({
+      organizationId,
+      userId: user.id,
+    });
+
+    await db
+      .update(schema.employees)
+      .set({ status: "ON_VACATION" })
+      .where(eq(schema.employees.id, employee.id));
+
+    const response = await app.handle(
+      new Request(`${BASE_URL}/v1/warnings`, {
+        method: "POST",
+        headers: { ...headers, "Content-Type": "application/json" },
+        body: JSON.stringify({
+          ...validWarningData,
+          employeeId: employee.id,
+        }),
+      })
+    );
+
+    expect(response.status).toBe(422);
+    const body = await response.json();
+    expect(body.error.code).toBe("EMPLOYEE_ON_VACATION");
   });
 
   test.each([

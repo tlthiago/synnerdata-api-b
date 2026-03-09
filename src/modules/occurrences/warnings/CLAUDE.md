@@ -10,6 +10,8 @@ Registro de advertências e suspensões disciplinares.
 - `acknowledgedAt` não pode ser no futuro
 - `acknowledgedAt` não pode ser anterior a `date`
 - `acknowledgedAt` convertido de string para Date no service
+- Duplicate check no create: mesmo employee + mesma `date` + mesmo `type` lança `WarningDuplicateError`
+- Employee deve estar ativo no create (`ensureEmployeeActive` — rejeita TERMINATED e ON_VACATION)
 - Listagem ordenada por `date`
 
 ## Enums
@@ -30,3 +32,6 @@ Registro de advertências e suspensões disciplinares.
 - `WarningAlreadyDeletedError` (404)
 - `WarningInvalidEmployeeError` (422)
 - `WarningAcknowledgedBeforeDateError` (422)
+- `WarningDuplicateError` (409) — same employee + date + type
+- `EmployeeTerminatedError` (422) — shared, from `src/lib/errors/employee-status-errors.ts`
+- `EmployeeOnVacationError` (422) — shared, from `src/lib/errors/employee-status-errors.ts`

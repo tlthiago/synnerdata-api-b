@@ -22,7 +22,7 @@ export async function createTestCostCenter(
     userId,
     name:
       name ??
-      faker.helpers.arrayElement([
+      `${faker.helpers.arrayElement([
         "Administrativo",
         "Operacional",
         "Comercial",
@@ -38,7 +38,7 @@ export async function createTestCostCenter(
         "Controladoria",
         "Compliance",
         "Inovação",
-      ]),
+      ])} ${crypto.randomUUID().slice(0, 8)}`,
   });
 }
 

@@ -1,6 +1,10 @@
 import { beforeAll, describe, expect, test } from "bun:test";
+import { eq } from "drizzle-orm";
+import { db } from "@/db";
+import { schema } from "@/db/schema";
 import { env } from "@/env";
 import { createTestApp, type TestApp } from "@/test/helpers/app";
+import { createTestCpfAnalysis } from "@/test/helpers/cpf-analysis";
 import { createTestEmployee } from "@/test/helpers/employee";
 import {
   createTestUser,
@@ -300,5 +304,100 @@ describe("POST /v1/cpf-analyses", () => {
     const body = await response.json();
     expect(body.success).toBe(true);
     expect(body.data.id).toStartWith("cpf-analysis-");
+  });
+
+  test("should return 409 when creating duplicate employee+date", async () => {
+    const { headers, organizationId, userId } =
+      await createTestUserWithOrganization({ emailVerified: true });
+
+    const { employee } = await createTestEmployee({
+      organizationId,
+      userId,
+    });
+
+    await createTestCpfAnalysis({
+      organizationId,
+      userId,
+      employeeId: employee.id,
+      analysisDate: "2024-06-15",
+    });
+
+    const response = await app.handle(
+      new Request(`${BASE_URL}/v1/cpf-analyses`, {
+        method: "POST",
+        headers: { ...headers, "Content-Type": "application/json" },
+        body: JSON.stringify({
+          employeeId: employee.id,
+          analysisDate: "2024-06-15",
+          status: "pending",
+        }),
+      })
+    );
+
+    expect(response.status).toBe(409);
+    const body = await response.json();
+    expect(body.error.code).toBe("CPF_ANALYSIS_DUPLICATE_DATE");
+  });
+
+  test("should return 422 when employee is TERMINATED", async () => {
+    const { headers, organizationId, userId } =
+      await createTestUserWithOrganization({ emailVerified: true });
+
+    const { employee } = await createTestEmployee({
+      organizationId,
+      userId,
+    });
+
+    await db
+      .update(schema.employees)
+      .set({ status: "TERMINATED" })
+      .where(eq(schema.employees.id, employee.id));
+
+    const response = await app.handle(
+      new Request(`${BASE_URL}/v1/cpf-analyses`, {
+        method: "POST",
+        headers: { ...headers, "Content-Type": "application/json" },
+        body: JSON.stringify({
+          employeeId: employee.id,
+          analysisDate: "2024-01-01",
+          status: "pending",
+        }),
+      })
+    );
+
+    expect(response.status).toBe(422);
+    const body = await response.json();
+    expect(body.error.code).toBe("EMPLOYEE_TERMINATED");
+  });
+
+  test("should return 422 when employee is ON_VACATION", async () => {
+    const { headers, organizationId, userId } =
+      await createTestUserWithOrganization({ emailVerified: true });
+
+    const { employee } = await createTestEmployee({
+      organizationId,
+      userId,
+    });
+
+    await db
+      .update(schema.employees)
+      .set({ status: "ON_VACATION" })
+      .where(eq(schema.employees.id, employee.id));
+
+    const response = await app.handle(
+      new Request(`${BASE_URL}/v1/cpf-analyses`, {
+        method: "POST",
+        headers: { ...headers, "Content-Type": "application/json" },
+        body: JSON.stringify({
+          employeeId: employee.id,
+          analysisDate: "2024-01-01",
+          status: "pending",
+        }),
+      })
+    );
+
+    expect(response.status).toBe(422);
+    const body = await response.json();
+    expect(body.error.code).toBe("EMPLOYEE_ON_VACATION");
   });
 });

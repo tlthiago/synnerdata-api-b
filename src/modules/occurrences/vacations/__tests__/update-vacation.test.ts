@@ -153,7 +153,8 @@ describe("PUT /v1/vacations/:id", () => {
       organizationId,
       userId: user.id,
       employeeId: employee.id,
-      daysTotal: 30,
+      startDate: "2025-01-01",
+      endDate: "2025-01-30",
       daysUsed: 0,
       status: "scheduled",
     });
@@ -180,9 +181,10 @@ describe("PUT /v1/vacations/:id", () => {
     expect(body.data.employee).toBeObject();
     expect(body.data.employee.id).toBeString();
     expect(body.data.employee.name).toBeString();
+    expect(body.data.daysEntitled).toBeNumber();
   });
 
-  test("should reject future acquisitionPeriodStart on update", async () => {
+  test("should update period fields", async () => {
     const { headers, organizationId, user } =
       await createTestUserWithOrganization({
         emailVerified: true,
@@ -197,22 +199,59 @@ describe("PUT /v1/vacations/:id", () => {
       organizationId,
       userId: user.id,
       employeeId: employee.id,
+      startDate: "2025-01-01",
+      endDate: "2025-01-30",
+      daysUsed: 0,
     });
-
-    const futureDate = new Date();
-    futureDate.setDate(futureDate.getDate() + 10);
-    const futureDateStr = futureDate.toISOString().split("T")[0];
 
     const response = await app.handle(
       new Request(`${BASE_URL}/v1/vacations/${vacation.id}`, {
         method: "PUT",
-        headers: {
-          ...headers,
-          "Content-Type": "application/json",
-        },
+        headers: { ...headers, "Content-Type": "application/json" },
         body: JSON.stringify({
-          acquisitionPeriodStart: futureDateStr,
+          acquisitionPeriodStart: "2023-01-01",
+          acquisitionPeriodEnd: "2023-12-31",
+          concessivePeriodStart: "2024-01-01",
+          concessivePeriodEnd: "2024-12-31",
         }),
+      })
+    );
+
+    expect(response.status).toBe(200);
+    const body = await response.json();
+    expect(body.success).toBe(true);
+    expect(body.data.acquisitionPeriodStart).toBe("2023-01-01");
+    expect(body.data.acquisitionPeriodEnd).toBe("2023-12-31");
+    expect(body.data.concessivePeriodStart).toBe("2024-01-01");
+    expect(body.data.concessivePeriodEnd).toBe("2024-12-31");
+  });
+
+  test("should reject when daysUsed exceeds daysEntitled on update", async () => {
+    const { headers, organizationId, user } =
+      await createTestUserWithOrganization({
+        emailVerified: true,
+      });
+
+    const { employee } = await createTestEmployee({
+      organizationId,
+      userId: user.id,
+    });
+
+    const vacation = await createTestVacation({
+      organizationId,
+      userId: user.id,
+      employeeId: employee.id,
+      startDate: "2025-01-01",
+      endDate: "2025-01-30",
+      daysEntitled: 30,
+      daysUsed: 0,
+    });
+
+    const response = await app.handle(
+      new Request(`${BASE_URL}/v1/vacations/${vacation.id}`, {
+        method: "PUT",
+        headers: { ...headers, "Content-Type": "application/json" },
+        body: JSON.stringify({ daysUsed: 31 }),
       })
     );
 
@@ -236,7 +275,8 @@ describe("PUT /v1/vacations/:id", () => {
       organizationId,
       userId: user.id,
       employeeId: employee.id,
-      daysTotal: 30,
+      startDate: "2025-01-01",
+      endDate: "2025-01-30",
       daysUsed: 0,
     });
 
@@ -261,5 +301,91 @@ describe("PUT /v1/vacations/:id", () => {
     const body = await response.json();
     expect(body.success).toBe(true);
     expect(body.data.daysUsed).toBe(5);
+  });
+
+  test("should reject overlapping vacation on update", async () => {
+    const { headers, organizationId, user } =
+      await createTestUserWithOrganization({
+        emailVerified: true,
+      });
+
+    const { employee } = await createTestEmployee({
+      organizationId,
+      userId: user.id,
+    });
+
+    await createTestVacation({
+      organizationId,
+      userId: user.id,
+      employeeId: employee.id,
+      startDate: "2025-06-01",
+      endDate: "2025-06-15",
+      daysUsed: 0,
+      status: "scheduled",
+    });
+
+    const vacation2 = await createTestVacation({
+      organizationId,
+      userId: user.id,
+      employeeId: employee.id,
+      startDate: "2025-06-20",
+      endDate: "2025-06-30",
+      daysUsed: 0,
+      status: "scheduled",
+    });
+
+    const response = await app.handle(
+      new Request(`${BASE_URL}/v1/vacations/${vacation2.id}`, {
+        method: "PUT",
+        headers: { ...headers, "Content-Type": "application/json" },
+        body: JSON.stringify({
+          startDate: "2025-06-10",
+          endDate: "2025-06-20",
+        }),
+      })
+    );
+
+    expect(response.status).toBe(409);
+    const body = await response.json();
+    expect(body.error.code).toBe("VACATION_OVERLAP");
+  });
+
+  test("should allow updating vacation without overlap (same record)", async () => {
+    const { headers, organizationId, user } =
+      await createTestUserWithOrganization({
+        emailVerified: true,
+      });
+
+    const { employee } = await createTestEmployee({
+      organizationId,
+      userId: user.id,
+    });
+
+    const vacation = await createTestVacation({
+      organizationId,
+      userId: user.id,
+      employeeId: employee.id,
+      startDate: "2025-07-01",
+      endDate: "2025-07-15",
+      daysUsed: 0,
+      status: "scheduled",
+    });
+
+    const response = await app.handle(
+      new Request(`${BASE_URL}/v1/vacations/${vacation.id}`, {
+        method: "PUT",
+        headers: { ...headers, "Content-Type": "application/json" },
+        body: JSON.stringify({
+          startDate: "2025-07-02",
+          endDate: "2025-07-11",
+          daysEntitled: 10,
+          daysUsed: 0,
+        }),
+      })
+    );
+
+    expect(response.status).toBe(200);
+    const body = await response.json();
+    expect(body.success).toBe(true);
   });
 });

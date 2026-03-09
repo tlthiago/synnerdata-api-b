@@ -13,6 +13,7 @@ import {
   listOrganizationsQuerySchema,
   listOrganizationsResponseSchema,
   organizationIdParamSchema,
+  parseSubscriptionStatus,
   updatePowerBiUrlResponseSchema,
   updatePowerBiUrlSchema,
 } from "./admin-organization.model";
@@ -32,6 +33,7 @@ export const adminOrganizationsController = new Elysia({
           page: query.page,
           limit: query.limit,
           search: query.search,
+          subscriptionStatus: parseSubscriptionStatus(query.subscriptionStatus),
         })
       ),
     {

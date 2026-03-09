@@ -132,6 +132,12 @@ describe("GET /v1/payments/price-adjustments/subscriptions/:subscriptionId/histo
     expect(firstItem.organizationId).toBe(organization.id);
     expect(firstItem.adjustmentType).toBe("individual");
     expect(firstItem.reason).toBe("Test adjustment 3");
+
+    // GAP 10: createdAt should be a valid ISO string
+    for (const item of body.data) {
+      expect(typeof item.createdAt).toBe("string");
+      expect(new Date(item.createdAt).toISOString()).toBe(item.createdAt);
+    }
   });
 
   test("should respect pagination query params (page, limit)", async () => {
@@ -213,5 +219,86 @@ describe("GET /v1/payments/price-adjustments/subscriptions/:subscriptionId/histo
     expect(responsePage3.status).toBe(200);
     const bodyPage3 = await responsePage3.json();
     expect(bodyPage3.data).toHaveLength(1);
+  });
+});
+
+describe("PriceAdjustmentService.getHistory (service-level, GAP 11)", () => {
+  // Import inline to avoid hoisting issues
+  const { PriceAdjustmentService } =
+    require("../price-adjustment.service") as typeof import("../price-adjustment.service");
+
+  test("should calculate offset correctly for different pages", async () => {
+    const organization = await createTestOrganization();
+    const { plan, tiers } = await PlanFactory.createPaid("gold");
+    const tier = PlanFactory.getFirstTier({ plan, tiers });
+
+    const subscriptionId = await SubscriptionFactory.createActive(
+      organization.id,
+      plan.id,
+      { pricingTierId: tier.id }
+    );
+
+    const adminResult = await createTestAdminUser();
+
+    // Insert 4 records with distinct timestamps
+    for (let i = 0; i < 4; i++) {
+      await db.insert(schema.priceAdjustments).values({
+        id: `price-adj-${crypto.randomUUID()}`,
+        subscriptionId,
+        organizationId: organization.id,
+        oldPrice: 5000 + i * 1000,
+        newPrice: 6000 + i * 1000,
+        reason: `Service test ${i + 1}`,
+        adjustmentType: "individual",
+        billingCycle: "monthly",
+        pricingTierId: tier.id,
+        adminId: adminResult.user.id,
+        createdAt: new Date(Date.now() - (3 - i) * 60_000),
+      });
+    }
+
+    // Page 1, limit 2
+    const page1 = await PriceAdjustmentService.getHistory({
+      subscriptionId,
+      page: 1,
+      limit: 2,
+    });
+
+    expect(page1.data).toHaveLength(2);
+    expect(page1.pagination.total).toBe(4);
+    expect(page1.pagination.offset).toBe(0);
+    expect(page1.pagination.limit).toBe(2);
+    // Most recent first
+    expect(page1.data[0].reason).toBe("Service test 4");
+    expect(page1.data[1].reason).toBe("Service test 3");
+
+    // Page 2, limit 2
+    const page2 = await PriceAdjustmentService.getHistory({
+      subscriptionId,
+      page: 2,
+      limit: 2,
+    });
+
+    expect(page2.data).toHaveLength(2);
+    expect(page2.pagination.offset).toBe(2);
+    expect(page2.data[0].reason).toBe("Service test 2");
+    expect(page2.data[1].reason).toBe("Service test 1");
+
+    // Page 3, limit 2 — beyond data
+    const page3 = await PriceAdjustmentService.getHistory({
+      subscriptionId,
+      page: 3,
+      limit: 2,
+    });
+
+    expect(page3.data).toHaveLength(0);
+    expect(page3.pagination.total).toBe(4);
+    expect(page3.pagination.offset).toBe(4);
+
+    // GAP 10: createdAt should be ISO string at service level
+    for (const item of page1.data) {
+      expect(typeof item.createdAt).toBe("string");
+      expect(new Date(item.createdAt).toISOString()).toBe(item.createdAt);
+    }
   });
 });

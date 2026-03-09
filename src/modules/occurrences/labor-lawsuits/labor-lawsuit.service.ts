@@ -1,11 +1,13 @@
 import { and, desc, eq, isNull } from "drizzle-orm";
 import { db } from "@/db";
 import { schema } from "@/db/schema";
+import { ensureEmployeeNotTerminated } from "@/lib/helpers/employee-status";
 import {
   LaborLawsuitAlreadyDeletedError,
   LaborLawsuitEmployeeNotFoundError,
   LaborLawsuitInvalidDateOrderError,
   LaborLawsuitNotFoundError,
+  LaborLawsuitProcessNumberAlreadyExistsError,
 } from "./errors";
 import type {
   CreateLaborLawsuitInput,
@@ -174,6 +176,26 @@ export abstract class LaborLawsuitService {
     }
   }
 
+  private static async ensureProcessNumberNotExists(
+    processNumber: string,
+    excludeId?: string
+  ): Promise<void> {
+    const [existing] = await db
+      .select({ id: schema.laborLawsuits.id })
+      .from(schema.laborLawsuits)
+      .where(
+        and(
+          eq(schema.laborLawsuits.processNumber, processNumber),
+          isNull(schema.laborLawsuits.deletedAt)
+        )
+      )
+      .limit(1);
+
+    if (existing && existing.id !== excludeId) {
+      throw new LaborLawsuitProcessNumberAlreadyExistsError(processNumber);
+    }
+  }
+
   static async create(
     input: CreateLaborLawsuitInput
   ): Promise<LaborLawsuitData> {
@@ -183,6 +205,9 @@ export abstract class LaborLawsuitService {
       data.employeeId,
       organizationId
     );
+
+    await ensureEmployeeNotTerminated(data.employeeId, organizationId);
+    await LaborLawsuitService.ensureProcessNumberNotExists(data.processNumber);
 
     const lawsuitId = `labor-lawsuit-${crypto.randomUUID()}`;
 
@@ -368,6 +393,13 @@ export abstract class LaborLawsuitService {
         effectiveFilingDate,
         effectiveKnowledgeDate,
         effectiveConclusionDate
+      );
+    }
+
+    if (data.processNumber && data.processNumber !== existing.processNumber) {
+      await LaborLawsuitService.ensureProcessNumberNotExists(
+        data.processNumber,
+        id
       );
     }
 

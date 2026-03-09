@@ -6,10 +6,12 @@ type VacationOverrides = {
   employeeId?: string;
   startDate?: string;
   endDate?: string;
-  daysTotal?: number;
-  daysUsed?: number;
   acquisitionPeriodStart?: string;
   acquisitionPeriodEnd?: string;
+  concessivePeriodStart?: string;
+  concessivePeriodEnd?: string;
+  daysEntitled?: number;
+  daysUsed?: number;
   status?: "scheduled" | "in_progress" | "completed" | "canceled";
   notes?: string;
 };
@@ -20,44 +22,40 @@ type CreateTestVacationOptions = {
   employeeId: string;
 } & VacationOverrides;
 
-function generateVacationDates() {
-  const acquisitionStart = faker.date.past({ years: 1 });
-  const acquisitionEnd = new Date(acquisitionStart);
-  acquisitionEnd.setFullYear(acquisitionEnd.getFullYear() + 1);
-
-  const startDate = faker.date.future({ years: 1, refDate: new Date() });
-  const endDate = new Date(startDate);
-  endDate.setDate(endDate.getDate() + faker.number.int({ min: 5, max: 30 }));
-
-  return {
-    acquisitionPeriodStart: acquisitionStart.toISOString().split("T")[0],
-    acquisitionPeriodEnd: acquisitionEnd.toISOString().split("T")[0],
-    startDate: startDate.toISOString().split("T")[0],
-    endDate: endDate.toISOString().split("T")[0],
-  };
-}
-
-export function createTestVacation(
+export async function createTestVacation(
   options: CreateTestVacationOptions
 ): Promise<VacationData> {
   const { organizationId, userId, employeeId, ...overrides } = options;
 
-  const dates = generateVacationDates();
-  const daysTotal = overrides.daysTotal ?? 30;
-  const daysUsed = overrides.daysUsed ?? 0;
+  const startDate =
+    overrides.startDate ??
+    faker.date.future({ years: 1 }).toISOString().split("T")[0];
+  const endDate =
+    overrides.endDate ??
+    (() => {
+      const d = new Date(startDate);
+      d.setDate(d.getDate() + faker.number.int({ min: 5, max: 30 }));
+      return d.toISOString().split("T")[0];
+    })();
 
-  return VacationService.create({
+  return await VacationService.create({
     organizationId,
     userId,
     employeeId,
-    startDate: overrides.startDate ?? dates.startDate,
-    endDate: overrides.endDate ?? dates.endDate,
-    daysTotal,
-    daysUsed,
-    acquisitionPeriodStart:
-      overrides.acquisitionPeriodStart ?? dates.acquisitionPeriodStart,
-    acquisitionPeriodEnd:
-      overrides.acquisitionPeriodEnd ?? dates.acquisitionPeriodEnd,
+    startDate,
+    endDate,
+    acquisitionPeriodStart: overrides.acquisitionPeriodStart,
+    acquisitionPeriodEnd: overrides.acquisitionPeriodEnd,
+    concessivePeriodStart: overrides.concessivePeriodStart,
+    concessivePeriodEnd: overrides.concessivePeriodEnd,
+    daysEntitled:
+      overrides.daysEntitled ??
+      Math.round(
+        (new Date(`${endDate}T00:00:00Z`).getTime() -
+          new Date(`${startDate}T00:00:00Z`).getTime()) /
+          (1000 * 60 * 60 * 24)
+      ) + 1,
+    daysUsed: overrides.daysUsed ?? 0,
     status: overrides.status ?? "scheduled",
     notes: overrides.notes,
   });

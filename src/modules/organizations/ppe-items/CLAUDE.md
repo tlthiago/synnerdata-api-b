@@ -5,6 +5,7 @@ Catálogo de Equipamentos de Proteção Individual com associação a cargos.
 ## Business Rules
 
 - `name` (1-100), `description` (1-500), `equipment` (1-500) — obrigatórios
+- Combinação `name` + `equipment` é única por organização (case-insensitive, soft-delete-aware)
 - M2M com job positions via `ppeJobPositions` (soft delete independente)
 - Não pode associar mesmo cargo duas vezes (409)
 - Não pode associar/desassociar de item deletado
@@ -23,6 +24,7 @@ Catálogo de Equipamentos de Proteção Individual com associação a cargos.
 ## Errors
 
 - `PpeItemNotFoundError` (404)
+- `PpeItemAlreadyExistsError` (409)
 - `PpeItemAlreadyDeletedError` (404)
 - `PpeJobPositionNotFoundError` (404)
 - `PpeJobPositionAlreadyExistsError` (409)

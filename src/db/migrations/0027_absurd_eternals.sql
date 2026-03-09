@@ -1,0 +1,1 @@
+ALTER TABLE "vacations" ALTER COLUMN "days_entitled" DROP DEFAULT;

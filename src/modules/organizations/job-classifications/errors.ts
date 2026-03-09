@@ -28,6 +28,18 @@ export class JobClassificationNotFoundError extends JobClassificationError {
   }
 }
 
+export class JobClassificationAlreadyExistsError extends JobClassificationError {
+  status = 409;
+
+  constructor(name: string) {
+    super(
+      `A job classification with the name "${name}" already exists`,
+      "JOB_CLASSIFICATION_ALREADY_EXISTS",
+      { name }
+    );
+  }
+}
+
 export class JobClassificationAlreadyDeletedError extends JobClassificationError {
   status = 404;
 
@@ -38,6 +50,18 @@ export class JobClassificationAlreadyDeletedError extends JobClassificationError
       {
         jobClassificationId,
       }
+    );
+  }
+}
+
+export class InvalidCboOccupationError extends JobClassificationError {
+  status = 422;
+
+  constructor(cboOccupationId: string) {
+    super(
+      `CBO occupation not found: ${cboOccupationId}`,
+      "INVALID_CBO_OCCUPATION",
+      { cboOccupationId }
     );
   }
 }

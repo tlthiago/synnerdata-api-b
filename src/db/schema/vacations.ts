@@ -31,11 +31,13 @@ export const vacations = pgTable(
 
     startDate: date("start_date").notNull(),
     endDate: date("end_date").notNull(),
-    daysTotal: integer("days_total").notNull(),
     daysUsed: integer("days_used").notNull(),
 
-    acquisitionPeriodStart: date("acquisition_period_start").notNull(),
-    acquisitionPeriodEnd: date("acquisition_period_end").notNull(),
+    acquisitionPeriodStart: date("acquisition_period_start"),
+    acquisitionPeriodEnd: date("acquisition_period_end"),
+    concessivePeriodStart: date("concessive_period_start"),
+    concessivePeriodEnd: date("concessive_period_end"),
+    daysEntitled: integer("days_entitled").notNull(),
 
     status: vacationStatusEnum("status").default("scheduled").notNull(),
     notes: text("notes"),

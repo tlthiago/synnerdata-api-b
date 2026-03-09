@@ -1,8 +1,9 @@
-import { and, eq, isNull } from "drizzle-orm";
+import { and, eq, isNull, sql } from "drizzle-orm";
 import { db } from "@/db";
 import { schema } from "@/db/schema";
 import {
   JobPositionAlreadyDeletedError,
+  JobPositionAlreadyExistsError,
   JobPositionNotFoundError,
 } from "./errors";
 import type {
@@ -13,6 +14,28 @@ import type {
 } from "./job-position.model";
 
 export abstract class JobPositionService {
+  private static async ensureNameNotExists(
+    organizationId: string,
+    name: string,
+    excludeId?: string
+  ): Promise<void> {
+    const [existing] = await db
+      .select({ id: schema.jobPositions.id })
+      .from(schema.jobPositions)
+      .where(
+        and(
+          eq(schema.jobPositions.organizationId, organizationId),
+          sql`lower(${schema.jobPositions.name}) = lower(${name})`,
+          isNull(schema.jobPositions.deletedAt)
+        )
+      )
+      .limit(1);
+
+    if (existing && existing.id !== excludeId) {
+      throw new JobPositionAlreadyExistsError(name);
+    }
+  }
+
   private static async findById(
     id: string,
     organizationId: string
@@ -52,6 +75,8 @@ export abstract class JobPositionService {
 
   static async create(input: CreateJobPositionInput): Promise<JobPositionData> {
     const { organizationId, userId, ...data } = input;
+
+    await JobPositionService.ensureNameNotExists(organizationId, data.name);
 
     const jobPositionId = `job-position-${crypto.randomUUID()}`;
 
@@ -105,6 +130,14 @@ export abstract class JobPositionService {
     const existing = await JobPositionService.findById(id, organizationId);
     if (!existing) {
       throw new JobPositionNotFoundError(id);
+    }
+
+    if (data.name !== undefined) {
+      await JobPositionService.ensureNameNotExists(
+        organizationId,
+        data.name,
+        id
+      );
     }
 
     const [updated] = await db

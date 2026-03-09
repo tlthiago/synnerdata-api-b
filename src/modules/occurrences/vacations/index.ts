@@ -3,6 +3,7 @@ import { isProduction } from "@/env";
 import { betterAuthPlugin } from "@/lib/auth-plugin";
 import { wrapSuccess } from "@/lib/responses/envelope";
 import {
+  conflictErrorSchema,
   forbiddenErrorSchema,
   notFoundErrorSchema,
   unauthorizedErrorSchema,
@@ -12,6 +13,7 @@ import {
   createVacationResponseSchema,
   createVacationSchema,
   deleteVacationResponseSchema,
+  employeeIdParamSchema,
   getVacationResponseSchema,
   idParamSchema,
   listVacationsResponseSchema,
@@ -46,6 +48,7 @@ export const vacationController = new Elysia({
         200: createVacationResponseSchema,
         401: unauthorizedErrorSchema,
         403: forbiddenErrorSchema,
+        409: conflictErrorSchema,
         422: validationErrorSchema,
       },
       detail: {
@@ -74,6 +77,33 @@ export const vacationController = new Elysia({
       detail: {
         summary: "List vacations",
         description: "Lists all vacations for the active organization",
+      },
+    }
+  )
+  .get(
+    "/employee/:employeeId",
+    async ({ session, params }) =>
+      wrapSuccess(
+        await VacationService.findByEmployee(
+          session.activeOrganizationId as string,
+          params.employeeId
+        )
+      ),
+    {
+      auth: {
+        permissions: { vacation: ["read"] },
+        requireOrganization: true,
+      },
+      params: employeeIdParamSchema,
+      response: {
+        200: listVacationsResponseSchema,
+        401: unauthorizedErrorSchema,
+        403: forbiddenErrorSchema,
+      },
+      detail: {
+        summary: "List vacations by employee",
+        description:
+          "Lists all vacations for a specific employee in the active organization",
       },
     }
   )
@@ -130,6 +160,7 @@ export const vacationController = new Elysia({
         401: unauthorizedErrorSchema,
         403: forbiddenErrorSchema,
         404: notFoundErrorSchema,
+        409: conflictErrorSchema,
         422: validationErrorSchema,
       },
       detail: {

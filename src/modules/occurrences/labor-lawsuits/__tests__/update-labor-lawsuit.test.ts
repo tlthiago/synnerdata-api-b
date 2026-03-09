@@ -301,4 +301,49 @@ describe("PUT /v1/labor-lawsuits/:id", () => {
     const body = await response.json();
     expect(body.data.progress).toBe("Atualizado pelo gerente");
   });
+
+  test("should return 409 when changing to existing processNumber", async () => {
+    const { createTestEmployee: createEmp } = await import(
+      "@/test/helpers/employee"
+    );
+
+    const { headers, organizationId, user } =
+      await createTestUserWithOrganization({
+        emailVerified: true,
+      });
+
+    const { employee } = await createEmp({
+      organizationId,
+      userId: user.id,
+    });
+
+    const lawsuit1 = await createTestLaborLawsuit({
+      organizationId,
+      userId: user.id,
+      employeeId: employee.id,
+    });
+
+    const lawsuit2 = await createTestLaborLawsuit({
+      organizationId,
+      userId: user.id,
+      employeeId: employee.id,
+    });
+
+    const response = await app.handle(
+      new Request(`${BASE_URL}/v1/labor-lawsuits/${lawsuit2.id}`, {
+        method: "PUT",
+        headers: {
+          ...headers,
+          "Content-Type": "application/json",
+        },
+        body: JSON.stringify({
+          processNumber: lawsuit1.processNumber,
+        }),
+      })
+    );
+
+    expect(response.status).toBe(409);
+    const body = await response.json();
+    expect(body.error.code).toBe("LABOR_LAWSUIT_PROCESS_NUMBER_ALREADY_EXISTS");
+  });
 });

@@ -8,6 +8,8 @@ Registro de análises de CPF com scoring de risco.
 - `score` (inteiro ≥ 0, opcional) com `riskLevel` associado
 - `externalReference` (max 255, opcional) — referência de sistema externo
 - Fluxo de status: `pending` → `approved` | `rejected` | `review`
+- Duplicate check no create: mesmo employee + mesma `analysisDate` lança `CpfAnalysisDuplicateDateError`
+- Employee deve estar ativo no create (`ensureEmployeeActive` — rejeita TERMINATED e ON_VACATION)
 - Listagem ordenada por `analysisDate`
 
 ## Enums
@@ -26,3 +28,6 @@ Registro de análises de CPF com scoring de risco.
 - `CpfAnalysisNotFoundError` (404)
 - `CpfAnalysisAlreadyDeletedError` (404)
 - `CpfAnalysisInvalidEmployeeError` (422)
+- `CpfAnalysisDuplicateDateError` (409) — same employee + same date
+- `EmployeeTerminatedError` (422) — shared, from `src/lib/errors/employee-status-errors.ts`
+- `EmployeeOnVacationError` (422) — shared, from `src/lib/errors/employee-status-errors.ts`

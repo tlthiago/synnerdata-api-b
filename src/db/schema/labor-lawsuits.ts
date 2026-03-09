@@ -1,4 +1,4 @@
-import { relations } from "drizzle-orm";
+import { relations, sql } from "drizzle-orm";
 import {
   date,
   index,
@@ -6,6 +6,7 @@ import {
   pgTable,
   text,
   timestamp,
+  uniqueIndex,
   varchar,
 } from "drizzle-orm/pg-core";
 import { organizations } from "./auth";
@@ -61,7 +62,9 @@ export const laborLawsuits = pgTable(
   (table) => [
     index("labor_lawsuits_organization_id_idx").on(table.organizationId),
     index("labor_lawsuits_employee_id_idx").on(table.employeeId),
-    index("labor_lawsuits_process_number_idx").on(table.processNumber),
+    uniqueIndex("labor_lawsuits_process_number_unique_idx")
+      .on(table.processNumber)
+      .where(sql`deleted_at IS NULL`),
     index("labor_lawsuits_filing_date_idx").on(table.filingDate),
   ]
 );

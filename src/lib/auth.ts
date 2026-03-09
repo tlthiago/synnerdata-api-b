@@ -22,9 +22,9 @@ import { logger } from "@/lib/logger";
 import { AuditService } from "@/modules/audit/audit.service";
 import { SubscriptionService } from "@/modules/payments/subscription/subscription.service";
 import {
-  sendAccountActivationEmail,
   sendOrganizationInvitationEmail,
   sendPasswordResetEmail,
+  sendProvisionActivationEmail,
   sendTwoFactorOTPEmail,
   sendVerificationEmail as sendVerificationEmailFn,
   sendWelcomeEmail,
@@ -285,18 +285,67 @@ export const auth = betterAuth({
       });
 
       if (provision) {
-        await sendAccountActivationEmail({
+        // Extract token from Better Auth URL (/api/auth/reset-password/<TOKEN>)
+        const parsedUrl = new URL(url);
+        const segments = parsedUrl.pathname.split("/");
+        const resetIndex = segments.indexOf("reset-password");
+        const token = resetIndex !== -1 ? segments[resetIndex + 1] : null;
+
+        if (!token) {
+          logger.error({
+            type: "admin-provision:activation:token-extraction-failed",
+            url,
+            userId: user.id,
+          });
+          return;
+        }
+
+        const encodedEmail = encodeURIComponent(user.email);
+        const activationUrl = `${env.APP_URL}/definir-senha?token=${token}&email=${encodedEmail}`;
+
+        // Fetch organization name for personalized email
+        const [org] = await db
+          .select({ name: schema.organizations.name })
+          .from(schema.organizations)
+          .where(eq(schema.organizations.id, provision.organizationId))
+          .limit(1);
+
+        await sendProvisionActivationEmail({
           email: user.email,
-          url,
+          url: activationUrl,
           userName: user.name,
+          organizationName: org?.name ?? "sua organização",
+          isTrial: provision.type === "trial",
         });
         await db
           .update(schema.adminOrgProvisions)
-          .set({ activationUrl: url, activationSentAt: new Date() })
+          .set({ activationUrl, activationSentAt: new Date() })
           .where(eq(schema.adminOrgProvisions.id, provision.id));
       } else {
         await sendPasswordResetEmail({ email: user.email, url });
       }
+    },
+    async onPasswordReset({ user }) {
+      const provision = await db.query.adminOrgProvisions?.findFirst({
+        where: and(
+          eq(schema.adminOrgProvisions.userId, user.id),
+          eq(schema.adminOrgProvisions.status, "pending_activation")
+        ),
+      });
+
+      if (!provision) {
+        return;
+      }
+
+      await db
+        .update(schema.users)
+        .set({ emailVerified: true })
+        .where(eq(schema.users.id, user.id));
+
+      await db
+        .update(schema.adminOrgProvisions)
+        .set({ status: "active", activatedAt: new Date() })
+        .where(eq(schema.adminOrgProvisions.id, provision.id));
     },
     revokeSessionsOnPasswordReset: true,
     password: {

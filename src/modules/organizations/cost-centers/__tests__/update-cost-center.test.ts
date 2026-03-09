@@ -175,4 +175,98 @@ describe("PUT /v1/cost-centers/:id", () => {
     const body = await response.json();
     expect(body.data.name).toBe("Updated by Manager");
   });
+
+  test("should return 409 when updating cost center to duplicate name", async () => {
+    const { headers, organizationId, user } =
+      await createTestUserWithOrganization({
+        emailVerified: true,
+      });
+
+    await CostCenterService.create({
+      organizationId,
+      userId: user.id,
+      name: "Centro de Custo A",
+    });
+
+    const costCenterB = await CostCenterService.create({
+      organizationId,
+      userId: user.id,
+      name: "Centro de Custo B",
+    });
+
+    const response = await app.handle(
+      new Request(`${BASE_URL}/v1/cost-centers/${costCenterB.id}`, {
+        method: "PUT",
+        headers: {
+          ...headers,
+          "Content-Type": "application/json",
+        },
+        body: JSON.stringify({ name: "Centro de Custo A" }),
+      })
+    );
+
+    expect(response.status).toBe(409);
+    const body = await response.json();
+    expect(body.error.code).toBe("COST_CENTER_ALREADY_EXISTS");
+  });
+
+  test("should return 409 when updating cost center to duplicate name (case-insensitive)", async () => {
+    const { headers, organizationId, user } =
+      await createTestUserWithOrganization({
+        emailVerified: true,
+      });
+
+    await CostCenterService.create({
+      organizationId,
+      userId: user.id,
+      name: "Centro de Custo A",
+    });
+
+    const costCenterB = await CostCenterService.create({
+      organizationId,
+      userId: user.id,
+      name: "Centro de Custo B",
+    });
+
+    const response = await app.handle(
+      new Request(`${BASE_URL}/v1/cost-centers/${costCenterB.id}`, {
+        method: "PUT",
+        headers: {
+          ...headers,
+          "Content-Type": "application/json",
+        },
+        body: JSON.stringify({ name: "CENTRO DE CUSTO A" }),
+      })
+    );
+
+    expect(response.status).toBe(409);
+    const body = await response.json();
+    expect(body.error.code).toBe("COST_CENTER_ALREADY_EXISTS");
+  });
+
+  test("should allow updating cost center to its own name", async () => {
+    const { headers, organizationId, user } =
+      await createTestUserWithOrganization({
+        emailVerified: true,
+      });
+
+    const costCenter = await CostCenterService.create({
+      organizationId,
+      userId: user.id,
+      name: "Centro de Custo Mesmo Nome",
+    });
+
+    const response = await app.handle(
+      new Request(`${BASE_URL}/v1/cost-centers/${costCenter.id}`, {
+        method: "PUT",
+        headers: {
+          ...headers,
+          "Content-Type": "application/json",
+        },
+        body: JSON.stringify({ name: "Centro de Custo Mesmo Nome" }),
+      })
+    );
+
+    expect(response.status).toBe(200);
+  });
 });

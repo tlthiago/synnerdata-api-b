@@ -1,6 +1,7 @@
 import { and, eq, isNull } from "drizzle-orm";
 import { db } from "@/db";
 import { schema } from "@/db/schema";
+import { ensureEmployeeActive } from "@/lib/helpers/employee-status";
 import type {
   CpfAnalysisData,
   CreateCpfAnalysisInput,
@@ -9,6 +10,7 @@ import type {
 } from "./cpf-analysis.model";
 import {
   CpfAnalysisAlreadyDeletedError,
+  CpfAnalysisDuplicateDateError,
   CpfAnalysisInvalidEmployeeError,
   CpfAnalysisNotFoundError,
 } from "./errors";
@@ -120,6 +122,32 @@ export abstract class CpfAnalysisService {
     return employee;
   }
 
+  private static async ensureNoDuplicateDate(options: {
+    organizationId: string;
+    employeeId: string;
+    analysisDate: string;
+    excludeId?: string;
+  }): Promise<void> {
+    const { organizationId, employeeId, analysisDate, excludeId } = options;
+
+    const [existing] = await db
+      .select({ id: schema.cpfAnalyses.id })
+      .from(schema.cpfAnalyses)
+      .where(
+        and(
+          eq(schema.cpfAnalyses.organizationId, organizationId),
+          eq(schema.cpfAnalyses.employeeId, employeeId),
+          eq(schema.cpfAnalyses.analysisDate, analysisDate),
+          isNull(schema.cpfAnalyses.deletedAt)
+        )
+      )
+      .limit(1);
+
+    if (existing && existing.id !== excludeId) {
+      throw new CpfAnalysisDuplicateDateError(employeeId, analysisDate);
+    }
+  }
+
   static async create(input: CreateCpfAnalysisInput): Promise<CpfAnalysisData> {
     const { organizationId, userId, employeeId, ...data } = input;
 
@@ -127,6 +155,13 @@ export abstract class CpfAnalysisService {
       employeeId,
       organizationId
     );
+
+    await ensureEmployeeActive(employeeId, organizationId);
+    await CpfAnalysisService.ensureNoDuplicateDate({
+      organizationId,
+      employeeId,
+      analysisDate: data.analysisDate,
+    });
 
     const cpfAnalysisId = `cpf-analysis-${crypto.randomUUID()}`;
 
@@ -220,6 +255,18 @@ export abstract class CpfAnalysisService {
 
     if (employeeId) {
       await CpfAnalysisService.getEmployeeReference(employeeId, organizationId);
+    }
+
+    if (
+      data.analysisDate !== undefined &&
+      data.analysisDate !== existing.analysisDate
+    ) {
+      await CpfAnalysisService.ensureNoDuplicateDate({
+        organizationId,
+        employeeId: employeeId ?? existing.employee.id,
+        analysisDate: data.analysisDate,
+        excludeId: id,
+      });
     }
 
     await db

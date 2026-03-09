@@ -5,10 +5,27 @@ import { successResponseSchema } from "@/lib/responses/response.types";
 // LIST ORGANIZATIONS (GET /)
 // ============================================================
 
+export const virtualSubscriptionStatuses = [
+  "trial",
+  "active",
+  "past_due",
+  "canceled",
+  "expired",
+] as const;
+
+export type VirtualSubscriptionStatus =
+  (typeof virtualSubscriptionStatuses)[number];
+
 export const listOrganizationsQuerySchema = z.object({
   page: z.coerce.number().int().min(1).default(1),
   limit: z.coerce.number().int().min(1).max(100).default(20),
   search: z.string().optional(),
+  subscriptionStatus: z
+    .union([z.string(), z.array(z.string())])
+    .optional()
+    .describe(
+      "Comma-separated subscription statuses: trial, active, past_due, canceled, expired"
+    ),
 });
 
 export type ListOrganizationsQuery = z.infer<
@@ -19,7 +36,25 @@ export type ListOrganizationsInput = {
   page: number;
   limit: number;
   search?: string;
+  subscriptionStatus?: VirtualSubscriptionStatus[];
 };
+
+export function parseSubscriptionStatus(
+  raw?: string | string[]
+): VirtualSubscriptionStatus[] | undefined {
+  if (!raw) {
+    return;
+  }
+  const values = Array.isArray(raw)
+    ? raw.flatMap((s) => s.split(","))
+    : raw.split(",");
+  const parsed = values
+    .map((s) => s.trim())
+    .filter((s): s is VirtualSubscriptionStatus =>
+      (virtualSubscriptionStatuses as readonly string[]).includes(s)
+    );
+  return parsed.length > 0 ? parsed : undefined;
+}
 
 export const organizationItemSchema = z.object({
   id: z.string(),
@@ -31,6 +66,13 @@ export const organizationItemSchema = z.object({
   hasPowerBiUrl: z.boolean(),
   memberCount: z.number(),
   status: z.string().nullable(),
+  subscriptionId: z.string().nullable(),
+  subscriptionStatus: z
+    .enum(["trial", "active", "past_due", "canceled", "expired"])
+    .nullable(),
+  planName: z.string().nullable(),
+  billingCycle: z.string().nullable(),
+  priceAtPurchase: z.number().nullable(),
 });
 
 export type OrganizationItem = z.infer<typeof organizationItemSchema>;
@@ -85,8 +127,13 @@ const profileDataSchema = z.object({
 });
 
 const subscriptionDataSchema = z.object({
+  id: z.string(),
   planName: z.string(),
   status: z.string(),
+  isTrial: z.boolean(),
+  billingCycle: z.string().nullable(),
+  priceAtPurchase: z.number().nullable(),
+  isCustomPrice: z.boolean(),
   startDate: z.coerce.date().nullable(),
 });
 

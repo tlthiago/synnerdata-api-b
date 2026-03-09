@@ -186,6 +186,7 @@ export abstract class EmployeeService {
       busCount: employee.busCount,
       mealAllowance: employee.mealAllowance,
       transportAllowance: employee.transportAllowance,
+      healthInsurance: employee.healthInsurance,
       educationLevel: employee.educationLevel,
       hasSpecialNeeds: employee.hasSpecialNeeds,
       disabilityType: employee.disabilityType,
@@ -482,6 +483,7 @@ export abstract class EmployeeService {
         busCount: data.busCount,
         mealAllowance: data.mealAllowance?.toString(),
         transportAllowance: data.transportAllowance?.toString(),
+        healthInsurance: data.healthInsurance?.toString(),
         educationLevel: data.educationLevel,
         hasSpecialNeeds: data.hasSpecialNeeds,
         disabilityType: data.disabilityType,
@@ -496,6 +498,13 @@ export abstract class EmployeeService {
         createdBy: userId,
       })
       .returning();
+
+    const { EmployeeHooks } = await import("@/modules/employees/hooks");
+    EmployeeHooks.emit("employee.created", {
+      employeeId,
+      organizationId,
+      hireDate: data.hireDate,
+    });
 
     return EmployeeService.enrichEmployee(employee, organizationId);
   }
@@ -627,6 +636,7 @@ export abstract class EmployeeService {
       busCount: data.busCount,
       mealAllowance: numericToString(data.mealAllowance),
       transportAllowance: numericToString(data.transportAllowance),
+      healthInsurance: numericToString(data.healthInsurance),
       educationLevel: data.educationLevel,
       hasSpecialNeeds: data.hasSpecialNeeds,
       disabilityType: data.disabilityType,
@@ -656,6 +666,16 @@ export abstract class EmployeeService {
         )
       )
       .returning();
+
+    if (data.hireDate && data.hireDate !== existingRaw.hireDate) {
+      const { EmployeeHooks } = await import("@/modules/employees/hooks");
+      EmployeeHooks.emit("employee.hireDateUpdated", {
+        employeeId: id,
+        organizationId,
+        oldHireDate: existingRaw.hireDate,
+        newHireDate: data.hireDate,
+      });
+    }
 
     return EmployeeService.enrichEmployee(updated, organizationId);
   }

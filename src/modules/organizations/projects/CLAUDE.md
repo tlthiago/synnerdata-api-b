@@ -4,7 +4,9 @@ Projetos com alocação de funcionários (M2M).
 
 ## Business Rules
 
-- `name` (max 255), `description` (max 255), `startDate` (ISO date), `cno` (12 chars exatos) — obrigatórios
+- `name` (max 255) — único por organização (case-insensitive, soft-delete-aware)
+- `cno` (12 chars exatos) — único por organização (exact match, soft-delete-aware)
+- `description` (max 255), `startDate` (ISO date) — obrigatórios
 - `employeeIds` opcional no create — se fornecido, todos os employees são associados na criação
 - M2M com employees via `projectEmployees` (soft delete independente)
 - Não pode adicionar employee duplicado ao projeto (409)
@@ -26,6 +28,8 @@ Projetos com alocação de funcionários (M2M).
 ## Errors
 
 - `ProjectNotFoundError` (404)
+- `ProjectNameAlreadyExistsError` (409)
+- `ProjectCnoAlreadyExistsError` (409)
 - `ProjectAlreadyDeletedError` (404)
 - `ProjectEmployeeNotFoundError` (404)
 - `ProjectEmployeeAlreadyExistsError` (409)

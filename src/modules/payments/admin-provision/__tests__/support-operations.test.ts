@@ -20,6 +20,7 @@ async function createTrialProvision(
     ownerName: `Support Owner ${id}`,
     ownerEmail: `support-${id}@example.com`,
     organization: {
+      name: `Support Org Real ${id}`,
       tradeName: `Support Org ${id}`,
       taxId: generateCnpj(),
       email: `support-org-${id}@example.com`,

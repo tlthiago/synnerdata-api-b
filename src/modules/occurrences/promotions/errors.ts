@@ -37,3 +37,15 @@ export class InvalidPromotionDataError extends PromotionError {
     super(message, "INVALID_PROMOTION_DATA", details);
   }
 }
+
+export class PromotionDuplicateDateError extends PromotionError {
+  status = 409;
+
+  constructor(employeeId: string, promotionDate: string) {
+    super(
+      `Employee already has a promotion on ${promotionDate}`,
+      "PROMOTION_DUPLICATE_DATE",
+      { employeeId, promotionDate }
+    );
+  }
+}

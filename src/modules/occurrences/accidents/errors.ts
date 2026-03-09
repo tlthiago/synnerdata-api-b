@@ -43,3 +43,15 @@ export class AccidentInvalidEmployeeError extends AccidentError {
     );
   }
 }
+
+export class AccidentCatAlreadyExistsError extends AccidentError {
+  status = 409;
+
+  constructor(cat: string) {
+    super(
+      `An accident with CAT number "${cat}" already exists`,
+      "ACCIDENT_CAT_ALREADY_EXISTS",
+      { cat }
+    );
+  }
+}

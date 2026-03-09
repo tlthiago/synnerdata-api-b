@@ -1,11 +1,13 @@
-import { and, desc, eq, isNull } from "drizzle-orm";
+import { and, desc, eq, isNull, sql } from "drizzle-orm";
 import { db } from "@/db";
 import { schema } from "@/db/schema";
 import {
   ProjectAlreadyDeletedError,
+  ProjectCnoAlreadyExistsError,
   ProjectEmployeeAlreadyExistsError,
   ProjectEmployeeNotAssignedError,
   ProjectEmployeeNotFoundError,
+  ProjectNameAlreadyExistsError,
   ProjectNotFoundError,
 } from "./errors";
 import type {
@@ -18,6 +20,50 @@ import type {
 } from "./project.model";
 
 export abstract class ProjectService {
+  private static async ensureNameNotExists(
+    organizationId: string,
+    name: string,
+    excludeId?: string
+  ): Promise<void> {
+    const [existing] = await db
+      .select({ id: schema.projects.id })
+      .from(schema.projects)
+      .where(
+        and(
+          eq(schema.projects.organizationId, organizationId),
+          sql`lower(${schema.projects.name}) = lower(${name})`,
+          isNull(schema.projects.deletedAt)
+        )
+      )
+      .limit(1);
+
+    if (existing && existing.id !== excludeId) {
+      throw new ProjectNameAlreadyExistsError(name);
+    }
+  }
+
+  private static async ensureCnoNotExists(
+    organizationId: string,
+    cno: string,
+    excludeId?: string
+  ): Promise<void> {
+    const [existing] = await db
+      .select({ id: schema.projects.id })
+      .from(schema.projects)
+      .where(
+        and(
+          eq(schema.projects.organizationId, organizationId),
+          eq(schema.projects.cno, cno),
+          isNull(schema.projects.deletedAt)
+        )
+      )
+      .limit(1);
+
+    if (existing && existing.id !== excludeId) {
+      throw new ProjectCnoAlreadyExistsError(cno);
+    }
+  }
+
   private static async getEmployees(
     projectId: string,
     organizationId: string
@@ -168,6 +214,9 @@ export abstract class ProjectService {
   static async create(input: CreateProjectInput): Promise<ProjectData> {
     const { organizationId, userId, employeeIds, ...data } = input;
 
+    await ProjectService.ensureNameNotExists(organizationId, data.name);
+    await ProjectService.ensureCnoNotExists(organizationId, data.cno);
+
     // Verify all employees exist if provided
     if (employeeIds && employeeIds.length > 0) {
       for (const employeeId of employeeIds) {
@@ -272,6 +321,13 @@ export abstract class ProjectService {
     const existing = await ProjectService.findById(id, organizationId);
     if (!existing) {
       throw new ProjectNotFoundError(id);
+    }
+
+    if (data.name !== undefined) {
+      await ProjectService.ensureNameNotExists(organizationId, data.name, id);
+    }
+    if (data.cno !== undefined) {
+      await ProjectService.ensureCnoNotExists(organizationId, data.cno, id);
     }
 
     const updateData = ProjectService.buildUpdateData(data, userId);

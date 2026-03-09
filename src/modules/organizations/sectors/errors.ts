@@ -18,6 +18,18 @@ export class SectorNotFoundError extends SectorError {
   }
 }
 
+export class SectorAlreadyExistsError extends SectorError {
+  status = 409;
+
+  constructor(name: string) {
+    super(
+      `A sector with the name "${name}" already exists`,
+      "SECTOR_ALREADY_EXISTS",
+      { name }
+    );
+  }
+}
+
 export class SectorAlreadyDeletedError extends SectorError {
   status = 404;
 

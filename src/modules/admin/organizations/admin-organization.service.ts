@@ -1,4 +1,4 @@
-import { count, eq, ilike, isNull, or, sql } from "drizzle-orm";
+import { and, count, eq, ilike, isNull, or, sql } from "drizzle-orm";
 import { db } from "@/db";
 import { schema } from "@/db/schema";
 import type {
@@ -7,14 +7,57 @@ import type {
   MemberData,
   OrganizationDetailsData,
   UpdatePowerBiUrlInput,
+  VirtualSubscriptionStatus,
 } from "./admin-organization.model";
 import { OrganizationNotFoundError } from "./errors";
 
 export abstract class AdminOrganizationService {
+  private static buildSubscriptionStatusFilter(
+    statuses: VirtualSubscriptionStatus[]
+  ) {
+    const conditions = statuses.map((status) => {
+      switch (status) {
+        case "trial":
+          return and(
+            eq(schema.orgSubscriptions.status, "active"),
+            eq(schema.subscriptionPlans.isTrial, true)
+          );
+        case "active":
+          return and(
+            eq(schema.orgSubscriptions.status, "active"),
+            eq(schema.subscriptionPlans.isTrial, false)
+          );
+        case "past_due":
+          return eq(schema.orgSubscriptions.status, "past_due");
+        case "canceled":
+          return eq(schema.orgSubscriptions.status, "canceled");
+        case "expired":
+          return eq(schema.orgSubscriptions.status, "expired");
+        default:
+          return eq(schema.orgSubscriptions.status, "active");
+      }
+    });
+
+    return conditions.length === 1 ? conditions[0] : or(...conditions);
+  }
+
+  private static resolveVirtualStatus(
+    subStatus: string | null,
+    isTrial: boolean | null
+  ): VirtualSubscriptionStatus | null {
+    if (!subStatus) {
+      return null;
+    }
+    if (subStatus === "active") {
+      return isTrial ? "trial" : "active";
+    }
+    return subStatus as VirtualSubscriptionStatus;
+  }
+
   static async list(
     input: ListOrganizationsInput
   ): Promise<ListOrganizationsData> {
-    const { page, limit, search } = input;
+    const { page, limit, search, subscriptionStatus } = input;
     const offset = (page - 1) * limit;
 
     const searchConditions = search
@@ -33,10 +76,23 @@ export abstract class AdminOrganizationService {
       .groupBy(schema.members.organizationId)
       .as("member_counts");
 
-    const baseConditions = isNull(schema.organizationProfiles.deletedAt);
-    const whereCondition = searchConditions
-      ? sql`${baseConditions} AND ${searchConditions}`
-      : baseConditions;
+    const conditions = [isNull(schema.organizationProfiles.deletedAt)];
+
+    if (searchConditions) {
+      conditions.push(searchConditions);
+    }
+
+    if (subscriptionStatus?.length) {
+      const statusFilter =
+        AdminOrganizationService.buildSubscriptionStatusFilter(
+          subscriptionStatus
+        );
+      if (statusFilter) {
+        conditions.push(statusFilter);
+      }
+    }
+
+    const whereCondition = and(...conditions);
 
     const [totalResult, items] = await Promise.all([
       db
@@ -48,6 +104,14 @@ export abstract class AdminOrganizationService {
             schema.organizations.id,
             schema.organizationProfiles.organizationId
           )
+        )
+        .leftJoin(
+          schema.orgSubscriptions,
+          eq(schema.organizations.id, schema.orgSubscriptions.organizationId)
+        )
+        .leftJoin(
+          schema.subscriptionPlans,
+          eq(schema.orgSubscriptions.planId, schema.subscriptionPlans.id)
         )
         .where(whereCondition),
       db
@@ -61,6 +125,12 @@ export abstract class AdminOrganizationService {
           pbUrl: schema.organizationProfiles.pbUrl,
           status: schema.organizationProfiles.status,
           memberCount: memberCountSq.count,
+          subscriptionId: schema.orgSubscriptions.id,
+          subStatus: schema.orgSubscriptions.status,
+          planIsTrial: schema.subscriptionPlans.isTrial,
+          planName: schema.subscriptionPlans.displayName,
+          billingCycle: schema.orgSubscriptions.billingCycle,
+          priceAtPurchase: schema.orgSubscriptions.priceAtPurchase,
         })
         .from(schema.organizations)
         .leftJoin(
@@ -69,6 +139,14 @@ export abstract class AdminOrganizationService {
             schema.organizations.id,
             schema.organizationProfiles.organizationId
           )
+        )
+        .leftJoin(
+          schema.orgSubscriptions,
+          eq(schema.organizations.id, schema.orgSubscriptions.organizationId)
+        )
+        .leftJoin(
+          schema.subscriptionPlans,
+          eq(schema.orgSubscriptions.planId, schema.subscriptionPlans.id)
         )
         .leftJoin(
           memberCountSq,
@@ -93,6 +171,14 @@ export abstract class AdminOrganizationService {
         hasPowerBiUrl: row.pbUrl !== null && row.pbUrl !== undefined,
         memberCount: row.memberCount ?? 0,
         status: row.status ?? null,
+        subscriptionId: row.subscriptionId ?? null,
+        subscriptionStatus: AdminOrganizationService.resolveVirtualStatus(
+          row.subStatus,
+          row.planIsTrial
+        ),
+        planName: row.planName ?? null,
+        billingCycle: row.billingCycle ?? null,
+        priceAtPurchase: row.priceAtPurchase ?? null,
       })),
       total,
       page,
@@ -162,10 +248,15 @@ export abstract class AdminOrganizationService {
       },
     }));
 
-    const [subscription] = await db
+    const [subscriptionRow] = await db
       .select({
+        id: schema.orgSubscriptions.id,
         planName: schema.subscriptionPlans.displayName,
         status: schema.orgSubscriptions.status,
+        isTrial: schema.subscriptionPlans.isTrial,
+        billingCycle: schema.orgSubscriptions.billingCycle,
+        priceAtPurchase: schema.orgSubscriptions.priceAtPurchase,
+        isCustomPrice: schema.orgSubscriptions.isCustomPrice,
         startDate: schema.orgSubscriptions.currentPeriodStart,
       })
       .from(schema.orgSubscriptions)
@@ -176,12 +267,20 @@ export abstract class AdminOrganizationService {
       .where(eq(schema.orgSubscriptions.organizationId, organizationId))
       .limit(1);
 
+    const subscription = subscriptionRow
+      ? {
+          ...subscriptionRow,
+          billingCycle: subscriptionRow.billingCycle ?? null,
+          priceAtPurchase: subscriptionRow.priceAtPurchase ?? null,
+        }
+      : null;
+
     return {
       ...org,
       profile: profile ?? null,
       memberCount: members.length,
       members,
-      subscription: subscription ?? null,
+      subscription,
     };
   }
 

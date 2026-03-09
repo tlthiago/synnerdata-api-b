@@ -1,9 +1,11 @@
 import { and, eq, isNull } from "drizzle-orm";
 import { db } from "@/db";
 import { schema } from "@/db/schema";
+import { ensureEmployeeActive } from "@/lib/helpers/employee-status";
 import {
   WarningAcknowledgedBeforeDateError,
   WarningAlreadyDeletedError,
+  WarningDuplicateError,
   WarningInvalidEmployeeError,
   WarningNotFoundError,
 } from "./errors";
@@ -136,6 +138,70 @@ export abstract class WarningService {
     }
   }
 
+  private static buildUpdateData(
+    data: Omit<UpdateWarningInput, "userId">,
+    userId: string
+  ): Record<string, unknown> {
+    const updateData: Record<string, unknown> = { updatedBy: userId };
+
+    if (data.date !== undefined) {
+      updateData.date = data.date;
+    }
+    if (data.type !== undefined) {
+      updateData.type = data.type;
+    }
+    if (data.reason !== undefined) {
+      updateData.reason = data.reason;
+    }
+    if (data.description !== undefined) {
+      updateData.description = data.description;
+    }
+    if (data.witnessName !== undefined) {
+      updateData.witnessName = data.witnessName;
+    }
+    if (data.acknowledged !== undefined) {
+      updateData.acknowledged = data.acknowledged;
+    }
+    if (data.acknowledgedAt !== undefined) {
+      updateData.acknowledgedAt = data.acknowledgedAt
+        ? new Date(data.acknowledgedAt)
+        : null;
+    }
+    if (data.notes !== undefined) {
+      updateData.notes = data.notes;
+    }
+
+    return updateData;
+  }
+
+  private static async ensureNoDuplicate(params: {
+    organizationId: string;
+    employeeId: string;
+    date: string;
+    type: "verbal" | "written" | "suspension";
+    excludeId?: string;
+  }): Promise<void> {
+    const { organizationId, employeeId, date, type, excludeId } = params;
+
+    const [existing] = await db
+      .select({ id: schema.warnings.id })
+      .from(schema.warnings)
+      .where(
+        and(
+          eq(schema.warnings.organizationId, organizationId),
+          eq(schema.warnings.employeeId, employeeId),
+          eq(schema.warnings.date, date),
+          eq(schema.warnings.type, type),
+          isNull(schema.warnings.deletedAt)
+        )
+      )
+      .limit(1);
+
+    if (existing && existing.id !== excludeId) {
+      throw new WarningDuplicateError(employeeId, date, type);
+    }
+  }
+
   static async create(input: CreateWarningInput): Promise<WarningData> {
     const { organizationId, userId, ...data } = input;
 
@@ -143,6 +209,15 @@ export abstract class WarningService {
       data.employeeId,
       organizationId
     );
+
+    await ensureEmployeeActive(data.employeeId, organizationId);
+
+    await WarningService.ensureNoDuplicate({
+      organizationId,
+      employeeId: data.employeeId,
+      date: data.date,
+      type: data.type,
+    });
 
     const warningId = `warning-${crypto.randomUUID()}`;
 
@@ -250,42 +325,28 @@ export abstract class WarningService {
       effectiveDate
     );
 
-    const updateData: Record<string, unknown> = {
-      updatedBy: userId,
-    };
+    if (data.date !== undefined || data.type !== undefined) {
+      const effectiveType = data.type ?? existing.type;
+
+      await WarningService.ensureNoDuplicate({
+        organizationId,
+        employeeId: existing.employee.id,
+        date: effectiveDate,
+        type: effectiveType,
+        excludeId: id,
+      });
+    }
 
     if (data.employeeId !== undefined) {
       await WarningService.getEmployeeReference(
         data.employeeId,
         organizationId
       );
+    }
+
+    const updateData = WarningService.buildUpdateData(data, userId);
+    if (data.employeeId !== undefined) {
       updateData.employeeId = data.employeeId;
-    }
-    if (data.date !== undefined) {
-      updateData.date = data.date;
-    }
-    if (data.type !== undefined) {
-      updateData.type = data.type;
-    }
-    if (data.reason !== undefined) {
-      updateData.reason = data.reason;
-    }
-    if (data.description !== undefined) {
-      updateData.description = data.description;
-    }
-    if (data.witnessName !== undefined) {
-      updateData.witnessName = data.witnessName;
-    }
-    if (data.acknowledged !== undefined) {
-      updateData.acknowledged = data.acknowledged;
-    }
-    if (data.acknowledgedAt !== undefined) {
-      updateData.acknowledgedAt = data.acknowledgedAt
-        ? new Date(data.acknowledgedAt)
-        : null;
-    }
-    if (data.notes !== undefined) {
-      updateData.notes = data.notes;
     }
 
     await db

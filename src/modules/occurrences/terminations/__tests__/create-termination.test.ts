@@ -1,7 +1,11 @@
 import { beforeAll, describe, expect, test } from "bun:test";
+import { eq } from "drizzle-orm";
+import { db } from "@/db";
+import { schema } from "@/db/schema";
 import { env } from "@/env";
 import { createTestApp, type TestApp } from "@/test/helpers/app";
 import { createTestEmployee } from "@/test/helpers/employee";
+import { createTestTermination } from "@/test/helpers/termination";
 import {
   createTestUser,
   createTestUserWithOrganization,
@@ -311,5 +315,81 @@ describe("POST /v1/terminations", () => {
     expect(body.data.noticePeriodDays).toBeNull();
     expect(body.data.noticePeriodWorked).toBe(false);
     expect(body.data.notes).toBeNull();
+  });
+
+  test("should return 409 when creating second termination for same employee", async () => {
+    const { headers, organizationId, user } =
+      await createTestUserWithOrganization({
+        emailVerified: true,
+      });
+
+    const { employee } = await createTestEmployee({
+      organizationId,
+      userId: user.id,
+    });
+
+    await createTestTermination({
+      organizationId,
+      userId: user.id,
+      employeeId: employee.id,
+    });
+
+    const response = await app.handle(
+      new Request(`${BASE_URL}/v1/terminations`, {
+        method: "POST",
+        headers: { ...headers, "Content-Type": "application/json" },
+        body: JSON.stringify({
+          employeeId: employee.id,
+          terminationDate: "2024-03-15",
+          type: "DISMISSAL_WITHOUT_CAUSE",
+          lastWorkingDay: "2024-03-01",
+        }),
+      })
+    );
+
+    expect(response.status).toBe(409);
+    const body = await response.json();
+    expect(body.error.code).toBe("TERMINATION_ALREADY_EXISTS");
+  });
+
+  test("should allow creating termination when previous was soft-deleted", async () => {
+    const { headers, organizationId, user } =
+      await createTestUserWithOrganization({
+        emailVerified: true,
+      });
+
+    const { employee } = await createTestEmployee({
+      organizationId,
+      userId: user.id,
+    });
+
+    const existingTermination = await createTestTermination({
+      organizationId,
+      userId: user.id,
+      employeeId: employee.id,
+    });
+
+    await db
+      .update(schema.terminations)
+      .set({ deletedAt: new Date(), deletedBy: user.id })
+      .where(eq(schema.terminations.id, existingTermination.id));
+
+    const response = await app.handle(
+      new Request(`${BASE_URL}/v1/terminations`, {
+        method: "POST",
+        headers: { ...headers, "Content-Type": "application/json" },
+        body: JSON.stringify({
+          employeeId: employee.id,
+          terminationDate: "2024-03-15",
+          type: "DISMISSAL_WITHOUT_CAUSE",
+          lastWorkingDay: "2024-03-01",
+        }),
+      })
+    );
+
+    expect(response.status).toBe(200);
+    const body = await response.json();
+    expect(body.success).toBe(true);
+    expect(body.data.employee.id).toBe(employee.id);
   });
 });

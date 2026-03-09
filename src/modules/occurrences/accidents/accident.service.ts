@@ -1,6 +1,7 @@
 import { and, eq, isNull } from "drizzle-orm";
 import { db } from "@/db";
 import { schema } from "@/db/schema";
+import { ensureEmployeeActive } from "@/lib/helpers/employee-status";
 import type {
   AccidentData,
   CreateAccidentInput,
@@ -9,6 +10,7 @@ import type {
 } from "./accident.model";
 import {
   AccidentAlreadyDeletedError,
+  AccidentCatAlreadyExistsError,
   AccidentInvalidEmployeeError,
   AccidentNotFoundError,
 } from "./errors";
@@ -119,6 +121,32 @@ export abstract class AccidentService {
     return employee;
   }
 
+  private static async ensureCatNotExists(
+    organizationId: string,
+    cat: string | null | undefined,
+    excludeId?: string
+  ): Promise<void> {
+    if (!cat) {
+      return;
+    }
+
+    const [existing] = await db
+      .select({ id: schema.accidents.id })
+      .from(schema.accidents)
+      .where(
+        and(
+          eq(schema.accidents.organizationId, organizationId),
+          eq(schema.accidents.cat, cat),
+          isNull(schema.accidents.deletedAt)
+        )
+      )
+      .limit(1);
+
+    if (existing && existing.id !== excludeId) {
+      throw new AccidentCatAlreadyExistsError(cat);
+    }
+  }
+
   static async create(input: CreateAccidentInput): Promise<AccidentData> {
     const { organizationId, userId, ...data } = input;
 
@@ -126,6 +154,9 @@ export abstract class AccidentService {
       data.employeeId,
       organizationId
     );
+
+    await ensureEmployeeActive(data.employeeId, organizationId);
+    await AccidentService.ensureCatNotExists(organizationId, data.cat);
 
     const accidentId = `accident-${crypto.randomUUID()}`;
 
@@ -222,6 +253,10 @@ export abstract class AccidentService {
         data.employeeId,
         organizationId
       );
+    }
+
+    if (data.cat !== undefined && data.cat !== existing.cat) {
+      await AccidentService.ensureCatNotExists(organizationId, data.cat, id);
     }
 
     const updateData: Record<string, unknown> = {

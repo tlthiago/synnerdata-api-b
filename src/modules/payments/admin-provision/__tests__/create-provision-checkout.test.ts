@@ -1,4 +1,7 @@
 import { beforeAll, describe, expect, test } from "bun:test";
+import { eq } from "drizzle-orm";
+import { db } from "@/db";
+import { schema } from "@/db/schema";
 import { env } from "@/env";
 import { PlanFactory } from "@/test/factories/payments/plan.factory";
 import { UserFactory } from "@/test/factories/user.factory";
@@ -9,11 +12,13 @@ import { skipIntegration } from "@/test/support/skip-integration";
 const BASE_URL = env.API_URL;
 const ENDPOINT = `${BASE_URL}/v1/payments/admin/provisions/checkout`;
 
-function buildBillingData(overrides: Record<string, unknown> = {}) {
+function buildOrganization(overrides: Record<string, unknown> = {}) {
   return {
-    legalName: "Empresa LTDA",
+    name: "Empresa Real LTDA",
+    tradeName: "Empresa Fantasia",
+    legalName: "Empresa Real LTDA",
     taxId: generateCnpj(),
-    email: "billing@empresa.com",
+    email: "org@empresa.com",
     phone: generateMobile(),
     street: "Rua Exemplo",
     number: "123",
@@ -33,15 +38,12 @@ function buildPayload(
   return {
     ownerName: `Owner ${id}`,
     ownerEmail: `owner-${id}@example.com`,
-    organizationName: `Org ${id}`,
+    organization: buildOrganization(),
     organizationSlug: `org-${id}`,
     basePlanId,
-    minEmployees: 0,
     maxEmployees: 25,
     billingCycle: "monthly",
     customPriceMonthly: 5000,
-    successUrl: "https://app.example.com/success",
-    billing: buildBillingData(),
     ...overrides,
   };
 }
@@ -137,6 +139,42 @@ describe("POST /v1/payments/admin/provisions/checkout", () => {
     expect(response.status).toBe(422);
   });
 
+  test("should return 422 for missing required address field", async () => {
+    const { headers } = await UserFactory.createAdmin();
+
+    const response = await app.handle(
+      new Request(ENDPOINT, {
+        method: "POST",
+        headers: { ...headers, "Content-Type": "application/json" },
+        body: JSON.stringify(
+          buildPayload(goldPlanId, {
+            organization: buildOrganization({ street: undefined }),
+          })
+        ),
+      })
+    );
+
+    expect(response.status).toBe(422);
+  });
+
+  test("should return 422 for invalid CNPJ in organization", async () => {
+    const { headers } = await UserFactory.createAdmin();
+
+    const response = await app.handle(
+      new Request(ENDPOINT, {
+        method: "POST",
+        headers: { ...headers, "Content-Type": "application/json" },
+        body: JSON.stringify(
+          buildPayload(goldPlanId, {
+            organization: buildOrganization({ taxId: "00000000000000" }),
+          })
+        ),
+      })
+    );
+
+    expect(response.status).toBe(422);
+  });
+
   // ── Conflict ──────────────────────────────────────────────────
 
   test("should return 409 for existing email", async () => {
@@ -164,7 +202,7 @@ describe("POST /v1/payments/admin/provisions/checkout", () => {
     "should provision user + org with checkout successfully",
     async () => {
       const { headers } = await UserFactory.createAdmin();
-      const payload = buildPayload(goldPlanId);
+      const payload = buildPayload(goldPlanId, { notes: "Checkout test" });
 
       const response = await app.handle(
         new Request(ENDPOINT, {
@@ -183,8 +221,51 @@ describe("POST /v1/payments/admin/provisions/checkout", () => {
       expect(data.status).toBe("pending_payment");
       expect(data.ownerName).toBe(payload.ownerName);
       expect(data.ownerEmail).toBe(payload.ownerEmail);
+      expect(data.organizationName).toBe(payload.organization.name);
       expect(data.checkoutUrl).toBeString();
       expect(data.checkoutExpiresAt).toBeString();
+
+      // Verify subscription shows contracted plan data (not interim trial)
+      expect(data.subscription).toBeDefined();
+      expect(data.subscription.status).toBe("pending_payment");
+      expect(data.subscription.maxEmployees).toBe(payload.maxEmployees);
+      expect(data.subscription.billingCycle).toBe("monthly");
+      expect(data.subscription.customPriceMonthly).toBe(
+        payload.customPriceMonthly
+      );
+      expect(data.subscription.planName).toBeString();
+      expect(data.subscription.trialDays).toBeNull();
+
+      // Verify org profile enriched with organization data
+      const [orgProfile] = await db
+        .select()
+        .from(schema.organizationProfiles)
+        .where(
+          eq(schema.organizationProfiles.organizationId, data.organizationId)
+        )
+        .limit(1);
+
+      expect(orgProfile).toBeDefined();
+      expect(orgProfile.tradeName).toBe(payload.organization.tradeName);
+      expect(orgProfile.legalName).toBe(payload.organization.legalName);
+      expect(orgProfile.taxId).toBe(payload.organization.taxId);
+      expect(orgProfile.email).toBe(payload.organization.email);
+      expect(orgProfile.street).toBe(payload.organization.street);
+      expect(orgProfile.city).toBe(payload.organization.city);
+      expect(orgProfile.state).toBe(payload.organization.state);
+      expect(orgProfile.zipCode).toBe(payload.organization.zipCode);
+
+      // Verify billing profile was created with organization data
+      const [billingProfile] = await db
+        .select()
+        .from(schema.billingProfiles)
+        .where(eq(schema.billingProfiles.organizationId, data.organizationId))
+        .limit(1);
+
+      expect(billingProfile).toBeDefined();
+      expect(billingProfile.legalName).toBe(payload.organization.legalName);
+      expect(billingProfile.taxId).toBe(payload.organization.taxId);
+      expect(billingProfile.street).toBe(payload.organization.street);
     }
   );
 });

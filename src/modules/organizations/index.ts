@@ -1,4 +1,5 @@
 import { Elysia } from "elysia";
+import { cboOccupationController } from "../cbo-occupations";
 import { branchController } from "./branches";
 import { costCenterController } from "./cost-centers";
 import { jobClassificationController } from "./job-classifications";
@@ -11,6 +12,7 @@ import { sectorController } from "./sectors";
 export const organizationController = new Elysia({
   name: "organizations",
 })
+  .use(cboOccupationController)
   .use(branchController)
   .use(costCenterController)
   .use(jobClassificationController)

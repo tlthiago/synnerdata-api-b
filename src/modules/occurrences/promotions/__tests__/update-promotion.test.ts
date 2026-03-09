@@ -161,6 +161,60 @@ describe("PUT /v1/promotions/:id", () => {
     expect(body.data.newJobPosition.name).toBeString();
   });
 
+  test("should reject update when changing to duplicate promotionDate", async () => {
+    const { headers, organizationId, user } =
+      await createTestUserWithOrganization({ emailVerified: true });
+
+    const { dependencies } = await createTestPromotion({
+      organizationId,
+      userId: user.id,
+      promotionDate: "2024-03-10",
+    });
+
+    const { promotion: promotion2 } = await createTestPromotion({
+      organizationId,
+      userId: user.id,
+      promotionDate: "2024-03-15",
+      dependencies,
+    });
+
+    const response = await app.handle(
+      new Request(`${BASE_URL}/v1/promotions/${promotion2.id}`, {
+        method: "PUT",
+        headers: { ...headers, "Content-Type": "application/json" },
+        body: JSON.stringify({ promotionDate: "2024-03-10" }),
+      })
+    );
+
+    expect(response.status).toBe(409);
+    const body = await response.json();
+    expect(body.error.code).toBe("PROMOTION_DUPLICATE_DATE");
+  });
+
+  test("should allow self-update without duplicate error", async () => {
+    const { headers, organizationId, user } =
+      await createTestUserWithOrganization({ emailVerified: true });
+
+    const { promotion } = await createTestPromotion({
+      organizationId,
+      userId: user.id,
+      promotionDate: "2024-04-20",
+    });
+
+    const response = await app.handle(
+      new Request(`${BASE_URL}/v1/promotions/${promotion.id}`, {
+        method: "PUT",
+        headers: { ...headers, "Content-Type": "application/json" },
+        body: JSON.stringify({
+          promotionDate: "2024-04-20",
+          reason: "Updated reason",
+        }),
+      })
+    );
+
+    expect(response.status).toBe(200);
+  });
+
   test("should allow supervisor to update promotion", async () => {
     const { organizationId, user } = await createTestUserWithOrganization({
       emailVerified: true,

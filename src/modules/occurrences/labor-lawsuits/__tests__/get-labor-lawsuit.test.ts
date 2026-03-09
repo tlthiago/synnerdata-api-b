@@ -67,7 +67,6 @@ describe("GET /v1/labor-lawsuits/:id", () => {
     const lawsuit = await createTestLaborLawsuit({
       organizationId,
       userId: user.id,
-      processNumber: "0001234-56.2024.5.01.0001",
       plaintiff: "Maria Santos",
     });
 
@@ -83,7 +82,7 @@ describe("GET /v1/labor-lawsuits/:id", () => {
 
     expect(body.success).toBe(true);
     expect(body.data.id).toBe(lawsuit.id);
-    expect(body.data.processNumber).toBe("0001234-56.2024.5.01.0001");
+    expect(body.data.processNumber).toBe(lawsuit.processNumber);
     expect(body.data.plaintiff).toBe("Maria Santos");
     expect(body.data.employee).toBeDefined();
   });

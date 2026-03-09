@@ -9,6 +9,8 @@ Registro de promoções com mudança de cargo e salário.
 - Ambos os cargos validados via `JobPositionService.findByIdOrThrow()`
 - Employee validado via `EmployeeService.findByIdOrThrow()`
 - Salários: strings numéricas na API e no banco, comparados como numbers internamente
+- Duplicate check no create: mesmo employee + mesma `promotionDate` lança `PromotionDuplicateDateError`
+- Employee deve estar ativo no create (`ensureEmployeeActive` — rejeita TERMINATED e ON_VACATION)
 - Permissão usa resource genérico `occurrence`, não `promotion`
 - Listagem ordenada por `promotionDate`
 
@@ -28,3 +30,6 @@ Registro de promoções com mudança de cargo e salário.
 - `PromotionNotFoundError` (404)
 - `PromotionAlreadyDeletedError` (404)
 - `InvalidPromotionDataError` (422) — cargo igual ou salário não aumentou
+- `PromotionDuplicateDateError` (409) — same employee + same date
+- `EmployeeTerminatedError` (422) — shared, from `src/lib/errors/employee-status-errors.ts`
+- `EmployeeOnVacationError` (422) — shared, from `src/lib/errors/employee-status-errors.ts`

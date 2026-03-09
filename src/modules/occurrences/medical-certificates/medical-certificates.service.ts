@@ -1,10 +1,14 @@
-import { and, eq, isNull } from "drizzle-orm";
+import { and, eq, isNull, sql } from "drizzle-orm";
 import { db } from "@/db";
 import { schema } from "@/db/schema";
+import { ensureEmployeeActive } from "@/lib/helpers/employee-status";
+import { calculateDaysBetween } from "@/lib/schemas/date-helpers";
 import {
   MedicalCertificateAlreadyDeletedError,
+  MedicalCertificateInvalidDaysOffError,
   MedicalCertificateInvalidEmployeeError,
   MedicalCertificateNotFoundError,
+  MedicalCertificateOverlapError,
 } from "./errors";
 import type {
   CreateMedicalCertificateInput,
@@ -125,6 +129,46 @@ export abstract class MedicalCertificateService {
     return employee;
   }
 
+  private static validateDaysOff(
+    startDate: string,
+    endDate: string,
+    daysOff: number
+  ): void {
+    const expected = calculateDaysBetween(startDate, endDate);
+    if (daysOff !== expected) {
+      throw new MedicalCertificateInvalidDaysOffError(expected, daysOff);
+    }
+  }
+
+  private static async ensureNoOverlap(params: {
+    organizationId: string;
+    employeeId: string;
+    startDate: string;
+    endDate: string;
+    excludeId?: string;
+  }): Promise<void> {
+    const { organizationId, employeeId, startDate, endDate, excludeId } =
+      params;
+
+    const [existing] = await db
+      .select({ id: schema.medicalCertificates.id })
+      .from(schema.medicalCertificates)
+      .where(
+        and(
+          eq(schema.medicalCertificates.organizationId, organizationId),
+          eq(schema.medicalCertificates.employeeId, employeeId),
+          sql`${schema.medicalCertificates.startDate} <= ${endDate}`,
+          sql`${schema.medicalCertificates.endDate} >= ${startDate}`,
+          isNull(schema.medicalCertificates.deletedAt)
+        )
+      )
+      .limit(1);
+
+    if (existing && existing.id !== excludeId) {
+      throw new MedicalCertificateOverlapError(employeeId, startDate, endDate);
+    }
+  }
+
   static async create(
     input: CreateMedicalCertificateInput
   ): Promise<MedicalCertificateData> {
@@ -134,6 +178,21 @@ export abstract class MedicalCertificateService {
       employeeId,
       organizationId
     );
+
+    await ensureEmployeeActive(employeeId, organizationId);
+
+    MedicalCertificateService.validateDaysOff(
+      data.startDate,
+      data.endDate,
+      data.daysOff
+    );
+
+    await MedicalCertificateService.ensureNoOverlap({
+      organizationId,
+      employeeId,
+      startDate: data.startDate,
+      endDate: data.endDate,
+    });
 
     const medicalCertificateId = `medical-certificate-${crypto.randomUUID()}`;
 
@@ -236,42 +295,48 @@ export abstract class MedicalCertificateService {
       throw new MedicalCertificateNotFoundError(id);
     }
 
-    const updateData: Record<string, unknown> = {
-      updatedBy: userId,
-    };
+    if (
+      data.startDate !== undefined ||
+      data.endDate !== undefined ||
+      data.daysOff !== undefined
+    ) {
+      const finalStartDate = data.startDate ?? existing.startDate;
+      const finalEndDate = data.endDate ?? existing.endDate;
+      const finalDaysOff = data.daysOff ?? existing.daysOff;
+      MedicalCertificateService.validateDaysOff(
+        finalStartDate,
+        finalEndDate,
+        finalDaysOff
+      );
+    }
+
+    if (data.startDate !== undefined || data.endDate !== undefined) {
+      const finalStartDate = data.startDate ?? existing.startDate;
+      const finalEndDate = data.endDate ?? existing.endDate;
+
+      await MedicalCertificateService.ensureNoOverlap({
+        organizationId,
+        employeeId: existing.employee.id,
+        startDate: finalStartDate,
+        endDate: finalEndDate,
+        excludeId: id,
+      });
+    }
 
     if (employeeId !== undefined) {
       await MedicalCertificateService.getEmployeeReference(
         employeeId,
         organizationId
       );
-      updateData.employeeId = employeeId;
     }
-    if (data.startDate !== undefined) {
-      updateData.startDate = data.startDate;
-    }
-    if (data.endDate !== undefined) {
-      updateData.endDate = data.endDate;
-    }
-    if (data.daysOff !== undefined) {
-      updateData.daysOff = data.daysOff;
-    }
-    if (data.cid !== undefined) {
-      updateData.cid = data.cid;
-    }
-    if (data.doctorName !== undefined) {
-      updateData.doctorName = data.doctorName;
-    }
-    if (data.doctorCrm !== undefined) {
-      updateData.doctorCrm = data.doctorCrm;
-    }
-    if (data.notes !== undefined) {
-      updateData.notes = data.notes;
-    }
+
+    const definedFields = Object.fromEntries(
+      Object.entries({ ...data, employeeId }).filter(([, v]) => v !== undefined)
+    );
 
     await db
       .update(schema.medicalCertificates)
-      .set(updateData)
+      .set({ ...definedFields, updatedBy: userId })
       .where(
         and(
           eq(schema.medicalCertificates.id, id),

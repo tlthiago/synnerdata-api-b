@@ -1,7 +1,11 @@
 import { beforeAll, describe, expect, test } from "bun:test";
+import { eq } from "drizzle-orm";
+import { db } from "@/db";
+import { schema } from "@/db/schema";
 import { env } from "@/env";
 import { createTestApp, type TestApp } from "@/test/helpers/app";
 import { createTestEmployee } from "@/test/helpers/employee";
+import { createTestMedicalCertificate } from "@/test/helpers/medical-certificate";
 import {
   createTestUser,
   createTestUserWithOrganization,
@@ -191,6 +195,32 @@ describe("POST /v1/medical-certificates", () => {
     expect(response.status).toBe(422);
   });
 
+  test("should reject when daysOff does not match date range", async () => {
+    const { headers, organizationId, userId } =
+      await createTestUserWithOrganization({
+        emailVerified: true,
+      });
+
+    const { employee } = await createTestEmployee({ organizationId, userId });
+
+    const response = await app.handle(
+      new Request(`${BASE_URL}/v1/medical-certificates`, {
+        method: "POST",
+        headers: { ...headers, "Content-Type": "application/json" },
+        body: JSON.stringify({
+          employeeId: employee.id,
+          startDate: "2024-01-01",
+          endDate: "2024-01-05",
+          daysOff: 10,
+        }),
+      })
+    );
+
+    expect(response.status).toBe(422);
+    const body = await response.json();
+    expect(body.error.code).toBe("INVALID_DAYS_OFF");
+  });
+
   test("should create medical certificate successfully", async () => {
     const { headers, organizationId, userId } =
       await createTestUserWithOrganization({
@@ -264,5 +294,102 @@ describe("POST /v1/medical-certificates", () => {
     );
 
     expect(response.status).toBe(200);
+  });
+
+  test("should reject overlapping medical certificate", async () => {
+    const { headers, organizationId, userId } =
+      await createTestUserWithOrganization({
+        emailVerified: true,
+      });
+
+    const { employee } = await createTestEmployee({ organizationId, userId });
+
+    await createTestMedicalCertificate({
+      organizationId,
+      userId,
+      employeeId: employee.id,
+      startDate: "2024-02-01",
+      endDate: "2024-02-10",
+      daysOff: 10,
+    });
+
+    const response = await app.handle(
+      new Request(`${BASE_URL}/v1/medical-certificates`, {
+        method: "POST",
+        headers: { ...headers, "Content-Type": "application/json" },
+        body: JSON.stringify({
+          employeeId: employee.id,
+          startDate: "2024-02-05",
+          endDate: "2024-02-15",
+          daysOff: 11,
+        }),
+      })
+    );
+
+    expect(response.status).toBe(409);
+    const body = await response.json();
+    expect(body.error.code).toBe("MEDICAL_CERTIFICATE_OVERLAP");
+  });
+
+  test("should reject when employee is TERMINATED", async () => {
+    const { headers, organizationId, userId } =
+      await createTestUserWithOrganization({
+        emailVerified: true,
+      });
+
+    const { employee } = await createTestEmployee({ organizationId, userId });
+
+    await db
+      .update(schema.employees)
+      .set({ status: "TERMINATED" })
+      .where(eq(schema.employees.id, employee.id));
+
+    const response = await app.handle(
+      new Request(`${BASE_URL}/v1/medical-certificates`, {
+        method: "POST",
+        headers: { ...headers, "Content-Type": "application/json" },
+        body: JSON.stringify({
+          employeeId: employee.id,
+          startDate: "2024-04-01",
+          endDate: "2024-04-05",
+          daysOff: 5,
+        }),
+      })
+    );
+
+    expect(response.status).toBe(422);
+    const body = await response.json();
+    expect(body.error.code).toBe("EMPLOYEE_TERMINATED");
+  });
+
+  test("should reject when employee is ON_VACATION", async () => {
+    const { headers, organizationId, userId } =
+      await createTestUserWithOrganization({
+        emailVerified: true,
+      });
+
+    const { employee } = await createTestEmployee({ organizationId, userId });
+
+    await db
+      .update(schema.employees)
+      .set({ status: "ON_VACATION" })
+      .where(eq(schema.employees.id, employee.id));
+
+    const response = await app.handle(
+      new Request(`${BASE_URL}/v1/medical-certificates`, {
+        method: "POST",
+        headers: { ...headers, "Content-Type": "application/json" },
+        body: JSON.stringify({
+          employeeId: employee.id,
+          startDate: "2024-05-01",
+          endDate: "2024-05-05",
+          daysOff: 5,
+        }),
+      })
+    );
+
+    expect(response.status).toBe(422);
+    const body = await response.json();
+    expect(body.error.code).toBe("EMPLOYEE_ON_VACATION");
   });
 });

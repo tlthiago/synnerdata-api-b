@@ -129,6 +129,16 @@ export type PagarmeSubscription = {
   updated_at: string;
   customer: PagarmeCustomer;
   plan: PagarmePlan;
+  items?: {
+    id: string;
+    name: string;
+    quantity: number;
+    pricing_scheme: {
+      price: number;
+      scheme_type: string;
+    };
+    status: string;
+  }[];
   card?: {
     id: string;
     last_four_digits: string;
@@ -359,9 +369,10 @@ export type PagarmePaymentLink = {
 };
 
 export type UpdateSubscriptionItemRequest = {
-  description?: string;
-  quantity?: number;
-  pricing_scheme?: {
+  description: string;
+  quantity: number;
+  status: string;
+  pricing_scheme: {
     price: number;
     scheme_type: "unit";
   };

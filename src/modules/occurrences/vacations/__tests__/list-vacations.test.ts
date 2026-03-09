@@ -76,12 +76,18 @@ describe("GET /v1/vacations", () => {
       organizationId,
       userId: user.id,
       employeeId: employee.id,
+      startDate: "2025-01-01",
+      endDate: "2025-01-15",
+      daysUsed: 0,
     });
 
     await createTestVacation({
       organizationId,
       userId: user.id,
       employeeId: employee.id,
+      startDate: "2025-03-01",
+      endDate: "2025-03-15",
+      daysUsed: 0,
     });
 
     const response = await app.handle(
@@ -99,6 +105,7 @@ describe("GET /v1/vacations", () => {
     expect(body.data[0].employee).toBeObject();
     expect(body.data[0].employee.id).toBe(employee.id);
     expect(body.data[0].employee.name).toBeString();
+    expect(body.data[0].daysEntitled).toBeNumber();
     expect(body.data[1].employee.id).toBe(employee.id);
   });
 
@@ -117,12 +124,18 @@ describe("GET /v1/vacations", () => {
       organizationId,
       userId: user.id,
       employeeId: employee.id,
+      startDate: "2025-04-01",
+      endDate: "2025-04-15",
+      daysUsed: 0,
     });
 
     const vacation2 = await createTestVacation({
       organizationId,
       userId: user.id,
       employeeId: employee.id,
+      startDate: "2025-06-01",
+      endDate: "2025-06-15",
+      daysUsed: 0,
     });
 
     await app.handle(

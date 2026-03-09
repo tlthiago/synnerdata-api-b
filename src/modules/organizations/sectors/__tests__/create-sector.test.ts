@@ -5,6 +5,7 @@ import {
   createTestUser,
   createTestUserWithOrganization,
 } from "@/test/helpers/user";
+import { SectorService } from "../sector.service";
 
 const BASE_URL = env.API_URL;
 
@@ -206,5 +207,61 @@ describe("POST /v1/sectors", () => {
     );
 
     expect(response.status).toBe(200);
+  });
+
+  test("should return 409 when creating sector with duplicate name", async () => {
+    const { headers, organizationId, user } =
+      await createTestUserWithOrganization({
+        emailVerified: true,
+      });
+
+    await SectorService.create({
+      organizationId,
+      userId: user.id,
+      name: "Setor Duplicado",
+    });
+
+    const response = await app.handle(
+      new Request(`${BASE_URL}/v1/sectors`, {
+        method: "POST",
+        headers: {
+          ...headers,
+          "Content-Type": "application/json",
+        },
+        body: JSON.stringify({ name: "Setor Duplicado" }),
+      })
+    );
+
+    expect(response.status).toBe(409);
+    const body = await response.json();
+    expect(body.error.code).toBe("SECTOR_ALREADY_EXISTS");
+  });
+
+  test("should return 409 when creating sector with duplicate name (case-insensitive)", async () => {
+    const { headers, organizationId, user } =
+      await createTestUserWithOrganization({
+        emailVerified: true,
+      });
+
+    await SectorService.create({
+      organizationId,
+      userId: user.id,
+      name: "Setor Teste",
+    });
+
+    const response = await app.handle(
+      new Request(`${BASE_URL}/v1/sectors`, {
+        method: "POST",
+        headers: {
+          ...headers,
+          "Content-Type": "application/json",
+        },
+        body: JSON.stringify({ name: "setor teste" }),
+      })
+    );
+
+    expect(response.status).toBe(409);
+    const body = await response.json();
+    expect(body.error.code).toBe("SECTOR_ALREADY_EXISTS");
   });
 });

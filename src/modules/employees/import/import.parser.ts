@@ -13,6 +13,7 @@ import {
   BOOLEAN_LABELS,
   buildReverseMap,
   CONTRACT_TYPE_LABELS,
+  DISABILITY_TYPE_LABELS,
   EDUCATION_LEVEL_LABELS,
   GENDER_LABELS,
   MARITAL_STATUS_LABELS,
@@ -50,6 +51,7 @@ const reverseMaritalStatus = buildReverseMap(MARITAL_STATUS_LABELS);
 const reverseContractType = buildReverseMap(CONTRACT_TYPE_LABELS);
 const reverseEducationLevel = buildReverseMap(EDUCATION_LEVEL_LABELS);
 const reverseWorkShift = buildReverseMap(WORK_SHIFT_LABELS);
+const reverseDisabilityType = buildReverseMap(DISABILITY_TYPE_LABELS);
 const reverseBoolean = buildReverseMap(BOOLEAN_LABELS);
 
 // ── Top-level regex patterns ────────────────────────────────────────────────
@@ -78,6 +80,7 @@ const ENUM_FIELDS: Record<string, Record<string, string>> = {
   contractType: reverseContractType,
   educationLevel: reverseEducationLevel,
   workShift: reverseWorkShift,
+  disabilityType: reverseDisabilityType,
 };
 
 // ── Boolean fields ──────────────────────────────────────────────────────────
@@ -95,8 +98,11 @@ const NUMBER_FIELDS = [
   "weeklyHours",
   "height",
   "weight",
+  "latitude",
+  "longitude",
   "mealAllowance",
   "transportAllowance",
+  "healthInsurance",
   "busCount",
   "childrenCount",
 ] as const;

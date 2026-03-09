@@ -72,3 +72,15 @@ export class TerminationInvalidEmployeeError extends TerminationError {
     );
   }
 }
+
+export class TerminationAlreadyExistsError extends TerminationError {
+  status = 409;
+
+  constructor(employeeId: string) {
+    super(
+      "Employee already has an active termination record",
+      "TERMINATION_ALREADY_EXISTS",
+      { employeeId }
+    );
+  }
+}

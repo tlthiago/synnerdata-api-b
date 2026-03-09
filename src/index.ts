@@ -1,3 +1,4 @@
+import "@/lib/sentry";
 import { cors } from "@elysiajs/cors";
 import { openapi } from "@elysiajs/openapi";
 import { Elysia } from "elysia";
@@ -15,6 +16,7 @@ import { setupGracefulShutdown } from "./lib/shutdown/shutdown";
 import { adminController } from "./modules/admin";
 import { auditController } from "./modules/audit";
 import { employeeController } from "./modules/employees";
+import { registerEmployeeListeners } from "./modules/employees/hooks/listeners";
 import { occurrencesController } from "./modules/occurrences";
 import { organizationController } from "./modules/organizations";
 import { paymentsController } from "./modules/payments";
@@ -142,6 +144,7 @@ const app = new Elysia({
   .listen(env.PORT, ({ hostname, port }) => {
     // Application initialization
     registerPaymentListeners();
+    registerEmployeeListeners();
 
     logger.info({
       type: "app:start",

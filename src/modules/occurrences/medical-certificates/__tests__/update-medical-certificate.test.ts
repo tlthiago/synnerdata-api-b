@@ -137,6 +137,36 @@ describe("PUT /v1/medical-certificates/:id", () => {
     expect(response.status).toBe(422);
   });
 
+  test("should reject when daysOff does not match date range on update", async () => {
+    const { headers, organizationId, userId } =
+      await createTestUserWithOrganization({
+        emailVerified: true,
+      });
+
+    const { employee } = await createTestEmployee({ organizationId, userId });
+    const certificate = await createTestMedicalCertificate({
+      organizationId,
+      userId,
+      employeeId: employee.id,
+    });
+
+    const response = await app.handle(
+      new Request(`${BASE_URL}/v1/medical-certificates/${certificate.id}`, {
+        method: "PUT",
+        headers: { ...headers, "Content-Type": "application/json" },
+        body: JSON.stringify({
+          startDate: "2024-01-01",
+          endDate: "2024-01-05",
+          daysOff: 10,
+        }),
+      })
+    );
+
+    expect(response.status).toBe(422);
+    const body = await response.json();
+    expect(body.error.code).toBe("INVALID_DAYS_OFF");
+  });
+
   test("should update medical certificate successfully", async () => {
     const { headers, organizationId, userId } =
       await createTestUserWithOrganization({
@@ -156,6 +186,8 @@ describe("PUT /v1/medical-certificates/:id", () => {
         method: "PUT",
         headers: { ...headers, "Content-Type": "application/json" },
         body: JSON.stringify({
+          startDate: "2024-01-01",
+          endDate: "2024-01-07",
           daysOff: 7,
           notes: "Updated notes",
         }),
@@ -171,5 +203,82 @@ describe("PUT /v1/medical-certificates/:id", () => {
     expect(body.data.employee.name).toBeString();
     expect(body.data.daysOff).toBe(7);
     expect(body.data.notes).toBe("Updated notes");
+  });
+
+  test("should reject overlapping medical certificate on update", async () => {
+    const { headers, organizationId, userId } =
+      await createTestUserWithOrganization({
+        emailVerified: true,
+      });
+
+    const { employee } = await createTestEmployee({ organizationId, userId });
+
+    await createTestMedicalCertificate({
+      organizationId,
+      userId,
+      employeeId: employee.id,
+      startDate: "2024-06-01",
+      endDate: "2024-06-10",
+      daysOff: 10,
+    });
+
+    const certificate2 = await createTestMedicalCertificate({
+      organizationId,
+      userId,
+      employeeId: employee.id,
+      startDate: "2024-06-20",
+      endDate: "2024-06-25",
+      daysOff: 6,
+    });
+
+    const response = await app.handle(
+      new Request(`${BASE_URL}/v1/medical-certificates/${certificate2.id}`, {
+        method: "PUT",
+        headers: { ...headers, "Content-Type": "application/json" },
+        body: JSON.stringify({
+          startDate: "2024-06-05",
+          endDate: "2024-06-15",
+          daysOff: 11,
+        }),
+      })
+    );
+
+    expect(response.status).toBe(409);
+    const body = await response.json();
+    expect(body.error.code).toBe("MEDICAL_CERTIFICATE_OVERLAP");
+  });
+
+  test("should allow updating medical certificate without overlap (same record)", async () => {
+    const { headers, organizationId, userId } =
+      await createTestUserWithOrganization({
+        emailVerified: true,
+      });
+
+    const { employee } = await createTestEmployee({ organizationId, userId });
+
+    const certificate = await createTestMedicalCertificate({
+      organizationId,
+      userId,
+      employeeId: employee.id,
+      startDate: "2024-07-01",
+      endDate: "2024-07-10",
+      daysOff: 10,
+    });
+
+    const response = await app.handle(
+      new Request(`${BASE_URL}/v1/medical-certificates/${certificate.id}`, {
+        method: "PUT",
+        headers: { ...headers, "Content-Type": "application/json" },
+        body: JSON.stringify({
+          startDate: "2024-07-02",
+          endDate: "2024-07-08",
+          daysOff: 7,
+        }),
+      })
+    );
+
+    expect(response.status).toBe(200);
+    const body = await response.json();
+    expect(body.success).toBe(true);
   });
 });

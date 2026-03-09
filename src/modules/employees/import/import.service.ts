@@ -154,25 +154,47 @@ export abstract class ImportService {
     }
 
     // 8. Batch insert valid rows
-    if (validRows.length > 0) {
-      const insertValues = validRows.map((row) => ({
-        id: `employee-${crypto.randomUUID()}`,
-        organizationId,
-        ...row.data,
-        // Convert numerics to strings for decimal columns
-        height: row.data.height?.toString(),
-        weight: row.data.weight?.toString(),
-        salary: row.data.salary.toString(),
-        weeklyHours: row.data.weeklyHours.toString(),
-        mealAllowance: row.data.mealAllowance?.toString(),
-        transportAllowance: row.data.transportAllowance?.toString(),
-        latitude: row.data.latitude?.toString(),
-        longitude: row.data.longitude?.toString(),
-        status: "ACTIVE" as const,
-        createdBy: userId,
-      }));
+    const insertValues: {
+      id: string;
+      organizationId: string;
+      hireDate: string;
+      [key: string]: unknown;
+    }[] = [];
 
-      await db.insert(schema.employees).values(insertValues);
+    if (validRows.length > 0) {
+      for (const row of validRows) {
+        insertValues.push({
+          id: `employee-${crypto.randomUUID()}`,
+          organizationId,
+          ...row.data,
+          // Convert numerics to strings for decimal columns
+          height: row.data.height?.toString(),
+          weight: row.data.weight?.toString(),
+          salary: row.data.salary.toString(),
+          weeklyHours: row.data.weeklyHours.toString(),
+          mealAllowance: row.data.mealAllowance?.toString(),
+          transportAllowance: row.data.transportAllowance?.toString(),
+          healthInsurance: row.data.healthInsurance?.toString(),
+          latitude: row.data.latitude?.toString(),
+          longitude: row.data.longitude?.toString(),
+          status: "ACTIVE" as const,
+          createdBy: userId,
+        });
+      }
+
+      await db
+        .insert(schema.employees)
+        .values(insertValues as (typeof schema.employees.$inferInsert)[]);
+
+      // 8b. Emit employee.created events sequentially
+      const { EmployeeHooks } = await import("@/modules/employees/hooks");
+      for (const row of insertValues) {
+        EmployeeHooks.emit("employee.created", {
+          employeeId: row.id,
+          organizationId,
+          hireDate: row.hireDate,
+        });
+      }
     }
 
     // 9. Audit log
