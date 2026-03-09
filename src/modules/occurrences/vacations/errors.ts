@@ -56,6 +56,14 @@ export class VacationInvalidDateRangeError extends VacationError {
   }
 }
 
+export class VacationInvalidDaysError extends VacationError {
+  status = 422;
+
+  constructor(message: string) {
+    super(message, "VACATION_INVALID_DAYS");
+  }
+}
+
 export class VacationOverlapError extends VacationError {
   status = 409;
 

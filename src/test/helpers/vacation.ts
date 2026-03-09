@@ -1,14 +1,17 @@
 import type { VacationData } from "@/modules/occurrences/vacations/vacation.model";
 import { VacationService } from "@/modules/occurrences/vacations/vacation.service";
-import { createTestAcquisitionPeriod } from "./acquisition-period";
 import { faker } from "./faker";
 
 type VacationOverrides = {
   employeeId?: string;
   startDate?: string;
   endDate?: string;
+  acquisitionPeriodStart?: string;
+  acquisitionPeriodEnd?: string;
+  concessivePeriodStart?: string;
+  concessivePeriodEnd?: string;
+  daysEntitled?: number;
   daysUsed?: number;
-  acquisitionPeriodId?: string;
   status?: "scheduled" | "in_progress" | "completed" | "canceled";
   notes?: string;
 };
@@ -24,17 +27,6 @@ export async function createTestVacation(
 ): Promise<VacationData> {
   const { organizationId, userId, employeeId, ...overrides } = options;
 
-  let acquisitionPeriodId = overrides.acquisitionPeriodId;
-  if (!acquisitionPeriodId) {
-    const period = await createTestAcquisitionPeriod({
-      organizationId,
-      userId,
-      employeeId,
-      status: "available",
-    });
-    acquisitionPeriodId = period.id;
-  }
-
   const startDate =
     overrides.startDate ??
     faker.date.future({ years: 1 }).toISOString().split("T")[0];
@@ -46,14 +38,18 @@ export async function createTestVacation(
       return d.toISOString().split("T")[0];
     })();
 
-  return VacationService.create({
+  return await VacationService.create({
     organizationId,
     userId,
     employeeId,
     startDate,
     endDate,
+    acquisitionPeriodStart: overrides.acquisitionPeriodStart,
+    acquisitionPeriodEnd: overrides.acquisitionPeriodEnd,
+    concessivePeriodStart: overrides.concessivePeriodStart,
+    concessivePeriodEnd: overrides.concessivePeriodEnd,
+    daysEntitled: overrides.daysEntitled ?? 30,
     daysUsed: overrides.daysUsed ?? 0,
-    acquisitionPeriodId,
     status: overrides.status ?? "scheduled",
     notes: overrides.notes,
   });

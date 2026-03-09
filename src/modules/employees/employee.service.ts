@@ -566,13 +566,6 @@ export abstract class EmployeeService {
       await EmployeeService.ensureCpfNotExists(data.cpf, organizationId, id);
     }
 
-    if (data.hireDate && data.hireDate !== existingRaw.hireDate) {
-      const { AcquisitionPeriodService } = await import(
-        "@/modules/occurrences/vacations/acquisition-periods/acquisition-period.service"
-      );
-      await AcquisitionPeriodService.ensureRecalculationAllowed(id);
-    }
-
     // Validate relationships if any FK is being updated
     const relationshipsToValidate = {
       branchId: data.branchId ?? existingRaw.branchId ?? undefined,

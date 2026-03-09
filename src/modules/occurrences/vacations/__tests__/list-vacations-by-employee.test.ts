@@ -1,6 +1,5 @@
 import { beforeAll, describe, expect, test } from "bun:test";
 import { env } from "@/env";
-import { createTestAcquisitionPeriod } from "@/test/helpers/acquisition-period";
 import { createTestApp, type TestApp } from "@/test/helpers/app";
 import { createTestEmployee } from "@/test/helpers/employee";
 import {
@@ -80,31 +79,10 @@ describe("GET /v1/vacations/employee/:employeeId", () => {
       userId: user.id,
     });
 
-    const period1a = await createTestAcquisitionPeriod({
-      organizationId,
-      userId: user.id,
-      employeeId: employee1.id,
-      acquisitionStart: "2023-01-01",
-      acquisitionEnd: "2023-12-31",
-      concessionStart: "2024-01-01",
-      concessionEnd: "2024-12-31",
-    });
-
-    const period1b = await createTestAcquisitionPeriod({
-      organizationId,
-      userId: user.id,
-      employeeId: employee1.id,
-      acquisitionStart: "2024-01-01",
-      acquisitionEnd: "2024-12-31",
-      concessionStart: "2025-01-01",
-      concessionEnd: "2025-12-31",
-    });
-
     await createTestVacation({
       organizationId,
       userId: user.id,
       employeeId: employee1.id,
-      acquisitionPeriodId: period1a.id,
       startDate: "2025-07-01",
       endDate: "2025-07-15",
       daysUsed: 0,
@@ -114,7 +92,6 @@ describe("GET /v1/vacations/employee/:employeeId", () => {
       organizationId,
       userId: user.id,
       employeeId: employee1.id,
-      acquisitionPeriodId: period1b.id,
       startDate: "2025-09-01",
       endDate: "2025-09-10",
       daysUsed: 0,
@@ -144,6 +121,7 @@ describe("GET /v1/vacations/employee/:employeeId", () => {
 
     for (const vacation of body.data) {
       expect(vacation.employee.id).toBe(employee1.id);
+      expect(vacation.daysEntitled).toBeNumber();
     }
   });
 
@@ -156,31 +134,10 @@ describe("GET /v1/vacations/employee/:employeeId", () => {
       userId: user.id,
     });
 
-    const periodA = await createTestAcquisitionPeriod({
-      organizationId,
-      userId: user.id,
-      employeeId: employee.id,
-      acquisitionStart: "2023-01-01",
-      acquisitionEnd: "2023-12-31",
-      concessionStart: "2024-01-01",
-      concessionEnd: "2024-12-31",
-    });
-
-    const periodB = await createTestAcquisitionPeriod({
-      organizationId,
-      userId: user.id,
-      employeeId: employee.id,
-      acquisitionStart: "2024-01-01",
-      acquisitionEnd: "2024-12-31",
-      concessionStart: "2025-01-01",
-      concessionEnd: "2025-12-31",
-    });
-
     const vacation1 = await createTestVacation({
       organizationId,
       userId: user.id,
       employeeId: employee.id,
-      acquisitionPeriodId: periodA.id,
       startDate: "2025-10-01",
       endDate: "2025-10-15",
       daysUsed: 0,
@@ -190,7 +147,6 @@ describe("GET /v1/vacations/employee/:employeeId", () => {
       organizationId,
       userId: user.id,
       employeeId: employee.id,
-      acquisitionPeriodId: periodB.id,
       startDate: "2025-11-01",
       endDate: "2025-11-15",
       daysUsed: 0,
@@ -272,31 +228,10 @@ describe("GET /v1/vacations/employee/:employeeId", () => {
       userId: user.id,
     });
 
-    const periodA = await createTestAcquisitionPeriod({
-      organizationId,
-      userId: user.id,
-      employeeId: employee.id,
-      acquisitionStart: "2023-01-01",
-      acquisitionEnd: "2023-12-31",
-      concessionStart: "2024-01-01",
-      concessionEnd: "2024-12-31",
-    });
-
-    const periodB = await createTestAcquisitionPeriod({
-      organizationId,
-      userId: user.id,
-      employeeId: employee.id,
-      acquisitionStart: "2024-01-01",
-      acquisitionEnd: "2024-12-31",
-      concessionStart: "2025-01-01",
-      concessionEnd: "2025-12-31",
-    });
-
     await createTestVacation({
       organizationId,
       userId: user.id,
       employeeId: employee.id,
-      acquisitionPeriodId: periodA.id,
       startDate: "2025-12-01",
       endDate: "2025-12-15",
       daysUsed: 0,
@@ -306,7 +241,6 @@ describe("GET /v1/vacations/employee/:employeeId", () => {
       organizationId,
       userId: user.id,
       employeeId: employee.id,
-      acquisitionPeriodId: periodB.id,
       startDate: "2025-06-01",
       endDate: "2025-06-15",
       daysUsed: 0,

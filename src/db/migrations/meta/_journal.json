@@ -176,6 +176,13 @@
       "when": 1772829707153,
       "tag": "0024_eminent_scourge",
       "breakpoints": true
+    },
+    {
+      "idx": 25,
+      "version": "7",
+      "when": 1773058070745,
+      "tag": "0026_crazy_wendell_rand",
+      "breakpoints": true
     }
   ]
 }

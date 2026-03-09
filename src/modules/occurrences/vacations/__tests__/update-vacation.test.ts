@@ -1,6 +1,5 @@
 import { beforeAll, describe, expect, test } from "bun:test";
 import { env } from "@/env";
-import { createTestAcquisitionPeriod } from "@/test/helpers/acquisition-period";
 import { createTestApp, type TestApp } from "@/test/helpers/app";
 import { createTestEmployee } from "@/test/helpers/employee";
 import {
@@ -182,7 +181,81 @@ describe("PUT /v1/vacations/:id", () => {
     expect(body.data.employee).toBeObject();
     expect(body.data.employee.id).toBeString();
     expect(body.data.employee.name).toBeString();
-    expect(body.data.acquisitionPeriodId).toStartWith("acquisition-period-");
+    expect(body.data.daysEntitled).toBeNumber();
+  });
+
+  test("should update period fields", async () => {
+    const { headers, organizationId, user } =
+      await createTestUserWithOrganization({
+        emailVerified: true,
+      });
+
+    const { employee } = await createTestEmployee({
+      organizationId,
+      userId: user.id,
+    });
+
+    const vacation = await createTestVacation({
+      organizationId,
+      userId: user.id,
+      employeeId: employee.id,
+      startDate: "2025-01-01",
+      endDate: "2025-01-30",
+      daysUsed: 0,
+    });
+
+    const response = await app.handle(
+      new Request(`${BASE_URL}/v1/vacations/${vacation.id}`, {
+        method: "PUT",
+        headers: { ...headers, "Content-Type": "application/json" },
+        body: JSON.stringify({
+          acquisitionPeriodStart: "2023-01-01",
+          acquisitionPeriodEnd: "2023-12-31",
+          concessivePeriodStart: "2024-01-01",
+          concessivePeriodEnd: "2024-12-31",
+        }),
+      })
+    );
+
+    expect(response.status).toBe(200);
+    const body = await response.json();
+    expect(body.success).toBe(true);
+    expect(body.data.acquisitionPeriodStart).toBe("2023-01-01");
+    expect(body.data.acquisitionPeriodEnd).toBe("2023-12-31");
+    expect(body.data.concessivePeriodStart).toBe("2024-01-01");
+    expect(body.data.concessivePeriodEnd).toBe("2024-12-31");
+  });
+
+  test("should reject when daysUsed exceeds daysEntitled on update", async () => {
+    const { headers, organizationId, user } =
+      await createTestUserWithOrganization({
+        emailVerified: true,
+      });
+
+    const { employee } = await createTestEmployee({
+      organizationId,
+      userId: user.id,
+    });
+
+    const vacation = await createTestVacation({
+      organizationId,
+      userId: user.id,
+      employeeId: employee.id,
+      startDate: "2025-01-01",
+      endDate: "2025-01-30",
+      daysEntitled: 30,
+      daysUsed: 0,
+    });
+
+    const response = await app.handle(
+      new Request(`${BASE_URL}/v1/vacations/${vacation.id}`, {
+        method: "PUT",
+        headers: { ...headers, "Content-Type": "application/json" },
+        body: JSON.stringify({ daysEntitled: 5, daysUsed: 20 }),
+      })
+    );
+
+    expect(response.status).toBe(422);
   });
 
   test("should allow manager to update vacation", async () => {
@@ -241,28 +314,6 @@ describe("PUT /v1/vacations/:id", () => {
       userId: user.id,
     });
 
-    const period1 = await createTestAcquisitionPeriod({
-      organizationId,
-      userId: user.id,
-      employeeId: employee.id,
-      acquisitionStart: "2023-01-01",
-      acquisitionEnd: "2023-12-31",
-      concessionStart: "2024-01-01",
-      concessionEnd: "2024-12-31",
-      status: "available",
-    });
-
-    const period2 = await createTestAcquisitionPeriod({
-      organizationId,
-      userId: user.id,
-      employeeId: employee.id,
-      acquisitionStart: "2024-01-01",
-      acquisitionEnd: "2024-12-31",
-      concessionStart: "2025-01-01",
-      concessionEnd: "2025-12-31",
-      status: "available",
-    });
-
     await createTestVacation({
       organizationId,
       userId: user.id,
@@ -271,7 +322,6 @@ describe("PUT /v1/vacations/:id", () => {
       endDate: "2025-06-15",
       daysUsed: 0,
       status: "scheduled",
-      acquisitionPeriodId: period1.id,
     });
 
     const vacation2 = await createTestVacation({
@@ -282,7 +332,6 @@ describe("PUT /v1/vacations/:id", () => {
       endDate: "2025-06-30",
       daysUsed: 0,
       status: "scheduled",
-      acquisitionPeriodId: period2.id,
     });
 
     const response = await app.handle(

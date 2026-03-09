@@ -1,9 +1,5 @@
 import { beforeAll, describe, expect, test } from "bun:test";
-import { eq } from "drizzle-orm";
-import { db } from "@/db";
-import { schema } from "@/db/schema";
 import { env } from "@/env";
-import { createTestAcquisitionPeriod } from "@/test/helpers/acquisition-period";
 import { createTestApp, type TestApp } from "@/test/helpers/app";
 import { createTestEmployee } from "@/test/helpers/employee";
 import {
@@ -202,7 +198,6 @@ describe("DELETE /v1/vacations/:id", () => {
     expect(body.data.employee).toBeObject();
     expect(body.data.employee.id).toBeString();
     expect(body.data.employee.name).toBeString();
-    expect(body.data.acquisitionPeriodId).toStartWith("acquisition-period-");
   });
 
   test("should allow manager to delete vacation", async () => {
@@ -241,59 +236,5 @@ describe("DELETE /v1/vacations/:id", () => {
     const body = await response.json();
     expect(body.success).toBe(true);
     expect(body.data.id).toBe(vacation.id);
-  });
-
-  test("should decrement daysUsed on acquisition period after deletion", async () => {
-    const { headers, organizationId, user } =
-      await createTestUserWithOrganization({
-        emailVerified: true,
-      });
-
-    const { employee } = await createTestEmployee({
-      organizationId,
-      userId: user.id,
-    });
-
-    const period = await createTestAcquisitionPeriod({
-      organizationId,
-      userId: user.id,
-      employeeId: employee.id,
-      daysEntitled: 30,
-      status: "available",
-    });
-
-    const vacation = await createTestVacation({
-      organizationId,
-      userId: user.id,
-      employeeId: employee.id,
-      daysUsed: 10,
-      acquisitionPeriodId: period.id,
-    });
-
-    // Check period daysUsed was incremented after vacation creation
-    const [periodBefore] = await db
-      .select({ daysUsed: schema.vacationAcquisitionPeriods.daysUsed })
-      .from(schema.vacationAcquisitionPeriods)
-      .where(eq(schema.vacationAcquisitionPeriods.id, period.id));
-
-    expect(periodBefore.daysUsed).toBe(10);
-
-    // Delete the vacation
-    const response = await app.handle(
-      new Request(`${BASE_URL}/v1/vacations/${vacation.id}`, {
-        method: "DELETE",
-        headers,
-      })
-    );
-
-    expect(response.status).toBe(200);
-
-    // Check period daysUsed was decremented
-    const [periodAfter] = await db
-      .select({ daysUsed: schema.vacationAcquisitionPeriods.daysUsed })
-      .from(schema.vacationAcquisitionPeriods)
-      .where(eq(schema.vacationAcquisitionPeriods.id, period.id));
-
-    expect(periodAfter.daysUsed).toBe(0);
   });
 });
