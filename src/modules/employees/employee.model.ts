@@ -125,11 +125,12 @@ export const createEmployeeSchema = z.object({
   pis: z
     .string()
     .regex(/^\d{11}$/, "PIS deve ter 11 dígitos")
+    .optional()
     .describe("PIS (11 dígitos)"),
   workPermitNumber: z
     .string()
-    .min(1, "Número da CTPS é obrigatório")
     .max(10, "Número da CTPS deve ter no máximo 10 caracteres")
+    .optional()
     .describe("Número da CTPS"),
   workPermitSeries: z
     .string()
@@ -264,7 +265,7 @@ export const createEmployeeSchema = z.object({
     .describe("Tipo de deficiência"),
 
   // Family
-  hasChildren: z.boolean().describe("Possui filhos"),
+  hasChildren: z.boolean().optional().describe("Possui filhos"),
   childrenCount: z
     .number()
     .int()
@@ -337,8 +338,8 @@ const employeeDataSchema = z.object({
   // Documents
   cpf: z.string().describe("CPF"),
   identityCard: z.string().describe("RG"),
-  pis: z.string().describe("PIS"),
-  workPermitNumber: z.string().describe("Número da CTPS"),
+  pis: z.string().nullable().describe("PIS"),
+  workPermitNumber: z.string().nullable().describe("Número da CTPS"),
   workPermitSeries: z.string().nullable().describe("Série da CTPS"),
   militaryCertificate: z
     .string()

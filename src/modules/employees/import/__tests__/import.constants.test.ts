@@ -260,8 +260,6 @@ describe("IMPORT_COLUMNS", () => {
     "motherName",
     "cpf",
     "identityCard",
-    "pis",
-    "workPermitNumber",
     "street",
     "streetNumber",
     "neighborhood",
@@ -275,7 +273,6 @@ describe("IMPORT_COLUMNS", () => {
     "jobPositionId",
     "jobClassificationId",
     "weeklyHours",
-    "hasChildren",
   ];
 
   const optionalFieldKeys = [
@@ -283,8 +280,11 @@ describe("IMPORT_COLUMNS", () => {
     "phone",
     "mobile",
     "birthplace",
+    "pis",
+    "workPermitNumber",
     "workPermitSeries",
     "workShift",
+    "hasChildren",
     "educationLevel",
     "hasSpecialNeeds",
     "height",
