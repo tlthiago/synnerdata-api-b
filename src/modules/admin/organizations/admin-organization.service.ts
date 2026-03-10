@@ -258,20 +258,42 @@ export abstract class AdminOrganizationService {
         priceAtPurchase: schema.orgSubscriptions.priceAtPurchase,
         isCustomPrice: schema.orgSubscriptions.isCustomPrice,
         startDate: schema.orgSubscriptions.currentPeriodStart,
+        maxEmployees: schema.planPricingTiers.maxEmployees,
+        trialStart: schema.orgSubscriptions.trialStart,
+        trialEnd: schema.orgSubscriptions.trialEnd,
       })
       .from(schema.orgSubscriptions)
       .innerJoin(
         schema.subscriptionPlans,
         eq(schema.orgSubscriptions.planId, schema.subscriptionPlans.id)
       )
+      .leftJoin(
+        schema.planPricingTiers,
+        eq(schema.orgSubscriptions.pricingTierId, schema.planPricingTiers.id)
+      )
       .where(eq(schema.orgSubscriptions.organizationId, organizationId))
       .limit(1);
 
     const subscription = subscriptionRow
       ? {
-          ...subscriptionRow,
+          id: subscriptionRow.id,
+          planName: subscriptionRow.planName,
+          status: subscriptionRow.status,
+          isTrial: subscriptionRow.isTrial,
           billingCycle: subscriptionRow.billingCycle ?? null,
           priceAtPurchase: subscriptionRow.priceAtPurchase ?? null,
+          isCustomPrice: subscriptionRow.isCustomPrice,
+          startDate: subscriptionRow.startDate,
+          maxEmployees: subscriptionRow.maxEmployees ?? null,
+          trialDays:
+            subscriptionRow.trialStart && subscriptionRow.trialEnd
+              ? Math.round(
+                  (subscriptionRow.trialEnd.getTime() -
+                    subscriptionRow.trialStart.getTime()) /
+                    (1000 * 60 * 60 * 24)
+                )
+              : null,
+          trialEnd: subscriptionRow.trialEnd ?? null,
         }
       : null;
 
