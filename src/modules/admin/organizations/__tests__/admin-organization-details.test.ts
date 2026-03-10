@@ -161,11 +161,12 @@ describe("GET /v1/admin/organizations/:id", () => {
     const { headers } = await createTestAdminUser();
     const organization = await createTestOrganization();
 
-    const { plan } = await PlanFactory.createPaid("gold");
+    const { plan, tiers } = await PlanFactory.createPaid("gold");
+    const tier = tiers[0];
     const subscriptionId = await SubscriptionFactory.createActive(
       organization.id,
       plan.id,
-      { billingCycle: "monthly" }
+      { billingCycle: "monthly", pricingTierId: tier.id }
     );
 
     const response = await app.handle(
@@ -187,6 +188,43 @@ describe("GET /v1/admin/organizations/:id", () => {
     expect(subscription.isTrial).toBe(false);
     expect(subscription.billingCycle).toBe("monthly");
     expect(subscription.isCustomPrice).toBe(false);
+    expect(subscription.maxEmployees).toBe(tier.maxEmployees);
+    expect(subscription.trialDays).toBeNull();
+    expect(subscription.trialEnd).toBeNull();
+  });
+
+  test("should return trial subscription with trialDays, trialEnd and maxEmployees", async () => {
+    const { headers } = await createTestAdminUser();
+    const organization = await createTestOrganization();
+
+    const { plan, tiers } = await PlanFactory.createTrial();
+    const tier = tiers[0];
+    await SubscriptionFactory.createTrial(organization.id, plan.id);
+
+    // Set pricingTierId to the trial tier
+    await db
+      .update(schema.orgSubscriptions)
+      .set({ pricingTierId: tier.id })
+      .where(eq(schema.orgSubscriptions.organizationId, organization.id));
+
+    const response = await app.handle(
+      new Request(`${BASE_URL}/v1/admin/organizations/${organization.id}`, {
+        method: "GET",
+        headers,
+      })
+    );
+
+    expect(response.status).toBe(200);
+    const body = await response.json();
+    expect(body.success).toBe(true);
+
+    const { subscription } = body.data;
+    expect(subscription).not.toBeNull();
+    expect(subscription.isTrial).toBe(true);
+    expect(subscription.maxEmployees).toBe(tier.maxEmployees);
+    expect(subscription.trialDays).toBe(14);
+    expect(subscription.trialEnd).toBeDefined();
+    expect(subscription.trialEnd).not.toBeNull();
   });
 });
 

@@ -135,6 +135,9 @@ const subscriptionDataSchema = z.object({
   priceAtPurchase: z.number().nullable(),
   isCustomPrice: z.boolean(),
   startDate: z.coerce.date().nullable(),
+  maxEmployees: z.number().nullable(),
+  trialDays: z.number().nullable(),
+  trialEnd: z.coerce.date().nullable(),
 });
 
 const organizationDetailsDataSchema = z.object({
