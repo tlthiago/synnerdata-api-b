@@ -3,6 +3,7 @@ version: 2
 updates:
   - package-ecosystem: npm
     directory: /
+    target-branch: preview
     schedule:
       interval: weekly
       day: monday
@@ -34,6 +35,7 @@ updates:
 
   - package-ecosystem: docker
     directory: /
+    target-branch: preview
     schedule:
       interval: weekly
       day: monday
@@ -46,6 +48,7 @@ updates:
 
   - package-ecosystem: github-actions
     directory: /
+    target-branch: preview
     schedule:
       interval: monthly
     groups:

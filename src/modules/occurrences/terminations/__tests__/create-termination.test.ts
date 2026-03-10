@@ -352,6 +352,47 @@ describe("POST /v1/terminations", () => {
     expect(body.error.code).toBe("TERMINATION_ALREADY_EXISTS");
   });
 
+  test("should set employee status to TERMINATED after creating termination", async () => {
+    const { headers, organizationId, user } =
+      await createTestUserWithOrganization({
+        emailVerified: true,
+      });
+
+    const { employee } = await createTestEmployee({
+      organizationId,
+      userId: user.id,
+    });
+
+    const [beforeEmployee] = await db
+      .select({ status: schema.employees.status })
+      .from(schema.employees)
+      .where(eq(schema.employees.id, employee.id))
+      .limit(1);
+    expect(beforeEmployee.status).toBe("ACTIVE");
+
+    const response = await app.handle(
+      new Request(`${BASE_URL}/v1/terminations`, {
+        method: "POST",
+        headers: { ...headers, "Content-Type": "application/json" },
+        body: JSON.stringify({
+          employeeId: employee.id,
+          terminationDate: "2024-02-15",
+          type: "RESIGNATION",
+          lastWorkingDay: "2024-02-15",
+        }),
+      })
+    );
+
+    expect(response.status).toBe(200);
+
+    const [afterEmployee] = await db
+      .select({ status: schema.employees.status })
+      .from(schema.employees)
+      .where(eq(schema.employees.id, employee.id))
+      .limit(1);
+    expect(afterEmployee.status).toBe("TERMINATED");
+  });
+
   test("should allow creating termination when previous was soft-deleted", async () => {
     const { headers, organizationId, user } =
       await createTestUserWithOrganization({

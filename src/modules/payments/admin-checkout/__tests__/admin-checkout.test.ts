@@ -605,6 +605,328 @@ describe("POST /v1/payments/admin/checkout", () => {
     15_000
   );
 
+  // ── Success — Mocked Pagarme ───────────────────────────────────
+
+  function mockPagarme() {
+    const mockPagarmePlanId = `plan_mock_${crypto.randomUUID().slice(0, 8)}`;
+    const mockPaymentLinkId = `pl_mock_${crypto.randomUUID().slice(0, 8)}`;
+    const mockCheckoutUrl = `https://pagar.me/checkout/${mockPaymentLinkId}`;
+    const mockCustomerId = `cus_mock_${crypto.randomUUID().slice(0, 8)}`;
+    const now = new Date().toISOString();
+
+    const { PagarmeClient } = require("../../pagarme/client");
+
+    const createPlanSpy = spyOn(PagarmeClient, "createPlan").mockResolvedValue({
+      id: mockPagarmePlanId,
+      name: "custom-gold-mock",
+      interval: "month",
+      interval_count: 1,
+      billing_type: "prepaid",
+      payment_methods: ["credit_card"],
+      currency: "BRL",
+      items: [],
+      status: "active",
+      created_at: now,
+      updated_at: now,
+    });
+
+    const createPaymentLinkSpy = spyOn(
+      PagarmeClient,
+      "createPaymentLink"
+    ).mockResolvedValue({
+      id: mockPaymentLinkId,
+      url: mockCheckoutUrl,
+      short_url: mockCheckoutUrl,
+      status: "active",
+      type: "subscription",
+      name: "Custom Gold Plan",
+      success_url: "https://app.example.com/success",
+      created_at: now,
+      updated_at: now,
+    });
+
+    const createCustomerSpy = spyOn(
+      PagarmeClient,
+      "createCustomer"
+    ).mockResolvedValue({
+      id: mockCustomerId,
+      name: "Empresa LTDA",
+      email: "billing@empresa.com",
+      document: "24004752000199",
+      type: "company",
+      created_at: now,
+      updated_at: now,
+    });
+
+    return {
+      mockPagarmePlanId,
+      mockPaymentLinkId,
+      mockCheckoutUrl,
+      restore: () => {
+        createPlanSpy.mockRestore();
+        createPaymentLinkSpy.mockRestore();
+        createCustomerSpy.mockRestore();
+      },
+    };
+  }
+
+  test("should create checkout with custom price (mocked Pagarme)", async () => {
+    const { headers } = await UserFactory.createAdmin();
+    const org = await OrganizationFactory.create();
+    await BillingProfileFactory.create({ organizationId: org.id });
+
+    const mocks = mockPagarme();
+
+    const response = await app.handle(
+      new Request(ENDPOINT, {
+        method: "POST",
+        headers: { ...headers, "Content-Type": "application/json" },
+        body: JSON.stringify(
+          buildPayload({
+            organizationId: org.id,
+            basePlanId: goldPlanResult.plan.id,
+            minEmployees: 0,
+            maxEmployees: 25,
+            customPriceMonthly: 5000,
+            notes: "Desconto negociado",
+          })
+        ),
+      })
+    );
+
+    mocks.restore();
+
+    expect(response.status).toBe(200);
+
+    const body = await response.json();
+    expect(body.success).toBe(true);
+    expect(body.data.checkoutUrl).toBe(mocks.mockCheckoutUrl);
+    expect(body.data.paymentLinkId).toBe(mocks.mockPaymentLinkId);
+    expect(body.data.privatePlanId).toStartWith("plan-");
+    expect(body.data.privateTierId).toStartWith("tier-");
+    expect(body.data.customPriceMonthly).toBe(5000);
+    expect(body.data.customPriceYearly).toBeNumber();
+    expect(body.data.basePlanDisplayName).toBe(goldPlanResult.plan.displayName);
+    expect(body.data.minEmployees).toBe(0);
+    expect(body.data.maxEmployees).toBe(25);
+    expect(body.data.expiresAt).toBeString();
+
+    // Verify private plan in DB
+    const [privatePlan] = await db
+      .select()
+      .from(schema.subscriptionPlans)
+      .where(eq(schema.subscriptionPlans.id, body.data.privatePlanId))
+      .limit(1);
+
+    expect(privatePlan).toBeDefined();
+    expect(privatePlan.isPublic).toBe(false);
+    expect(privatePlan.isTrial).toBe(false);
+    expect(privatePlan.isActive).toBe(true);
+    expect(privatePlan.organizationId).toBe(org.id);
+    expect(privatePlan.basePlanId).toBe(goldPlanResult.plan.id);
+
+    // Verify private tier in DB
+    const [privateTier] = await db
+      .select()
+      .from(schema.planPricingTiers)
+      .where(eq(schema.planPricingTiers.id, body.data.privateTierId))
+      .limit(1);
+
+    expect(privateTier).toBeDefined();
+    expect(privateTier.planId).toBe(body.data.privatePlanId);
+    expect(privateTier.minEmployees).toBe(0);
+    expect(privateTier.maxEmployees).toBe(25);
+    expect(privateTier.priceMonthly).toBe(5000);
+    expect(privateTier.priceYearly).toBeNumber();
+
+    // Verify pending checkout saved
+    const [checkout] = await db
+      .select()
+      .from(schema.pendingCheckouts)
+      .where(eq(schema.pendingCheckouts.paymentLinkId, mocks.mockPaymentLinkId))
+      .limit(1);
+
+    expect(checkout).toBeDefined();
+    expect(checkout.organizationId).toBe(org.id);
+    expect(checkout.planId).toBe(body.data.privatePlanId);
+    expect(checkout.pricingTierId).toBe(body.data.privateTierId);
+    expect(checkout.status).toBe("pending");
+    expect(checkout.customPriceMonthly).toBe(5000);
+    expect(checkout.customPriceYearly).toBeNumber();
+    expect(checkout.notes).toBe("Desconto negociado");
+    expect(checkout.pagarmePlanId).toBe(mocks.mockPagarmePlanId);
+  });
+
+  test("should create checkout with inline billing data (mocked Pagarme)", async () => {
+    const { headers } = await UserFactory.createAdmin();
+    const org = await OrganizationFactory.create();
+
+    const mocks = mockPagarme();
+
+    const response = await app.handle(
+      new Request(ENDPOINT, {
+        method: "POST",
+        headers: { ...headers, "Content-Type": "application/json" },
+        body: JSON.stringify(
+          buildPayload({
+            organizationId: org.id,
+            basePlanId: goldPlanResult.plan.id,
+            customPriceMonthly: 3000,
+            billing: buildBillingData(),
+          })
+        ),
+      })
+    );
+
+    mocks.restore();
+
+    expect(response.status).toBe(200);
+
+    const body = await response.json();
+    expect(body.success).toBe(true);
+    expect(body.data.checkoutUrl).toBe(mocks.mockCheckoutUrl);
+    expect(body.data.privatePlanId).toStartWith("plan-");
+    expect(body.data.customPriceMonthly).toBe(3000);
+
+    // Verify billing profile created
+    const [profile] = await db
+      .select()
+      .from(schema.billingProfiles)
+      .where(eq(schema.billingProfiles.organizationId, org.id))
+      .limit(1);
+
+    expect(profile).toBeDefined();
+    expect(profile.organizationId).toBe(org.id);
+  });
+
+  test("should allow checkout for org with trial subscription (mocked Pagarme)", async () => {
+    const { headers } = await UserFactory.createAdmin();
+    const org = await OrganizationFactory.create();
+
+    await BillingProfileFactory.create({ organizationId: org.id });
+    await SubscriptionFactory.createTrial(org.id, trialPlanResult.plan.id);
+
+    const mocks = mockPagarme();
+
+    const response = await app.handle(
+      new Request(ENDPOINT, {
+        method: "POST",
+        headers: { ...headers, "Content-Type": "application/json" },
+        body: JSON.stringify(
+          buildPayload({
+            organizationId: org.id,
+            basePlanId: goldPlanResult.plan.id,
+          })
+        ),
+      })
+    );
+
+    mocks.restore();
+
+    expect(response.status).toBe(200);
+
+    const body = await response.json();
+    expect(body.success).toBe(true);
+    expect(body.data.checkoutUrl).toBe(mocks.mockCheckoutUrl);
+    expect(body.data.privatePlanId).toStartWith("plan-");
+    expect(body.data.privateTierId).toStartWith("tier-");
+    expect(body.data.basePlanDisplayName).toBe(goldPlanResult.plan.displayName);
+  });
+
+  test("should copy base plan features to private plan (mocked Pagarme)", async () => {
+    const { headers } = await UserFactory.createAdmin();
+    const org = await OrganizationFactory.create();
+
+    await BillingProfileFactory.create({ organizationId: org.id });
+
+    const mocks = mockPagarme();
+
+    const response = await app.handle(
+      new Request(ENDPOINT, {
+        method: "POST",
+        headers: { ...headers, "Content-Type": "application/json" },
+        body: JSON.stringify(
+          buildPayload({
+            organizationId: org.id,
+            basePlanId: goldPlanResult.plan.id,
+            minEmployees: 0,
+            maxEmployees: 50,
+            customPriceMonthly: 10_000,
+          })
+        ),
+      })
+    );
+
+    mocks.restore();
+
+    expect(response.status).toBe(200);
+
+    const body = await response.json();
+    expect(body.success).toBe(true);
+
+    // Verify features copied from base plan
+    const privateFeatures = await db
+      .select({ featureId: schema.planFeatures.featureId })
+      .from(schema.planFeatures)
+      .where(eq(schema.planFeatures.planId, body.data.privatePlanId));
+
+    const baseFeatures = await db
+      .select({ featureId: schema.planFeatures.featureId })
+      .from(schema.planFeatures)
+      .where(eq(schema.planFeatures.planId, goldPlanResult.plan.id));
+
+    expect(privateFeatures.length).toBe(baseFeatures.length);
+    expect(privateFeatures.length).toBeGreaterThan(0);
+
+    const privateIds = privateFeatures.map((f) => f.featureId).sort();
+    const baseIds = baseFeatures.map((f) => f.featureId).sort();
+    expect(privateIds).toEqual(baseIds);
+  });
+
+  test("should create checkout with yearly billing cycle (mocked Pagarme)", async () => {
+    const { headers } = await UserFactory.createAdmin();
+    const org = await OrganizationFactory.create();
+
+    await BillingProfileFactory.create({ organizationId: org.id });
+
+    const mocks = mockPagarme();
+
+    const response = await app.handle(
+      new Request(ENDPOINT, {
+        method: "POST",
+        headers: { ...headers, "Content-Type": "application/json" },
+        body: JSON.stringify(
+          buildPayload({
+            organizationId: org.id,
+            basePlanId: goldPlanResult.plan.id,
+            billingCycle: "yearly",
+            customPriceMonthly: 8000,
+          })
+        ),
+      })
+    );
+
+    mocks.restore();
+
+    expect(response.status).toBe(200);
+
+    const body = await response.json();
+    expect(body.success).toBe(true);
+    expect(body.data.customPriceMonthly).toBe(8000);
+    expect(body.data.customPriceYearly).toBeNumber();
+    expect(body.data.customPriceYearly).toBeLessThan(8000 * 12);
+
+    // Verify pending checkout has yearly billing cycle
+    const [checkout] = await db
+      .select()
+      .from(schema.pendingCheckouts)
+      .where(eq(schema.pendingCheckouts.paymentLinkId, mocks.mockPaymentLinkId))
+      .limit(1);
+
+    expect(checkout).toBeDefined();
+    expect(checkout.billingCycle).toBe("yearly");
+  });
+
   // ── Pagarme failure ─────────────────────────────────────────────
 
   test("should handle Pagarme API failure gracefully", async () => {
@@ -615,10 +937,9 @@ describe("POST /v1/payments/admin/checkout", () => {
 
     await BillingProfileFactory.create({ organizationId: org.id });
 
-    const createPlanSpy = spyOn(
-      PagarmeClient,
-      "createPlan"
-    ).mockRejectedValueOnce(new Error("Pagarme API error: Connection refused"));
+    const createPlanSpy = spyOn(PagarmeClient, "createPlan").mockRejectedValue(
+      new Error("Pagarme API error: Connection refused")
+    );
 
     const response = await app.handle(
       new Request(ENDPOINT, {

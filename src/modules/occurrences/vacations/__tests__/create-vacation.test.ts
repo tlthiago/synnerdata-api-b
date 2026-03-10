@@ -521,4 +521,40 @@ describe("POST /v1/vacations", () => {
     const body = await response.json();
     expect(body.error.code).toBe("VACATION_CONCESSIVE_BEFORE_ACQUISITION");
   });
+
+  test("should set employee status to VACATION_SCHEDULED after creating vacation", async () => {
+    const { headers, organizationId, user } =
+      await createTestUserWithOrganization({ emailVerified: true });
+
+    const { employee } = await createTestEmployee({
+      organizationId,
+      userId: user.id,
+    });
+
+    const startDate = "2025-06-01";
+    const endDate = "2025-06-10";
+
+    const response = await app.handle(
+      new Request(`${BASE_URL}/v1/vacations`, {
+        method: "POST",
+        headers: { ...headers, "Content-Type": "application/json" },
+        body: JSON.stringify({
+          employeeId: employee.id,
+          startDate,
+          endDate,
+          daysEntitled: 10,
+          daysUsed: 0,
+        }),
+      })
+    );
+
+    expect(response.status).toBe(200);
+
+    const [updatedEmployee] = await db
+      .select({ status: schema.employees.status })
+      .from(schema.employees)
+      .where(eq(schema.employees.id, employee.id))
+      .limit(1);
+    expect(updatedEmployee.status).toBe("VACATION_SCHEDULED");
+  });
 });

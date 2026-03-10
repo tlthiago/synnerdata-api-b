@@ -217,6 +217,41 @@ describe("DELETE /v1/terminations/:id", () => {
     expect(body.data.deletedBy).toBe(managerResult.user.id);
   });
 
+  test("should revert employee status to ACTIVE after deleting termination", async () => {
+    const { headers, organizationId, user } =
+      await createTestUserWithOrganization({
+        emailVerified: true,
+      });
+
+    const termination = await createTestTermination({
+      organizationId,
+      userId: user.id,
+    });
+
+    const [beforeEmployee] = await db
+      .select({ status: schema.employees.status })
+      .from(schema.employees)
+      .where(eq(schema.employees.id, termination.employee.id))
+      .limit(1);
+    expect(beforeEmployee.status).toBe("TERMINATED");
+
+    const response = await app.handle(
+      new Request(`${BASE_URL}/v1/terminations/${termination.id}`, {
+        method: "DELETE",
+        headers,
+      })
+    );
+
+    expect(response.status).toBe(200);
+
+    const [afterEmployee] = await db
+      .select({ status: schema.employees.status })
+      .from(schema.employees)
+      .where(eq(schema.employees.id, termination.employee.id))
+      .limit(1);
+    expect(afterEmployee.status).toBe("ACTIVE");
+  });
+
   test("should not list deleted termination", async () => {
     const { headers, organizationId, user } =
       await createTestUserWithOrganization({
