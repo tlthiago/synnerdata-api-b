@@ -90,8 +90,16 @@ export abstract class TemplateService {
           .select({
             id: schema.jobClassifications.id,
             name: schema.jobClassifications.name,
+            cboCode: schema.cboOccupations.code,
           })
           .from(schema.jobClassifications)
+          .leftJoin(
+            schema.cboOccupations,
+            eq(
+              schema.jobClassifications.cboOccupationId,
+              schema.cboOccupations.id
+            )
+          )
           .where(
             and(
               eq(schema.jobClassifications.organizationId, organizationId),
@@ -283,7 +291,11 @@ export abstract class TemplateService {
     data: {
       sectors: { id: string; name: string }[];
       jobPositions: { id: string; name: string }[];
-      jobClassifications: { id: string; name: string }[];
+      jobClassifications: {
+        id: string;
+        name: string;
+        cboCode: string | null;
+      }[];
       branches: { id: string; name: string }[];
       costCenters: { id: string; name: string }[];
     }
@@ -302,21 +314,32 @@ export abstract class TemplateService {
     ];
     ws.addRow(dataHeaders);
 
-    // Data columns (row 2+)
-    const columns = [
-      data.sectors,
-      data.jobPositions,
-      data.jobClassifications,
-      data.branches,
-      data.costCenters,
+    // Data columns (row 2+) — each column provides a display value getter
+    const columns: {
+      items: { name: string }[];
+      display: (item: never) => string;
+    }[] = [
+      { items: data.sectors, display: (i: { name: string }) => i.name },
+      { items: data.jobPositions, display: (i: { name: string }) => i.name },
+      {
+        items: data.jobClassifications,
+        display: (i: { name: string; cboCode: string | null }) =>
+          i.cboCode ?? i.name,
+      },
+      { items: data.branches, display: (i: { name: string }) => i.name },
+      { items: data.costCenters, display: (i: { name: string }) => i.name },
     ];
 
-    const maxRows = Math.max(...columns.map((c) => c.length), 0);
+    const maxRows = Math.max(...columns.map((c) => c.items.length), 0);
 
     for (let rowIdx = 0; rowIdx < maxRows; rowIdx++) {
       const rowValues: (string | null)[] = [];
       for (const column of columns) {
-        rowValues.push(rowIdx < column.length ? column[rowIdx].name : null);
+        rowValues.push(
+          rowIdx < column.items.length
+            ? column.display(column.items[rowIdx] as never)
+            : null
+        );
       }
       ws.addRow(rowValues);
     }

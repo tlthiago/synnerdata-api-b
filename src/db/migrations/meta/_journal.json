@@ -197,6 +197,20 @@
       "when": 1773144458436,
       "tag": "0027_panoramic_the_stranger",
       "breakpoints": true
+    },
+    {
+      "idx": 28,
+      "version": "7",
+      "when": 1773156138623,
+      "tag": "0028_flaky_starjammers",
+      "breakpoints": true
+    },
+    {
+      "idx": 29,
+      "version": "7",
+      "when": 1773158117594,
+      "tag": "0029_lush_banshee",
+      "breakpoints": true
     }
   ]
 }

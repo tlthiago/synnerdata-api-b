@@ -6,6 +6,7 @@ type CreateTestJobClassificationOptions = {
   organizationId: string;
   userId: string;
   name?: string;
+  cboOccupationId?: string;
 };
 
 /**
@@ -15,11 +16,12 @@ type CreateTestJobClassificationOptions = {
 export async function createTestJobClassification(
   options: CreateTestJobClassificationOptions
 ): Promise<JobClassificationData> {
-  const { organizationId, userId, name } = options;
+  const { organizationId, userId, name, cboOccupationId } = options;
 
   return await JobClassificationService.create({
     organizationId,
     userId,
+    cboOccupationId,
     name:
       name ??
       `${faker.helpers.arrayElement([

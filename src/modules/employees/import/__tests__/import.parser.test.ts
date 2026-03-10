@@ -435,7 +435,70 @@ describe("ImportParser.parseRow", () => {
     }
   });
 
-  // 10. Multiple errors collected from single row
+  // 10. Formatting cleanup (stripNonDigits)
+  test("strips formatting from CPF", () => {
+    const validCpf = generateCpf();
+    const formatted = `${validCpf.slice(0, 3)}.${validCpf.slice(3, 6)}.${validCpf.slice(6, 9)}-${validCpf.slice(9)}`;
+    const rawRow = buildValidRow({ cpf: formatted });
+    const result = parser.parseRow(rawRow, 29);
+
+    expect(result.success).toBe(true);
+    if (result.success) {
+      expect(result.data.cpf).toBe(validCpf);
+    }
+  });
+
+  test("strips formatting from PIS", () => {
+    const rawRow = buildValidRow({ pis: "123.45678.90-1" });
+    const result = parser.parseRow(rawRow, 30);
+
+    expect(result.success).toBe(true);
+    if (result.success) {
+      expect(result.data.pis).toBe("12345678901");
+    }
+  });
+
+  test("strips formatting from CEP", () => {
+    const rawRow = buildValidRow({ zipCode: "01310-100" });
+    const result = parser.parseRow(rawRow, 31);
+
+    expect(result.success).toBe(true);
+    if (result.success) {
+      expect(result.data.zipCode).toBe("01310100");
+    }
+  });
+
+  test("strips formatting from phone", () => {
+    const rawRow = buildValidRow({ phone: "(11) 3456-7890" });
+    const result = parser.parseRow(rawRow, 32);
+
+    expect(result.success).toBe(true);
+    if (result.success) {
+      expect(result.data.phone).toBe("1134567890");
+    }
+  });
+
+  test("strips formatting from mobile", () => {
+    const rawRow = buildValidRow({ mobile: "(11) 99988-7766" });
+    const result = parser.parseRow(rawRow, 33);
+
+    expect(result.success).toBe(true);
+    if (result.success) {
+      expect(result.data.mobile).toBe("11999887766");
+    }
+  });
+
+  test("strips formatting from workPermitNumber", () => {
+    const rawRow = buildValidRow({ workPermitNumber: "1.234.567" });
+    const result = parser.parseRow(rawRow, 34);
+
+    expect(result.success).toBe(true);
+    if (result.success) {
+      expect(result.data.workPermitNumber).toBe("1234567");
+    }
+  });
+
+  // 11. Multiple errors collected from single row
   test("collects multiple errors from a single row", () => {
     const rawRow = buildValidRow({
       gender: "Invalido",
@@ -633,6 +696,61 @@ describe("ImportParser.parseRow", () => {
     expect(result.success).toBe(true);
     if (result.success) {
       expect(result.data.streetNumber).toBe("123");
+    }
+  });
+});
+
+// ---------------------------------------------------------------------------
+// CBO code resolution (job classification with cboOccupationId)
+// ---------------------------------------------------------------------------
+
+describe("ImportParser — CBO code resolution", () => {
+  let cboParser: ImportParser;
+  let cboJobClassificationId: string;
+  let cboCode: string;
+
+  beforeAll(async () => {
+    const { createTestCboOccupation } = await import(
+      "@/test/helpers/cbo-occupation"
+    );
+
+    const cboOccupation = await createTestCboOccupation();
+    cboCode = cboOccupation.code;
+
+    const jc = await createTestJobClassification({
+      organizationId,
+      userId,
+      name: "Analista de Sistemas CBO",
+      cboOccupationId: cboOccupation.id,
+    });
+    cboJobClassificationId = jc.id;
+
+    cboParser = await ImportParser.create(organizationId);
+  });
+
+  test("resolves job classification by CBO code when cboOccupationId is linked", () => {
+    const rawRow = buildValidRow({ jobClassificationId: cboCode });
+    const result = cboParser.parseRow(rawRow, 30);
+
+    expect(result.success).toBe(true);
+    if (result.success) {
+      expect(result.data.jobClassificationId).toBe(cboJobClassificationId);
+    }
+  });
+
+  test("does not resolve job classification by name when cboOccupationId is linked", () => {
+    const rawRow = buildValidRow({
+      jobClassificationId: "Analista de Sistemas CBO",
+    });
+    const result = cboParser.parseRow(rawRow, 31);
+
+    expect(result.success).toBe(false);
+    if (!result.success) {
+      const error = result.errors.find(
+        (e) => e.field === "jobClassificationId"
+      );
+      expect(error).toBeDefined();
+      expect(error?.message).toContain("não encontrado");
     }
   });
 });
