@@ -111,34 +111,65 @@ export abstract class EmployeeService {
     return costCenter ?? null;
   }
 
+  private static async getLastAcquisitionPeriod(
+    employeeId: string
+  ): Promise<{ start: string; end: string } | null> {
+    const { desc, isNotNull } = await import("drizzle-orm");
+    const [result] = await db
+      .select({
+        start: schema.vacations.acquisitionPeriodStart,
+        end: schema.vacations.acquisitionPeriodEnd,
+      })
+      .from(schema.vacations)
+      .where(
+        and(
+          eq(schema.vacations.employeeId, employeeId),
+          isNotNull(schema.vacations.acquisitionPeriodEnd),
+          isNull(schema.vacations.deletedAt)
+        )
+      )
+      .orderBy(desc(schema.vacations.acquisitionPeriodEnd))
+      .limit(1);
+
+    if (!(result?.start && result?.end)) {
+      return null;
+    }
+
+    return { start: result.start, end: result.end };
+  }
+
   private static async enrichEmployee(
     employee: EmployeeRaw,
     organizationId: string
   ): Promise<EmployeeData> {
-    const [sector, jobPosition, jobClassification, branch, costCenter] =
-      await Promise.all([
-        EmployeeService.getSectorReference(employee.sectorId, organizationId),
-        EmployeeService.getJobPositionReference(
-          employee.jobPositionId,
-          organizationId
-        ),
-        EmployeeService.getJobClassificationReference(
-          employee.jobClassificationId,
-          organizationId
-        ),
-        employee.branchId
-          ? EmployeeService.getBranchReference(
-              employee.branchId,
-              organizationId
-            )
-          : Promise.resolve(null),
-        employee.costCenterId
-          ? EmployeeService.getCostCenterReference(
-              employee.costCenterId,
-              organizationId
-            )
-          : Promise.resolve(null),
-      ]);
+    const [
+      sector,
+      jobPosition,
+      jobClassification,
+      branch,
+      costCenter,
+      lastAcquisitionPeriod,
+    ] = await Promise.all([
+      EmployeeService.getSectorReference(employee.sectorId, organizationId),
+      EmployeeService.getJobPositionReference(
+        employee.jobPositionId,
+        organizationId
+      ),
+      EmployeeService.getJobClassificationReference(
+        employee.jobClassificationId,
+        organizationId
+      ),
+      employee.branchId
+        ? EmployeeService.getBranchReference(employee.branchId, organizationId)
+        : Promise.resolve(null),
+      employee.costCenterId
+        ? EmployeeService.getCostCenterReference(
+            employee.costCenterId,
+            organizationId
+          )
+        : Promise.resolve(null),
+      EmployeeService.getLastAcquisitionPeriod(employee.id),
+    ]);
 
     return {
       id: employee.id,
@@ -198,6 +229,7 @@ export abstract class EmployeeService {
       terminationExamDate: employee.terminationExamDate,
       probation1ExpiryDate: employee.probation1ExpiryDate,
       probation2ExpiryDate: employee.probation2ExpiryDate,
+      lastAcquisitionPeriod,
       createdAt: employee.createdAt,
       updatedAt: employee.updatedAt,
     };

@@ -257,9 +257,7 @@ describe("IMPORT_COLUMNS", () => {
     "gender",
     "maritalStatus",
     "nationality",
-    "motherName",
     "cpf",
-    "identityCard",
     "street",
     "streetNumber",
     "neighborhood",
@@ -277,6 +275,8 @@ describe("IMPORT_COLUMNS", () => {
 
   const optionalFieldKeys = [
     "email",
+    "identityCard",
+    "motherName",
     "phone",
     "mobile",
     "birthplace",

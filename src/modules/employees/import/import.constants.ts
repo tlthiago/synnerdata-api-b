@@ -256,7 +256,7 @@ export const IMPORT_COLUMNS: ImportColumn[] = [
     key: "motherName",
     header: "Nome da mãe",
     width: 30,
-    required: true,
+    required: false,
     section: "personal",
   },
 
@@ -272,7 +272,7 @@ export const IMPORT_COLUMNS: ImportColumn[] = [
     key: "identityCard",
     header: "RG",
     width: 18,
-    required: true,
+    required: false,
     section: "documents",
   },
   {
