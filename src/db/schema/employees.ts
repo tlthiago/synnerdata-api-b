@@ -81,13 +81,13 @@ export const employees = pgTable(
 
     // Personal Data
     name: text("name").notNull(),
-    email: text("email").notNull(),
+    email: text("email"),
     phone: text("phone"),
-    mobile: text("mobile").notNull(),
+    mobile: text("mobile"),
     birthDate: date("birth_date").notNull(),
     gender: genderEnum("gender").notNull(),
     maritalStatus: maritalStatusEnum("marital_status").notNull(),
-    birthplace: text("birthplace").notNull(),
+    birthplace: text("birthplace"),
     nationality: text("nationality").notNull(),
     height: decimal("height", { precision: 4, scale: 2 }),
     weight: decimal("weight", { precision: 6, scale: 2 }),
@@ -99,7 +99,7 @@ export const employees = pgTable(
     identityCard: text("identity_card").notNull(),
     pis: text("pis").notNull(),
     workPermitNumber: text("work_permit_number").notNull(),
-    workPermitSeries: text("work_permit_series").notNull(),
+    workPermitSeries: text("work_permit_series"),
     militaryCertificate: text("military_certificate"),
 
     // Address
@@ -134,7 +134,7 @@ export const employees = pgTable(
       .references(() => jobClassifications.id),
 
     // Work Schedule
-    workShift: workShiftEnum("work_shift").notNull(),
+    workShift: workShiftEnum("work_shift"),
     weeklyHours: decimal("weekly_hours", { precision: 5, scale: 2 }).notNull(),
     busCount: integer("bus_count"),
 
@@ -147,8 +147,8 @@ export const employees = pgTable(
     healthInsurance: decimal("health_insurance", { precision: 10, scale: 2 }),
 
     // Education and Special Needs
-    educationLevel: educationLevelEnum("education_level").notNull(),
-    hasSpecialNeeds: boolean("has_special_needs").notNull(),
+    educationLevel: educationLevelEnum("education_level"),
+    hasSpecialNeeds: boolean("has_special_needs").notNull().default(false),
     disabilityType: disabilityTypeEnum("disability_type"),
 
     // Family

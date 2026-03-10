@@ -119,12 +119,17 @@ const FK_FIELDS: { key: string; label: string; required: boolean }[] = [
 
 // ── String fields that need special handling ────────────────────────────────
 
-const STRING_PAD_FIELDS: { key: string; padLength?: number }[] = [
-  { key: "cpf", padLength: 11 },
-  { key: "pis", padLength: 11 },
-  { key: "zipCode", padLength: 8 },
-  { key: "phone" },
-  { key: "mobile" },
+const STRING_PAD_FIELDS: {
+  key: string;
+  padLength?: number;
+  stripNonDigits?: boolean;
+}[] = [
+  { key: "cpf", padLength: 11, stripNonDigits: true },
+  { key: "pis", padLength: 11, stripNonDigits: true },
+  { key: "zipCode", padLength: 8, stripNonDigits: true },
+  { key: "phone", stripNonDigits: true },
+  { key: "mobile", stripNonDigits: true },
+  { key: "workPermitNumber", stripNonDigits: true },
 ];
 
 // ── Pre-built set of all processed field keys ───────────────────────────────
@@ -178,8 +183,15 @@ export function parseDate(value: unknown): string | null {
  * Ensures a value is returned as a string, with optional zero-padding
  * for numeric document fields (CPF, PIS, CEP).
  */
-export function ensureStringField(value: unknown, padLength?: number): string {
-  const str = String(value ?? "").trim();
+export function ensureStringField(
+  value: unknown,
+  padLength?: number,
+  stripNonDigits?: boolean
+): string {
+  let str = String(value ?? "").trim();
+  if (stripNonDigits) {
+    str = str.replace(/\D/g, "");
+  }
   if (padLength && DIGITS_ONLY_REGEX.test(str)) {
     return str.padStart(padLength, "0");
   }
@@ -265,6 +277,37 @@ async function buildEntityMap(
   const map = new Map<string, string>();
   for (const row of rows) {
     map.set(row.name.toLowerCase().trim(), row.id);
+  }
+  return map;
+}
+
+/**
+ * Builds a lookup map for job classifications using CBO code (from
+ * cbo_occupations) as key when available, falling back to name.
+ */
+async function buildJobClassificationMap(
+  table: typeof schema.jobClassifications,
+  organizationId: string
+): Promise<EntityMap> {
+  const rows = await db
+    .select({
+      id: table.id,
+      name: table.name,
+      cboCode: schema.cboOccupations.code,
+    })
+    .from(table)
+    .leftJoin(
+      schema.cboOccupations,
+      eq(table.cboOccupationId, schema.cboOccupations.id)
+    )
+    .where(
+      and(eq(table.organizationId, organizationId), isNull(table.deletedAt))
+    );
+
+  const map = new Map<string, string>();
+  for (const row of rows) {
+    const key = row.cboCode ?? row.name;
+    map.set(key.toLowerCase().trim(), row.id);
   }
   return map;
 }
@@ -394,9 +437,13 @@ function parseNumberFields(ctx: ParseContext): void {
 }
 
 function ensureStringFields(ctx: ParseContext): void {
-  for (const { key, padLength } of STRING_PAD_FIELDS) {
+  for (const { key, padLength, stripNonDigits } of STRING_PAD_FIELDS) {
     if (!isEmpty(ctx.rawRow[key])) {
-      ctx.data[key] = ensureStringField(ctx.rawRow[key], padLength);
+      ctx.data[key] = ensureStringField(
+        ctx.rawRow[key],
+        padLength,
+        stripNonDigits
+      );
     }
   }
 }
@@ -435,7 +482,7 @@ export class ImportParser {
     ] = await Promise.all([
       buildEntityMap(schema.sectors, organizationId),
       buildEntityMap(schema.jobPositions, organizationId),
-      buildEntityMap(schema.jobClassifications, organizationId),
+      buildJobClassificationMap(schema.jobClassifications, organizationId),
       buildEntityMap(schema.branches, organizationId),
       buildEntityMap(schema.costCenters, organizationId),
     ]);

@@ -58,7 +58,7 @@ export const createEmployeeSchema = z.object({
     .min(1, "Nome é obrigatório")
     .max(255, "Nome deve ter no máximo 255 caracteres")
     .describe("Nome completo"),
-  email: z.string().email("Email inválido").describe("Email"),
+  email: z.string().email("Email inválido").optional().describe("Email"),
   phone: z
     .string()
     .regex(/^\d{10,11}$/, "Telefone deve ter 10 ou 11 dígitos")
@@ -67,6 +67,7 @@ export const createEmployeeSchema = z.object({
   mobile: z
     .string()
     .regex(/^\d{10,11}$/, "Celular deve ter 10 ou 11 dígitos")
+    .optional()
     .describe("Celular"),
   birthDate: z
     .string()
@@ -79,8 +80,8 @@ export const createEmployeeSchema = z.object({
   maritalStatus: z.enum(maritalStatusValues).describe("Estado civil"),
   birthplace: z
     .string()
-    .min(1, "Naturalidade é obrigatória")
     .max(100, "Naturalidade deve ter no máximo 100 caracteres")
+    .optional()
     .describe("Naturalidade"),
   nationality: z
     .string()
@@ -132,8 +133,8 @@ export const createEmployeeSchema = z.object({
     .describe("Número da CTPS"),
   workPermitSeries: z
     .string()
-    .min(1, "Série da CTPS é obrigatória")
     .max(10, "Série da CTPS deve ter no máximo 10 caracteres")
+    .optional()
     .describe("Série da CTPS"),
   militaryCertificate: z
     .string()
@@ -218,7 +219,7 @@ export const createEmployeeSchema = z.object({
     .describe("ID do CBO"),
 
   // Work Schedule
-  workShift: z.enum(workShiftValues).describe("Escala de trabalho"),
+  workShift: z.enum(workShiftValues).optional().describe("Escala de trabalho"),
   weeklyHours: z
     .number()
     .min(1, "Carga horária mínima é 1 hora")
@@ -249,8 +250,14 @@ export const createEmployeeSchema = z.object({
     .describe("Plano de saúde"),
 
   // Education and Special Needs
-  educationLevel: z.enum(educationLevelValues).describe("Grau de instrução"),
-  hasSpecialNeeds: z.boolean().describe("Possui necessidades especiais"),
+  educationLevel: z
+    .enum(educationLevelValues)
+    .optional()
+    .describe("Grau de instrução"),
+  hasSpecialNeeds: z
+    .boolean()
+    .optional()
+    .describe("Possui necessidades especiais"),
   disabilityType: z
     .enum(disabilityTypeValues)
     .optional()
@@ -314,13 +321,13 @@ const employeeDataSchema = z.object({
 
   // Personal Data
   name: z.string().describe("Nome completo"),
-  email: z.string().describe("Email"),
+  email: z.string().nullable().describe("Email"),
   phone: z.string().nullable().describe("Telefone fixo"),
-  mobile: z.string().describe("Celular"),
+  mobile: z.string().nullable().describe("Celular"),
   birthDate: z.string().describe("Data de nascimento"),
   gender: z.enum(genderValues).describe("Sexo"),
   maritalStatus: z.enum(maritalStatusValues).describe("Estado civil"),
-  birthplace: z.string().describe("Naturalidade"),
+  birthplace: z.string().nullable().describe("Naturalidade"),
   nationality: z.string().describe("Nacionalidade"),
   height: z.string().nullable().describe("Altura em metros"),
   weight: z.string().nullable().describe("Peso em kg"),
@@ -332,7 +339,7 @@ const employeeDataSchema = z.object({
   identityCard: z.string().describe("RG"),
   pis: z.string().describe("PIS"),
   workPermitNumber: z.string().describe("Número da CTPS"),
-  workPermitSeries: z.string().describe("Série da CTPS"),
+  workPermitSeries: z.string().nullable().describe("Série da CTPS"),
   militaryCertificate: z
     .string()
     .nullable()
@@ -364,7 +371,7 @@ const employeeDataSchema = z.object({
   jobClassification: entityReferenceSchema.describe("CBO"),
 
   // Work Schedule
-  workShift: z.enum(workShiftValues).describe("Escala de trabalho"),
+  workShift: z.enum(workShiftValues).nullable().describe("Escala de trabalho"),
   weeklyHours: z.string().describe("Carga horária semanal"),
   busCount: z.number().nullable().describe("Quantidade de ônibus"),
 
@@ -374,7 +381,10 @@ const employeeDataSchema = z.object({
   healthInsurance: z.string().nullable().describe("Plano de saúde"),
 
   // Education and Special Needs
-  educationLevel: z.enum(educationLevelValues).describe("Grau de instrução"),
+  educationLevel: z
+    .enum(educationLevelValues)
+    .nullable()
+    .describe("Grau de instrução"),
   hasSpecialNeeds: z.boolean().describe("Possui necessidades especiais"),
   disabilityType: z
     .enum(disabilityTypeValues)

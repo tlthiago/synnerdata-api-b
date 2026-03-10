@@ -174,7 +174,7 @@ export const IMPORT_COLUMNS: ImportColumn[] = [
     key: "email",
     header: "Email",
     width: 28,
-    required: true,
+    required: false,
     section: "personal",
   },
   {
@@ -188,7 +188,7 @@ export const IMPORT_COLUMNS: ImportColumn[] = [
     key: "mobile",
     header: "Celular",
     width: 15,
-    required: true,
+    required: false,
     section: "personal",
   },
   {
@@ -221,7 +221,7 @@ export const IMPORT_COLUMNS: ImportColumn[] = [
     key: "birthplace",
     header: "Naturalidade",
     width: 20,
-    required: true,
+    required: false,
     section: "personal",
   },
   {
@@ -293,7 +293,7 @@ export const IMPORT_COLUMNS: ImportColumn[] = [
     key: "workPermitSeries",
     header: "CTPS - Série",
     width: 15,
-    required: true,
+    required: false,
     section: "documents",
   },
   {
@@ -449,7 +449,7 @@ export const IMPORT_COLUMNS: ImportColumn[] = [
     key: "workShift",
     header: "Escala de trabalho",
     width: 18,
-    required: true,
+    required: false,
     section: "schedule",
     dropdown: {
       type: "inline",
@@ -499,7 +499,7 @@ export const IMPORT_COLUMNS: ImportColumn[] = [
     key: "educationLevel",
     header: "Grau de instrução",
     width: 20,
-    required: true,
+    required: false,
     section: "education",
     dropdown: {
       type: "inline",
@@ -510,7 +510,7 @@ export const IMPORT_COLUMNS: ImportColumn[] = [
     key: "hasSpecialNeeds",
     header: "Possui necessidades especiais",
     width: 28,
-    required: true,
+    required: false,
     section: "education",
     dropdown: { type: "inline", values: booleanValues },
   },
