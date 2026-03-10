@@ -544,7 +544,7 @@ export abstract class EmployeeService {
 
   static async findAll(
     organizationId: string,
-    statusFilter?: string[]
+    statusFilter?: EmployeeRaw["status"][]
   ): Promise<EmployeeData[]> {
     const { inArray } = await import("drizzle-orm");
 

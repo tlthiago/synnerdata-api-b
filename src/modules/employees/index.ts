@@ -134,7 +134,9 @@ export const employeeController = new Elysia({
   .get(
     "/",
     async ({ session, query }) => {
-      const statusFilter = query.status?.length ? query.status : undefined;
+      const statusFilter = query.status?.length
+        ? (query.status as Parameters<typeof EmployeeService.findAll>[1])
+        : undefined;
 
       return wrapSuccess(
         await EmployeeService.findAll(
