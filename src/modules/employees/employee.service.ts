@@ -542,16 +542,25 @@ export abstract class EmployeeService {
     return EmployeeService.enrichEmployee(employee, organizationId);
   }
 
-  static async findAll(organizationId: string): Promise<EmployeeData[]> {
+  static async findAll(
+    organizationId: string,
+    statusFilter?: EmployeeRaw["status"][]
+  ): Promise<EmployeeData[]> {
+    const { inArray } = await import("drizzle-orm");
+
+    const conditions = [
+      eq(schema.employees.organizationId, organizationId),
+      isNull(schema.employees.deletedAt),
+    ];
+
+    if (statusFilter && statusFilter.length > 0) {
+      conditions.push(inArray(schema.employees.status, statusFilter));
+    }
+
     const employees = await db
       .select()
       .from(schema.employees)
-      .where(
-        and(
-          eq(schema.employees.organizationId, organizationId),
-          isNull(schema.employees.deletedAt)
-        )
-      )
+      .where(and(...conditions))
       .orderBy(schema.employees.name);
 
     const enriched = await Promise.all(

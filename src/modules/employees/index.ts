@@ -133,15 +133,30 @@ export const employeeController = new Elysia({
   )
   .get(
     "/",
-    async ({ session }) =>
-      wrapSuccess(
-        await EmployeeService.findAll(session.activeOrganizationId as string)
-      ),
+    async ({ session, query }) => {
+      const statusFilter = query.status?.length
+        ? (query.status as Parameters<typeof EmployeeService.findAll>[1])
+        : undefined;
+
+      return wrapSuccess(
+        await EmployeeService.findAll(
+          session.activeOrganizationId as string,
+          statusFilter
+        )
+      );
+    },
     {
       auth: {
         permissions: { employee: ["read"] },
         requireOrganization: true,
       },
+      query: t.Object({
+        status: t.Optional(
+          t.Array(t.String(), {
+            description: "Filtrar por status do funcionário",
+          })
+        ),
+      }),
       response: {
         200: listEmployeesResponseSchema,
         401: unauthorizedErrorSchema,
@@ -149,7 +164,8 @@ export const employeeController = new Elysia({
       },
       detail: {
         summary: "List employees",
-        description: "Lists all employees for the active organization",
+        description:
+          "Lists employees for the active organization. Optional filter: ?status=ACTIVE,ON_VACATION",
       },
     }
   )
