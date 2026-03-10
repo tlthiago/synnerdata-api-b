@@ -15,6 +15,7 @@ Cadastro e gestão de funcionários vinculados a uma organização.
 - **Opcionais**: branch, costCenter
 - Todas validadas contra a mesma organização antes de persistir
 - Response expande FK IDs para `EntityReference` ({ id, name }) via `enrichEmployee()`
+- Response inclui `lastAcquisitionPeriod` ({ start, end } | null) — último período aquisitivo de férias do funcionário, obtido da tabela `vacations` (não deletadas, com `acquisitionPeriodEnd` preenchido, ordenado por `acquisitionPeriodEnd DESC`, limit 1)
 
 ## Status Lifecycle
 

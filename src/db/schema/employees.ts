@@ -92,13 +92,13 @@ export const employees = pgTable(
     height: decimal("height", { precision: 4, scale: 2 }),
     weight: decimal("weight", { precision: 6, scale: 2 }),
     fatherName: text("father_name"),
-    motherName: text("mother_name").notNull(),
+    motherName: text("mother_name"),
 
     // Documents
     cpf: text("cpf").notNull(),
-    identityCard: text("identity_card").notNull(),
-    pis: text("pis").notNull(),
-    workPermitNumber: text("work_permit_number").notNull(),
+    identityCard: text("identity_card"),
+    pis: text("pis"),
+    workPermitNumber: text("work_permit_number"),
     workPermitSeries: text("work_permit_series"),
     militaryCertificate: text("military_certificate"),
 
@@ -152,7 +152,7 @@ export const employees = pgTable(
     disabilityType: disabilityTypeEnum("disability_type"),
 
     // Family
-    hasChildren: boolean("has_children").notNull(),
+    hasChildren: boolean("has_children").notNull().default(false),
     childrenCount: integer("children_count"),
     hasChildrenUnder21: boolean("has_children_under_21"),
 

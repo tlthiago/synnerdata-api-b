@@ -1,3 +1,4 @@
+import "@/lib/zod-config";
 import "@/lib/sentry";
 import { cors } from "@elysiajs/cors";
 import { openapi } from "@elysiajs/openapi";

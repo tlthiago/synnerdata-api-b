@@ -1,0 +1,1 @@
+ALTER TABLE "employees" ALTER COLUMN "mother_name" DROP NOT NULL;

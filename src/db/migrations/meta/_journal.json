@@ -211,6 +211,27 @@
       "when": 1773158117594,
       "tag": "0029_lush_banshee",
       "breakpoints": true
+    },
+    {
+      "idx": 30,
+      "version": "7",
+      "when": 1773170749223,
+      "tag": "0030_broad_luminals",
+      "breakpoints": true
+    },
+    {
+      "idx": 31,
+      "version": "7",
+      "when": 1773172532042,
+      "tag": "0031_young_morgan_stark",
+      "breakpoints": true
+    },
+    {
+      "idx": 32,
+      "version": "7",
+      "when": 1773173364498,
+      "tag": "0032_large_lorna_dane",
+      "breakpoints": true
     }
   ]
 }
