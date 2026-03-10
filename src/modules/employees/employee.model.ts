@@ -107,8 +107,8 @@ export const createEmployeeSchema = z.object({
     .describe("Nome do pai"),
   motherName: z
     .string()
-    .min(1, "Nome da mãe é obrigatório")
     .max(100, "Nome da mãe deve ter no máximo 100 caracteres")
+    .optional()
     .describe("Nome da mãe"),
 
   // Documents
@@ -119,8 +119,8 @@ export const createEmployeeSchema = z.object({
     .describe("CPF (11 dígitos)"),
   identityCard: z
     .string()
-    .min(1, "RG é obrigatório")
     .max(20, "RG deve ter no máximo 20 caracteres")
+    .optional()
     .describe("RG"),
   pis: z
     .string()
@@ -333,11 +333,11 @@ const employeeDataSchema = z.object({
   height: z.string().nullable().describe("Altura em metros"),
   weight: z.string().nullable().describe("Peso em kg"),
   fatherName: z.string().nullable().describe("Nome do pai"),
-  motherName: z.string().describe("Nome da mãe"),
+  motherName: z.string().nullable().describe("Nome da mãe"),
 
   // Documents
   cpf: z.string().describe("CPF"),
-  identityCard: z.string().describe("RG"),
+  identityCard: z.string().nullable().describe("RG"),
   pis: z.string().nullable().describe("PIS"),
   workPermitNumber: z.string().nullable().describe("Número da CTPS"),
   workPermitSeries: z.string().nullable().describe("Série da CTPS"),
@@ -418,6 +418,15 @@ const employeeDataSchema = z.object({
     .string()
     .nullable()
     .describe("Vencimento experiência 2"),
+
+  // Vacation
+  lastAcquisitionPeriod: z
+    .object({
+      start: z.string().describe("Início do período aquisitivo"),
+      end: z.string().describe("Fim do período aquisitivo"),
+    })
+    .nullable()
+    .describe("Último período aquisitivo de férias"),
 
   // Audit
   createdAt: z.coerce.date().describe("Data de criação"),

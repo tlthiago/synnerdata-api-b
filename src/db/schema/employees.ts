@@ -92,11 +92,11 @@ export const employees = pgTable(
     height: decimal("height", { precision: 4, scale: 2 }),
     weight: decimal("weight", { precision: 6, scale: 2 }),
     fatherName: text("father_name"),
-    motherName: text("mother_name").notNull(),
+    motherName: text("mother_name"),
 
     // Documents
     cpf: text("cpf").notNull(),
-    identityCard: text("identity_card").notNull(),
+    identityCard: text("identity_card"),
     pis: text("pis"),
     workPermitNumber: text("work_permit_number"),
     workPermitSeries: text("work_permit_series"),

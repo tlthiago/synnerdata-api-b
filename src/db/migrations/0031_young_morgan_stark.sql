@@ -1,0 +1,1 @@
+ALTER TABLE "employees" ALTER COLUMN "identity_card" DROP NOT NULL;
