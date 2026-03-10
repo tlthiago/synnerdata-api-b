@@ -1,4 +1,4 @@
-import { and, eq, inArray, isNull } from "drizzle-orm";
+import { and, eq, inArray, isNull, ne } from "drizzle-orm";
 import ExcelJS from "exceljs";
 import { db } from "@/db";
 import { schema } from "@/db/schema";
@@ -272,7 +272,8 @@ export abstract class ImportService {
         and(
           eq(schema.employees.organizationId, organizationId),
           inArray(schema.employees.cpf, cpfs),
-          isNull(schema.employees.deletedAt)
+          isNull(schema.employees.deletedAt),
+          ne(schema.employees.status, "TERMINATED")
         )
       );
 

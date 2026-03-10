@@ -20,6 +20,18 @@ Gestao de ferias com periodos aquisitivo e concessivo inline e controle de dias.
 - Listagem ordenada por `startDate`
 - Listagem por funcionario via `GET /v1/vacations/employee/:employeeId` -- retorna historico completo de ferias do employee
 
+## Employee Status Sync
+
+Criar, atualizar status ou deletar ferias sincroniza automaticamente o status do funcionario via `syncEmployeeStatus`:
+
+| Status da ferias | Status do funcionario |
+|---|---|
+| `scheduled` | `VACATION_SCHEDULED` |
+| `in_progress` | `ON_VACATION` |
+| `completed` / `canceled` / deletado | `ACTIVE` (se nao houver outras ferias ativas) |
+
+Prioridade: `in_progress` > `scheduled` > `ACTIVE`. O helper consulta todas as ferias ativas (nao deletadas, nao canceladas, nao completadas) do funcionario para determinar o status correto.
+
 ## Enums
 
 - status: definido via `vacationStatusEnum` no DB (default: `scheduled`)
@@ -44,3 +56,14 @@ Gestao de ferias com periodos aquisitivo e concessivo inline e controle de dias.
 - `VacationConcessiveBeforeAcquisitionError` (422) -- concessivePeriodStart <= acquisitionPeriodEnd
 - `VacationOverlapError` (409) -- same employee + overlapping dates (excluding canceled)
 - `EmployeeTerminatedError` (422) -- shared, from `src/lib/errors/employee-status-errors.ts`
+
+## Scheduled Jobs
+
+Jobs automaticos em `vacation-jobs.service.ts`, registrados em `src/lib/cron-plugin.ts` (03:00 UTC / 00:00 BRT diariamente):
+
+| Job | Acao |
+|---|---|
+| `activateScheduledVacations` | `scheduled` → `in_progress` quando `startDate <= hoje` |
+| `completeExpiredVacations` | `in_progress` → `completed` quando `endDate < hoje` |
+
+Ambos sincronizam o status do funcionario apos a transicao via `syncEmployeeStatus`.

@@ -188,6 +188,43 @@ export abstract class VacationService {
     }
   }
 
+  private static async syncEmployeeStatus(
+    employeeId: string,
+    organizationId: string,
+    userId: string
+  ): Promise<void> {
+    const activeVacations = await db
+      .select({ status: schema.vacations.status })
+      .from(schema.vacations)
+      .where(
+        and(
+          eq(schema.vacations.employeeId, employeeId),
+          eq(schema.vacations.organizationId, organizationId),
+          isNull(schema.vacations.deletedAt),
+          sql`${schema.vacations.status} NOT IN ('canceled', 'completed')`
+        )
+      );
+
+    let employeeStatus: "ACTIVE" | "ON_VACATION" | "VACATION_SCHEDULED" =
+      "ACTIVE";
+
+    if (activeVacations.some((v) => v.status === "in_progress")) {
+      employeeStatus = "ON_VACATION";
+    } else if (activeVacations.some((v) => v.status === "scheduled")) {
+      employeeStatus = "VACATION_SCHEDULED";
+    }
+
+    await db
+      .update(schema.employees)
+      .set({ status: employeeStatus, updatedBy: userId })
+      .where(
+        and(
+          eq(schema.employees.id, employeeId),
+          eq(schema.employees.organizationId, organizationId)
+        )
+      );
+  }
+
   private static async ensureNoOverlap(params: {
     organizationId: string;
     employeeId: string;
@@ -273,6 +310,12 @@ export abstract class VacationService {
       notes: data.notes,
       createdBy: userId,
     });
+
+    await VacationService.syncEmployeeStatus(
+      data.employeeId,
+      organizationId,
+      userId
+    );
 
     return {
       id: vacationId,
@@ -474,6 +517,14 @@ export abstract class VacationService {
         )
       );
 
+    if (data.status !== undefined) {
+      await VacationService.syncEmployeeStatus(
+        existing.employee.id,
+        organizationId,
+        userId
+      );
+    }
+
     return VacationService.findByIdOrThrow(id, organizationId);
   }
 
@@ -508,6 +559,12 @@ export abstract class VacationService {
         )
       )
       .returning();
+
+    await VacationService.syncEmployeeStatus(
+      existing.employee.id,
+      organizationId,
+      userId
+    );
 
     return {
       ...existing,

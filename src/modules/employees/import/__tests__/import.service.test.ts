@@ -298,6 +298,81 @@ describe("ImportService.importFromFile", () => {
     ).rejects.toBeInstanceOf(EmployeeImportLimitExceededError);
   });
 
+  test("allows import of CPF already used by a TERMINATED employee", async () => {
+    const cpf = generateCpf();
+
+    // Create an employee with this CPF directly in the DB, then terminate them
+    const employeeId = `employee-${crypto.randomUUID()}`;
+    await db.insert(schema.employees).values({
+      id: employeeId,
+      organizationId,
+      name: "Terminated Employee",
+      email: `terminated-${crypto.randomUUID().slice(0, 8)}@test.com`,
+      mobile: "11999887766",
+      birthDate: "1990-01-15",
+      gender: "MALE",
+      maritalStatus: "SINGLE",
+      birthplace: "São Paulo",
+      nationality: "Brasileiro",
+      motherName: "Maria",
+      cpf,
+      identityCard: "123456789",
+      pis: "12345678901",
+      workPermitNumber: "1234567",
+      workPermitSeries: "0001",
+      street: "Rua Test",
+      streetNumber: "1",
+      neighborhood: "Centro",
+      city: "São Paulo",
+      state: "SP",
+      zipCode: "01234567",
+      hireDate: "2024-01-15",
+      contractType: "CLT",
+      salary: "5000",
+      status: "TERMINATED",
+      sectorId: (
+        await db
+          .select({ id: schema.sectors.id })
+          .from(schema.sectors)
+          .where(eq(schema.sectors.organizationId, organizationId))
+          .limit(1)
+      )[0].id,
+      jobPositionId: (
+        await db
+          .select({ id: schema.jobPositions.id })
+          .from(schema.jobPositions)
+          .where(eq(schema.jobPositions.organizationId, organizationId))
+          .limit(1)
+      )[0].id,
+      jobClassificationId: (
+        await db
+          .select({ id: schema.jobClassifications.id })
+          .from(schema.jobClassifications)
+          .where(eq(schema.jobClassifications.organizationId, organizationId))
+          .limit(1)
+      )[0].id,
+      workShift: "FIVE_TWO",
+      weeklyHours: "44",
+      educationLevel: "BACHELOR",
+      hasSpecialNeeds: false,
+      hasChildren: false,
+      createdBy: userId,
+    });
+
+    // Import a new employee with the same CPF
+    const rows = [validRow({ cpf })];
+    const buffer = await buildWorkbookWithRows(templateBuffer, rows);
+
+    const result = await ImportService.importFromFile({
+      buffer,
+      organizationId,
+      userId,
+    });
+
+    expect(result.imported).toBe(1);
+    expect(result.failed).toBe(0);
+  });
+
   test("generates vacation acquisition periods for imported employees", async () => {
     const { registerEmployeeListeners } = await import(
       "@/modules/employees/hooks/listeners"

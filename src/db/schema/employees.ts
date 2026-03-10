@@ -186,7 +186,7 @@ export const employees = pgTable(
     index("employees_job_position_id_idx").on(table.jobPositionId),
     uniqueIndex("employees_cpf_org_unique_idx")
       .on(table.cpf, table.organizationId)
-      .where(sql`deleted_at IS NULL`),
+      .where(sql`deleted_at IS NULL AND status != 'TERMINATED'`),
   ]
 );
 

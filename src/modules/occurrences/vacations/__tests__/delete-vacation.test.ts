@@ -1,4 +1,7 @@
 import { beforeAll, describe, expect, test } from "bun:test";
+import { eq } from "drizzle-orm";
+import { db } from "@/db";
+import { schema } from "@/db/schema";
 import { env } from "@/env";
 import { createTestApp, type TestApp } from "@/test/helpers/app";
 import { createTestEmployee } from "@/test/helpers/employee";
@@ -241,5 +244,93 @@ describe("DELETE /v1/vacations/:id", () => {
     const body = await response.json();
     expect(body.success).toBe(true);
     expect(body.data.id).toBe(vacation.id);
+  });
+
+  test("should revert employee status to ACTIVE after deleting vacation", async () => {
+    const { headers, organizationId, user } =
+      await createTestUserWithOrganization({ emailVerified: true });
+
+    const { employee } = await createTestEmployee({
+      organizationId,
+      userId: user.id,
+    });
+
+    const vacation = await createTestVacation({
+      organizationId,
+      userId: user.id,
+      employeeId: employee.id,
+    });
+
+    const [beforeEmployee] = await db
+      .select({ status: schema.employees.status })
+      .from(schema.employees)
+      .where(eq(schema.employees.id, employee.id))
+      .limit(1);
+    expect(beforeEmployee.status).toBe("VACATION_SCHEDULED");
+
+    const response = await app.handle(
+      new Request(`${BASE_URL}/v1/vacations/${vacation.id}`, {
+        method: "DELETE",
+        headers,
+      })
+    );
+
+    expect(response.status).toBe(200);
+
+    const [afterEmployee] = await db
+      .select({ status: schema.employees.status })
+      .from(schema.employees)
+      .where(eq(schema.employees.id, employee.id))
+      .limit(1);
+    expect(afterEmployee.status).toBe("ACTIVE");
+  });
+
+  test("should keep VACATION_SCHEDULED if another scheduled vacation exists after delete", async () => {
+    const { headers, organizationId, user } =
+      await createTestUserWithOrganization({ emailVerified: true });
+
+    const { employee } = await createTestEmployee({
+      organizationId,
+      userId: user.id,
+      hireDate: "2020-01-01",
+    });
+
+    const vacation1 = await createTestVacation({
+      organizationId,
+      userId: user.id,
+      employeeId: employee.id,
+      startDate: "2025-06-01",
+      endDate: "2025-06-10",
+      daysEntitled: 10,
+      daysUsed: 0,
+      status: "scheduled",
+    });
+
+    await createTestVacation({
+      organizationId,
+      userId: user.id,
+      employeeId: employee.id,
+      startDate: "2025-09-01",
+      endDate: "2025-09-10",
+      daysEntitled: 10,
+      daysUsed: 0,
+      status: "scheduled",
+    });
+
+    const response = await app.handle(
+      new Request(`${BASE_URL}/v1/vacations/${vacation1.id}`, {
+        method: "DELETE",
+        headers,
+      })
+    );
+
+    expect(response.status).toBe(200);
+
+    const [afterEmployee] = await db
+      .select({ status: schema.employees.status })
+      .from(schema.employees)
+      .where(eq(schema.employees.id, employee.id))
+      .limit(1);
+    expect(afterEmployee.status).toBe("VACATION_SCHEDULED");
   });
 });
