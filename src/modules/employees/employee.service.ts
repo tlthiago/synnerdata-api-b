@@ -1,4 +1,4 @@
-import { and, eq, isNull } from "drizzle-orm";
+import { and, eq, isNull, ne } from "drizzle-orm";
 import { db } from "@/db";
 import { schema } from "@/db/schema";
 import type { EntityReference } from "@/lib/schemas/relationships";
@@ -264,7 +264,8 @@ export abstract class EmployeeService {
         and(
           eq(schema.employees.cpf, cpf),
           eq(schema.employees.organizationId, organizationId),
-          isNull(schema.employees.deletedAt)
+          isNull(schema.employees.deletedAt),
+          ne(schema.employees.status, "TERMINATED")
         )
       )
       .limit(1);

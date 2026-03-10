@@ -69,4 +69,36 @@ export const cronPlugin = new Elysia({ name: "cron-jobs" })
         });
       },
     })
+  )
+  .use(
+    cron({
+      name: "activate-scheduled-vacations",
+      pattern: "0 3 * * *", // 03:00 UTC = 00:00 BRT
+      async run() {
+        const { VacationJobsService } = await import(
+          "@/modules/occurrences/vacations/vacation-jobs.service"
+        );
+        const result = await VacationJobsService.activateScheduledVacations();
+        logger.info({
+          type: "cron:activate-scheduled-vacations",
+          updated: result.updated.length,
+        });
+      },
+    })
+  )
+  .use(
+    cron({
+      name: "complete-expired-vacations",
+      pattern: "0 3 * * *", // 03:00 UTC = 00:00 BRT
+      async run() {
+        const { VacationJobsService } = await import(
+          "@/modules/occurrences/vacations/vacation-jobs.service"
+        );
+        const result = await VacationJobsService.completeExpiredVacations();
+        logger.info({
+          type: "cron:complete-expired-vacations",
+          updated: result.updated.length,
+        });
+      },
+    })
   );

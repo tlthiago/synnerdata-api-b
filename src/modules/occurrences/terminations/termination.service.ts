@@ -176,6 +176,16 @@ export abstract class TerminationService {
       })
       .returning();
 
+    await db
+      .update(schema.employees)
+      .set({ status: "TERMINATED", updatedBy: userId })
+      .where(
+        and(
+          eq(schema.employees.id, employeeId),
+          eq(schema.employees.organizationId, organizationId)
+        )
+      );
+
     return {
       id: termination.id,
       organizationId: termination.organizationId,
@@ -297,6 +307,16 @@ export abstract class TerminationService {
         )
       )
       .returning();
+
+    await db
+      .update(schema.employees)
+      .set({ status: "ACTIVE", updatedBy: userId })
+      .where(
+        and(
+          eq(schema.employees.id, existing.employee.id),
+          eq(schema.employees.organizationId, organizationId)
+        )
+      );
 
     return {
       ...existing,

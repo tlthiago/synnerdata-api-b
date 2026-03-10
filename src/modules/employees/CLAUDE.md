@@ -5,7 +5,7 @@ Cadastro e gestão de funcionários vinculados a uma organização.
 ## Business Rules
 
 - Employee pertence a uma organization (multi-tenant via session.activeOrganizationId)
-- CPF é único por organização (não global) — validado em create e update
+- CPF é único por organização entre funcionários não-demitidos — funcionários com status `TERMINATED` não bloqueiam novo cadastro (recontratação). Validado em create, update e import bulk. Unique index parcial no DB: `WHERE deleted_at IS NULL AND status != 'TERMINATED'`
 - Criação verifica limite do plano de assinatura via `LimitsService.requireEmployeeLimit()`
 - Soft delete — nunca hard delete
 

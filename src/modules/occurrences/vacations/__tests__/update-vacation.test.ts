@@ -1,4 +1,7 @@
 import { beforeAll, describe, expect, test } from "bun:test";
+import { eq } from "drizzle-orm";
+import { db } from "@/db";
+import { schema } from "@/db/schema";
 import { env } from "@/env";
 import { createTestApp, type TestApp } from "@/test/helpers/app";
 import { createTestEmployee } from "@/test/helpers/employee";
@@ -473,5 +476,126 @@ describe("PUT /v1/vacations/:id", () => {
     expect(response.status).toBe(422);
     const body = await response.json();
     expect(body.error.code).toBe("VACATION_CONCESSIVE_BEFORE_ACQUISITION");
+  });
+
+  test("should set employee status to ON_VACATION when vacation status changes to in_progress", async () => {
+    const { headers, organizationId, user } =
+      await createTestUserWithOrganization({ emailVerified: true });
+
+    const { employee } = await createTestEmployee({
+      organizationId,
+      userId: user.id,
+    });
+
+    const vacation = await createTestVacation({
+      organizationId,
+      userId: user.id,
+      employeeId: employee.id,
+      status: "scheduled",
+    });
+
+    const response = await app.handle(
+      new Request(`${BASE_URL}/v1/vacations/${vacation.id}`, {
+        method: "PUT",
+        headers: { ...headers, "Content-Type": "application/json" },
+        body: JSON.stringify({ status: "in_progress" }),
+      })
+    );
+
+    expect(response.status).toBe(200);
+
+    const [updatedEmployee] = await db
+      .select({ status: schema.employees.status })
+      .from(schema.employees)
+      .where(eq(schema.employees.id, employee.id))
+      .limit(1);
+    expect(updatedEmployee.status).toBe("ON_VACATION");
+  });
+
+  test("should revert employee status to ACTIVE when vacation is completed", async () => {
+    const { headers, organizationId, user } =
+      await createTestUserWithOrganization({ emailVerified: true });
+
+    const { employee } = await createTestEmployee({
+      organizationId,
+      userId: user.id,
+    });
+
+    const vacation = await createTestVacation({
+      organizationId,
+      userId: user.id,
+      employeeId: employee.id,
+      status: "in_progress",
+    });
+
+    const response = await app.handle(
+      new Request(`${BASE_URL}/v1/vacations/${vacation.id}`, {
+        method: "PUT",
+        headers: { ...headers, "Content-Type": "application/json" },
+        body: JSON.stringify({ status: "completed" }),
+      })
+    );
+
+    expect(response.status).toBe(200);
+
+    const [updatedEmployee] = await db
+      .select({ status: schema.employees.status })
+      .from(schema.employees)
+      .where(eq(schema.employees.id, employee.id))
+      .limit(1);
+    expect(updatedEmployee.status).toBe("ACTIVE");
+  });
+
+  test("should keep employee ON_VACATION if another vacation is in_progress when canceling one", async () => {
+    const { headers, organizationId, user } =
+      await createTestUserWithOrganization({ emailVerified: true });
+
+    const { employee } = await createTestEmployee({
+      organizationId,
+      userId: user.id,
+      hireDate: "2020-01-01",
+    });
+
+    // First vacation: in_progress
+    await createTestVacation({
+      organizationId,
+      userId: user.id,
+      employeeId: employee.id,
+      startDate: "2025-03-01",
+      endDate: "2025-03-10",
+      daysEntitled: 10,
+      daysUsed: 0,
+      status: "in_progress",
+    });
+
+    // Second vacation: scheduled (non-overlapping)
+    const secondVacation = await createTestVacation({
+      organizationId,
+      userId: user.id,
+      employeeId: employee.id,
+      startDate: "2025-07-01",
+      endDate: "2025-07-10",
+      daysEntitled: 10,
+      daysUsed: 0,
+      status: "scheduled",
+    });
+
+    // Cancel the second vacation
+    const response = await app.handle(
+      new Request(`${BASE_URL}/v1/vacations/${secondVacation.id}`, {
+        method: "PUT",
+        headers: { ...headers, "Content-Type": "application/json" },
+        body: JSON.stringify({ status: "canceled" }),
+      })
+    );
+
+    expect(response.status).toBe(200);
+
+    const [updatedEmployee] = await db
+      .select({ status: schema.employees.status })
+      .from(schema.employees)
+      .where(eq(schema.employees.id, employee.id))
+      .limit(1);
+    expect(updatedEmployee.status).toBe("ON_VACATION");
   });
 });

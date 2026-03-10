@@ -1,4 +1,7 @@
 import { beforeAll, describe, expect, test } from "bun:test";
+import { eq } from "drizzle-orm";
+import { db } from "@/db";
+import { schema } from "@/db/schema";
 import { env } from "@/env";
 import { createTestApp, type TestApp } from "@/test/helpers/app";
 import { generateCpf } from "@/test/helpers/faker";
@@ -243,6 +246,63 @@ describe("POST /v1/employees", () => {
     expect(response.status).toBe(409);
     const body = await response.json();
     expect(body.error.code).toBe("EMPLOYEE_CPF_ALREADY_EXISTS");
+  });
+
+  test("should allow duplicate CPF when existing employee is TERMINATED", async () => {
+    const { headers, organizationId, user } =
+      await createTestUserWithOrganization({
+        emailVerified: true,
+        skipTrialCreation: true,
+      });
+
+    const deps = await createTestDependencies(organizationId, user.id);
+
+    const sharedCpf = generateCpf();
+    const employeeData = createValidEmployeeData({
+      cpf: sharedCpf,
+      ...deps,
+    });
+
+    // Create first employee
+    const firstResponse = await app.handle(
+      new Request(`${BASE_URL}/v1/employees`, {
+        method: "POST",
+        headers: {
+          ...headers,
+          "Content-Type": "application/json",
+        },
+        body: JSON.stringify(employeeData),
+      })
+    );
+    const firstBody = await firstResponse.json();
+    const firstEmployeeId = firstBody.data.id;
+
+    // Terminate the first employee
+    await db
+      .update(schema.employees)
+      .set({ status: "TERMINATED" })
+      .where(eq(schema.employees.id, firstEmployeeId));
+
+    // Create second employee with same CPF — should succeed
+    const response = await app.handle(
+      new Request(`${BASE_URL}/v1/employees`, {
+        method: "POST",
+        headers: {
+          ...headers,
+          "Content-Type": "application/json",
+        },
+        body: JSON.stringify({
+          ...employeeData,
+          name: "Recontratação",
+          email: "recontratacao@example.com",
+        }),
+      })
+    );
+
+    expect(response.status).toBe(200);
+    const body = await response.json();
+    expect(body.success).toBe(true);
+    expect(body.data.cpf).toBe(sharedCpf);
   });
 
   test("should reject invalid sector", async () => {

@@ -1,0 +1,2 @@
+DROP INDEX "employees_cpf_org_unique_idx";--> statement-breakpoint
+CREATE UNIQUE INDEX "employees_cpf_org_unique_idx" ON "employees" USING btree ("cpf","organization_id") WHERE deleted_at IS NULL AND status != 'TERMINATED';

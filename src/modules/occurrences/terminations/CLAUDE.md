@@ -8,6 +8,8 @@ Registro de desligamentos de funcionários.
 - `noticePeriodDays` (inteiro ≥ 0, opcional) + `noticePeriodWorked` (boolean, default false)
 - `reason` (max 1000), `notes` (max 2000) — opcionais
 - Um employee só pode ter um desligamento ativo (não deletado) — tentativa de criar segundo lança `TerminationAlreadyExistsError`
+- Criar desligamento altera automaticamente o status do funcionário para `TERMINATED`
+- Deletar (soft delete) desligamento reverte o status do funcionário para `ACTIVE`
 - Sem verificação de status do employee no create (diferente dos demais sub-módulos)
 - Permissão usa resource genérico `occurrence`, não `termination`
 - Listagem ordenada por `terminationDate`
