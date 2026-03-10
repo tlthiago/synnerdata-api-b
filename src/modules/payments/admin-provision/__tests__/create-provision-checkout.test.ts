@@ -196,6 +196,242 @@ describe("POST /v1/payments/admin/provisions/checkout", () => {
     expect(body.error.code).toBe("USER_ALREADY_EXISTS");
   });
 
+  // ── Success — Mocked Pagarme ────────────────────────────────
+
+  function mockPagarme() {
+    const mockPagarmePlanId = `plan_mock_${crypto.randomUUID().slice(0, 8)}`;
+    const mockPaymentLinkId = `pl_mock_${crypto.randomUUID().slice(0, 8)}`;
+    const mockCheckoutUrl = `https://pagar.me/checkout/${mockPaymentLinkId}`;
+    const mockCustomerId = `cus_mock_${crypto.randomUUID().slice(0, 8)}`;
+    const now = new Date().toISOString();
+
+    const { PagarmeClient } = require("@/modules/payments/pagarme/client");
+    const { spyOn } = require("bun:test");
+
+    const createPlanSpy = spyOn(PagarmeClient, "createPlan").mockResolvedValue({
+      id: mockPagarmePlanId,
+      name: "custom-gold-mock",
+      interval: "month",
+      interval_count: 1,
+      billing_type: "prepaid",
+      payment_methods: ["credit_card"],
+      currency: "BRL",
+      items: [],
+      status: "active",
+      created_at: now,
+      updated_at: now,
+    });
+
+    const createPaymentLinkSpy = spyOn(
+      PagarmeClient,
+      "createPaymentLink"
+    ).mockResolvedValue({
+      id: mockPaymentLinkId,
+      url: mockCheckoutUrl,
+      short_url: mockCheckoutUrl,
+      status: "active",
+      type: "subscription",
+      name: "Custom Gold Plan",
+      success_url: `${env.APP_URL}/ativacao`,
+      created_at: now,
+      updated_at: now,
+    });
+
+    const createCustomerSpy = spyOn(
+      PagarmeClient,
+      "createCustomer"
+    ).mockResolvedValue({
+      id: mockCustomerId,
+      name: "Empresa Real LTDA",
+      email: "org@empresa.com",
+      document: "24004752000199",
+      type: "company",
+      created_at: now,
+      updated_at: now,
+    });
+
+    return {
+      mockPagarmePlanId,
+      mockPaymentLinkId,
+      mockCheckoutUrl,
+      restore: () => {
+        createPlanSpy.mockRestore();
+        createPaymentLinkSpy.mockRestore();
+        createCustomerSpy.mockRestore();
+      },
+    };
+  }
+
+  test("should provision user + org + checkout with mocked Pagarme", async () => {
+    const { headers } = await UserFactory.createAdmin();
+    const payload = buildPayload(goldPlanId, { notes: "Mocked checkout test" });
+
+    const mocks = mockPagarme();
+
+    const response = await app.handle(
+      new Request(ENDPOINT, {
+        method: "POST",
+        headers: { ...headers, "Content-Type": "application/json" },
+        body: JSON.stringify(payload),
+      })
+    );
+
+    mocks.restore();
+
+    expect(response.status).toBe(200);
+    const body = await response.json();
+    expect(body.success).toBe(true);
+
+    const data = body.data;
+    expect(data.type).toBe("checkout");
+    expect(data.status).toBe("pending_payment");
+    expect(data.ownerName).toBe(payload.ownerName);
+    expect(data.ownerEmail).toBe(payload.ownerEmail);
+    expect(data.organizationName).toBe(payload.organization.name);
+    expect(data.checkoutUrl).toBe(mocks.mockCheckoutUrl);
+    expect(data.checkoutExpiresAt).toBeString();
+    expect(data.notes).toBe("Mocked checkout test");
+
+    // Verify subscription shows contracted plan data (not interim trial)
+    expect(data.subscription).toBeDefined();
+    expect(data.subscription.status).toBe("pending_payment");
+    expect(data.subscription.maxEmployees).toBe(payload.maxEmployees);
+    expect(data.subscription.billingCycle).toBe("monthly");
+    expect(data.subscription.customPriceMonthly).toBe(
+      payload.customPriceMonthly
+    );
+    expect(data.subscription.planName).toBeString();
+    expect(data.subscription.trialDays).toBeNull();
+    expect(data.subscription.trialEnd).toBeNull();
+
+    // Verify user created
+    const [user] = await db
+      .select()
+      .from(schema.users)
+      .where(eq(schema.users.email, payload.ownerEmail))
+      .limit(1);
+
+    expect(user).toBeDefined();
+    expect(user.name).toBe(payload.ownerName);
+
+    // Verify organization created
+    const [org] = await db
+      .select()
+      .from(schema.organizations)
+      .where(eq(schema.organizations.id, data.organizationId))
+      .limit(1);
+
+    expect(org).toBeDefined();
+    expect(org.name).toBe(payload.organization.name);
+
+    // Verify org profile enriched
+    const [orgProfile] = await db
+      .select()
+      .from(schema.organizationProfiles)
+      .where(
+        eq(schema.organizationProfiles.organizationId, data.organizationId)
+      )
+      .limit(1);
+
+    expect(orgProfile).toBeDefined();
+    expect(orgProfile.tradeName).toBe(payload.organization.tradeName);
+    expect(orgProfile.legalName).toBe(payload.organization.legalName);
+    expect(orgProfile.taxId).toBe(payload.organization.taxId);
+    expect(orgProfile.email).toBe(payload.organization.email);
+    expect(orgProfile.street).toBe(payload.organization.street);
+    expect(orgProfile.city).toBe(payload.organization.city);
+    expect(orgProfile.state).toBe(payload.organization.state);
+    expect(orgProfile.zipCode).toBe(payload.organization.zipCode);
+
+    // Verify billing profile created from organization data
+    const [billingProfile] = await db
+      .select()
+      .from(schema.billingProfiles)
+      .where(eq(schema.billingProfiles.organizationId, data.organizationId))
+      .limit(1);
+
+    expect(billingProfile).toBeDefined();
+    expect(billingProfile.legalName).toBe(payload.organization.legalName);
+    expect(billingProfile.taxId).toBe(payload.organization.taxId);
+    expect(billingProfile.street).toBe(payload.organization.street);
+
+    // Verify provision record
+    const [provision] = await db
+      .select()
+      .from(schema.adminOrgProvisions)
+      .where(eq(schema.adminOrgProvisions.id, data.id))
+      .limit(1);
+
+    expect(provision).toBeDefined();
+    expect(provision.type).toBe("checkout");
+    expect(provision.status).toBe("pending_payment");
+    expect(provision.checkoutUrl).toBe(mocks.mockCheckoutUrl);
+    expect(provision.pendingCheckoutId).toBe(mocks.mockPaymentLinkId);
+    expect(provision.notes).toBe("Mocked checkout test");
+
+    // Verify private plan + tier created
+    const [privatePlan] = await db
+      .select()
+      .from(schema.subscriptionPlans)
+      .where(eq(schema.subscriptionPlans.organizationId, data.organizationId))
+      .limit(1);
+
+    expect(privatePlan).toBeDefined();
+    expect(privatePlan.isPublic).toBe(false);
+    expect(privatePlan.isTrial).toBe(false);
+    expect(privatePlan.basePlanId).toBe(goldPlanId);
+
+    // Verify pending checkout references private plan
+    const [pendingCheckout] = await db
+      .select()
+      .from(schema.pendingCheckouts)
+      .where(eq(schema.pendingCheckouts.paymentLinkId, mocks.mockPaymentLinkId))
+      .limit(1);
+
+    expect(pendingCheckout).toBeDefined();
+    expect(pendingCheckout.planId).toBe(privatePlan.id);
+    expect(pendingCheckout.customPriceMonthly).toBe(payload.customPriceMonthly);
+    expect(pendingCheckout.status).toBe("pending");
+  });
+
+  test("should provision checkout with yearly billing cycle (mocked Pagarme)", async () => {
+    const { headers } = await UserFactory.createAdmin();
+    const payload = buildPayload(goldPlanId, {
+      billingCycle: "yearly",
+      customPriceMonthly: 8000,
+    });
+
+    const mocks = mockPagarme();
+
+    const response = await app.handle(
+      new Request(ENDPOINT, {
+        method: "POST",
+        headers: { ...headers, "Content-Type": "application/json" },
+        body: JSON.stringify(payload),
+      })
+    );
+
+    mocks.restore();
+
+    expect(response.status).toBe(200);
+    const body = await response.json();
+    expect(body.success).toBe(true);
+
+    const data = body.data;
+    expect(data.subscription.billingCycle).toBe("yearly");
+    expect(data.subscription.customPriceMonthly).toBe(8000);
+
+    // Verify pending checkout has yearly cycle
+    const [pendingCheckout] = await db
+      .select()
+      .from(schema.pendingCheckouts)
+      .where(eq(schema.pendingCheckouts.paymentLinkId, mocks.mockPaymentLinkId))
+      .limit(1);
+
+    expect(pendingCheckout).toBeDefined();
+    expect(pendingCheckout.billingCycle).toBe("yearly");
+  });
+
   // ── Success (requires Pagarme) ──────────────────────────────
 
   test.skipIf(skipIntegration)(
