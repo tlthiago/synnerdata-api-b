@@ -163,6 +163,10 @@ export const employees = pgTable(
     probation1ExpiryDate: date("probation1_expiry_date"),
     probation2ExpiryDate: date("probation2_expiry_date"),
 
+    // Acquisition Period (manual seed)
+    acquisitionPeriodStart: date("acquisition_period_start"),
+    acquisitionPeriodEnd: date("acquisition_period_end"),
+
     // Audit
     createdAt: timestamp("created_at", { withTimezone: true })
       .defaultNow()

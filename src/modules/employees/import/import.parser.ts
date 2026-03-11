@@ -70,6 +70,8 @@ const DATE_FIELDS = [
   "terminationExamDate",
   "probation1ExpiryDate",
   "probation2ExpiryDate",
+  "acquisitionPeriodStart",
+  "acquisitionPeriodEnd",
 ] as const;
 
 // ── Enum fields and their reverse maps ──────────────────────────────────────

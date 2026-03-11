@@ -85,6 +85,8 @@ type EmployeeOverrides = {
   hasChildren?: boolean;
   childrenCount?: number;
   hasChildrenUnder21?: boolean;
+  acquisitionPeriodStart?: string;
+  acquisitionPeriodEnd?: string;
 };
 
 type CreateTestEmployeeOptions = {
@@ -188,6 +190,8 @@ function generateEmploymentData(
     hasChildren: overrides.hasChildren ?? false,
     childrenCount: overrides.childrenCount,
     hasChildrenUnder21: overrides.hasChildrenUnder21,
+    acquisitionPeriodStart: overrides.acquisitionPeriodStart,
+    acquisitionPeriodEnd: overrides.acquisitionPeriodEnd,
   };
 }
 

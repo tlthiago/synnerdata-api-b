@@ -246,4 +246,92 @@ describe("GET /v1/employees/:id — lastAcquisitionPeriod", () => {
       end: "2024-12-31",
     });
   });
+
+  test("should fallback to manual fields when no vacations have acquisition period", async () => {
+    const { headers, organizationId, user } =
+      await createTestUserWithOrganization({ emailVerified: true });
+
+    const { employee } = await createTestEmployee({
+      organizationId,
+      userId: user.id,
+      hireDate: "2024-01-01",
+    });
+
+    // Set manual acquisition period via update
+    await app.handle(
+      new Request(`${BASE_URL}/v1/employees/${employee.id}`, {
+        method: "PUT",
+        headers: { ...headers, "Content-Type": "application/json" },
+        body: JSON.stringify({
+          acquisitionPeriodStart: "2024-01-01",
+          acquisitionPeriodEnd: "2024-12-31",
+        }),
+      })
+    );
+
+    const response = await app.handle(
+      new Request(`${BASE_URL}/v1/employees/${employee.id}`, {
+        method: "GET",
+        headers,
+      })
+    );
+
+    expect(response.status).toBe(200);
+    const body = await response.json();
+    expect(body.data.lastAcquisitionPeriod).toEqual({
+      start: "2024-01-01",
+      end: "2024-12-31",
+    });
+  });
+
+  test("should prefer vacation acquisition period over manual fields", async () => {
+    const { headers, organizationId, user } =
+      await createTestUserWithOrganization({ emailVerified: true });
+
+    const { employee } = await createTestEmployee({
+      organizationId,
+      userId: user.id,
+      hireDate: "2024-01-01",
+    });
+
+    // Set manual acquisition period
+    await app.handle(
+      new Request(`${BASE_URL}/v1/employees/${employee.id}`, {
+        method: "PUT",
+        headers: { ...headers, "Content-Type": "application/json" },
+        body: JSON.stringify({
+          acquisitionPeriodStart: "2024-01-01",
+          acquisitionPeriodEnd: "2024-12-31",
+        }),
+      })
+    );
+
+    // Create vacation with a newer acquisition period
+    await createTestVacation({
+      organizationId,
+      userId: user.id,
+      employeeId: employee.id,
+      startDate: "2027-08-01",
+      endDate: "2027-08-10",
+      daysEntitled: 10,
+      acquisitionPeriodStart: "2025-01-01",
+      acquisitionPeriodEnd: "2025-12-31",
+      concessivePeriodStart: "2026-01-01",
+      concessivePeriodEnd: "2026-12-31",
+    });
+
+    const response = await app.handle(
+      new Request(`${BASE_URL}/v1/employees/${employee.id}`, {
+        method: "GET",
+        headers,
+      })
+    );
+
+    expect(response.status).toBe(200);
+    const body = await response.json();
+    expect(body.data.lastAcquisitionPeriod).toEqual({
+      start: "2025-01-01",
+      end: "2025-12-31",
+    });
+  });
 });

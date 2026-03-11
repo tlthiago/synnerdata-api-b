@@ -443,6 +443,20 @@ export const IMPORT_COLUMNS: ImportColumn[] = [
     section: "employment",
     dropdown: { type: "reference", refColumn: "E" },
   },
+  {
+    key: "acquisitionPeriodStart",
+    header: "Início Período Aquisitivo",
+    width: 22,
+    required: false,
+    section: "employment",
+  },
+  {
+    key: "acquisitionPeriodEnd",
+    header: "Fim Período Aquisitivo",
+    width: 22,
+    required: false,
+    section: "employment",
+  },
 
   // ── Schedule ──
   {

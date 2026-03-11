@@ -93,3 +93,11 @@ export class EmployeeInvalidJobClassificationError extends EmployeeError {
     );
   }
 }
+
+export class EmployeeInvalidAcquisitionPeriodError extends EmployeeError {
+  status = 422;
+
+  constructor(message: string) {
+    super(message, "EMPLOYEE_INVALID_ACQUISITION_PERIOD");
+  }
+}

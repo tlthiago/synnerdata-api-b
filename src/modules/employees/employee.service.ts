@@ -12,6 +12,7 @@ import type {
 import {
   EmployeeAlreadyDeletedError,
   EmployeeCpfAlreadyExistsError,
+  EmployeeInvalidAcquisitionPeriodError,
   EmployeeInvalidBranchError,
   EmployeeInvalidCostCenterError,
   EmployeeInvalidJobClassificationError,
@@ -112,7 +113,8 @@ export abstract class EmployeeService {
   }
 
   private static async getLastAcquisitionPeriod(
-    employeeId: string
+    employeeId: string,
+    employee: EmployeeRaw
   ): Promise<{ start: string; end: string } | null> {
     const { desc, isNotNull } = await import("drizzle-orm");
     const [result] = await db
@@ -131,11 +133,19 @@ export abstract class EmployeeService {
       .orderBy(desc(schema.vacations.acquisitionPeriodEnd))
       .limit(1);
 
-    if (!(result?.start && result?.end)) {
-      return null;
+    if (result?.start && result?.end) {
+      return { start: result.start, end: result.end };
     }
 
-    return { start: result.start, end: result.end };
+    // Fallback to manual seed fields on employee
+    if (employee.acquisitionPeriodStart && employee.acquisitionPeriodEnd) {
+      return {
+        start: employee.acquisitionPeriodStart,
+        end: employee.acquisitionPeriodEnd,
+      };
+    }
+
+    return null;
   }
 
   private static async enrichEmployee(
@@ -168,7 +178,7 @@ export abstract class EmployeeService {
             organizationId
           )
         : Promise.resolve(null),
-      EmployeeService.getLastAcquisitionPeriod(employee.id),
+      EmployeeService.getLastAcquisitionPeriod(employee.id, employee),
     ]);
 
     return {
@@ -229,6 +239,8 @@ export abstract class EmployeeService {
       terminationExamDate: employee.terminationExamDate,
       probation1ExpiryDate: employee.probation1ExpiryDate,
       probation2ExpiryDate: employee.probation2ExpiryDate,
+      acquisitionPeriodStart: employee.acquisitionPeriodStart,
+      acquisitionPeriodEnd: employee.acquisitionPeriodEnd,
       lastAcquisitionPeriod,
       createdAt: employee.createdAt,
       updatedAt: employee.updatedAt,
@@ -446,6 +458,38 @@ export abstract class EmployeeService {
     await Promise.all(validations);
   }
 
+  private static validateAcquisitionPeriod(
+    acquisitionPeriodStart: string | undefined | null,
+    acquisitionPeriodEnd: string | undefined | null,
+    hireDate: string
+  ): void {
+    if (!(acquisitionPeriodStart || acquisitionPeriodEnd)) {
+      return;
+    }
+
+    if (
+      acquisitionPeriodStart &&
+      acquisitionPeriodEnd &&
+      acquisitionPeriodStart > acquisitionPeriodEnd
+    ) {
+      throw new EmployeeInvalidAcquisitionPeriodError(
+        "Início do período aquisitivo deve ser anterior ou igual ao fim"
+      );
+    }
+
+    if (acquisitionPeriodStart && acquisitionPeriodStart < hireDate) {
+      throw new EmployeeInvalidAcquisitionPeriodError(
+        `Início do período aquisitivo (${acquisitionPeriodStart}) não pode ser anterior à data de admissão (${hireDate})`
+      );
+    }
+
+    if (acquisitionPeriodEnd && acquisitionPeriodEnd < hireDate) {
+      throw new EmployeeInvalidAcquisitionPeriodError(
+        `Fim do período aquisitivo (${acquisitionPeriodEnd}) não pode ser anterior à data de admissão (${hireDate})`
+      );
+    }
+  }
+
   static async create(input: CreateEmployeeInput): Promise<EmployeeData> {
     const { organizationId, userId, ...data } = input;
 
@@ -465,6 +509,12 @@ export abstract class EmployeeService {
         jobClassificationId: data.jobClassificationId,
       },
       organizationId
+    );
+
+    EmployeeService.validateAcquisitionPeriod(
+      data.acquisitionPeriodStart,
+      data.acquisitionPeriodEnd,
+      data.hireDate
     );
 
     const employeeId = `employee-${crypto.randomUUID()}`;
@@ -528,6 +578,8 @@ export abstract class EmployeeService {
         terminationExamDate: data.terminationExamDate,
         probation1ExpiryDate: data.probation1ExpiryDate,
         probation2ExpiryDate: data.probation2ExpiryDate,
+        acquisitionPeriodStart: data.acquisitionPeriodStart,
+        acquisitionPeriodEnd: data.acquisitionPeriodEnd,
         createdBy: userId,
       })
       .returning();
@@ -607,6 +659,16 @@ export abstract class EmployeeService {
     if (data.cpf && data.cpf !== existingRaw.cpf) {
       await EmployeeService.ensureCpfNotExists(data.cpf, organizationId, id);
     }
+
+    EmployeeService.validateAcquisitionPeriod(
+      data.acquisitionPeriodStart ??
+        existingRaw.acquisitionPeriodStart ??
+        undefined,
+      data.acquisitionPeriodEnd ??
+        existingRaw.acquisitionPeriodEnd ??
+        undefined,
+      data.hireDate ?? existingRaw.hireDate
+    );
 
     // Validate relationships if any FK is being updated
     const relationshipsToValidate = {
@@ -690,6 +752,8 @@ export abstract class EmployeeService {
       terminationExamDate: data.terminationExamDate,
       probation1ExpiryDate: data.probation1ExpiryDate,
       probation2ExpiryDate: data.probation2ExpiryDate,
+      acquisitionPeriodStart: data.acquisitionPeriodStart,
+      acquisitionPeriodEnd: data.acquisitionPeriodEnd,
     };
 
     // Filter out undefined values and add audit field

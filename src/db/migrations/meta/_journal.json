@@ -232,6 +232,13 @@
       "when": 1773173364498,
       "tag": "0032_large_lorna_dane",
       "breakpoints": true
+    },
+    {
+      "idx": 33,
+      "version": "7",
+      "when": 1773236541234,
+      "tag": "0033_military_mongu",
+      "breakpoints": true
     }
   ]
 }
