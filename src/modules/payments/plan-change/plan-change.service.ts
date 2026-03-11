@@ -1395,6 +1395,7 @@ export abstract class PlanChangeService {
         pricingTierId: newTier.id,
         billingCycle: finalBillingCycle,
         paymentLinkId: paymentLink.id,
+        checkoutUrl: paymentLink.url,
         status: "pending",
         expiresAt,
       });

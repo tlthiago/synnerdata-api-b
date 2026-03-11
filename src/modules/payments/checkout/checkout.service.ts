@@ -101,6 +101,7 @@ export abstract class CheckoutService {
       pricingTierId: tier.id,
       billingCycle,
       paymentLinkId: paymentLink.id,
+      checkoutUrl: paymentLink.url,
       status: "pending",
       expiresAt,
     });

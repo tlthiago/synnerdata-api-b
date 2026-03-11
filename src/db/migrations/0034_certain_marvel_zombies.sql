@@ -1,0 +1,1 @@
+ALTER TABLE "pending_checkouts" ADD COLUMN "checkout_url" text;

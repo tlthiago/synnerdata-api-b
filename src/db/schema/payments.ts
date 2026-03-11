@@ -294,6 +294,7 @@ export const pendingCheckouts = pgTable(
     ),
     billingCycle: text("billing_cycle").default("monthly"),
     paymentLinkId: text("payment_link_id").notNull(),
+    checkoutUrl: text("checkout_url"),
     status: pendingCheckoutStatusEnum("status").default("pending").notNull(),
     expiresAt: timestamp("expires_at", { withTimezone: true }).notNull(),
     completedAt: timestamp("completed_at", { withTimezone: true }),
