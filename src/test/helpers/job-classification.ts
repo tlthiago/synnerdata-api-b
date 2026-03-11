@@ -89,10 +89,8 @@ export async function createTestJobClassifications(
   ];
 
   for (let i = 0; i < count; i++) {
-    let name = jobClassificationNames[i % jobClassificationNames.length];
-    if (usedNames.has(name)) {
-      name = `${name} ${i + 1}`;
-    }
+    const baseName = jobClassificationNames[i % jobClassificationNames.length];
+    const name = `${baseName} ${crypto.randomUUID().slice(0, 8)}`;
     usedNames.add(name);
 
     const jobClassification = await createTestJobClassification({

@@ -22,6 +22,8 @@ describe("GET /v1/employees/:id — lastAcquisitionPeriod", () => {
     const { employee } = await createTestEmployee({
       organizationId,
       userId: user.id,
+      acquisitionPeriodStart: null,
+      acquisitionPeriodEnd: null,
     });
 
     const response = await app.handle(
@@ -43,6 +45,8 @@ describe("GET /v1/employees/:id — lastAcquisitionPeriod", () => {
     const { employee } = await createTestEmployee({
       organizationId,
       userId: user.id,
+      acquisitionPeriodStart: null,
+      acquisitionPeriodEnd: null,
     });
 
     await createTestVacation({

@@ -37,7 +37,9 @@ export async function createTestBranch(
   return await BranchService.create({
     organizationId,
     userId,
-    name: overrides.name ?? `Filial ${faker.location.city()}`,
+    name:
+      overrides.name ??
+      `Filial ${faker.location.city()} ${crypto.randomUUID().slice(0, 8)}`,
     taxId: overrides.taxId ?? generateCnpj(),
     street: overrides.street ?? faker.location.street(),
     number: overrides.number ?? faker.location.buildingNumber(),

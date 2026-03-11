@@ -74,6 +74,25 @@ export function generateCep(): string {
 }
 
 /**
+ * Generates a Brazilian landline phone number (10 digits).
+ */
+export function generatePhone(): string {
+  const ddd = faker.helpers.arrayElement([
+    "11",
+    "21",
+    "31",
+    "41",
+    "51",
+    "61",
+    "71",
+    "81",
+    "85",
+    "62",
+  ]);
+  return `${ddd}${faker.string.numeric(8)}`;
+}
+
+/**
  * Generates a Brazilian phone number (11 digits for mobile).
  */
 export function generateMobile(): string {
@@ -141,4 +160,31 @@ export function generateAdultBirthDate(): string {
 export function generateHireDate(): string {
   const date = faker.date.past({ years: 5 });
   return date.toISOString().split("T")[0];
+}
+
+/**
+ * Generates a past date relative to a reference date (for exam dates, etc.).
+ */
+export function generatePastDateFrom(
+  refDate: string,
+  maxDaysAfter: number
+): string {
+  const ref = new Date(refDate);
+  const daysAfter = faker.number.int({ min: 0, max: maxDaysAfter });
+  ref.setDate(ref.getDate() + daysAfter);
+  return ref.toISOString().split("T")[0];
+}
+
+/**
+ * Generates a Brazilian latitude (roughly -33 to 5).
+ */
+export function generateLatitude(): number {
+  return faker.number.float({ min: -33.75, max: 5.27, fractionDigits: 6 });
+}
+
+/**
+ * Generates a Brazilian longitude (roughly -73 to -34).
+ */
+export function generateLongitude(): number {
+  return faker.number.float({ min: -73.99, max: -34.79, fractionDigits: 6 });
 }
