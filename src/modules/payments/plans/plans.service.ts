@@ -81,6 +81,7 @@ export abstract class PlansService {
     const plans = await db
       .select()
       .from(schema.subscriptionPlans)
+      .where(isNull(schema.subscriptionPlans.organizationId))
       .orderBy(schema.subscriptionPlans.sortOrder);
 
     const tiers = await db

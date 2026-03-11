@@ -248,6 +248,12 @@ export abstract class AdminOrganizationService {
       },
     }));
 
+    const [billingProfileRow] = await db
+      .select()
+      .from(schema.billingProfiles)
+      .where(eq(schema.billingProfiles.organizationId, organizationId))
+      .limit(1);
+
     const [subscriptionRow] = await db
       .select({
         id: schema.orgSubscriptions.id,
@@ -297,12 +303,31 @@ export abstract class AdminOrganizationService {
         }
       : null;
 
+    const billingProfile = billingProfileRow
+      ? {
+          id: billingProfileRow.id,
+          legalName: billingProfileRow.legalName,
+          taxId: billingProfileRow.taxId,
+          email: billingProfileRow.email,
+          phone: billingProfileRow.phone,
+          street: billingProfileRow.street,
+          number: billingProfileRow.number,
+          complement: billingProfileRow.complement,
+          neighborhood: billingProfileRow.neighborhood,
+          city: billingProfileRow.city,
+          state: billingProfileRow.state,
+          zipCode: billingProfileRow.zipCode,
+          pagarmeCustomerId: billingProfileRow.pagarmeCustomerId,
+        }
+      : null;
+
     return {
       ...org,
       profile: profile ?? null,
       memberCount: members.length,
       members,
       subscription,
+      billingProfile,
     };
   }
 
