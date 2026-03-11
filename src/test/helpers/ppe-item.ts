@@ -62,10 +62,8 @@ export async function createTestPpeItems(
   const usedNames = new Set<string>();
 
   for (let i = 0; i < count; i++) {
-    let name = PPE_NAMES[i % PPE_NAMES.length];
-    if (usedNames.has(name)) {
-      name = `${name} ${i + 1}`;
-    }
+    const baseName = PPE_NAMES[i % PPE_NAMES.length];
+    const name = `${baseName} ${crypto.randomUUID().slice(0, 8)}`;
     usedNames.add(name);
 
     const ppeItem = await createTestPpeItem({

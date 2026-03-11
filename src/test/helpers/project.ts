@@ -104,10 +104,8 @@ export async function createTestProjects(
   ];
 
   for (let i = 0; i < count; i++) {
-    let name = projectNames[i % projectNames.length];
-    if (usedNames.has(name)) {
-      name = `${name} ${i + 1}`;
-    }
+    const baseName = projectNames[i % projectNames.length];
+    const name = `${baseName} ${crypto.randomUUID().slice(0, 8)}`;
     usedNames.add(name);
 
     const project = await createTestProject({ organizationId, userId, name });

@@ -77,10 +77,8 @@ export async function createTestCostCenters(
   ];
 
   for (let i = 0; i < count; i++) {
-    let name = costCenterNames[i % costCenterNames.length];
-    if (usedNames.has(name)) {
-      name = `${name} ${i + 1}`;
-    }
+    const baseName = costCenterNames[i % costCenterNames.length];
+    const name = `${baseName} ${crypto.randomUUID().slice(0, 8)}`;
     usedNames.add(name);
 
     const costCenter = await createTestCostCenter({
