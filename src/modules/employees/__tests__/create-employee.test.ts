@@ -419,3 +419,140 @@ describe("POST /v1/employees", () => {
     expect(response.status).toBe(200);
   });
 });
+
+describe("POST /v1/employees — acquisition period", () => {
+  let app: TestApp;
+
+  beforeAll(() => {
+    app = createTestApp();
+  });
+
+  test("should create employee with acquisition period", async () => {
+    const { headers, organizationId, user } =
+      await createTestUserWithOrganization({
+        emailVerified: true,
+        skipTrialCreation: true,
+      });
+    const deps = await createTestDependencies(organizationId, user.id);
+
+    const data = createValidEmployeeData({
+      ...deps,
+      hireDate: "2024-01-15",
+      acquisitionPeriodStart: "2024-01-15",
+      acquisitionPeriodEnd: "2025-01-14",
+    });
+
+    const response = await app.handle(
+      new Request(`${BASE_URL}/v1/employees`, {
+        method: "POST",
+        headers: { ...headers, "Content-Type": "application/json" },
+        body: JSON.stringify(data),
+      })
+    );
+
+    expect(response.status).toBe(200);
+    const body = await response.json();
+    expect(body.data.acquisitionPeriodStart).toBe("2024-01-15");
+    expect(body.data.acquisitionPeriodEnd).toBe("2025-01-14");
+  });
+
+  test("should create employee without acquisition period", async () => {
+    const { headers, organizationId, user } =
+      await createTestUserWithOrganization({
+        emailVerified: true,
+        skipTrialCreation: true,
+      });
+    const deps = await createTestDependencies(organizationId, user.id);
+
+    const data = createValidEmployeeData(deps);
+
+    const response = await app.handle(
+      new Request(`${BASE_URL}/v1/employees`, {
+        method: "POST",
+        headers: { ...headers, "Content-Type": "application/json" },
+        body: JSON.stringify(data),
+      })
+    );
+
+    expect(response.status).toBe(200);
+    const body = await response.json();
+    expect(body.data.acquisitionPeriodStart).toBeNull();
+    expect(body.data.acquisitionPeriodEnd).toBeNull();
+  });
+
+  test("should reject when only acquisitionPeriodStart is provided", async () => {
+    const { headers, organizationId, user } =
+      await createTestUserWithOrganization({
+        emailVerified: true,
+        skipTrialCreation: true,
+      });
+    const deps = await createTestDependencies(organizationId, user.id);
+
+    const data = createValidEmployeeData({
+      ...deps,
+      acquisitionPeriodStart: "2024-01-15",
+    });
+
+    const response = await app.handle(
+      new Request(`${BASE_URL}/v1/employees`, {
+        method: "POST",
+        headers: { ...headers, "Content-Type": "application/json" },
+        body: JSON.stringify(data),
+      })
+    );
+
+    expect(response.status).toBe(422);
+  });
+
+  test("should reject when acquisitionPeriodStart is before hireDate", async () => {
+    const { headers, organizationId, user } =
+      await createTestUserWithOrganization({
+        emailVerified: true,
+        skipTrialCreation: true,
+      });
+    const deps = await createTestDependencies(organizationId, user.id);
+
+    const data = createValidEmployeeData({
+      ...deps,
+      hireDate: "2024-06-01",
+      acquisitionPeriodStart: "2024-01-01",
+      acquisitionPeriodEnd: "2024-12-31",
+    });
+
+    const response = await app.handle(
+      new Request(`${BASE_URL}/v1/employees`, {
+        method: "POST",
+        headers: { ...headers, "Content-Type": "application/json" },
+        body: JSON.stringify(data),
+      })
+    );
+
+    expect(response.status).toBe(422);
+  });
+
+  test("should reject when acquisitionPeriodStart > acquisitionPeriodEnd", async () => {
+    const { headers, organizationId, user } =
+      await createTestUserWithOrganization({
+        emailVerified: true,
+        skipTrialCreation: true,
+      });
+    const deps = await createTestDependencies(organizationId, user.id);
+
+    const data = createValidEmployeeData({
+      ...deps,
+      hireDate: "2024-01-15",
+      acquisitionPeriodStart: "2025-01-15",
+      acquisitionPeriodEnd: "2024-01-15",
+    });
+
+    const response = await app.handle(
+      new Request(`${BASE_URL}/v1/employees`, {
+        method: "POST",
+        headers: { ...headers, "Content-Type": "application/json" },
+        body: JSON.stringify(data),
+      })
+    );
+
+    expect(response.status).toBe(422);
+  });
+});

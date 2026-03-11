@@ -8,6 +8,7 @@ Cadastro e gestão de funcionários vinculados a uma organização.
 - CPF é único por organização entre funcionários não-demitidos — funcionários com status `TERMINATED` não bloqueiam novo cadastro (recontratação). Validado em create, update e import bulk. Unique index parcial no DB: `WHERE deleted_at IS NULL AND status != 'TERMINATED'`
 - Criação verifica limite do plano de assinatura via `LimitsService.requireEmployeeLimit()`
 - Soft delete — nunca hard delete
+- Período aquisitivo manual (seed): `acquisitionPeriodStart` e `acquisitionPeriodEnd` opcionais, pair-or-nothing, datas >= `hireDate`. Usado como fallback no `lastAcquisitionPeriod` quando não há férias com período aquisitivo cadastrado
 
 ## Relationships (validated on create/update)
 
@@ -15,7 +16,7 @@ Cadastro e gestão de funcionários vinculados a uma organização.
 - **Opcionais**: branch, costCenter
 - Todas validadas contra a mesma organização antes de persistir
 - Response expande FK IDs para `EntityReference` ({ id, name }) via `enrichEmployee()`
-- Response inclui `lastAcquisitionPeriod` ({ start, end } | null) — último período aquisitivo de férias do funcionário, obtido da tabela `vacations` (não deletadas, com `acquisitionPeriodEnd` preenchido, ordenado por `acquisitionPeriodEnd DESC`, limit 1)
+- Response inclui `lastAcquisitionPeriod` ({ start, end } | null) — prioridade: último período aquisitivo de férias > campos manuais do employee > null
 
 ## Status Lifecycle
 
@@ -28,6 +29,7 @@ Alterado via `PATCH /:id/status` (endpoint dedicado, não pelo PUT geral)
 - Campos numéricos (salary, height, weight, weeklyHours, mealAllowance, transportAllowance, healthInsurance) entram como `number` na API mas são armazenados como `string` no banco (colunas decimal)
 - Documentos brasileiros: CPF (11 dígitos), PIS (11 dígitos), CTPS (número + série), CEP (8 dígitos), UF (2 chars)
 - Datas (birthDate, hireDate) não podem ser futuras
+- Período aquisitivo manual: datas `YYYY-MM-DD`, ambos opcionais mas devem ser informados juntos (pair-or-nothing no create)
 
 ## Enums
 

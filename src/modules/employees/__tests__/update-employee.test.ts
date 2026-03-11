@@ -274,3 +274,113 @@ describe("PATCH /v1/employees/:id/status", () => {
     expect(response.status).toBe(422);
   });
 });
+
+describe("PUT /v1/employees/:id — acquisition period", () => {
+  let app: TestApp;
+
+  beforeAll(() => {
+    app = createTestApp();
+  });
+
+  test("should update acquisition period fields", async () => {
+    const { headers, organizationId, user } =
+      await createTestUserWithOrganization({ emailVerified: true });
+
+    const { employee } = await createTestEmployee({
+      organizationId,
+      userId: user.id,
+      hireDate: "2024-01-15",
+    });
+
+    const response = await app.handle(
+      new Request(`${BASE_URL}/v1/employees/${employee.id}`, {
+        method: "PUT",
+        headers: { ...headers, "Content-Type": "application/json" },
+        body: JSON.stringify({
+          acquisitionPeriodStart: "2024-01-15",
+          acquisitionPeriodEnd: "2025-01-14",
+        }),
+      })
+    );
+
+    expect(response.status).toBe(200);
+    const body = await response.json();
+    expect(body.data.acquisitionPeriodStart).toBe("2024-01-15");
+    expect(body.data.acquisitionPeriodEnd).toBe("2025-01-14");
+  });
+
+  test("should update only acquisitionPeriodEnd and merge with existing start", async () => {
+    const { headers, organizationId, user } =
+      await createTestUserWithOrganization({ emailVerified: true });
+
+    const { employee } = await createTestEmployee({
+      organizationId,
+      userId: user.id,
+      hireDate: "2024-01-15",
+    });
+
+    // Set both fields first
+    await app.handle(
+      new Request(`${BASE_URL}/v1/employees/${employee.id}`, {
+        method: "PUT",
+        headers: { ...headers, "Content-Type": "application/json" },
+        body: JSON.stringify({
+          acquisitionPeriodStart: "2024-01-15",
+          acquisitionPeriodEnd: "2025-01-14",
+        }),
+      })
+    );
+
+    // Update only end date
+    const response = await app.handle(
+      new Request(`${BASE_URL}/v1/employees/${employee.id}`, {
+        method: "PUT",
+        headers: { ...headers, "Content-Type": "application/json" },
+        body: JSON.stringify({
+          acquisitionPeriodEnd: "2025-06-14",
+        }),
+      })
+    );
+
+    expect(response.status).toBe(200);
+    const body = await response.json();
+    expect(body.data.acquisitionPeriodStart).toBe("2024-01-15");
+    expect(body.data.acquisitionPeriodEnd).toBe("2025-06-14");
+  });
+
+  test("should reject when hireDate update conflicts with existing acquisition period", async () => {
+    const { headers, organizationId, user } =
+      await createTestUserWithOrganization({ emailVerified: true });
+
+    const { employee } = await createTestEmployee({
+      organizationId,
+      userId: user.id,
+      hireDate: "2024-01-15",
+    });
+
+    // First set acquisition period
+    await app.handle(
+      new Request(`${BASE_URL}/v1/employees/${employee.id}`, {
+        method: "PUT",
+        headers: { ...headers, "Content-Type": "application/json" },
+        body: JSON.stringify({
+          acquisitionPeriodStart: "2024-01-15",
+          acquisitionPeriodEnd: "2025-01-14",
+        }),
+      })
+    );
+
+    // Then try to move hireDate after acquisitionPeriodStart
+    const response = await app.handle(
+      new Request(`${BASE_URL}/v1/employees/${employee.id}`, {
+        method: "PUT",
+        headers: { ...headers, "Content-Type": "application/json" },
+        body: JSON.stringify({
+          hireDate: "2024-06-01",
+        }),
+      })
+    );
+
+    expect(response.status).toBe(422);
+  });
+});
