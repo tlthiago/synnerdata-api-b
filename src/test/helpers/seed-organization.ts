@@ -187,13 +187,28 @@ async function createAbsencesForEmployee(
   accum: AbsenceData[]
 ): Promise<void> {
   const count = randomInRange(range.min, range.max);
+
+  // Space out absences to avoid overlap
+  let cursor = new Date();
+  cursor.setFullYear(cursor.getFullYear() - 1);
+
   for (let i = 0; i < count; i += 1) {
+    const daysOff = faker.number.int({ min: 1, max: 3 });
+    const startDate = new Date(cursor);
+    const endDate = new Date(startDate);
+    endDate.setDate(endDate.getDate() + daysOff - 1);
+
     const absence = await createTestAbsence({
       organizationId: ctx.organizationId,
       userId: ctx.userId,
       employeeId: ctx.employeeId,
+      startDate: startDate.toISOString().split("T")[0],
+      endDate: endDate.toISOString().split("T")[0],
     });
     accum.push(absence);
+
+    cursor = new Date(endDate);
+    cursor.setDate(cursor.getDate() + faker.number.int({ min: 10, max: 30 }));
   }
 }
 
@@ -219,13 +234,29 @@ async function createVacationsForEmployee(
   accum: VacationData[]
 ): Promise<void> {
   const count = randomInRange(range.min, range.max);
+
+  // Space out vacations to avoid overlap
+  let cursor = new Date();
+  cursor.setMonth(cursor.getMonth() + 2);
+
   for (let i = 0; i < count; i += 1) {
+    const days = faker.number.int({ min: 5, max: 30 });
+    const startDate = new Date(cursor);
+    const endDate = new Date(startDate);
+    endDate.setDate(endDate.getDate() + days - 1);
+
     const vacation = await createTestVacation({
       organizationId: ctx.organizationId,
       userId: ctx.userId,
       employeeId: ctx.employeeId,
+      startDate: startDate.toISOString().split("T")[0],
+      endDate: endDate.toISOString().split("T")[0],
+      daysEntitled: days,
     });
     accum.push(vacation);
+
+    cursor = new Date(endDate);
+    cursor.setDate(cursor.getDate() + faker.number.int({ min: 30, max: 90 }));
   }
 }
 
@@ -235,13 +266,21 @@ async function createWarningsForEmployee(
   accum: WarningData[]
 ): Promise<void> {
   const count = randomInRange(range.min, range.max);
+
+  // Space out warnings to avoid duplicate (employee + date + type)
+  const cursor = new Date();
+  cursor.setFullYear(cursor.getFullYear() - 1);
+
   for (let i = 0; i < count; i += 1) {
     const warning = await createTestWarning({
       organizationId: ctx.organizationId,
       userId: ctx.userId,
       employeeId: ctx.employeeId,
+      date: cursor.toISOString().split("T")[0],
     });
     accum.push(warning);
+
+    cursor.setDate(cursor.getDate() + faker.number.int({ min: 15, max: 45 }));
   }
 }
 
@@ -251,13 +290,30 @@ async function createMedicalCertificatesForEmployee(
   accum: MedicalCertificateData[]
 ): Promise<void> {
   const count = randomInRange(range.min, range.max);
+
+  // Generate non-overlapping dates by spacing them out
+  let cursor = new Date();
+  cursor.setFullYear(cursor.getFullYear() - 1);
+
   for (let i = 0; i < count; i += 1) {
+    const daysOff = faker.number.int({ min: 1, max: 10 });
+    const startDate = new Date(cursor);
+    const endDate = new Date(startDate);
+    endDate.setDate(endDate.getDate() + daysOff - 1);
+
     const cert = await createTestMedicalCertificate({
       organizationId: ctx.organizationId,
       userId: ctx.userId,
       employeeId: ctx.employeeId,
+      startDate: startDate.toISOString().split("T")[0],
+      endDate: endDate.toISOString().split("T")[0],
+      daysOff,
     });
     accum.push(cert);
+
+    // Move cursor past end date + gap
+    cursor = new Date(endDate);
+    cursor.setDate(cursor.getDate() + faker.number.int({ min: 15, max: 60 }));
   }
 }
 
@@ -267,13 +323,21 @@ async function createPromotionsForEmployee(
   accum: PromotionData[]
 ): Promise<void> {
   const count = randomInRange(range.min, range.max);
+
+  // Space out promotions to avoid duplicate (employee + date)
+  const cursor = new Date();
+  cursor.setFullYear(cursor.getFullYear() - 2);
+
   for (let i = 0; i < count; i += 1) {
     const { promotion } = await createTestPromotion({
       organizationId: ctx.organizationId,
       userId: ctx.userId,
       dependencies: { employeeId: ctx.employeeId },
+      promotionDate: cursor.toISOString().split("T")[0],
     });
     accum.push(promotion);
+
+    cursor.setMonth(cursor.getMonth() + faker.number.int({ min: 3, max: 8 }));
   }
 }
 
@@ -319,13 +383,21 @@ async function createCpfAnalysesForEmployee(
   accum: CpfAnalysisData[]
 ): Promise<void> {
   const count = randomInRange(range.min, range.max);
+
+  // Space out analyses to avoid duplicate (employee + date)
+  const cursor = new Date();
+  cursor.setFullYear(cursor.getFullYear() - 1);
+
   for (let i = 0; i < count; i += 1) {
     const cpfAnalysis = await createTestCpfAnalysis({
       organizationId: ctx.organizationId,
       userId: ctx.userId,
       employeeId: ctx.employeeId,
+      analysisDate: cursor.toISOString().split("T")[0],
     });
     accum.push(cpfAnalysis);
+
+    cursor.setMonth(cursor.getMonth() + faker.number.int({ min: 2, max: 6 }));
   }
 }
 
@@ -381,6 +453,65 @@ async function createOccurrencesForEmployee(
     occConfig.cpfAnalyses ?? defaultRange,
     accum.cpfAnalyses
   );
+}
+
+/**
+ * Ensures the organization's subscription tier supports the target employee count.
+ * If the current tier is too small, upgrades to the smallest tier that fits.
+ */
+async function ensureEmployeeTierCapacity(
+  organizationId: string,
+  targetEmployees: number
+): Promise<void> {
+  const { eq } = await import("drizzle-orm");
+  const { db } = await import("@/db");
+  const { schema } = await import("@/db/schema");
+
+  const [subscription] = await db
+    .select({
+      id: schema.orgSubscriptions.id,
+      planId: schema.orgSubscriptions.planId,
+      pricingTierId: schema.orgSubscriptions.pricingTierId,
+      maxEmployees: schema.planPricingTiers.maxEmployees,
+    })
+    .from(schema.orgSubscriptions)
+    .innerJoin(
+      schema.planPricingTiers,
+      eq(schema.orgSubscriptions.pricingTierId, schema.planPricingTiers.id)
+    )
+    .where(eq(schema.orgSubscriptions.organizationId, organizationId))
+    .limit(1);
+
+  if (!subscription) {
+    return;
+  }
+
+  if (subscription.maxEmployees >= targetEmployees) {
+    return;
+  }
+
+  // Find the smallest tier that fits the target
+  const { asc, and, isNull, gte } = await import("drizzle-orm");
+
+  const [suitableTier] = await db
+    .select({ id: schema.planPricingTiers.id })
+    .from(schema.planPricingTiers)
+    .where(
+      and(
+        eq(schema.planPricingTiers.planId, subscription.planId),
+        gte(schema.planPricingTiers.maxEmployees, targetEmployees),
+        isNull(schema.planPricingTiers.archivedAt)
+      )
+    )
+    .orderBy(asc(schema.planPricingTiers.maxEmployees))
+    .limit(1);
+
+  if (suitableTier) {
+    await db
+      .update(schema.orgSubscriptions)
+      .set({ pricingTierId: suitableTier.id })
+      .where(eq(schema.orgSubscriptions.id, subscription.id));
+  }
 }
 
 /**
@@ -456,7 +587,10 @@ export async function seedOrganization(
     createTestPpeItems({ organizationId, userId, count: config.ppeItems }),
   ]);
 
-  // 2. Create employees with dependencies from organizational structure
+  // 2. Ensure subscription tier supports the target employee count
+  await ensureEmployeeTierCapacity(organizationId, config.employees);
+
+  // 3. Create employees with dependencies from organizational structure
   const employees: EmployeeData[] = [];
   for (let i = 0; i < config.employees; i++) {
     const { employee } = await createTestEmployee({

@@ -51,7 +51,7 @@ const disabilityTypeValues = [
   "MULTIPLA",
 ] as const;
 
-export const createEmployeeSchema = z.object({
+const employeeFieldsSchema = z.object({
   // Personal Data
   name: z
     .string()
@@ -303,9 +303,33 @@ export const createEmployeeSchema = z.object({
     .date("Data de vencimento da experiência 2 deve ser uma data válida")
     .optional()
     .describe("Vencimento experiência 2"),
+
+  // Acquisition Period (manual seed)
+  acquisitionPeriodStart: z
+    .string()
+    .date("Início do período aquisitivo deve ser uma data válida")
+    .optional()
+    .describe("Início do período aquisitivo (YYYY-MM-DD)"),
+  acquisitionPeriodEnd: z
+    .string()
+    .date("Fim do período aquisitivo deve ser uma data válida")
+    .optional()
+    .describe("Fim do período aquisitivo (YYYY-MM-DD)"),
 });
 
-export const updateEmployeeSchema = createEmployeeSchema.partial();
+export const createEmployeeSchema = employeeFieldsSchema.refine(
+  (data) => {
+    const hasStart = data.acquisitionPeriodStart !== undefined;
+    const hasEnd = data.acquisitionPeriodEnd !== undefined;
+    return hasStart === hasEnd;
+  },
+  {
+    message: "Início e fim do período aquisitivo devem ser informados juntos",
+    path: ["acquisitionPeriodEnd"],
+  }
+);
+
+export const updateEmployeeSchema = employeeFieldsSchema.partial();
 
 export const updateEmployeeStatusSchema = z.object({
   status: z.enum(employeeStatusValues).describe("Status do funcionário"),
@@ -418,6 +442,16 @@ const employeeDataSchema = z.object({
     .string()
     .nullable()
     .describe("Vencimento experiência 2"),
+
+  // Acquisition Period (manual seed)
+  acquisitionPeriodStart: z
+    .string()
+    .nullable()
+    .describe("Início do período aquisitivo"),
+  acquisitionPeriodEnd: z
+    .string()
+    .nullable()
+    .describe("Fim do período aquisitivo"),
 
   // Vacation
   lastAcquisitionPeriod: z

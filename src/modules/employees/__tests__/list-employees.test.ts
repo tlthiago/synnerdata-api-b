@@ -164,6 +164,128 @@ describe("GET /v1/employees", () => {
     expect(body.data.length).toBe(0);
   });
 
+  test("should filter by single status", async () => {
+    const { headers, organizationId, user } =
+      await createTestUserWithOrganization({ emailVerified: true });
+
+    const { employee: active, dependencies } = await createTestEmployee({
+      organizationId,
+      userId: user.id,
+      name: "Ativo",
+    });
+
+    const { employee: toTerminate } = await createTestEmployee({
+      organizationId,
+      userId: user.id,
+      name: "Demitido",
+      dependencies,
+    });
+
+    await EmployeeService.updateStatus(toTerminate.id, organizationId, {
+      status: "TERMINATED",
+      userId: user.id,
+    });
+
+    const response = await app.handle(
+      new Request(`${BASE_URL}/v1/employees?status=ACTIVE`, {
+        method: "GET",
+        headers,
+      })
+    );
+
+    expect(response.status).toBe(200);
+    const body = await response.json();
+
+    expect(body.data.length).toBe(1);
+    expect(body.data[0].id).toBe(active.id);
+    expect(body.data[0].status).toBe("ACTIVE");
+  });
+
+  test("should filter by multiple statuses", async () => {
+    const { headers, organizationId, user } =
+      await createTestUserWithOrganization({ emailVerified: true });
+
+    const { dependencies } = await createTestEmployee({
+      organizationId,
+      userId: user.id,
+      name: "Ativo",
+    });
+
+    const { employee: onLeave } = await createTestEmployee({
+      organizationId,
+      userId: user.id,
+      name: "Afastado",
+      dependencies,
+    });
+
+    await EmployeeService.updateStatus(onLeave.id, organizationId, {
+      status: "ON_LEAVE",
+      userId: user.id,
+    });
+
+    const { employee: terminated } = await createTestEmployee({
+      organizationId,
+      userId: user.id,
+      name: "Demitido",
+      dependencies,
+    });
+
+    await EmployeeService.updateStatus(terminated.id, organizationId, {
+      status: "TERMINATED",
+      userId: user.id,
+    });
+
+    const response = await app.handle(
+      new Request(`${BASE_URL}/v1/employees?status=ACTIVE,ON_LEAVE`, {
+        method: "GET",
+        headers,
+      })
+    );
+
+    expect(response.status).toBe(200);
+    const body = await response.json();
+
+    expect(body.data.length).toBe(2);
+    const statuses = body.data.map((e: { status: string }) => e.status);
+    expect(statuses).toContain("ACTIVE");
+    expect(statuses).toContain("ON_LEAVE");
+  });
+
+  test("should return all employees when no status filter", async () => {
+    const { headers, organizationId, user } =
+      await createTestUserWithOrganization({ emailVerified: true });
+
+    const { dependencies } = await createTestEmployee({
+      organizationId,
+      userId: user.id,
+      name: "Ativo",
+    });
+
+    const { employee: terminated } = await createTestEmployee({
+      organizationId,
+      userId: user.id,
+      name: "Demitido",
+      dependencies,
+    });
+
+    await EmployeeService.updateStatus(terminated.id, organizationId, {
+      status: "TERMINATED",
+      userId: user.id,
+    });
+
+    const response = await app.handle(
+      new Request(`${BASE_URL}/v1/employees`, {
+        method: "GET",
+        headers,
+      })
+    );
+
+    expect(response.status).toBe(200);
+    const body = await response.json();
+
+    expect(body.data.length).toBe(2);
+  });
+
   test("should allow viewer to list employees", async () => {
     const { addMemberToOrganization } = await import(
       "@/test/helpers/organization"

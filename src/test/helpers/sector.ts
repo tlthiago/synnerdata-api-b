@@ -77,10 +77,8 @@ export async function createTestSectors(
   ];
 
   for (let i = 0; i < count; i++) {
-    let name = sectorNames[i % sectorNames.length];
-    if (usedNames.has(name)) {
-      name = `${name} ${i + 1}`;
-    }
+    const baseName = sectorNames[i % sectorNames.length];
+    const name = `${baseName} ${crypto.randomUUID().slice(0, 8)}`;
     usedNames.add(name);
 
     const sector = await createTestSector({ organizationId, userId, name });

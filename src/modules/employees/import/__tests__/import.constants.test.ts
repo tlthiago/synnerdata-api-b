@@ -309,6 +309,8 @@ describe("IMPORT_COLUMNS", () => {
     "terminationExamDate",
     "probation1ExpiryDate",
     "probation2ExpiryDate",
+    "acquisitionPeriodStart",
+    "acquisitionPeriodEnd",
   ];
 
   test("all required fields from createEmployeeSchema are marked required", () => {

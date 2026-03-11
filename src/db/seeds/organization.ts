@@ -2,16 +2,18 @@
  * Seed script to populate an organization with test data.
  *
  * Usage:
- *   bun run db:seed:org --org <organizationId> --user <userId> [--preset <preset>]
+ *   bun run db:seed:org --org <organizationId> [--user <userId>] [--preset <preset>]
+ *
+ * If --user is omitted, the organization owner is resolved automatically from the DB.
  *
  * Examples:
- *   bun run db:seed:org --org org-123 --user user-456
- *   bun run db:seed:org --org org-123 --user user-456 --preset large
+ *   bun run db:seed:org --org org-123
+ *   bun run db:seed:org --org org-123 --preset large
  *   bun run db:seed:org --org org-123 --user user-456 --preset enterprise
  *
  * Environment variables (alternative to CLI args):
  *   SEED_ORG_ID=org-123
- *   SEED_USER_ID=user-456
+ *   SEED_USER_ID=user-456   (optional)
  *   SEED_PRESET=large
  *
  * Available presets: minimal, small, medium, large, enterprise
@@ -74,15 +76,44 @@ function parseArgsFromCli(args: string[]): {
   return { organizationId, userId, preset, showHelp };
 }
 
+async function resolveOrganizationOwner(
+  organizationId: string
+): Promise<string> {
+  const { and, eq } = await import("drizzle-orm");
+  const { db } = await import("@/db");
+  const { schema } = await import("@/db/schema");
+
+  const owner = await db
+    .select({ userId: schema.members.userId })
+    .from(schema.members)
+    .where(
+      and(
+        eq(schema.members.organizationId, organizationId),
+        eq(schema.members.role, "owner")
+      )
+    )
+    .limit(1)
+    .then((rows) => rows[0]);
+
+  if (!owner) {
+    console.error(
+      `❌ Erro: organização "${organizationId}" não encontrada ou sem owner.`
+    );
+    process.exit(1);
+  }
+
+  return owner.userId;
+}
+
 function validateArgs(parsed: {
   organizationId: string;
   userId: string;
   preset: string;
-}): ParsedArgs {
-  const { organizationId, userId, preset } = parsed;
+}): Omit<ParsedArgs, "userId"> & { userId: string } {
+  const { organizationId, preset } = parsed;
 
-  if (!(organizationId && userId)) {
-    console.error("❌ Erro: organizationId e userId são obrigatórios.\n");
+  if (!organizationId) {
+    console.error("❌ Erro: organizationId é obrigatório.\n");
     printHelp();
     process.exit(1);
   }
@@ -96,10 +127,10 @@ function validateArgs(parsed: {
     process.exit(1);
   }
 
-  return { organizationId, userId, preset: resolvedPreset };
+  return { organizationId, userId: parsed.userId, preset: resolvedPreset };
 }
 
-function parseArgs(): ParsedArgs {
+async function parseArgs(): Promise<ParsedArgs> {
   const args = process.argv.slice(2);
   const cliArgs = parseArgsFromCli(args);
 
@@ -114,7 +145,13 @@ function parseArgs(): ParsedArgs {
     preset: cliArgs.preset || process.env.SEED_PRESET || "",
   };
 
-  return validateArgs(envArgs);
+  const validated = validateArgs(envArgs);
+
+  const userId =
+    validated.userId ||
+    (await resolveOrganizationOwner(validated.organizationId));
+
+  return { ...validated, userId };
 }
 
 function printHelp(): void {
@@ -122,11 +159,11 @@ function printHelp(): void {
 Seed de Organização - Popula uma organização com dados de teste
 
 USO:
-  bun run db:seed:org --org <organizationId> --user <userId> [opções]
+  bun run db:seed:org --org <organizationId> [opções]
 
 OPÇÕES:
   -o, --org <id>      ID da organização (obrigatório)
-  -u, --user <id>     ID do usuário (obrigatório)
+  -u, --user <id>     ID do usuário (opcional, resolve o owner automaticamente)
   -p, --preset <name> Preset de configuração (padrão: medium)
   -h, --help          Mostra esta ajuda
 
@@ -139,13 +176,14 @@ PRESETS DISPONÍVEIS:
 
 VARIÁVEIS DE AMBIENTE (alternativa aos argumentos):
   SEED_ORG_ID   - ID da organização
-  SEED_USER_ID  - ID do usuário
+  SEED_USER_ID  - ID do usuário (opcional)
   SEED_PRESET   - Preset a usar
 
 EXEMPLOS:
-  bun run db:seed:org --org org-abc123 --user user-xyz789
+  bun run db:seed:org --org org-abc123
+  bun run db:seed:org --org org-abc123 --preset large
   bun run db:seed:org -o org-abc123 -u user-xyz789 -p large
-  SEED_ORG_ID=org-123 SEED_USER_ID=user-456 bun run db:seed:org
+  SEED_ORG_ID=org-123 bun run db:seed:org
 `);
 }
 
@@ -154,7 +192,7 @@ function formatNumber(n: number): string {
 }
 
 async function main(): Promise<void> {
-  const { organizationId, userId, preset } = parseArgs();
+  const { organizationId, userId, preset } = await parseArgs();
   const config: SeedOrganizationConfig = seedPresets[preset];
 
   console.log("\n🌱 Seed de Organização");

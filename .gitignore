@@ -52,5 +52,8 @@ package-lock.json
 .worktrees/
 .claude/worktrees/
 
+# superpowers brainstorm artifacts
+.superpowers/
+
 # claude prompts
 .claude/prompts/
