@@ -94,8 +94,46 @@ export const createAdminCheckoutResponseSchema = successResponseSchema(
   adminCheckoutDataSchema
 );
 
+const pendingCheckoutItemSchema = z.object({
+  id: z.string().describe("Pending checkout ID"),
+  organizationId: z.string().describe("Organization ID"),
+  planId: z.string().describe("Plan ID (private or public)"),
+  pricingTierId: z.string().nullable().describe("Pricing tier ID"),
+  billingCycle: z.string().nullable().describe("Billing cycle"),
+  paymentLinkId: z.string().describe("Pagar.me payment link ID"),
+  checkoutUrl: z.string().nullable().describe("Payment link URL"),
+  status: z
+    .enum(["pending", "completed", "expired"])
+    .describe("Checkout status"),
+  isExpired: z
+    .boolean()
+    .describe("Whether the checkout link has expired (computed)"),
+  expiresAt: z.string().describe("Expiration date (ISO 8601)"),
+  completedAt: z.string().nullable().describe("Completion date (ISO 8601)"),
+  customPriceMonthly: z
+    .number()
+    .nullable()
+    .describe("Custom monthly price (centavos)"),
+  customPriceYearly: z
+    .number()
+    .nullable()
+    .describe("Custom yearly price (centavos)"),
+  createdByAdminId: z.string().nullable().describe("Admin who created"),
+  notes: z.string().nullable().describe("Admin notes"),
+  createdAt: z.string().describe("Creation date (ISO 8601)"),
+});
+
+export const listPendingCheckoutsResponseSchema = successResponseSchema(
+  z.array(pendingCheckoutItemSchema)
+);
+
+export const organizationIdParamSchema = z.object({
+  organizationId: z.string().min(1).describe("Organization ID"),
+});
+
 export type CreateAdminCheckout = z.infer<typeof createAdminCheckoutSchema>;
 export type CreateAdminCheckoutInput = CreateAdminCheckout & {
   adminUserId: string;
 };
 export type AdminCheckoutData = z.infer<typeof adminCheckoutDataSchema>;
+export type PendingCheckoutItem = z.infer<typeof pendingCheckoutItemSchema>;

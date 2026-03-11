@@ -2,6 +2,7 @@ import { beforeAll, describe, expect, test } from "bun:test";
 import { eq } from "drizzle-orm";
 import { db } from "@/db";
 import { schema } from "@/db/schema";
+import { billingProfiles } from "@/db/schema/billing-profiles";
 import { env } from "@/env";
 import { PlanFactory } from "@/test/factories/payments/plan.factory";
 import { SubscriptionFactory } from "@/test/factories/payments/subscription.factory";
@@ -155,6 +156,74 @@ describe("GET /v1/admin/organizations/:id", () => {
     expect(body.data.memberCount).toBe(0);
     expect(body.data.members).toHaveLength(0);
     expect(body.data.subscription).toBeNull();
+    expect(body.data.billingProfile).toBeNull();
+  });
+
+  test("should return billing profile when org has one", async () => {
+    const { headers } = await createTestAdminUser();
+    const organization = await createTestOrganization();
+
+    const bpId = `bp-${crypto.randomUUID()}`;
+    await db.insert(billingProfiles).values({
+      id: bpId,
+      organizationId: organization.id,
+      legalName: "Empresa Billing Ltda",
+      taxId: "12345678000199",
+      email: "billing@empresa.com",
+      phone: "11988887777",
+      street: "Rua Teste",
+      number: "123",
+      complement: "Sala 1",
+      neighborhood: "Centro",
+      city: "São Paulo",
+      state: "SP",
+      zipCode: "01001000",
+      pagarmeCustomerId: "cus_test123",
+    });
+
+    const response = await app.handle(
+      new Request(`${BASE_URL}/v1/admin/organizations/${organization.id}`, {
+        method: "GET",
+        headers,
+      })
+    );
+
+    expect(response.status).toBe(200);
+    const body = await response.json();
+    expect(body.success).toBe(true);
+
+    const { billingProfile } = body.data;
+    expect(billingProfile).not.toBeNull();
+    expect(billingProfile.id).toBe(bpId);
+    expect(billingProfile.legalName).toBe("Empresa Billing Ltda");
+    expect(billingProfile.taxId).toBe("12345678000199");
+    expect(billingProfile.email).toBe("billing@empresa.com");
+    expect(billingProfile.phone).toBe("11988887777");
+    expect(billingProfile.street).toBe("Rua Teste");
+    expect(billingProfile.number).toBe("123");
+    expect(billingProfile.complement).toBe("Sala 1");
+    expect(billingProfile.neighborhood).toBe("Centro");
+    expect(billingProfile.city).toBe("São Paulo");
+    expect(billingProfile.state).toBe("SP");
+    expect(billingProfile.zipCode).toBe("01001000");
+    expect(billingProfile.pagarmeCustomerId).toBe("cus_test123");
+  });
+
+  test("should return null billing profile when org has none", async () => {
+    const { headers } = await createTestAdminUser();
+    const organization = await createTestOrganization();
+
+    const response = await app.handle(
+      new Request(`${BASE_URL}/v1/admin/organizations/${organization.id}`, {
+        method: "GET",
+        headers,
+      })
+    );
+
+    expect(response.status).toBe(200);
+    const body = await response.json();
+    expect(body.success).toBe(true);
+    expect(body.data.billingProfile).toBeNull();
   });
 
   test("should return subscription details with pricing info", async () => {
