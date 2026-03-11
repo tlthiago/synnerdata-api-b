@@ -1,5 +1,6 @@
 import { beforeAll, describe, expect, test } from "bun:test";
 import { env } from "@/env";
+import { OrganizationFactory } from "@/test/factories/organization.factory";
 import { PlanFactory } from "@/test/factories/payments/plan.factory";
 import { UserFactory } from "@/test/factories/user.factory";
 import { createTestApp, type TestApp } from "@/test/support/app";
@@ -137,5 +138,32 @@ describe("GET /payments/plans/all", () => {
     expect(plan).toHaveProperty("pricingTiers");
     expect(plan.pricingTiers).toBeArray();
     expect(plan.limits).toBeArray();
+  });
+
+  test("should exclude custom (org-specific) plans", async () => {
+    const { plan: basePlan } = await PlanFactory.createPaid("diamond");
+    const org = await OrganizationFactory.create();
+
+    const { plan: customPlan } = await PlanFactory.createCustom({
+      organizationId: org.id,
+      basePlanId: basePlan.id,
+    });
+
+    const response = await app.handle(
+      new Request(`${BASE_URL}/v1/payments/plans/all`, {
+        headers: authHeaders,
+      })
+    );
+    const body = await response.json();
+
+    const foundCustom = body.data.find(
+      (p: { id: string }) => p.id === customPlan.id
+    );
+    expect(foundCustom).toBeUndefined();
+
+    const foundBase = body.data.find(
+      (p: { id: string }) => p.id === basePlan.id
+    );
+    expect(foundBase).toBeDefined();
   });
 });

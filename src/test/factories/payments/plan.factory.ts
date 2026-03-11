@@ -235,6 +235,62 @@ export abstract class PlanFactory {
   }
 
   /**
+   * Creates a custom (org-specific) plan derived from a base plan.
+   */
+  static async createCustom(options: {
+    organizationId: string;
+    basePlanId: string;
+    type?: "gold" | "diamond" | "platinum";
+    priceMonthly?: number;
+    maxEmployees?: number;
+  }): Promise<CreatePlanResult> {
+    const type = options.type ?? "diamond";
+    const defaults = getDefaultsForType(type);
+    const planId = generatePlanId();
+    const tierId = generateTierId();
+    const priceMonthly = options.priceMonthly ?? 18_500;
+    const maxEmployees = options.maxEmployees ?? 50;
+
+    const [plan] = await db
+      .insert(schema.subscriptionPlans)
+      .values({
+        id: planId,
+        name: `custom-${type}-${options.organizationId}-${Date.now()}`,
+        displayName: defaults.displayName,
+        description: `Custom plan based on ${defaults.displayName} for org ${options.organizationId}`,
+        isActive: true,
+        isPublic: false,
+        isTrial: false,
+        trialDays: 0,
+        sortOrder: defaults.sortOrder,
+        organizationId: options.organizationId,
+        basePlanId: options.basePlanId,
+      })
+      .returning();
+
+    const featureIds = defaults.features;
+    if (featureIds.length > 0) {
+      await db
+        .insert(schema.planFeatures)
+        .values(featureIds.map((featureId) => ({ planId, featureId })));
+    }
+
+    const [tier] = await db
+      .insert(schema.planPricingTiers)
+      .values({
+        id: tierId,
+        planId,
+        minEmployees: 0,
+        maxEmployees,
+        priceMonthly,
+        priceYearly: calculateYearlyPriceDefault(priceMonthly),
+      })
+      .returning();
+
+    return { plan, tiers: [tier] };
+  }
+
+  /**
    * Gets a tier from a plan result by employee count.
    */
   static getTierForEmployeeCount(

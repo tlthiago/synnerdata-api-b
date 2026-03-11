@@ -1,4 +1,4 @@
-import { eq } from "drizzle-orm";
+import { desc, eq } from "drizzle-orm";
 import { db } from "@/db";
 import { schema } from "@/db/schema";
 import { Retry } from "@/lib/utils/retry";
@@ -21,6 +21,7 @@ import { SubscriptionService } from "@/modules/payments/subscription/subscriptio
 import type {
   AdminCheckoutData,
   CreateAdminCheckoutInput,
+  PendingCheckoutItem,
 } from "./admin-checkout.model";
 
 const CHECKOUT_EXPIRATION_HOURS = 24;
@@ -206,6 +207,7 @@ export abstract class AdminCheckoutService {
       pricingTierId: privateTierId,
       billingCycle,
       paymentLinkId: paymentLink.id,
+      checkoutUrl: paymentLink.url,
       status: "pending",
       expiresAt,
       customPriceMonthly,
@@ -230,6 +232,52 @@ export abstract class AdminCheckoutService {
       maxEmployees,
       expiresAt: expiresAt.toISOString(),
     };
+  }
+
+  static async getByOrganizationId(
+    organizationId: string
+  ): Promise<PendingCheckoutItem[]> {
+    const [org] = await db
+      .select({ id: schema.organizations.id })
+      .from(schema.organizations)
+      .where(eq(schema.organizations.id, organizationId))
+      .limit(1);
+
+    if (!org) {
+      throw new OrganizationNotFoundError(organizationId);
+    }
+
+    const checkouts = await db
+      .select({
+        id: schema.pendingCheckouts.id,
+        organizationId: schema.pendingCheckouts.organizationId,
+        planId: schema.pendingCheckouts.planId,
+        pricingTierId: schema.pendingCheckouts.pricingTierId,
+        billingCycle: schema.pendingCheckouts.billingCycle,
+        paymentLinkId: schema.pendingCheckouts.paymentLinkId,
+        checkoutUrl: schema.pendingCheckouts.checkoutUrl,
+        status: schema.pendingCheckouts.status,
+        expiresAt: schema.pendingCheckouts.expiresAt,
+        completedAt: schema.pendingCheckouts.completedAt,
+        customPriceMonthly: schema.pendingCheckouts.customPriceMonthly,
+        customPriceYearly: schema.pendingCheckouts.customPriceYearly,
+        createdByAdminId: schema.pendingCheckouts.createdByAdminId,
+        notes: schema.pendingCheckouts.notes,
+        createdAt: schema.pendingCheckouts.createdAt,
+      })
+      .from(schema.pendingCheckouts)
+      .where(eq(schema.pendingCheckouts.organizationId, organizationId))
+      .orderBy(desc(schema.pendingCheckouts.createdAt));
+
+    return checkouts.map((checkout) => ({
+      ...checkout,
+      isExpired:
+        checkout.status === "expired" ||
+        new Date(checkout.expiresAt) < new Date(),
+      expiresAt: checkout.expiresAt.toISOString(),
+      completedAt: checkout.completedAt?.toISOString() ?? null,
+      createdAt: checkout.createdAt.toISOString(),
+    }));
   }
 
   private static async ensureBillingProfile(

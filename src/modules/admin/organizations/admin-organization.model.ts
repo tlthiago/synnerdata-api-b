@@ -140,6 +140,22 @@ const subscriptionDataSchema = z.object({
   trialEnd: z.coerce.date().nullable(),
 });
 
+const billingProfileDataSchema = z.object({
+  id: z.string(),
+  legalName: z.string(),
+  taxId: z.string(),
+  email: z.string(),
+  phone: z.string(),
+  street: z.string().nullable(),
+  number: z.string().nullable(),
+  complement: z.string().nullable(),
+  neighborhood: z.string().nullable(),
+  city: z.string().nullable(),
+  state: z.string().nullable(),
+  zipCode: z.string().nullable(),
+  pagarmeCustomerId: z.string().nullable(),
+});
+
 const organizationDetailsDataSchema = z.object({
   id: z.string(),
   name: z.string(),
@@ -149,6 +165,7 @@ const organizationDetailsDataSchema = z.object({
   memberCount: z.number(),
   members: z.array(memberDataSchema),
   subscription: subscriptionDataSchema.nullable(),
+  billingProfile: billingProfileDataSchema.nullable(),
 });
 
 export const getOrganizationDetailsResponseSchema = successResponseSchema(

@@ -6,6 +6,7 @@ type PendingCheckout = typeof schema.pendingCheckouts.$inferSelect;
 
 type CreateCheckoutOptions = {
   paymentLinkId?: string;
+  checkoutUrl?: string;
   expirationHours?: number;
   pricingTierId?: string;
   billingCycle?: "monthly" | "yearly";
@@ -47,6 +48,7 @@ export abstract class CheckoutFactory {
   ): Promise<PendingCheckout> {
     const {
       paymentLinkId = generatePaymentLinkId(),
+      checkoutUrl,
       expirationHours = 24,
       pricingTierId,
       billingCycle = "monthly",
@@ -65,6 +67,8 @@ export abstract class CheckoutFactory {
         pricingTierId,
         billingCycle,
         paymentLinkId,
+        checkoutUrl:
+          checkoutUrl ?? `https://pagar.me/checkout/${paymentLinkId}`,
         status: "pending",
         expiresAt,
       })
