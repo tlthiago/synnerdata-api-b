@@ -598,4 +598,104 @@ describe("PUT /v1/vacations/:id", () => {
       .limit(1);
     expect(updatedEmployee.status).toBe("ON_VACATION");
   });
+
+  test("should clear nullable fields when null is sent", async () => {
+    const { headers, organizationId, user } =
+      await createTestUserWithOrganization({
+        emailVerified: true,
+      });
+
+    const { employee } = await createTestEmployee({
+      organizationId,
+      userId: user.id,
+      hireDate: "2020-01-01",
+    });
+
+    const vacation = await createTestVacation({
+      organizationId,
+      userId: user.id,
+      employeeId: employee.id,
+      startDate: "2025-01-01",
+      endDate: "2025-01-30",
+      daysUsed: 0,
+      acquisitionPeriodStart: "2023-01-01",
+      acquisitionPeriodEnd: "2023-12-31",
+      concessivePeriodStart: "2024-01-01",
+      concessivePeriodEnd: "2024-12-31",
+      notes: "Some notes",
+    });
+
+    const response = await app.handle(
+      new Request(`${BASE_URL}/v1/vacations/${vacation.id}`, {
+        method: "PUT",
+        headers: { ...headers, "Content-Type": "application/json" },
+        body: JSON.stringify({
+          acquisitionPeriodStart: null,
+          acquisitionPeriodEnd: null,
+          concessivePeriodStart: null,
+          concessivePeriodEnd: null,
+          notes: null,
+        }),
+      })
+    );
+
+    expect(response.status).toBe(200);
+    const body = await response.json();
+    expect(body.success).toBe(true);
+    expect(body.data.acquisitionPeriodStart).toBeNull();
+    expect(body.data.acquisitionPeriodEnd).toBeNull();
+    expect(body.data.concessivePeriodStart).toBeNull();
+    expect(body.data.concessivePeriodEnd).toBeNull();
+    expect(body.data.notes).toBeNull();
+    expect(body.data.startDate).toBe("2025-01-01");
+    expect(body.data.endDate).toBe("2025-01-30");
+    expect(body.data.daysEntitled).toBe(30);
+  });
+
+  test("should not change fields that are not sent (undefined)", async () => {
+    const { headers, organizationId, user } =
+      await createTestUserWithOrganization({
+        emailVerified: true,
+      });
+
+    const { employee } = await createTestEmployee({
+      organizationId,
+      userId: user.id,
+      hireDate: "2020-01-01",
+    });
+
+    const vacation = await createTestVacation({
+      organizationId,
+      userId: user.id,
+      employeeId: employee.id,
+      startDate: "2025-01-01",
+      endDate: "2025-01-30",
+      daysUsed: 0,
+      acquisitionPeriodStart: "2023-01-01",
+      acquisitionPeriodEnd: "2023-12-31",
+      concessivePeriodStart: "2024-01-01",
+      concessivePeriodEnd: "2024-12-31",
+      notes: "Original notes",
+    });
+
+    const response = await app.handle(
+      new Request(`${BASE_URL}/v1/vacations/${vacation.id}`, {
+        method: "PUT",
+        headers: { ...headers, "Content-Type": "application/json" },
+        body: JSON.stringify({
+          daysUsed: 5,
+        }),
+      })
+    );
+
+    expect(response.status).toBe(200);
+    const body = await response.json();
+    expect(body.success).toBe(true);
+    expect(body.data.daysUsed).toBe(5);
+    expect(body.data.acquisitionPeriodStart).toBe("2023-01-01");
+    expect(body.data.acquisitionPeriodEnd).toBe("2023-12-31");
+    expect(body.data.concessivePeriodStart).toBe("2024-01-01");
+    expect(body.data.concessivePeriodEnd).toBe("2024-12-31");
+    expect(body.data.notes).toBe("Original notes");
+  });
 });

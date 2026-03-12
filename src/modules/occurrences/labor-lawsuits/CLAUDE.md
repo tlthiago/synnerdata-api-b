@@ -4,11 +4,11 @@ Registro e acompanhamento de processos trabalhistas.
 
 ## Business Rules
 
-- `processNumber` (max 25), `court` (max 255), `plaintiff`, `defendant` — obrigatórios
+- `processNumber` (max 25), `plaintiff`, `defendant` — obrigatórios
 - `processNumber` deve ser globalmente único (padrão CNJ, não scoped por organização) — unique index no DB
-- `filingDate` e `knowledgeDate` obrigatórios (ISO date), não podem ser no futuro
-- `conclusionDate` opcional (ISO date), não pode ser no futuro
-- `knowledgeDate >= filingDate` e `conclusionDate >= filingDate` (validação cruzada)
+- `court` (max 255) — opcional
+- `filingDate`, `knowledgeDate`, `conclusionDate` — opcionais (ISO date), não podem ser no futuro
+- `knowledgeDate >= filingDate` e `conclusionDate >= filingDate` (validação cruzada, aplicada somente quando ambas as datas estão presentes)
 - `claimAmount` e `costsExpenses` — números positivos opcionais, armazenados como string no DB, convertidos para number na leitura
 - Fluxo: abertura (`filingDate`) → conhecimento (`knowledgeDate`) → conclusão (`conclusionDate`) com recursos (`appeals`) e custas (`costsExpenses`)
 - Employee não pode estar desligado no create (`ensureEmployeeNotTerminated` — ON_VACATION é permitido)

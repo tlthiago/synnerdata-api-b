@@ -250,6 +250,68 @@ describe("PUT /v1/promotions/:id", () => {
     expect(body.data.reason).toBe("Updated by supervisor");
   });
 
+  test("should clear nullable fields when null is sent", async () => {
+    const { headers, organizationId, user } =
+      await createTestUserWithOrganization({ emailVerified: true });
+
+    const { promotion } = await createTestPromotion({
+      organizationId,
+      userId: user.id,
+      reason: "Motivo original",
+      notes: "Observações originais",
+    });
+
+    const response = await app.handle(
+      new Request(`${BASE_URL}/v1/promotions/${promotion.id}`, {
+        method: "PUT",
+        headers: { ...headers, "Content-Type": "application/json" },
+        body: JSON.stringify({
+          reason: null,
+          notes: null,
+        }),
+      })
+    );
+
+    expect(response.status).toBe(200);
+    const body = await response.json();
+    expect(body.success).toBe(true);
+    expect(body.data.reason).toBeNull();
+    expect(body.data.notes).toBeNull();
+    expect(body.data.previousSalary).toBe(promotion.previousSalary);
+    expect(body.data.newSalary).toBe(promotion.newSalary);
+    expect(body.data.promotionDate).toBe(promotion.promotionDate);
+  });
+
+  test("should not change fields that are not sent (undefined)", async () => {
+    const { headers, organizationId, user } =
+      await createTestUserWithOrganization({ emailVerified: true });
+
+    const { promotion } = await createTestPromotion({
+      organizationId,
+      userId: user.id,
+      reason: "Motivo original",
+      notes: "Observações originais",
+    });
+
+    const response = await app.handle(
+      new Request(`${BASE_URL}/v1/promotions/${promotion.id}`, {
+        method: "PUT",
+        headers: { ...headers, "Content-Type": "application/json" },
+        body: JSON.stringify({
+          reason: "Motivo atualizado",
+        }),
+      })
+    );
+
+    expect(response.status).toBe(200);
+    const body = await response.json();
+    expect(body.success).toBe(true);
+    expect(body.data.reason).toBe("Motivo atualizado");
+    expect(body.data.notes).toBe("Observações originais");
+    expect(body.data.previousSalary).toBe(promotion.previousSalary);
+    expect(body.data.newSalary).toBe(promotion.newSalary);
+  });
+
   test("should reject viewer from updating promotion", async () => {
     const { organizationId, user } = await createTestUserWithOrganization({
       emailVerified: true,

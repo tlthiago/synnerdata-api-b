@@ -248,6 +248,89 @@ describe("PUT /v1/medical-certificates/:id", () => {
     expect(body.error.code).toBe("MEDICAL_CERTIFICATE_OVERLAP");
   });
 
+  test("should clear nullable fields when null is sent", async () => {
+    const { headers, organizationId, userId } =
+      await createTestUserWithOrganization({
+        emailVerified: true,
+      });
+
+    const { employee } = await createTestEmployee({ organizationId, userId });
+    const certificate = await createTestMedicalCertificate({
+      organizationId,
+      userId,
+      employeeId: employee.id,
+      daysOff: 3,
+      cid: "A01.0",
+      doctorName: "Dr. Teste",
+      doctorCrm: "123456",
+      notes: "Some notes",
+    });
+
+    const response = await app.handle(
+      new Request(`${BASE_URL}/v1/medical-certificates/${certificate.id}`, {
+        method: "PUT",
+        headers: { ...headers, "Content-Type": "application/json" },
+        body: JSON.stringify({
+          cid: null,
+          doctorName: null,
+          doctorCrm: null,
+          notes: null,
+        }),
+      })
+    );
+
+    expect(response.status).toBe(200);
+    const body = await response.json();
+    expect(body.success).toBe(true);
+    expect(body.data.cid).toBeNull();
+    expect(body.data.doctorName).toBeNull();
+    expect(body.data.doctorCrm).toBeNull();
+    expect(body.data.notes).toBeNull();
+    expect(body.data.daysOff).toBe(certificate.daysOff);
+    expect(body.data.startDate).toBe(certificate.startDate);
+    expect(body.data.endDate).toBe(certificate.endDate);
+  });
+
+  test("should not change fields that are not sent (undefined)", async () => {
+    const { headers, organizationId, userId } =
+      await createTestUserWithOrganization({
+        emailVerified: true,
+      });
+
+    const { employee } = await createTestEmployee({ organizationId, userId });
+    const certificate = await createTestMedicalCertificate({
+      organizationId,
+      userId,
+      employeeId: employee.id,
+      daysOff: 3,
+      cid: "A01.0",
+      doctorName: "Dr. Teste",
+      doctorCrm: "123456",
+      notes: "Some notes",
+    });
+
+    const response = await app.handle(
+      new Request(`${BASE_URL}/v1/medical-certificates/${certificate.id}`, {
+        method: "PUT",
+        headers: { ...headers, "Content-Type": "application/json" },
+        body: JSON.stringify({
+          notes: "Updated notes only",
+        }),
+      })
+    );
+
+    expect(response.status).toBe(200);
+    const body = await response.json();
+    expect(body.success).toBe(true);
+    expect(body.data.notes).toBe("Updated notes only");
+    expect(body.data.cid).toBe("A01.0");
+    expect(body.data.doctorName).toBe("Dr. Teste");
+    expect(body.data.doctorCrm).toBe("123456");
+    expect(body.data.daysOff).toBe(certificate.daysOff);
+    expect(body.data.startDate).toBe(certificate.startDate);
+    expect(body.data.endDate).toBe(certificate.endDate);
+  });
+
   test("should allow updating medical certificate without overlap (same record)", async () => {
     const { headers, organizationId, userId } =
       await createTestUserWithOrganization({

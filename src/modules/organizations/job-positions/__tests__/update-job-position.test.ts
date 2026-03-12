@@ -168,6 +168,68 @@ describe("PUT /v1/job-positions/:id", () => {
     expect(body.data.description).toBe("Descrição Completa");
   });
 
+  test("should clear description when null is sent", async () => {
+    const { headers, organizationId, user } =
+      await createTestUserWithOrganization({
+        emailVerified: true,
+      });
+
+    const jobPosition = await JobPositionService.create({
+      organizationId,
+      userId: user.id,
+      name: "Cargo com Descrição",
+      description: "Descrição original",
+    });
+
+    const response = await app.handle(
+      new Request(`${BASE_URL}/v1/job-positions/${jobPosition.id}`, {
+        method: "PUT",
+        headers: {
+          ...headers,
+          "Content-Type": "application/json",
+        },
+        body: JSON.stringify({ description: null }),
+      })
+    );
+
+    expect(response.status).toBe(200);
+    const body = await response.json();
+    expect(body.success).toBe(true);
+    expect(body.data.description).toBeNull();
+    expect(body.data.name).toBe("Cargo com Descrição");
+  });
+
+  test("should not change description when not sent (undefined)", async () => {
+    const { headers, organizationId, user } =
+      await createTestUserWithOrganization({
+        emailVerified: true,
+      });
+
+    const jobPosition = await JobPositionService.create({
+      organizationId,
+      userId: user.id,
+      name: "Cargo Preservar",
+      description: "Descrição preservada",
+    });
+
+    const response = await app.handle(
+      new Request(`${BASE_URL}/v1/job-positions/${jobPosition.id}`, {
+        method: "PUT",
+        headers: {
+          ...headers,
+          "Content-Type": "application/json",
+        },
+        body: JSON.stringify({ name: "Cargo Renomeado" }),
+      })
+    );
+
+    expect(response.status).toBe(200);
+    const body = await response.json();
+    expect(body.success).toBe(true);
+    expect(body.data.name).toBe("Cargo Renomeado");
+    expect(body.data.description).toBe("Descrição preservada");
+  });
+
   test.each([
     "viewer",
     "supervisor",

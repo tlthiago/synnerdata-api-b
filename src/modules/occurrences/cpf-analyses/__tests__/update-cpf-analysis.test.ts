@@ -193,6 +193,99 @@ describe("PUT /v1/cpf-analyses/:id", () => {
     expect(body.data.status).toBe("approved");
   });
 
+  test("should clear nullable fields when null is sent", async () => {
+    const { headers, organizationId, userId } =
+      await createTestUserWithOrganization({ emailVerified: true });
+
+    const { employee } = await createTestEmployee({
+      organizationId,
+      userId,
+    });
+
+    const analysis = await createTestCpfAnalysis({
+      organizationId,
+      userId,
+      employeeId: employee.id,
+      score: 750,
+      riskLevel: "high",
+      observations: "Observação inicial",
+      externalReference: "REF-12345",
+    });
+
+    expect(analysis.score).toBe(750);
+    expect(analysis.riskLevel).toBe("high");
+    expect(analysis.observations).toBe("Observação inicial");
+    expect(analysis.externalReference).toBe("REF-12345");
+
+    const response = await app.handle(
+      new Request(`${BASE_URL}/v1/cpf-analyses/${analysis.id}`, {
+        method: "PUT",
+        headers: {
+          ...headers,
+          "Content-Type": "application/json",
+        },
+        body: JSON.stringify({
+          score: null,
+          riskLevel: null,
+          observations: null,
+          externalReference: null,
+        }),
+      })
+    );
+
+    expect(response.status).toBe(200);
+    const body = await response.json();
+
+    expect(body.data.score).toBeNull();
+    expect(body.data.riskLevel).toBeNull();
+    expect(body.data.observations).toBeNull();
+    expect(body.data.externalReference).toBeNull();
+    expect(body.data.status).toBe(analysis.status);
+    expect(body.data.analysisDate).toBe(analysis.analysisDate);
+  });
+
+  test("should not change fields that are not sent (undefined)", async () => {
+    const { headers, organizationId, userId } =
+      await createTestUserWithOrganization({ emailVerified: true });
+
+    const { employee } = await createTestEmployee({
+      organizationId,
+      userId,
+    });
+
+    const analysis = await createTestCpfAnalysis({
+      organizationId,
+      userId,
+      employeeId: employee.id,
+      score: 600,
+      riskLevel: "medium",
+      observations: "Observação que deve permanecer",
+      externalReference: "REF-KEEP",
+    });
+
+    const response = await app.handle(
+      new Request(`${BASE_URL}/v1/cpf-analyses/${analysis.id}`, {
+        method: "PUT",
+        headers: {
+          ...headers,
+          "Content-Type": "application/json",
+        },
+        body: JSON.stringify({
+          status: "approved",
+        }),
+      })
+    );
+
+    expect(response.status).toBe(200);
+    const body = await response.json();
+
+    expect(body.data.status).toBe("approved");
+    expect(body.data.score).toBe(600);
+    expect(body.data.riskLevel).toBe("medium");
+    expect(body.data.observations).toBe("Observação que deve permanecer");
+    expect(body.data.externalReference).toBe("REF-KEEP");
+  });
+
   test("should return 409 when updating analysisDate to a duplicate", async () => {
     const { headers, organizationId, userId } =
       await createTestUserWithOrganization({ emailVerified: true });

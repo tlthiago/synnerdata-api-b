@@ -46,6 +46,10 @@ export const createAbsenceSchema = absenceFieldsSchema.refine(
 export const updateAbsenceSchema = absenceFieldsSchema
   .partial()
   .omit({ employeeId: true })
+  .extend({
+    reason: z.string().nullable().optional().describe("Motivo da ausência"),
+    notes: z.string().nullable().optional().describe("Observações adicionais"),
+  })
   .refine(
     (data) => {
       if (data.startDate && data.endDate) {

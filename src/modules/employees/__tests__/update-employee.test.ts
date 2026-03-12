@@ -176,6 +176,155 @@ describe("PUT /v1/employees/:id", () => {
     expect(body.error.code).toBe("FORBIDDEN");
   });
 
+  test("should clear nullable fields when null is sent", async () => {
+    const { headers, organizationId, user } =
+      await createTestUserWithOrganization({
+        emailVerified: true,
+      });
+
+    const { employee } = await createTestEmployee({
+      organizationId,
+      userId: user.id,
+      email: "test@example.com",
+      phone: "11999998888",
+      mobile: "11999997777",
+      birthplace: "São Paulo",
+      height: 1.75,
+      weight: 80,
+      fatherName: "Pai Teste",
+      motherName: "Mãe Teste",
+      identityCard: "123456789",
+      pis: "12345678901",
+      workPermitNumber: "1234567",
+      workPermitSeries: "1234",
+      militaryCertificate: "123456789012",
+      complement: "Apto 101",
+      latitude: -23.55,
+      longitude: -46.63,
+      manager: "Gestor Teste",
+      mealAllowance: 500,
+      transportAllowance: 200,
+      healthInsurance: 300,
+      educationLevel: "BACHELOR",
+      lastHealthExamDate: "2024-01-15",
+      admissionExamDate: "2024-01-10",
+    });
+
+    // Verify fields are populated
+    expect(employee.email).toBe("test@example.com");
+    expect(employee.phone).toBe("11999998888");
+    expect(employee.manager).toBe("Gestor Teste");
+
+    // Send null to clear fields
+    const response = await app.handle(
+      new Request(`${BASE_URL}/v1/employees/${employee.id}`, {
+        method: "PUT",
+        headers: {
+          ...headers,
+          "Content-Type": "application/json",
+        },
+        body: JSON.stringify({
+          email: null,
+          phone: null,
+          mobile: null,
+          birthplace: null,
+          height: null,
+          weight: null,
+          fatherName: null,
+          motherName: null,
+          identityCard: null,
+          pis: null,
+          workPermitNumber: null,
+          workPermitSeries: null,
+          militaryCertificate: null,
+          complement: null,
+          latitude: null,
+          longitude: null,
+          manager: null,
+          mealAllowance: null,
+          transportAllowance: null,
+          healthInsurance: null,
+          educationLevel: null,
+          lastHealthExamDate: null,
+          admissionExamDate: null,
+        }),
+      })
+    );
+
+    expect(response.status).toBe(200);
+    const body = await response.json();
+
+    expect(body.success).toBe(true);
+    expect(body.data.email).toBeNull();
+    expect(body.data.phone).toBeNull();
+    expect(body.data.mobile).toBeNull();
+    expect(body.data.birthplace).toBeNull();
+    expect(body.data.height).toBeNull();
+    expect(body.data.weight).toBeNull();
+    expect(body.data.fatherName).toBeNull();
+    expect(body.data.motherName).toBeNull();
+    expect(body.data.identityCard).toBeNull();
+    expect(body.data.pis).toBeNull();
+    expect(body.data.workPermitNumber).toBeNull();
+    expect(body.data.workPermitSeries).toBeNull();
+    expect(body.data.militaryCertificate).toBeNull();
+    expect(body.data.complement).toBeNull();
+    expect(body.data.latitude).toBeNull();
+    expect(body.data.longitude).toBeNull();
+    expect(body.data.manager).toBeNull();
+    expect(body.data.mealAllowance).toBeNull();
+    expect(body.data.transportAllowance).toBeNull();
+    expect(body.data.healthInsurance).toBeNull();
+    expect(body.data.educationLevel).toBeNull();
+    expect(body.data.lastHealthExamDate).toBeNull();
+    expect(body.data.admissionExamDate).toBeNull();
+
+    // Verify non-sent fields remain unchanged
+    expect(body.data.name).toBe(employee.name);
+    expect(body.data.cpf).toBe(employee.cpf);
+    expect(body.data.nationality).toBe(employee.nationality);
+  });
+
+  test("should not change fields that are not sent (undefined)", async () => {
+    const { headers, organizationId, user } =
+      await createTestUserWithOrganization({
+        emailVerified: true,
+      });
+
+    const { employee } = await createTestEmployee({
+      organizationId,
+      userId: user.id,
+      email: "keep@example.com",
+      phone: "11999998888",
+      manager: "Gestor Original",
+      mealAllowance: 500,
+      educationLevel: "BACHELOR",
+    });
+
+    // Send only name update, no other fields
+    const response = await app.handle(
+      new Request(`${BASE_URL}/v1/employees/${employee.id}`, {
+        method: "PUT",
+        headers: {
+          ...headers,
+          "Content-Type": "application/json",
+        },
+        body: JSON.stringify({ name: "Nome Diferente" }),
+      })
+    );
+
+    expect(response.status).toBe(200);
+    const body = await response.json();
+
+    expect(body.data.name).toBe("Nome Diferente");
+    // Optional fields should keep their original values
+    expect(body.data.email).toBe("keep@example.com");
+    expect(body.data.phone).toBe("11999998888");
+    expect(body.data.manager).toBe("Gestor Original");
+    expect(Number(body.data.mealAllowance)).toBe(500);
+    expect(body.data.educationLevel).toBe("BACHELOR");
+  });
+
   test("should allow manager to update employee", async () => {
     const { addMemberToOrganization } = await import(
       "@/test/helpers/organization"

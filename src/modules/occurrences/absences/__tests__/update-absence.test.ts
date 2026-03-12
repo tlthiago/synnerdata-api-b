@@ -127,6 +127,63 @@ describe("PUT /v1/absences/:id", () => {
     expect(body.error.code).toBe("ABSENCE_OVERLAP");
   });
 
+  test("should clear nullable fields when null is sent", async () => {
+    const { headers, organizationId, user } =
+      await createTestUserWithOrganization({ emailVerified: true });
+    const absence = await createTestAbsence({
+      organizationId,
+      userId: user.id,
+      reason: "Some reason",
+      notes: "Some notes",
+    });
+
+    const response = await app.handle(
+      new Request(`${BASE_URL}/v1/absences/${absence.id}`, {
+        method: "PUT",
+        headers: { ...headers, "Content-Type": "application/json" },
+        body: JSON.stringify({
+          reason: null,
+          notes: null,
+        }),
+      })
+    );
+
+    expect(response.status).toBe(200);
+    const body = await response.json();
+    expect(body.data.reason).toBeNull();
+    expect(body.data.notes).toBeNull();
+    expect(body.data.type).toBe(absence.type);
+    expect(body.data.startDate).toBe(absence.startDate);
+    expect(body.data.endDate).toBe(absence.endDate);
+  });
+
+  test("should not change fields that are not sent (undefined)", async () => {
+    const { headers, organizationId, user } =
+      await createTestUserWithOrganization({ emailVerified: true });
+    const absence = await createTestAbsence({
+      organizationId,
+      userId: user.id,
+      reason: "Original reason",
+      notes: "Original notes",
+    });
+
+    const response = await app.handle(
+      new Request(`${BASE_URL}/v1/absences/${absence.id}`, {
+        method: "PUT",
+        headers: { ...headers, "Content-Type": "application/json" },
+        body: JSON.stringify({
+          type: "unjustified",
+        }),
+      })
+    );
+
+    expect(response.status).toBe(200);
+    const body = await response.json();
+    expect(body.data.type).toBe("unjustified");
+    expect(body.data.reason).toBe("Original reason");
+    expect(body.data.notes).toBe("Original notes");
+  });
+
   test("should allow updating absence without overlap (same record)", async () => {
     const { headers, organizationId, user } =
       await createTestUserWithOrganization({ emailVerified: true });

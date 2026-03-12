@@ -92,6 +92,29 @@ export const createVacationSchema = vacationFieldsSchema
 export const updateVacationSchema = vacationFieldsSchema
   .omit({ employeeId: true })
   .partial()
+  .extend({
+    acquisitionPeriodStart: z
+      .string()
+      .date("Data deve ser válida")
+      .nullable()
+      .optional(),
+    acquisitionPeriodEnd: z
+      .string()
+      .date("Data deve ser válida")
+      .nullable()
+      .optional(),
+    concessivePeriodStart: z
+      .string()
+      .date("Data deve ser válida")
+      .nullable()
+      .optional(),
+    concessivePeriodEnd: z
+      .string()
+      .date("Data deve ser válida")
+      .nullable()
+      .optional(),
+    notes: z.string().nullable().optional(),
+  })
   .refine(
     (data) => {
       if (data.startDate && data.endDate) {

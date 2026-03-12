@@ -52,6 +52,24 @@ export const createMedicalCertificateSchema = z
 
 export const updateMedicalCertificateSchema = createMedicalCertificateSchema
   .partial()
+  .extend({
+    cid: z
+      .string()
+      .max(10, "CID deve ter no máximo 10 caracteres")
+      .nullable()
+      .optional(),
+    doctorName: z
+      .string()
+      .max(255, "Nome do médico deve ter no máximo 255 caracteres")
+      .nullable()
+      .optional(),
+    doctorCrm: z
+      .string()
+      .max(20, "CRM do médico deve ter no máximo 20 caracteres")
+      .nullable()
+      .optional(),
+    notes: z.string().nullable().optional(),
+  })
   .refine(
     (data) => {
       if (data.startDate && data.endDate) {

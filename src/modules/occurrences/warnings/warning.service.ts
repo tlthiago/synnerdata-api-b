@@ -319,7 +319,9 @@ export abstract class WarningService {
 
     const effectiveDate = data.date ?? existing.date;
     const effectiveAcknowledgedAt =
-      data.acknowledgedAt ?? existing.acknowledgedAt;
+      data.acknowledgedAt !== undefined
+        ? data.acknowledgedAt
+        : existing.acknowledgedAt;
     WarningService.validateAcknowledgedAtNotBeforeDate(
       effectiveAcknowledgedAt,
       effectiveDate

@@ -164,6 +164,86 @@ describe("PUT /v1/labor-lawsuits/:id", () => {
     expect(body.data.claimAmount).toBe(50_000);
   });
 
+  test("should clear nullable fields when null is sent", async () => {
+    const { headers, organizationId, user } =
+      await createTestUserWithOrganization({
+        emailVerified: true,
+      });
+
+    const lawsuit = await createTestLaborLawsuit({
+      organizationId,
+      userId: user.id,
+      court: "1ª Vara do Trabalho de São Paulo",
+      filingDate: "2024-06-15",
+      knowledgeDate: "2024-06-20",
+      progress: "Audiência realizada",
+    });
+
+    expect(lawsuit.court).toBe("1ª Vara do Trabalho de São Paulo");
+    expect(lawsuit.filingDate).toBe("2024-06-15");
+
+    const response = await app.handle(
+      new Request(`${BASE_URL}/v1/labor-lawsuits/${lawsuit.id}`, {
+        method: "PUT",
+        headers: {
+          ...headers,
+          "Content-Type": "application/json",
+        },
+        body: JSON.stringify({
+          court: null,
+          filingDate: null,
+          knowledgeDate: null,
+          progress: null,
+        }),
+      })
+    );
+
+    expect(response.status).toBe(200);
+    const body = await response.json();
+
+    expect(body.data.court).toBeNull();
+    expect(body.data.filingDate).toBeNull();
+    expect(body.data.knowledgeDate).toBeNull();
+    expect(body.data.progress).toBeNull();
+    expect(body.data.plaintiff).toBe(lawsuit.plaintiff);
+  });
+
+  test("should not change fields that are not sent (undefined)", async () => {
+    const { headers, organizationId, user } =
+      await createTestUserWithOrganization({
+        emailVerified: true,
+      });
+
+    const lawsuit = await createTestLaborLawsuit({
+      organizationId,
+      userId: user.id,
+      court: "Vara do Trabalho de Campinas",
+      filingDate: "2024-06-15",
+      knowledgeDate: "2024-06-20",
+    });
+
+    const response = await app.handle(
+      new Request(`${BASE_URL}/v1/labor-lawsuits/${lawsuit.id}`, {
+        method: "PUT",
+        headers: {
+          ...headers,
+          "Content-Type": "application/json",
+        },
+        body: JSON.stringify({
+          plaintiff: "Novo Reclamante",
+        }),
+      })
+    );
+
+    expect(response.status).toBe(200);
+    const body = await response.json();
+
+    expect(body.data.plaintiff).toBe("Novo Reclamante");
+    expect(body.data.court).toBe("Vara do Trabalho de Campinas");
+    expect(body.data.filingDate).toBe("2024-06-15");
+    expect(body.data.knowledgeDate).toBe("2024-06-20");
+  });
+
   test("should allow partial update", async () => {
     const { headers, organizationId, user } =
       await createTestUserWithOrganization({
