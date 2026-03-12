@@ -103,9 +103,6 @@ describe("POST /v1/labor-lawsuits", () => {
         body: JSON.stringify({
           employeeId: "employee-123",
           processNumber: "",
-          court: "",
-          filingDate: "2024-01-10",
-          knowledgeDate: "2024-01-15",
           plaintiff: "",
           defendant: "Empresa XYZ",
           description: "",
@@ -120,7 +117,6 @@ describe("POST /v1/labor-lawsuits", () => {
       (d: { message: string }) => d.message
     );
     expect(messages).toContain("Número do processo é obrigatório");
-    expect(messages).toContain("Tribunal é obrigatório");
     expect(messages).toContain("Reclamante é obrigatório");
     expect(messages).toContain("Descrição é obrigatória");
   });
@@ -283,6 +279,43 @@ describe("POST /v1/labor-lawsuits", () => {
     expect(body.data.plaintiff).toBe(lawsuitData.plaintiff);
     expect(body.data.defendant).toBe(lawsuitData.defendant);
     expect(body.data.description).toBe(lawsuitData.description);
+  });
+
+  test("should create lawsuit without optional date and court fields", async () => {
+    const { headers, organizationId, user } =
+      await createTestUserWithOrganization({
+        emailVerified: true,
+      });
+
+    const { employee } = await createTestEmployee({
+      organizationId,
+      userId: user.id,
+    });
+
+    const response = await app.handle(
+      new Request(`${BASE_URL}/v1/labor-lawsuits`, {
+        method: "POST",
+        headers: {
+          ...headers,
+          "Content-Type": "application/json",
+        },
+        body: JSON.stringify({
+          employeeId: employee.id,
+          processNumber: uniqueProcessNumber(),
+          plaintiff: "João da Silva",
+          defendant: "Empresa XYZ Ltda",
+          description: "Reclamação por verbas rescisórias",
+        }),
+      })
+    );
+
+    expect(response.status).toBe(200);
+    const body = await response.json();
+
+    expect(body.success).toBe(true);
+    expect(body.data.court).toBeNull();
+    expect(body.data.filingDate).toBeNull();
+    expect(body.data.knowledgeDate).toBeNull();
   });
 
   test("should create lawsuit with all optional fields", async () => {

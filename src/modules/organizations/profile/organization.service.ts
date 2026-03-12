@@ -111,7 +111,7 @@ export abstract class OrganizationService {
     }
 
     const updateData: Record<string, unknown> = { ...data };
-    if (data.phone) {
+    if (data.phone !== undefined) {
       updateData.mobile = data.phone;
     }
 

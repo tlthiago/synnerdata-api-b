@@ -197,6 +197,76 @@ describe("PUT /v1/terminations/:id", () => {
     expect(body.data.reason).toBe("Atualizado pelo manager");
   });
 
+  test("should clear nullable fields when null is sent", async () => {
+    const { headers, organizationId, user } =
+      await createTestUserWithOrganization({
+        emailVerified: true,
+      });
+
+    const termination = await createTestTermination({
+      organizationId,
+      userId: user.id,
+      type: "RESIGNATION",
+      reason: "Motivo preenchido",
+      noticePeriodDays: 30,
+      notes: "Observações preenchidas",
+    });
+
+    const response = await app.handle(
+      new Request(`${BASE_URL}/v1/terminations/${termination.id}`, {
+        method: "PUT",
+        headers: { ...headers, "Content-Type": "application/json" },
+        body: JSON.stringify({
+          reason: null,
+          noticePeriodDays: null,
+          notes: null,
+        }),
+      })
+    );
+
+    expect(response.status).toBe(200);
+    const body = await response.json();
+    expect(body.success).toBe(true);
+    expect(body.data.reason).toBeNull();
+    expect(body.data.noticePeriodDays).toBeNull();
+    expect(body.data.notes).toBeNull();
+    expect(body.data.type).toBe("RESIGNATION");
+    expect(body.data.terminationDate).toBe(termination.terminationDate);
+    expect(body.data.lastWorkingDay).toBe(termination.lastWorkingDay);
+  });
+
+  test("should not change fields that are not sent (undefined)", async () => {
+    const { headers, organizationId, user } =
+      await createTestUserWithOrganization({
+        emailVerified: true,
+      });
+
+    const termination = await createTestTermination({
+      organizationId,
+      userId: user.id,
+      type: "RESIGNATION",
+      reason: "Motivo original",
+      noticePeriodDays: 30,
+      notes: "Observações originais",
+    });
+
+    const response = await app.handle(
+      new Request(`${BASE_URL}/v1/terminations/${termination.id}`, {
+        method: "PUT",
+        headers: { ...headers, "Content-Type": "application/json" },
+        body: JSON.stringify({ type: "DISMISSAL_WITHOUT_CAUSE" }),
+      })
+    );
+
+    expect(response.status).toBe(200);
+    const body = await response.json();
+    expect(body.success).toBe(true);
+    expect(body.data.type).toBe("DISMISSAL_WITHOUT_CAUSE");
+    expect(body.data.reason).toBe("Motivo original");
+    expect(body.data.noticePeriodDays).toBe(30);
+    expect(body.data.notes).toBe("Observações originais");
+  });
+
   test("should update partial fields", async () => {
     const { headers, organizationId, user } =
       await createTestUserWithOrganization({

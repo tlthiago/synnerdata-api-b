@@ -15,20 +15,22 @@ const laborLawsuitFieldsSchema = z.object({
     .describe("Número do processo judicial"),
   court: z
     .string()
-    .min(1, "Tribunal é obrigatório")
     .max(255, "Tribunal deve ter no máximo 255 caracteres")
+    .optional()
     .describe("Tribunal ou vara responsável"),
   filingDate: z.iso
     .date({ error: "Data de ajuizamento inválida" })
     .refine((val) => !isFutureDate(val), {
       message: "Data de ajuizamento não pode ser no futuro",
     })
+    .optional()
     .describe("Data de ajuizamento da ação"),
   knowledgeDate: z.iso
     .date({ error: "Data de conhecimento inválida" })
     .refine((val) => !isFutureDate(val), {
       message: "Data de conhecimento não pode ser no futuro",
     })
+    .optional()
     .describe("Data de conhecimento da ação"),
   plaintiff: z
     .string()
@@ -77,13 +79,26 @@ const laborLawsuitFieldsSchema = z.object({
 });
 
 export const createLaborLawsuitSchema = laborLawsuitFieldsSchema
-  .refine((data) => data.knowledgeDate >= data.filingDate, {
-    message:
-      "Data de conhecimento deve ser igual ou posterior à data de ajuizamento",
-    path: ["knowledgeDate"],
-  })
   .refine(
-    (data) => !data.conclusionDate || data.conclusionDate >= data.filingDate,
+    (data) => {
+      if (!(data.knowledgeDate && data.filingDate)) {
+        return true;
+      }
+      return data.knowledgeDate >= data.filingDate;
+    },
+    {
+      message:
+        "Data de conhecimento deve ser igual ou posterior à data de ajuizamento",
+      path: ["knowledgeDate"],
+    }
+  )
+  .refine(
+    (data) => {
+      if (!(data.conclusionDate && data.filingDate)) {
+        return true;
+      }
+      return data.conclusionDate >= data.filingDate;
+    },
     {
       message:
         "Data de conclusão deve ser igual ou posterior à data de ajuizamento",
@@ -94,6 +109,57 @@ export const createLaborLawsuitSchema = laborLawsuitFieldsSchema
 export const updateLaborLawsuitSchema = laborLawsuitFieldsSchema
   .omit({ employeeId: true })
   .partial()
+  .extend({
+    court: z
+      .string()
+      .max(255, "Tribunal deve ter no máximo 255 caracteres")
+      .nullable()
+      .optional(),
+    filingDate: z.iso
+      .date({ error: "Data de ajuizamento inválida" })
+      .refine((val) => !isFutureDate(val), {
+        message: "Data de ajuizamento não pode ser no futuro",
+      })
+      .nullable()
+      .optional(),
+    knowledgeDate: z.iso
+      .date({ error: "Data de conhecimento inválida" })
+      .refine((val) => !isFutureDate(val), {
+        message: "Data de conhecimento não pode ser no futuro",
+      })
+      .nullable()
+      .optional(),
+    conclusionDate: z.iso
+      .date({ error: "Data de conclusão inválida" })
+      .refine((val) => !isFutureDate(val), {
+        message: "Data de conclusão não pode ser no futuro",
+      })
+      .nullable()
+      .optional(),
+    plaintiffLawyer: z
+      .string()
+      .max(255, "Nome do advogado deve ter no máximo 255 caracteres")
+      .nullable()
+      .optional(),
+    defendantLawyer: z
+      .string()
+      .max(255, "Nome do advogado deve ter no máximo 255 caracteres")
+      .nullable()
+      .optional(),
+    claimAmount: z.coerce
+      .number()
+      .positive("Valor da causa deve ser positivo")
+      .nullable()
+      .optional(),
+    progress: z.string().nullable().optional(),
+    decision: z.string().nullable().optional(),
+    appeals: z.string().nullable().optional(),
+    costsExpenses: z.coerce
+      .number()
+      .positive("Custas e despesas devem ser positivas")
+      .nullable()
+      .optional(),
+  })
   .refine(
     (data) => {
       if (!(data.filingDate && data.knowledgeDate)) {
@@ -134,9 +200,9 @@ const laborLawsuitDataSchema = z.object({
   organizationId: z.string().describe("ID da organização"),
   employee: entityReferenceSchema.describe("Funcionário relacionado"),
   processNumber: z.string().describe("Número do processo"),
-  court: z.string().describe("Tribunal ou vara"),
-  filingDate: z.string().describe("Data de ajuizamento"),
-  knowledgeDate: z.string().describe("Data de conhecimento"),
+  court: z.string().nullable().describe("Tribunal ou vara"),
+  filingDate: z.string().nullable().describe("Data de ajuizamento"),
+  knowledgeDate: z.string().nullable().describe("Data de conhecimento"),
   plaintiff: z.string().describe("Reclamante"),
   defendant: z.string().describe("Reclamado"),
   plaintiffLawyer: z.string().nullable().describe("Advogado do reclamante"),

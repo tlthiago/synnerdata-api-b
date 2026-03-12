@@ -71,7 +71,28 @@ export const createBranchSchema = z.object({
     .describe("Data de fundação"),
 });
 
-export const updateBranchSchema = createBranchSchema.partial();
+export const updateBranchSchema = createBranchSchema.partial().extend({
+  complement: z
+    .string()
+    .max(100, "Complemento deve ter no máximo 100 caracteres")
+    .nullable()
+    .optional()
+    .describe("Complemento"),
+  phone: z
+    .string()
+    .regex(/^\d{10,11}$/, "Telefone deve ter 10 ou 11 dígitos")
+    .nullable()
+    .optional()
+    .describe("Telefone fixo (opcional)"),
+  foundedAt: z.iso
+    .date({ error: "Data de fundação deve ser uma data válida" })
+    .refine((val) => !isFutureDate(val), {
+      message: "Data de fundação não pode ser no futuro",
+    })
+    .nullable()
+    .optional()
+    .describe("Data de fundação"),
+});
 
 export const idParamSchema = z.object({
   id: z.string().min(1).describe("ID da filial"),

@@ -56,6 +56,19 @@ export const createWarningSchema = warningFieldsSchema
 
 export const updateWarningSchema = warningFieldsSchema
   .partial()
+  .extend({
+    description: z.string().nullable().optional(),
+    witnessName: z.string().nullable().optional(),
+    acknowledgedAt: z
+      .string()
+      .datetime("Data do ciente deve ser uma data/hora válida")
+      .refine((val) => !isFutureDatetime(val), {
+        message: "Data de ciência não pode ser no futuro",
+      })
+      .nullable()
+      .optional(),
+    notes: z.string().nullable().optional(),
+  })
   .refine(
     (data) => {
       if (data.acknowledged === true) {

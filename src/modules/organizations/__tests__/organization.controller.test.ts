@@ -321,6 +321,78 @@ describe("PUT /v1/organizations/profile", () => {
     expect(body.error.code).toBe("VALIDATION_ERROR");
   });
 
+  test("should clear nullable fields when null is sent", async () => {
+    const { headers, organizationId } = await createTestUserWithOrganization({
+      emailVerified: true,
+    });
+
+    await app.handle(
+      new Request(`${BASE_URL}/v1/organizations/profile`, {
+        method: "PUT",
+        headers: { ...headers, "Content-Type": "application/json" },
+        body: JSON.stringify({
+          industry: "Technology",
+          businessArea: "Software",
+          revenue: "10000.00",
+        }),
+      })
+    );
+
+    const response = await app.handle(
+      new Request(`${BASE_URL}/v1/organizations/profile`, {
+        method: "PUT",
+        headers: { ...headers, "Content-Type": "application/json" },
+        body: JSON.stringify({
+          industry: null,
+          businessArea: null,
+          revenue: null,
+        }),
+      })
+    );
+
+    expect(response.status).toBe(200);
+    const body = await response.json();
+    expect(body.success).toBe(true);
+    expect(body.data.industry).toBeNull();
+    expect(body.data.businessArea).toBeNull();
+    expect(body.data.revenue).toBeNull();
+    expect(body.data.organizationId).toBe(organizationId);
+  });
+
+  test("should not change fields that are not sent (undefined)", async () => {
+    const { headers } = await createTestUserWithOrganization({
+      emailVerified: true,
+    });
+
+    await app.handle(
+      new Request(`${BASE_URL}/v1/organizations/profile`, {
+        method: "PUT",
+        headers: { ...headers, "Content-Type": "application/json" },
+        body: JSON.stringify({
+          industry: "Technology",
+          businessArea: "Software",
+        }),
+      })
+    );
+
+    const response = await app.handle(
+      new Request(`${BASE_URL}/v1/organizations/profile`, {
+        method: "PUT",
+        headers: { ...headers, "Content-Type": "application/json" },
+        body: JSON.stringify({
+          tradeName: "New Trade Name",
+        }),
+      })
+    );
+
+    expect(response.status).toBe(200);
+    const body = await response.json();
+    expect(body.success).toBe(true);
+    expect(body.data.tradeName).toBe("New Trade Name");
+    expect(body.data.industry).toBe("Technology");
+    expect(body.data.businessArea).toBe("Software");
+  });
+
   test("should update phone and sync mobile", async () => {
     const { headers, organizationId } = await createTestUserWithOrganization({
       emailVerified: true,

@@ -43,7 +43,27 @@ export const createCpfAnalysisSchema = z.object({
     .describe("Referência externa"),
 });
 
-export const updateCpfAnalysisSchema = createCpfAnalysisSchema.partial();
+export const updateCpfAnalysisSchema = createCpfAnalysisSchema
+  .partial()
+  .extend({
+    score: z
+      .number()
+      .int()
+      .min(0, "Score não pode ser negativo")
+      .nullable()
+      .optional(),
+    riskLevel: z.enum(riskLevelValues).nullable().optional(),
+    observations: z
+      .string()
+      .max(1000, "Observações devem ter no máximo 1000 caracteres")
+      .nullable()
+      .optional(),
+    externalReference: z
+      .string()
+      .max(255, "Referência externa deve ter no máximo 255 caracteres")
+      .nullable()
+      .optional(),
+  });
 
 export const idParamSchema = z.object({
   id: z.string().min(1).describe("ID da análise de CPF"),

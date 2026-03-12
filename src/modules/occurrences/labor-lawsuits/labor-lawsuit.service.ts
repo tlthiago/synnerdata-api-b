@@ -158,17 +158,17 @@ export abstract class LaborLawsuitService {
   }
 
   private static validateDateOrder(
-    filingDate: string,
-    knowledgeDate: string,
+    filingDate?: string | null,
+    knowledgeDate?: string | null,
     conclusionDate?: string | null
   ): void {
-    if (knowledgeDate < filingDate) {
+    if (filingDate && knowledgeDate && knowledgeDate < filingDate) {
       throw new LaborLawsuitInvalidDateOrderError(
         "Data de conhecimento deve ser igual ou posterior à data de ajuizamento",
         { filingDate, knowledgeDate }
       );
     }
-    if (conclusionDate && conclusionDate < filingDate) {
+    if (filingDate && conclusionDate && conclusionDate < filingDate) {
       throw new LaborLawsuitInvalidDateOrderError(
         "Data de conclusão deve ser igual ou posterior à data de ajuizamento",
         { filingDate, conclusionDate }
@@ -356,10 +356,12 @@ export abstract class LaborLawsuitService {
     }
 
     if (data.claimAmount !== undefined) {
-      updateData.claimAmount = data.claimAmount?.toString();
+      updateData.claimAmount =
+        data.claimAmount !== null ? data.claimAmount.toString() : null;
     }
     if (data.costsExpenses !== undefined) {
-      updateData.costsExpenses = data.costsExpenses?.toString();
+      updateData.costsExpenses =
+        data.costsExpenses !== null ? data.costsExpenses.toString() : null;
     }
 
     return updateData;
@@ -378,13 +380,16 @@ export abstract class LaborLawsuitService {
     }
 
     if (
-      data.filingDate ||
-      data.knowledgeDate ||
+      data.filingDate !== undefined ||
+      data.knowledgeDate !== undefined ||
       data.conclusionDate !== undefined
     ) {
-      const effectiveFilingDate = data.filingDate ?? existing.filingDate;
+      const effectiveFilingDate =
+        data.filingDate !== undefined ? data.filingDate : existing.filingDate;
       const effectiveKnowledgeDate =
-        data.knowledgeDate ?? existing.knowledgeDate;
+        data.knowledgeDate !== undefined
+          ? data.knowledgeDate
+          : existing.knowledgeDate;
       const effectiveConclusionDate =
         data.conclusionDate !== undefined
           ? data.conclusionDate

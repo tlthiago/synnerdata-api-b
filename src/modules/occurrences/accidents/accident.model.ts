@@ -3,7 +3,7 @@ import { successResponseSchema } from "@/lib/responses/response.types";
 import { isFutureDate } from "@/lib/schemas/date-helpers";
 import { entityReferenceSchema } from "@/lib/schemas/relationships";
 
-export const createAccidentSchema = z.object({
+const accidentFieldsSchema = z.object({
   employeeId: z
     .string()
     .min(1, "ID do funcionário é obrigatório")
@@ -37,7 +37,16 @@ export const createAccidentSchema = z.object({
   notes: z.string().optional().describe("Observações adicionais"),
 });
 
-export const updateAccidentSchema = createAccidentSchema.partial();
+export const createAccidentSchema = accidentFieldsSchema;
+
+export const updateAccidentSchema = accidentFieldsSchema.partial().extend({
+  cat: z
+    .string()
+    .max(25, "CAT deve ter no máximo 25 caracteres")
+    .nullable()
+    .optional(),
+  notes: z.string().nullable().optional(),
+});
 
 export const idParamSchema = z.object({
   id: z.string().min(1).describe("ID do acidente"),

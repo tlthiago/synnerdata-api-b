@@ -17,6 +17,7 @@
 - **Domain-prefixed IDs** — entity IDs follow `<domain>-<uuid>` format (e.g., `absence-${crypto.randomUUID()}`). Always use `crypto.randomUUID()` with the appropriate prefix
 - **Soft deletes** — entities use `deletedAt`/`deletedBy` fields instead of hard delete. Always filter with `isNull(schema.<table>.deletedAt)` in queries to exclude deleted records
 - **Timestamps convention** — all tables include `createdAt` (defaultNow), `updatedAt` ($onUpdate), `createdBy`, `updatedBy`. Populate `createdBy`/`updatedBy` with the user ID from session
+- **Nullable field clearing (JSON Merge Patch)** — update endpoints follow RFC 7396 semantics for nullable fields: `undefined` (omitted) = keep current value, `"value"` = update, `null` = clear. Update schemas must use `.nullable().optional()` on every field that is `.nullable()` in the response schema. In `buildUpdateData`, use `!== undefined` to detect sent fields (null passes, undefined doesn't). Number fields stored as string need explicit null handling: `data.field !== null ? data.field.toString() : null`. Date cross-validations must use `!== undefined` (not truthy checks) and `!== undefined ? data.field : existing.field` (not `??`, which treats null as missing). Reference implementation: `src/modules/occurrences/labor-lawsuits/`
 
 ## Git Workflow
 

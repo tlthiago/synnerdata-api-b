@@ -67,6 +67,24 @@ export const createTerminationSchema = terminationFieldsSchema.refine(
 export const updateTerminationSchema = terminationFieldsSchema
   .omit({ employeeId: true })
   .partial()
+  .extend({
+    reason: z
+      .string()
+      .max(1000, "Motivo deve ter no máximo 1000 caracteres")
+      .nullable()
+      .optional(),
+    noticePeriodDays: z
+      .number()
+      .int("Dias de aviso prévio deve ser um número inteiro")
+      .min(0, "Dias de aviso prévio não pode ser negativo")
+      .nullable()
+      .optional(),
+    notes: z
+      .string()
+      .max(2000, "Observações devem ter no máximo 2000 caracteres")
+      .nullable()
+      .optional(),
+  })
   .refine(
     (data) => {
       if (data.lastWorkingDay && data.terminationDate) {
