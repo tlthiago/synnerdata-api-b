@@ -329,7 +329,185 @@ export const createEmployeeSchema = employeeFieldsSchema.refine(
   }
 );
 
-export const updateEmployeeSchema = employeeFieldsSchema.partial();
+export const updateEmployeeSchema = employeeFieldsSchema.partial().extend({
+  // Nullable fields: replicate validation chain with .nullable().optional()
+  // for JSON Merge Patch convention (null = clear field)
+
+  // Personal Data
+  email: z.string().email("Email inválido").nullable().optional(),
+  phone: z
+    .string()
+    .regex(/^\d{10,11}$/, "Telefone deve ter 10 ou 11 dígitos")
+    .nullable()
+    .optional(),
+  mobile: z
+    .string()
+    .regex(/^\d{10,11}$/, "Celular deve ter 10 ou 11 dígitos")
+    .nullable()
+    .optional(),
+  birthplace: z
+    .string()
+    .max(100, "Naturalidade deve ter no máximo 100 caracteres")
+    .nullable()
+    .optional(),
+  height: z
+    .number()
+    .min(0.5, "Altura mínima é 0.5m")
+    .max(3, "Altura máxima é 3m")
+    .nullable()
+    .optional(),
+  weight: z
+    .number()
+    .min(10, "Peso mínimo é 10kg")
+    .max(500, "Peso máximo é 500kg")
+    .nullable()
+    .optional(),
+  fatherName: z
+    .string()
+    .max(100, "Nome do pai deve ter no máximo 100 caracteres")
+    .nullable()
+    .optional(),
+  motherName: z
+    .string()
+    .max(100, "Nome da mãe deve ter no máximo 100 caracteres")
+    .nullable()
+    .optional(),
+
+  // Documents
+  identityCard: z
+    .string()
+    .max(20, "RG deve ter no máximo 20 caracteres")
+    .nullable()
+    .optional(),
+  pis: z
+    .string()
+    .regex(/^\d{11}$/, "PIS deve ter 11 dígitos")
+    .nullable()
+    .optional(),
+  workPermitNumber: z
+    .string()
+    .max(10, "Número da CTPS deve ter no máximo 10 caracteres")
+    .nullable()
+    .optional(),
+  workPermitSeries: z
+    .string()
+    .max(10, "Série da CTPS deve ter no máximo 10 caracteres")
+    .nullable()
+    .optional(),
+  militaryCertificate: z
+    .string()
+    .max(20, "Certificado de reservista deve ter no máximo 20 caracteres")
+    .nullable()
+    .optional(),
+
+  // Address
+  complement: z
+    .string()
+    .max(100, "Complemento deve ter no máximo 100 caracteres")
+    .nullable()
+    .optional(),
+  latitude: z
+    .number()
+    .min(-90, "Latitude mínima é -90")
+    .max(90, "Latitude máxima é 90")
+    .nullable()
+    .optional(),
+  longitude: z
+    .number()
+    .min(-180, "Longitude mínima é -180")
+    .max(180, "Longitude máxima é 180")
+    .nullable()
+    .optional(),
+
+  // Employment
+  manager: z
+    .string()
+    .max(255, "Nome do gestor deve ter no máximo 255 caracteres")
+    .nullable()
+    .optional(),
+
+  // Foreign Keys
+  branchId: z.string().nullable().optional(),
+  costCenterId: z.string().nullable().optional(),
+
+  // Work Schedule
+  workShift: z.enum(workShiftValues).nullable().optional(),
+  busCount: z
+    .number()
+    .int()
+    .min(0, "Quantidade de ônibus não pode ser negativa")
+    .nullable()
+    .optional(),
+
+  // Benefits
+  mealAllowance: z
+    .number()
+    .min(0, "Vale alimentação não pode ser negativo")
+    .nullable()
+    .optional(),
+  transportAllowance: z
+    .number()
+    .min(0, "Vale transporte não pode ser negativo")
+    .nullable()
+    .optional(),
+  healthInsurance: z
+    .number()
+    .min(0, "Plano de saúde não pode ser negativo")
+    .nullable()
+    .optional(),
+
+  // Education and Special Needs
+  educationLevel: z.enum(educationLevelValues).nullable().optional(),
+  disabilityType: z.enum(disabilityTypeValues).nullable().optional(),
+
+  // Family
+  childrenCount: z
+    .number()
+    .int()
+    .min(0, "Quantidade de filhos não pode ser negativa")
+    .nullable()
+    .optional(),
+  hasChildrenUnder21: z.boolean().nullable().optional(),
+
+  // Health and Exams
+  lastHealthExamDate: z
+    .string()
+    .date("Data do último ASO deve ser uma data válida")
+    .nullable()
+    .optional(),
+  admissionExamDate: z
+    .string()
+    .date("Data do exame admissional deve ser uma data válida")
+    .nullable()
+    .optional(),
+  terminationExamDate: z
+    .string()
+    .date("Data do exame demissional deve ser uma data válida")
+    .nullable()
+    .optional(),
+  probation1ExpiryDate: z
+    .string()
+    .date("Data de vencimento da experiência 1 deve ser uma data válida")
+    .nullable()
+    .optional(),
+  probation2ExpiryDate: z
+    .string()
+    .date("Data de vencimento da experiência 2 deve ser uma data válida")
+    .nullable()
+    .optional(),
+
+  // Acquisition Period
+  acquisitionPeriodStart: z
+    .string()
+    .date("Início do período aquisitivo deve ser uma data válida")
+    .nullable()
+    .optional(),
+  acquisitionPeriodEnd: z
+    .string()
+    .date("Fim do período aquisitivo deve ser uma data válida")
+    .nullable()
+    .optional(),
+});
 
 export const updateEmployeeStatusSchema = z.object({
   status: z.enum(employeeStatusValues).describe("Status do funcionário"),

@@ -25,9 +25,9 @@ export const laborLawsuits = pgTable(
 
     // Process info
     processNumber: varchar("process_number", { length: 25 }).notNull(),
-    court: varchar("court", { length: 255 }).notNull(),
-    filingDate: date("filing_date").notNull(),
-    knowledgeDate: date("knowledge_date").notNull(),
+    court: varchar("court", { length: 255 }),
+    filingDate: date("filing_date"),
+    knowledgeDate: date("knowledge_date"),
 
     // Parties
     plaintiff: varchar("plaintiff", { length: 255 }).notNull(),

@@ -531,8 +531,8 @@ describe("POST /v1/vacations", () => {
       userId: user.id,
     });
 
-    const startDate = "2025-06-01";
-    const endDate = "2025-06-10";
+    const startDate = "2027-06-01";
+    const endDate = "2027-06-10";
 
     const response = await app.handle(
       new Request(`${BASE_URL}/v1/vacations`, {

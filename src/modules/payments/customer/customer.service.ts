@@ -1,8 +1,11 @@
+import { AppError } from "@/lib/errors/base-error";
 import { Retry } from "@/lib/utils/retry";
 import { BillingService } from "@/modules/payments/billing/billing.service";
 import {
   BillingProfileNotFoundError,
   CustomerCreationError,
+  PagarmeApiError,
+  PagarmeAuthorizationError,
 } from "@/modules/payments/errors";
 import {
   PAGARME_RETRY_CONFIG,
@@ -13,6 +16,21 @@ import type {
   ListCustomersData,
   ListCustomersInput,
 } from "./customer.model";
+
+const AUTHORIZATION_ERROR_PATTERNS = [
+  "authorization has been denied",
+  "unauthorized",
+  "authentication failed",
+  "invalid api key",
+  "access denied",
+];
+
+function isAuthorizationError(message: string): boolean {
+  const lower = message.toLowerCase();
+  return AUTHORIZATION_ERROR_PATTERNS.some((pattern) =>
+    lower.includes(pattern)
+  );
+}
 
 export abstract class CustomerService {
   /**
@@ -112,6 +130,17 @@ export abstract class CustomerService {
 
       return { pagarmeCustomerId: pagarmeCustomer.id };
     } catch (error) {
+      if (
+        error instanceof PagarmeApiError &&
+        isAuthorizationError(error.message)
+      ) {
+        throw new PagarmeAuthorizationError("createCustomer");
+      }
+
+      if (error instanceof AppError) {
+        throw error;
+      }
+
       const message = error instanceof Error ? error.message : "Unknown error";
       throw new CustomerCreationError(message);
     }

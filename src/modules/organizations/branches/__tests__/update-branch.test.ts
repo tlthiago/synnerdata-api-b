@@ -349,6 +349,79 @@ describe("PUT /v1/branches/:id", () => {
     expect(response.status).toBe(422);
   });
 
+  test("should clear nullable fields when null is sent", async () => {
+    const { headers, organizationId, user } =
+      await createTestUserWithOrganization({
+        emailVerified: true,
+      });
+
+    const branch = await createTestBranch({
+      organizationId,
+      userId: user.id,
+      complement: "Sala 10",
+      phone: "1133334444",
+      foundedAt: "2020-01-15",
+    });
+
+    const response = await app.handle(
+      new Request(`${BASE_URL}/v1/branches/${branch.id}`, {
+        method: "PUT",
+        headers: {
+          ...headers,
+          "Content-Type": "application/json",
+        },
+        body: JSON.stringify({
+          complement: null,
+          phone: null,
+          foundedAt: null,
+        }),
+      })
+    );
+
+    expect(response.status).toBe(200);
+    const body = await response.json();
+    expect(body.success).toBe(true);
+    expect(body.data.complement).toBeNull();
+    expect(body.data.phone).toBeNull();
+    expect(body.data.foundedAt).toBeNull();
+    expect(body.data.name).toBe(branch.name);
+    expect(body.data.taxId).toBe(branch.taxId);
+  });
+
+  test("should not change fields that are not sent (undefined)", async () => {
+    const { headers, organizationId, user } =
+      await createTestUserWithOrganization({
+        emailVerified: true,
+      });
+
+    const branch = await createTestBranch({
+      organizationId,
+      userId: user.id,
+      complement: "Sala 10",
+      phone: "1133334444",
+      foundedAt: "2020-01-15",
+    });
+
+    const response = await app.handle(
+      new Request(`${BASE_URL}/v1/branches/${branch.id}`, {
+        method: "PUT",
+        headers: {
+          ...headers,
+          "Content-Type": "application/json",
+        },
+        body: JSON.stringify({ name: "Updated Name Only" }),
+      })
+    );
+
+    expect(response.status).toBe(200);
+    const body = await response.json();
+    expect(body.success).toBe(true);
+    expect(body.data.name).toBe("Updated Name Only");
+    expect(body.data.complement).toBe("Sala 10");
+    expect(body.data.phone).toBe("1133334444");
+    expect(body.data.foundedAt).toBe("2020-01-15");
+  });
+
   test("should reject future foundedAt date", async () => {
     const { headers, organizationId, user } =
       await createTestUserWithOrganization({

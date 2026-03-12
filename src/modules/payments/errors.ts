@@ -227,12 +227,24 @@ export class CustomerNotFoundError extends PaymentError {
 }
 
 export class CustomerCreationError extends PaymentError {
-  status = 500;
+  status = 502;
 
   constructor(reason: string) {
     super(`Falha ao criar cliente: ${reason}`, "CUSTOMER_CREATION_ERROR", {
       reason,
     });
+  }
+}
+
+export class PagarmeAuthorizationError extends PaymentError {
+  status = 400;
+
+  constructor(operation: string) {
+    super(
+      "Falha na autenticação com o serviço de pagamento. Verifique as credenciais da API.",
+      "PAGARME_AUTHORIZATION_ERROR",
+      { operation }
+    );
   }
 }
 

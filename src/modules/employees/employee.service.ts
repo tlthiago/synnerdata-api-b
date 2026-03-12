@@ -633,6 +633,122 @@ export abstract class EmployeeService {
     return employee;
   }
 
+  private static numericToString(
+    val: number | undefined | null
+  ): string | null | undefined {
+    if (val === undefined) {
+      return;
+    }
+    return val !== null ? val.toString() : null;
+  }
+
+  private static buildUpdateData(
+    data: Omit<UpdateEmployeeInput, "userId">,
+    userId: string
+  ): Record<string, unknown> {
+    const n = EmployeeService.numericToString;
+    const fieldMappings: Record<string, unknown> = {
+      name: data.name,
+      email: data.email,
+      phone: data.phone,
+      mobile: data.mobile,
+      birthDate: data.birthDate,
+      gender: data.gender,
+      maritalStatus: data.maritalStatus,
+      birthplace: data.birthplace,
+      nationality: data.nationality,
+      height: n(data.height),
+      weight: n(data.weight),
+      fatherName: data.fatherName,
+      motherName: data.motherName,
+      cpf: data.cpf,
+      identityCard: data.identityCard,
+      pis: data.pis,
+      workPermitNumber: data.workPermitNumber,
+      workPermitSeries: data.workPermitSeries,
+      militaryCertificate: data.militaryCertificate,
+      street: data.street,
+      streetNumber: data.streetNumber,
+      complement: data.complement,
+      neighborhood: data.neighborhood,
+      city: data.city,
+      state: data.state,
+      zipCode: data.zipCode,
+      latitude: n(data.latitude),
+      longitude: n(data.longitude),
+      hireDate: data.hireDate,
+      contractType: data.contractType,
+      salary: n(data.salary),
+      manager: data.manager,
+      branchId: data.branchId,
+      sectorId: data.sectorId,
+      costCenterId: data.costCenterId,
+      jobPositionId: data.jobPositionId,
+      jobClassificationId: data.jobClassificationId,
+      workShift: data.workShift,
+      weeklyHours: n(data.weeklyHours),
+      busCount: data.busCount,
+      mealAllowance: n(data.mealAllowance),
+      transportAllowance: n(data.transportAllowance),
+      healthInsurance: n(data.healthInsurance),
+      educationLevel: data.educationLevel,
+      hasSpecialNeeds: data.hasSpecialNeeds,
+      disabilityType: data.disabilityType,
+      hasChildren: data.hasChildren,
+      childrenCount: data.childrenCount,
+      hasChildrenUnder21: data.hasChildrenUnder21,
+      lastHealthExamDate: data.lastHealthExamDate,
+      admissionExamDate: data.admissionExamDate,
+      terminationExamDate: data.terminationExamDate,
+      probation1ExpiryDate: data.probation1ExpiryDate,
+      probation2ExpiryDate: data.probation2ExpiryDate,
+      acquisitionPeriodStart: data.acquisitionPeriodStart,
+      acquisitionPeriodEnd: data.acquisitionPeriodEnd,
+    };
+
+    const updateData = Object.fromEntries(
+      Object.entries(fieldMappings).filter(([, v]) => v !== undefined)
+    );
+    updateData.updatedBy = userId;
+    return updateData;
+  }
+
+  private static async validateUpdateRelationships(
+    data: Omit<UpdateEmployeeInput, "userId">,
+    existingRaw: EmployeeRaw,
+    organizationId: string
+  ): Promise<void> {
+    const effectiveBranchId =
+      data.branchId !== undefined
+        ? (data.branchId ?? undefined)
+        : (existingRaw.branchId ?? undefined);
+    const effectiveCostCenterId =
+      data.costCenterId !== undefined
+        ? (data.costCenterId ?? undefined)
+        : (existingRaw.costCenterId ?? undefined);
+
+    const hasFkChange =
+      data.branchId !== undefined ||
+      data.sectorId !== undefined ||
+      data.costCenterId !== undefined ||
+      data.jobPositionId !== undefined ||
+      data.jobClassificationId !== undefined;
+
+    if (hasFkChange) {
+      await EmployeeService.validateRelationships(
+        {
+          branchId: effectiveBranchId,
+          sectorId: data.sectorId ?? existingRaw.sectorId,
+          costCenterId: effectiveCostCenterId,
+          jobPositionId: data.jobPositionId ?? existingRaw.jobPositionId,
+          jobClassificationId:
+            data.jobClassificationId ?? existingRaw.jobClassificationId,
+        },
+        organizationId
+      );
+    }
+  }
+
   static async update(
     id: string,
     organizationId: string,
@@ -661,106 +777,22 @@ export abstract class EmployeeService {
     }
 
     EmployeeService.validateAcquisitionPeriod(
-      data.acquisitionPeriodStart ??
-        existingRaw.acquisitionPeriodStart ??
-        undefined,
-      data.acquisitionPeriodEnd ??
-        existingRaw.acquisitionPeriodEnd ??
-        undefined,
-      data.hireDate ?? existingRaw.hireDate
+      data.acquisitionPeriodStart !== undefined
+        ? data.acquisitionPeriodStart
+        : (existingRaw.acquisitionPeriodStart ?? undefined),
+      data.acquisitionPeriodEnd !== undefined
+        ? data.acquisitionPeriodEnd
+        : (existingRaw.acquisitionPeriodEnd ?? undefined),
+      data.hireDate !== undefined ? data.hireDate : existingRaw.hireDate
     );
 
-    // Validate relationships if any FK is being updated
-    const relationshipsToValidate = {
-      branchId: data.branchId ?? existingRaw.branchId ?? undefined,
-      sectorId: data.sectorId ?? existingRaw.sectorId,
-      costCenterId: data.costCenterId ?? existingRaw.costCenterId ?? undefined,
-      jobPositionId: data.jobPositionId ?? existingRaw.jobPositionId,
-      jobClassificationId:
-        data.jobClassificationId ?? existingRaw.jobClassificationId,
-    };
-
-    if (
-      data.branchId ||
-      data.sectorId ||
-      data.costCenterId ||
-      data.jobPositionId ||
-      data.jobClassificationId
-    ) {
-      await EmployeeService.validateRelationships(
-        relationshipsToValidate,
-        organizationId
-      );
-    }
-
-    // Build update data, converting numeric fields to strings for decimal columns
-    const numericToString = (val: number | undefined | null) =>
-      val !== undefined && val !== null ? val.toString() : undefined;
-
-    const fieldMappings: Record<string, unknown> = {
-      name: data.name,
-      email: data.email,
-      phone: data.phone,
-      mobile: data.mobile,
-      birthDate: data.birthDate,
-      gender: data.gender,
-      maritalStatus: data.maritalStatus,
-      birthplace: data.birthplace,
-      nationality: data.nationality,
-      height: numericToString(data.height),
-      weight: numericToString(data.weight),
-      fatherName: data.fatherName,
-      motherName: data.motherName,
-      cpf: data.cpf,
-      identityCard: data.identityCard,
-      pis: data.pis,
-      workPermitNumber: data.workPermitNumber,
-      workPermitSeries: data.workPermitSeries,
-      militaryCertificate: data.militaryCertificate,
-      street: data.street,
-      streetNumber: data.streetNumber,
-      complement: data.complement,
-      neighborhood: data.neighborhood,
-      city: data.city,
-      state: data.state,
-      zipCode: data.zipCode,
-      latitude: numericToString(data.latitude),
-      longitude: numericToString(data.longitude),
-      hireDate: data.hireDate,
-      contractType: data.contractType,
-      salary: numericToString(data.salary),
-      manager: data.manager,
-      branchId: data.branchId,
-      sectorId: data.sectorId,
-      costCenterId: data.costCenterId,
-      jobPositionId: data.jobPositionId,
-      jobClassificationId: data.jobClassificationId,
-      workShift: data.workShift,
-      weeklyHours: numericToString(data.weeklyHours),
-      busCount: data.busCount,
-      mealAllowance: numericToString(data.mealAllowance),
-      transportAllowance: numericToString(data.transportAllowance),
-      healthInsurance: numericToString(data.healthInsurance),
-      educationLevel: data.educationLevel,
-      hasSpecialNeeds: data.hasSpecialNeeds,
-      disabilityType: data.disabilityType,
-      hasChildren: data.hasChildren,
-      childrenCount: data.childrenCount,
-      hasChildrenUnder21: data.hasChildrenUnder21,
-      lastHealthExamDate: data.lastHealthExamDate,
-      admissionExamDate: data.admissionExamDate,
-      terminationExamDate: data.terminationExamDate,
-      probation1ExpiryDate: data.probation1ExpiryDate,
-      probation2ExpiryDate: data.probation2ExpiryDate,
-      acquisitionPeriodStart: data.acquisitionPeriodStart,
-      acquisitionPeriodEnd: data.acquisitionPeriodEnd,
-    };
-
-    // Filter out undefined values and add audit field
-    const updateData = Object.fromEntries(
-      Object.entries(fieldMappings).filter(([, v]) => v !== undefined)
+    await EmployeeService.validateUpdateRelationships(
+      data,
+      existingRaw,
+      organizationId
     );
-    updateData.updatedBy = userId;
+
+    const updateData = EmployeeService.buildUpdateData(data, userId);
 
     const [updated] = await db
       .update(schema.employees)

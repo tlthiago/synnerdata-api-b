@@ -389,27 +389,51 @@ export abstract class VacationService {
     return vacation;
   }
 
+  private static resolveField<T>(incoming: T | undefined, existing: T): T {
+    return incoming !== undefined ? incoming : existing;
+  }
+
+  private static resolveNullableField(
+    incoming: string | null | undefined,
+    existing: string | null
+  ): string | undefined {
+    if (incoming !== undefined) {
+      return incoming ?? undefined;
+    }
+    return existing ?? undefined;
+  }
+
   private static mergeWithExisting(
     data: Omit<UpdateVacationInput, "userId">,
     existing: VacationData
   ) {
     return {
-      startDate: data.startDate ?? existing.startDate,
-      endDate: data.endDate ?? existing.endDate,
-      daysEntitled: data.daysEntitled ?? existing.daysEntitled,
-      daysUsed: data.daysUsed ?? existing.daysUsed,
-      acquisitionPeriodStart:
-        data.acquisitionPeriodStart ??
-        existing.acquisitionPeriodStart ??
-        undefined,
-      acquisitionPeriodEnd:
-        data.acquisitionPeriodEnd ?? existing.acquisitionPeriodEnd ?? undefined,
-      concessivePeriodStart:
-        data.concessivePeriodStart ??
-        existing.concessivePeriodStart ??
-        undefined,
-      concessivePeriodEnd:
-        data.concessivePeriodEnd ?? existing.concessivePeriodEnd ?? undefined,
+      startDate: VacationService.resolveField(
+        data.startDate,
+        existing.startDate
+      ),
+      endDate: VacationService.resolveField(data.endDate, existing.endDate),
+      daysEntitled: VacationService.resolveField(
+        data.daysEntitled,
+        existing.daysEntitled
+      ),
+      daysUsed: VacationService.resolveField(data.daysUsed, existing.daysUsed),
+      acquisitionPeriodStart: VacationService.resolveNullableField(
+        data.acquisitionPeriodStart,
+        existing.acquisitionPeriodStart
+      ),
+      acquisitionPeriodEnd: VacationService.resolveNullableField(
+        data.acquisitionPeriodEnd,
+        existing.acquisitionPeriodEnd
+      ),
+      concessivePeriodStart: VacationService.resolveNullableField(
+        data.concessivePeriodStart,
+        existing.concessivePeriodStart
+      ),
+      concessivePeriodEnd: VacationService.resolveNullableField(
+        data.concessivePeriodEnd,
+        existing.concessivePeriodEnd
+      ),
     };
   }
 
@@ -419,7 +443,7 @@ export abstract class VacationService {
     existing: VacationData,
     organizationId: string
   ): Promise<void> {
-    if (data.startDate || data.endDate) {
+    if (data.startDate !== undefined || data.endDate !== undefined) {
       VacationService.validateDates(merged.startDate, merged.endDate);
     }
 

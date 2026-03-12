@@ -318,6 +318,88 @@ describe("PUT /v1/warnings/:id", () => {
     expect(body.error.code).toBe("FORBIDDEN");
   });
 
+  test("should clear nullable fields when null is sent", async () => {
+    const { headers, organizationId, user } =
+      await createTestUserWithOrganization({
+        emailVerified: true,
+      });
+
+    const warning = await createTestWarning({
+      organizationId,
+      userId: user.id,
+      date: "2024-06-10",
+      description: "Descrição original",
+      witnessName: "Testemunha original",
+      acknowledged: true,
+      acknowledgedAt: "2024-06-10T14:00:00.000Z",
+      notes: "Observação original",
+    });
+
+    const response = await app.handle(
+      new Request(`${BASE_URL}/v1/warnings/${warning.id}`, {
+        method: "PUT",
+        headers: {
+          ...headers,
+          "Content-Type": "application/json",
+        },
+        body: JSON.stringify({
+          description: null,
+          witnessName: null,
+          acknowledgedAt: null,
+          notes: null,
+        }),
+      })
+    );
+
+    expect(response.status).toBe(200);
+    const body = await response.json();
+    expect(body.success).toBe(true);
+    expect(body.data.description).toBeNull();
+    expect(body.data.witnessName).toBeNull();
+    expect(body.data.acknowledgedAt).toBeNull();
+    expect(body.data.notes).toBeNull();
+    expect(body.data.reason).toBe(warning.reason);
+    expect(body.data.type).toBe(warning.type);
+  });
+
+  test("should not change fields that are not sent (undefined)", async () => {
+    const { headers, organizationId, user } =
+      await createTestUserWithOrganization({
+        emailVerified: true,
+      });
+
+    const warning = await createTestWarning({
+      organizationId,
+      userId: user.id,
+      date: "2024-06-10",
+      description: "Descrição original",
+      witnessName: "Testemunha original",
+      acknowledged: true,
+      acknowledgedAt: "2024-06-10T14:00:00.000Z",
+      notes: "Observação original",
+    });
+
+    const response = await app.handle(
+      new Request(`${BASE_URL}/v1/warnings/${warning.id}`, {
+        method: "PUT",
+        headers: {
+          ...headers,
+          "Content-Type": "application/json",
+        },
+        body: JSON.stringify({ reason: "Novo motivo" }),
+      })
+    );
+
+    expect(response.status).toBe(200);
+    const body = await response.json();
+    expect(body.success).toBe(true);
+    expect(body.data.reason).toBe("Novo motivo");
+    expect(body.data.description).toBe("Descrição original");
+    expect(body.data.witnessName).toBe("Testemunha original");
+    expect(body.data.acknowledgedAt).not.toBeNull();
+    expect(body.data.notes).toBe("Observação original");
+  });
+
   test("should allow manager to update warning", async () => {
     const { addMemberToOrganization } = await import(
       "@/test/helpers/organization"

@@ -182,6 +182,89 @@ describe("PUT /v1/accidents/:id", () => {
     expect(body.error.code).toBe("ACCIDENT_INVALID_EMPLOYEE");
   });
 
+  test("should clear nullable fields when null is sent", async () => {
+    const { headers, organizationId, user } =
+      await createTestUserWithOrganization({
+        emailVerified: true,
+      });
+
+    const { employee } = await createTestEmployee({
+      organizationId,
+      userId: user.id,
+    });
+
+    const accident = await createTestAccident({
+      organizationId,
+      userId: user.id,
+      employeeId: employee.id,
+      cat: "CAT-CLEAR-001",
+      notes: "Observação para limpar",
+    });
+
+    const response = await app.handle(
+      new Request(`${BASE_URL}/v1/accidents/${accident.id}`, {
+        method: "PUT",
+        headers: {
+          ...headers,
+          "Content-Type": "application/json",
+        },
+        body: JSON.stringify({
+          cat: null,
+          notes: null,
+        }),
+      })
+    );
+
+    expect(response.status).toBe(200);
+    const body = await response.json();
+    expect(body.success).toBe(true);
+    expect(body.data.cat).toBeNull();
+    expect(body.data.notes).toBeNull();
+    expect(body.data.description).toBe(accident.description);
+    expect(body.data.nature).toBe(accident.nature);
+    expect(body.data.measuresTaken).toBe(accident.measuresTaken);
+  });
+
+  test("should not change fields that are not sent (undefined)", async () => {
+    const { headers, organizationId, user } =
+      await createTestUserWithOrganization({
+        emailVerified: true,
+      });
+
+    const { employee } = await createTestEmployee({
+      organizationId,
+      userId: user.id,
+    });
+
+    const accident = await createTestAccident({
+      organizationId,
+      userId: user.id,
+      employeeId: employee.id,
+      cat: "CAT-KEEP-001",
+      notes: "Observação para manter",
+    });
+
+    const response = await app.handle(
+      new Request(`${BASE_URL}/v1/accidents/${accident.id}`, {
+        method: "PUT",
+        headers: {
+          ...headers,
+          "Content-Type": "application/json",
+        },
+        body: JSON.stringify({
+          description: "Descrição alterada",
+        }),
+      })
+    );
+
+    expect(response.status).toBe(200);
+    const body = await response.json();
+    expect(body.success).toBe(true);
+    expect(body.data.description).toBe("Descrição alterada");
+    expect(body.data.cat).toBe("CAT-KEEP-001");
+    expect(body.data.notes).toBe("Observação para manter");
+  });
+
   test("should not update accident from another organization", async () => {
     const { organizationId, user } = await createTestUserWithOrganization({
       emailVerified: true,

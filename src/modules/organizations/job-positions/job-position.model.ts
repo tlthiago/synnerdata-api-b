@@ -14,7 +14,16 @@ export const createJobPositionSchema = z.object({
     .describe("Descrição da função"),
 });
 
-export const updateJobPositionSchema = createJobPositionSchema.partial();
+export const updateJobPositionSchema = createJobPositionSchema
+  .partial()
+  .extend({
+    description: z
+      .string()
+      .max(500, "Descrição deve ter no máximo 500 caracteres")
+      .nullable()
+      .optional()
+      .describe("Descrição da função"),
+  });
 
 export const idParamSchema = z.object({
   id: z.string().min(1).describe("ID do cargo"),
