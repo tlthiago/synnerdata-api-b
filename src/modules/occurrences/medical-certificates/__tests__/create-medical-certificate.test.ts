@@ -195,6 +195,41 @@ describe("POST /v1/medical-certificates", () => {
     expect(response.status).toBe(422);
   });
 
+  test("should accept future endDate when startDate is today", async () => {
+    const { headers, organizationId, userId } =
+      await createTestUserWithOrganization({
+        emailVerified: true,
+      });
+
+    const { employee } = await createTestEmployee({ organizationId, userId });
+
+    const today = new Date();
+    const todayStr = today.toISOString().split("T")[0];
+    const futureDate = new Date();
+    futureDate.setDate(futureDate.getDate() + 4);
+    const futureDateStr = futureDate.toISOString().split("T")[0];
+
+    const response = await app.handle(
+      new Request(`${BASE_URL}/v1/medical-certificates`, {
+        method: "POST",
+        headers: { ...headers, "Content-Type": "application/json" },
+        body: JSON.stringify({
+          employeeId: employee.id,
+          startDate: todayStr,
+          endDate: futureDateStr,
+          daysOff: 5,
+        }),
+      })
+    );
+
+    expect(response.status).toBe(200);
+    const body = await response.json();
+    expect(body.success).toBe(true);
+    expect(body.data.startDate).toBe(todayStr);
+    expect(body.data.endDate).toBe(futureDateStr);
+    expect(body.data.daysOff).toBe(5);
+  });
+
   test("should reject when daysOff does not match date range", async () => {
     const { headers, organizationId, userId } =
       await createTestUserWithOrganization({
