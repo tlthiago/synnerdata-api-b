@@ -106,6 +106,45 @@ describe("PUT /v1/medical-certificates/:id", () => {
     expect(response.status).toBe(404);
   });
 
+  test("should accept future endDate on update", async () => {
+    const { headers, organizationId, userId } =
+      await createTestUserWithOrganization({
+        emailVerified: true,
+      });
+
+    const { employee } = await createTestEmployee({ organizationId, userId });
+    const certificate = await createTestMedicalCertificate({
+      organizationId,
+      userId,
+      employeeId: employee.id,
+      daysOff: 3,
+    });
+
+    const today = new Date();
+    const todayStr = today.toISOString().split("T")[0];
+    const futureDate = new Date();
+    futureDate.setDate(futureDate.getDate() + 6);
+    const futureDateStr = futureDate.toISOString().split("T")[0];
+
+    const response = await app.handle(
+      new Request(`${BASE_URL}/v1/medical-certificates/${certificate.id}`, {
+        method: "PUT",
+        headers: { ...headers, "Content-Type": "application/json" },
+        body: JSON.stringify({
+          startDate: todayStr,
+          endDate: futureDateStr,
+          daysOff: 7,
+        }),
+      })
+    );
+
+    expect(response.status).toBe(200);
+    const body = await response.json();
+    expect(body.success).toBe(true);
+    expect(body.data.endDate).toBe(futureDateStr);
+    expect(body.data.daysOff).toBe(7);
+  });
+
   test("should reject future startDate on update", async () => {
     const { headers, organizationId, userId } =
       await createTestUserWithOrganization({

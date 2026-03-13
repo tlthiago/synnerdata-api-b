@@ -19,9 +19,6 @@ export const createMedicalCertificateSchema = z
     endDate: z
       .string()
       .date("Data de fim deve ser uma data válida")
-      .refine((val) => !isFutureDate(val), {
-        message: "Data de fim não pode ser no futuro",
-      })
       .describe("Data de fim do afastamento"),
     daysOff: z
       .number()
