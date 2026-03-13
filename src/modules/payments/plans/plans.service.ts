@@ -146,7 +146,12 @@ export abstract class PlansService {
     const [plan] = await db
       .select()
       .from(schema.subscriptionPlans)
-      .where(eq(schema.subscriptionPlans.isTrial, true))
+      .where(
+        and(
+          eq(schema.subscriptionPlans.isTrial, true),
+          isNull(schema.subscriptionPlans.archivedAt)
+        )
+      )
       .orderBy(desc(schema.subscriptionPlans.id))
       .limit(1);
 
