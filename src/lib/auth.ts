@@ -371,6 +371,63 @@ export const auth = betterAuth({
     },
   },
   user: {
+    deleteUser: {
+      enabled: true,
+      async beforeDelete(user, request) {
+        const membership = await db.query.members.findFirst({
+          where: eq(schema.members.userId, user.id),
+        });
+
+        if (!membership) {
+          return;
+        }
+
+        if (membership.role !== "owner") {
+          return;
+        }
+
+        // Validate: no active paid subscription
+        const access = await SubscriptionService.checkAccess(
+          membership.organizationId
+        );
+        const paidStatuses: string[] = ["active", "past_due"];
+        if (paidStatuses.includes(access.status)) {
+          throw new APIError("BAD_REQUEST", {
+            code: "ACTIVE_SUBSCRIPTION",
+            message:
+              "Não é possível excluir sua conta com uma assinatura ativa. Cancele a assinatura primeiro.",
+          });
+        }
+
+        // Validate: no other members besides owner
+        const members = await db.query.members.findMany({
+          where: eq(schema.members.organizationId, membership.organizationId),
+        });
+        const otherMembers = members.filter((m) => m.userId !== user.id);
+        if (otherMembers.length > 0) {
+          throw new APIError("BAD_REQUEST", {
+            code: "ORGANIZATION_HAS_MEMBERS",
+            message:
+              "Não é possível excluir sua conta. Remova os outros membros da organização primeiro.",
+          });
+        }
+
+        // Delete organization via Better Auth API (triggers existing org hooks)
+        await auth.api.deleteOrganization({
+          body: { organizationId: membership.organizationId },
+          headers: request?.headers,
+        });
+      },
+      async afterDelete(user) {
+        await AuditService.log({
+          action: "delete",
+          resource: "user",
+          resourceId: user.id,
+          userId: user.id,
+          changes: { before: { id: user.id, email: user.email } },
+        });
+      },
+    },
     additionalFields: {
       role: {
         type: "string",
@@ -638,7 +695,8 @@ export const auth = betterAuth({
           }
 
           const access = await SubscriptionService.checkAccess(org.id);
-          if (access.hasAccess && access.status !== "trial_expired") {
+          const paidStatuses: string[] = ["active", "past_due"];
+          if (paidStatuses.includes(access.status)) {
             throw new APIError("BAD_REQUEST", {
               code: "ORGANIZATION_HAS_ACTIVE_SUBSCRIPTION",
               message:
