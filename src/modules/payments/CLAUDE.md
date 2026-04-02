@@ -9,7 +9,7 @@ Assinaturas, checkout, billing e integração Pagar.me. Módulo mais crítico do
 - Apenas status `active` concede acesso a features
 - Pricing tiers são imutáveis — nunca deletados, apenas arquivados (`archivedAt`)
 - Subscriptions ativas referenciam tiers arquivados normalmente (grandfathering)
-- Trial: exatamente 1 tier (0-10). Paid: >= 1 tier, contíguos, sem gaps/overlaps, min >= 0, min <= max
+- Trial (default): exatamente 1 tier (0-10). Trial (privado/provision): 1 tier customizado. Paid: >= 1 tier, contíguos, sem gaps/overlaps, min >= 0, min <= max
 - Employee count não pode exceder `tier.maxEmployees`
 - Webhooks são idempotentes (mesmo evento processado uma vez)
 - Customer ID e plan changes são atômicos (proteção contra race condition)

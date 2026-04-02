@@ -39,7 +39,7 @@ Autenticação via Email/Password e lifecycle de usuários/organizações.
 ## Organization Deletion Protection
 
 - `beforeDeleteOrganization` impede deleção se houver membros ativos além do owner (`ORGANIZATION_HAS_ACTIVE_MEMBERS`)
-- `beforeDeleteOrganization` impede deleção se houver assinatura ativa (`ORGANIZATION_HAS_ACTIVE_SUBSCRIPTION`)
+- `beforeDeleteOrganization` impede deleção se houver assinatura **paga** ativa com acesso (`hasAccess && status in ["active", "past_due"]`). Trials (ativos ou expirados) são permitidos
 
 ## Session
 
@@ -81,9 +81,11 @@ Autenticação via Email/Password e lifecycle de usuários/organizações.
 
 | Condition | Result |
 |---|---|
+| Admin or super_admin | **Blocked** — admin accounts cannot self-delete |
 | User without org | Delete user directly |
 | Owner of trial org (active or expired), no other members | Delete org + user |
-| Owner with active paid subscription (`active`, `past_due`) | **Blocked** — cancel subscription first |
+| Owner with active paid subscription (`hasAccess` + `active`/`past_due`) | **Blocked** — cancel subscription first |
+| Owner with `past_due` outside grace period (`hasAccess=false`) | Delete org + user (no active access) |
 | Owner with other active members | **Blocked** — remove members first |
 | Non-owner member (edge case) | Delete user, CASCADE removes membership |
 
