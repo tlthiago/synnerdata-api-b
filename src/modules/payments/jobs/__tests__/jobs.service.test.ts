@@ -62,6 +62,54 @@ describe("JobsService", () => {
       expect(result.expired).not.toContain(subscription.id);
     });
 
+    test("should expire trials on private trial plans (admin provisions)", async () => {
+      const org = await OrganizationFactory.create();
+
+      // Create a private trial plan simulating admin provision with custom maxEmployees
+      const privatePlanId = `plan-${crypto.randomUUID()}`;
+      const privateTierId = `tier-${crypto.randomUUID()}`;
+
+      await db.insert(schema.subscriptionPlans).values({
+        id: privatePlanId,
+        name: `custom-trial-${org.id}`,
+        displayName: "Trial",
+        description: "Private trial plan",
+        trialDays: 14,
+        isActive: true,
+        isPublic: false,
+        isTrial: true,
+        sortOrder: -1,
+        organizationId: org.id,
+        basePlanId: trialPlan.plan.id,
+      });
+
+      await db.insert(schema.planPricingTiers).values({
+        id: privateTierId,
+        planId: privatePlanId,
+        minEmployees: 0,
+        maxEmployees: 50,
+        priceMonthly: 0,
+        priceYearly: 0,
+      });
+
+      // Create expired trial subscription referencing the private plan
+      await SubscriptionFactory.create(org.id, privatePlanId, {
+        status: "active",
+        trialDays: -1,
+      });
+
+      const result = await JobsService.expireTrials();
+
+      const [subscription] = await db
+        .select()
+        .from(schema.orgSubscriptions)
+        .where(eq(schema.orgSubscriptions.organizationId, org.id))
+        .limit(1);
+
+      expect(subscription.status).toBe("expired");
+      expect(result.expired.length).toBeGreaterThanOrEqual(1);
+    });
+
     test("should not affect active subscriptions", async () => {
       const org = await OrganizationFactory.create();
 

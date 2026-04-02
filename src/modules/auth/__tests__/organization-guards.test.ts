@@ -274,7 +274,7 @@ describe("Organization Guards: Limites e Proteções", () => {
         role: "owner",
       });
 
-      const { plan } = await PlanFactory.createTrial();
+      const { plan } = await PlanFactory.createPaid("gold");
       await SubscriptionFactory.createActive(org.id, plan.id);
 
       const response = await app.handle(

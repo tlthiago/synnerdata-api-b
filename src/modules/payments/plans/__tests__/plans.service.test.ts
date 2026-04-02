@@ -8,6 +8,7 @@ import {
   TierNotFoundError,
 } from "@/modules/payments/errors";
 import { PlansService } from "@/modules/payments/plans/plans.service";
+import { OrganizationFactory } from "@/test/factories/organization.factory";
 import { PlanFactory } from "@/test/factories/payments/plan.factory";
 
 describe("PlansService", () => {
@@ -48,6 +49,34 @@ describe("PlansService", () => {
       expect(trialPlan).toBeDefined();
       expect(trialPlan.isTrial).toBe(true);
       expect(trialPlan.trialDays).toBeGreaterThan(0);
+    });
+
+    test("should ignore private trial plans and return the public default", async () => {
+      const trialPlanResult = await PlanFactory.createTrial();
+
+      // Create a real org for FK constraint
+      const org = await OrganizationFactory.create();
+
+      // Create a private trial plan (simulating admin provision)
+      const privatePlanId = `plan-${crypto.randomUUID()}`;
+      await db.insert(schema.subscriptionPlans).values({
+        id: privatePlanId,
+        name: `custom-trial-private-${Date.now()}`,
+        displayName: "Trial",
+        description: "Private trial plan",
+        trialDays: 30,
+        isActive: true,
+        isPublic: false,
+        isTrial: true,
+        sortOrder: -1,
+        organizationId: org.id,
+        basePlanId: trialPlanResult.plan.id,
+      });
+
+      const result = await PlansService.getTrialPlan();
+
+      expect(result.id).toBe(trialPlanResult.plan.id);
+      expect(result.id).not.toBe(privatePlanId);
     });
 
     test("should return trial plan with single pricing tier", async () => {

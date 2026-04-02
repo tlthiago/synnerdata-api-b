@@ -138,6 +138,14 @@ export const restoreSubscriptionResponseSchema = successResponseSchema(
   restoreSubscriptionDataSchema
 );
 
+export const retryTrialResponseSchema = successResponseSchema(
+  z.object({
+    created: z
+      .boolean()
+      .describe("Whether the trial was created or already existed"),
+  })
+);
+
 export type DbSubscriptionStatus = z.infer<typeof dbSubscriptionStatusSchema>;
 export type AccessStatus = z.infer<typeof accessStatusSchema>;
 export type CheckAccessData = z.infer<typeof checkAccessDataSchema>;

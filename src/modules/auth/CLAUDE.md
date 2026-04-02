@@ -39,7 +39,7 @@ Autenticação via Email/Password e lifecycle de usuários/organizações.
 ## Organization Deletion Protection
 
 - `beforeDeleteOrganization` impede deleção se houver membros ativos além do owner (`ORGANIZATION_HAS_ACTIVE_MEMBERS`)
-- `beforeDeleteOrganization` impede deleção se houver assinatura ativa (`ORGANIZATION_HAS_ACTIVE_SUBSCRIPTION`)
+- `beforeDeleteOrganization` impede deleção se houver assinatura **paga** ativa com acesso (`hasAccess && status in ["active", "past_due"]`). Trials (ativos ou expirados) são permitidos
 
 ## Session
 
@@ -69,6 +69,34 @@ Autenticação via Email/Password e lifecycle de usuários/organizações.
 - **OTP (2FA)**: 6 dígitos, 5 min expiração, armazenamento encrypted
 - **Convite**: template com inviter, org name, link (`{APP_URL}/convite/{invitationId}?email={encoded}`), role
 - **Password reset**: link com expiração, revoga todas as sessions
+
+## Account Deletion
+
+- Enabled via Better Auth's native `user.deleteUser`
+- Frontend calls `authClient.deleteUser({ password })` → `POST /api/auth/delete-user`
+- `beforeDelete` hook runs validations and org cleanup before Better Auth deletes the user
+- `afterDelete` hook creates audit log
+
+### Deletion Rules
+
+| Condition | Result |
+|---|---|
+| Admin or super_admin | **Blocked** — admin accounts cannot self-delete |
+| User without org | Delete user directly |
+| Owner of trial org (active or expired), no other members | Delete org + user |
+| Owner with active paid subscription (`hasAccess` + `active`/`past_due`) | **Blocked** — cancel subscription first |
+| Owner with `past_due` outside grace period (`hasAccess=false`) | Delete org + user (no active access) |
+| Owner with other active members | **Blocked** — remove members first |
+| Non-owner member (edge case) | Delete user, CASCADE removes membership |
+
+### Cascade (DB-level)
+
+- Deleting organization → CASCADE: members, subscriptions, billing profiles, employees, all occurrences, org profile, pending checkouts, price adjustments
+- Deleting user → CASCADE: sessions, accounts, twoFactors, apikeys, invitations (as inviter)
+
+### Future: Robust Version
+
+Simple hard delete will be replaced with soft delete + grace period. See memory notes.
 
 ## Melhorias Futuras
 

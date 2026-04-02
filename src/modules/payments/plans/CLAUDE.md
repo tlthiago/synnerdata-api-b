@@ -6,8 +6,10 @@ Planos com pricing tiers por faixa de funcionários.
 
 - Nome do plano único
 - Não pode deletar plano com subscriptions ativas
-- Trial plan: `isTrial=true`, `trialDays=14`, 1 tier (0-10), todas as features
-- Unique trial constraint: apenas 1 plano trial ativo (não arquivado) por vez — enforced via partial unique index `subscription_plans_single_active_trial`
+- Trial plan (default/público): `isTrial=true`, `trialDays=14`, 1 tier (0-10), todas as features, `organizationId=NULL`
+- Trial plans privados (admin provisions): `isTrial=true`, `isPublic=false`, `organizationId` setado, tier customizado — isolados do plano default
+- Unique trial constraint: apenas 1 plano trial **público** ativo por vez — enforced via partial unique index `subscription_plans_single_active_trial` (`isTrial=true AND archivedAt IS NULL AND organizationId IS NULL`). Planos trial privados não são afetados pelo constraint
+- `getTrialPlan()` filtra por `organizationId IS NULL` para sempre retornar o plano trial público default, nunca um privado
 - Paid plans: `isTrial=false`, >= 1 tier contíguo (sem gaps/overlaps, first tier starts at 0)
 - Feature IDs são validados contra a tabela `features` no create e update — devem existir e estar ativos (`is_active=true`). Erro `INVALID_FEATURE_IDS` (422) com lista de IDs inválidos
 

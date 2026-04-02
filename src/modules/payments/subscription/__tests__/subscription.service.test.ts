@@ -166,6 +166,49 @@ describe("SubscriptionService", () => {
       expect(result.requiresPayment).toBe(true);
     });
 
+    test("should return trial status for subscription on private trial plan", async () => {
+      const org = await OrganizationFactory.create();
+
+      // Create a private trial plan (simulating admin provision with custom maxEmployees)
+      const privatePlanId = `plan-${crypto.randomUUID()}`;
+      const privateTierId = `tier-${crypto.randomUUID()}`;
+
+      await db.insert(schema.subscriptionPlans).values({
+        id: privatePlanId,
+        name: `custom-trial-${org.id}`,
+        displayName: "Trial",
+        description: "Private trial plan",
+        trialDays: 14,
+        isActive: true,
+        isPublic: false,
+        isTrial: true,
+        sortOrder: -1,
+        organizationId: org.id,
+        basePlanId: trialPlanResult.plan.id,
+      });
+
+      await db.insert(schema.planPricingTiers).values({
+        id: privateTierId,
+        planId: privatePlanId,
+        minEmployees: 0,
+        maxEmployees: 50,
+        priceMonthly: 0,
+        priceYearly: 0,
+      });
+
+      await SubscriptionFactory.create(org.id, privatePlanId, {
+        status: "active",
+        trialDays: 14,
+      });
+
+      const result = await SubscriptionService.checkAccess(org.id);
+
+      expect(result.hasAccess).toBe(true);
+      expect(result.status).toBe("trial");
+      expect(result.daysRemaining).toBeGreaterThan(0);
+      expect(result.requiresPayment).toBe(false);
+    });
+
     test("should return canceled status without access", async () => {
       const org = await OrganizationFactory.create();
       await SubscriptionFactory.createCanceled(

@@ -33,9 +33,17 @@ Lifecycle completo de assinaturas: trial, ativação, cancelamento, restauraçã
 - Sem recuperação após status `canceled` ou `expired`
 - Operações de billing (invoices, update-card) retornam `BILLING_NOT_AVAILABLE_FOR_TRIAL` (400) para trial
 
+## Trial Recovery
+
+- `afterCreateOrganization` em `auth.ts` cria o trial com try/catch — falha não bloqueia criação da org
+- `POST /subscription/retry-trial` permite o frontend recuperar de falha na criação do trial
+- O endpoint é idempotente — se trial já existe, retorna sucesso sem duplicar
+- Requer `requireOrganization` (user deve ter org ativa na sessão)
+
 ## Endpoints
 
 - `GET /subscription` — dados da subscription
 - `GET /subscription/capabilities` — features com status de acesso
 - `POST /subscription/cancel` — agendar cancelamento
 - `POST /subscription/restore` — restaurar cancelamento agendado
+- `POST /subscription/retry-trial` — recuperar criação de trial falhada (idempotente)

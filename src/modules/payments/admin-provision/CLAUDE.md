@@ -47,7 +47,7 @@ O endpoint `POST /admin/provisions/trial` aceita parâmetros opcionais:
 - `trialDays` (optional, 1-365) — duração em dias. Default: 14 (do plano trial base)
 - `maxEmployees` (optional, 1-1000) — limite de funcionários. Default: 10 (do tier trial base)
 
-Quando `maxEmployees` é informado, um pricing tier dedicado é criado (preço 0, vinculado ao plano trial). O tier customizado é a fonte de verdade para o `LimitsService`.
+Quando `maxEmployees` é informado, um **plano trial privado isolado** é criado (`isPublic=false`, `isTrial=true`, `organizationId` setado, `basePlanId` apontando para o trial padrão) com features, limits e um tier customizado copiados do plano trial base. A subscription é atualizada para referenciar o plano e tier privados. Mesmo padrão arquitetural do admin-checkout (plano privado por org). O tier customizado é a fonte de verdade para o `LimitsService`.
 
 ## Organization Data
 
