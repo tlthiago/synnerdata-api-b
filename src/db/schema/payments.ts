@@ -55,7 +55,9 @@ export const subscriptionPlans = pgTable(
     index("subscription_plans_archived_at_idx").on(table.archivedAt),
     uniqueIndex("subscription_plans_single_active_trial")
       .on(table.isTrial)
-      .where(sql`${table.isTrial} = true AND ${table.archivedAt} IS NULL`),
+      .where(
+        sql`${table.isTrial} = true AND ${table.archivedAt} IS NULL AND ${table.organizationId} IS NULL`
+      ),
   ]
 );
 

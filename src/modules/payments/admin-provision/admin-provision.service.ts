@@ -914,7 +914,7 @@ export abstract class AdminProvisionService {
         trialDays: trialPlan.trialDays,
         isActive: true,
         isPublic: false,
-        isTrial: false,
+        isTrial: true,
         sortOrder: -1,
         organizationId,
         basePlanId: trialPlan.id,

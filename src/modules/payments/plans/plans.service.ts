@@ -149,7 +149,8 @@ export abstract class PlansService {
       .where(
         and(
           eq(schema.subscriptionPlans.isTrial, true),
-          isNull(schema.subscriptionPlans.archivedAt)
+          isNull(schema.subscriptionPlans.archivedAt),
+          isNull(schema.subscriptionPlans.organizationId)
         )
       )
       .orderBy(desc(schema.subscriptionPlans.id))
