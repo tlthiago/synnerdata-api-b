@@ -253,6 +253,13 @@
       "when": 1773320377537,
       "tag": "0035_make-labor-lawsuit-court-filing-knowledge-optional",
       "breakpoints": true
+    },
+    {
+      "idx": 36,
+      "version": "7",
+      "when": 1775167200000,
+      "tag": "0036_fix-trial-plan-orphaned-tiers",
+      "breakpoints": true
     }
   ]
 }
