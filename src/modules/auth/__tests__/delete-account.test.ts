@@ -76,6 +76,51 @@ describe("Delete Account", () => {
 
       expect(response.status).toBe(200);
     });
+
+    test("should allow email to be invited to another organization after deletion", async () => {
+      const { user, headers } = await UserFactory.create();
+      const deletedEmail = user.email;
+
+      await deleteAccount(app, headers.Cookie);
+
+      // Create another owner with their own org
+      const otherOwner = await UserFactory.create();
+      const otherOrg = await OrganizationFactory.create();
+      await OrganizationFactory.addMember(otherOwner, {
+        organizationId: otherOrg.id,
+        role: "owner",
+      });
+
+      // Invite the deleted email to the other org
+      const inviteResponse = await app.handle(
+        new Request(`${BASE_URL}/api/auth/organization/invite-member`, {
+          method: "POST",
+          headers: {
+            "Content-Type": "application/json",
+            Cookie: otherOwner.headers.Cookie,
+          },
+          body: JSON.stringify({
+            email: deletedEmail,
+            role: "viewer",
+            organizationId: otherOrg.id,
+          }),
+        })
+      );
+
+      expect(inviteResponse.status).toBe(200);
+
+      // Verify invitation was created
+      const [invitation] = await db
+        .select()
+        .from(schema.invitations)
+        .where(eq(schema.invitations.email, deletedEmail))
+        .limit(1);
+
+      expect(invitation).toBeDefined();
+      expect(invitation.organizationId).toBe(otherOrg.id);
+      expect(invitation.role).toBe("viewer");
+      expect(invitation.status).toBe("pending");
+    });
   });
 
   describe("owner of trial organization", () => {
@@ -125,6 +170,38 @@ describe("Delete Account", () => {
         .where(eq(schema.orgSubscriptions.organizationId, org.id))
         .limit(1);
       expect(deletedSub).toBeUndefined();
+    });
+  });
+
+  describe("owner of expired trial organization", () => {
+    test("should delete account and organization", async () => {
+      const userResult = await UserFactory.create();
+      const org = await OrganizationFactory.create();
+      await OrganizationFactory.addMember(userResult, {
+        organizationId: org.id,
+        role: "owner",
+      });
+
+      const { plan } = await PlanFactory.createTrial();
+      await SubscriptionFactory.createTrial(org.id, plan.id, -1);
+
+      const response = await deleteAccount(app, userResult.headers.Cookie);
+
+      expect(response.status).toBe(200);
+
+      const [deletedUser] = await db
+        .select()
+        .from(schema.users)
+        .where(eq(schema.users.id, userResult.user.id))
+        .limit(1);
+      expect(deletedUser).toBeUndefined();
+
+      const [deletedOrg] = await db
+        .select()
+        .from(schema.organizations)
+        .where(eq(schema.organizations.id, org.id))
+        .limit(1);
+      expect(deletedOrg).toBeUndefined();
     });
   });
 
