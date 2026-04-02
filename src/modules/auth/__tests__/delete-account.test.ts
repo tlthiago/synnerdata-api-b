@@ -83,7 +83,6 @@ describe("Delete Account", () => {
 
       await deleteAccount(app, headers.Cookie);
 
-      // Create another owner with their own org
       const otherOwner = await UserFactory.create();
       const otherOrg = await OrganizationFactory.create();
       await OrganizationFactory.addMember(otherOwner, {
@@ -91,7 +90,6 @@ describe("Delete Account", () => {
         role: "owner",
       });
 
-      // Invite the deleted email to the other org
       const inviteResponse = await app.handle(
         new Request(`${BASE_URL}/api/auth/organization/invite-member`, {
           method: "POST",
@@ -109,7 +107,6 @@ describe("Delete Account", () => {
 
       expect(inviteResponse.status).toBe(200);
 
-      // Verify invitation was created
       const [invitation] = await db
         .select()
         .from(schema.invitations)
@@ -139,7 +136,6 @@ describe("Delete Account", () => {
 
       expect(response.status).toBe(200);
 
-      // Verify user deleted
       const [deletedUser] = await db
         .select()
         .from(schema.users)
@@ -147,7 +143,6 @@ describe("Delete Account", () => {
         .limit(1);
       expect(deletedUser).toBeUndefined();
 
-      // Verify org deleted
       const [deletedOrg] = await db
         .select()
         .from(schema.organizations)
@@ -155,7 +150,6 @@ describe("Delete Account", () => {
         .limit(1);
       expect(deletedOrg).toBeUndefined();
 
-      // Verify membership deleted
       const [deletedMember] = await db
         .select()
         .from(schema.members)
@@ -163,7 +157,6 @@ describe("Delete Account", () => {
         .limit(1);
       expect(deletedMember).toBeUndefined();
 
-      // Verify subscription deleted
       const [deletedSub] = await db
         .select()
         .from(schema.orgSubscriptions)
@@ -205,8 +198,46 @@ describe("Delete Account", () => {
     });
   });
 
+  describe("owner with past_due subscription outside grace period", () => {
+    test("should allow deletion when payment failed and grace expired", async () => {
+      const userResult = await UserFactory.create();
+      const org = await OrganizationFactory.create();
+      await OrganizationFactory.addMember(userResult, {
+        organizationId: org.id,
+        role: "owner",
+      });
+
+      const { plan } = await PlanFactory.createPaid("gold");
+      // past_due with grace period already expired (gracePeriodEnds in the past)
+      const pastDate = new Date();
+      pastDate.setDate(pastDate.getDate() - 30);
+      await SubscriptionFactory.create(org.id, plan.id, {
+        status: "past_due",
+      });
+      // Set grace period to past manually
+      await db
+        .update(schema.orgSubscriptions)
+        .set({
+          pastDueSince: new Date(pastDate.getTime() - 15 * 24 * 60 * 60 * 1000),
+          gracePeriodEnds: pastDate,
+        })
+        .where(eq(schema.orgSubscriptions.organizationId, org.id));
+
+      const response = await deleteAccount(app, userResult.headers.Cookie);
+
+      expect(response.status).toBe(200);
+
+      const [deletedUser] = await db
+        .select()
+        .from(schema.users)
+        .where(eq(schema.users.id, userResult.user.id))
+        .limit(1);
+      expect(deletedUser).toBeUndefined();
+    });
+  });
+
   describe("owner with active paid subscription", () => {
-    test("should block deletion", async () => {
+    test("should block deletion with 400", async () => {
       const userResult = await UserFactory.create();
       const org = await OrganizationFactory.create();
       await OrganizationFactory.addMember(userResult, {
@@ -219,12 +250,11 @@ describe("Delete Account", () => {
 
       const response = await deleteAccount(app, userResult.headers.Cookie);
 
-      expect(response.status).not.toBe(200);
+      expect(response.status).toBe(400);
 
       const body = await response.json();
       expect(body.code).toBe("ACTIVE_SUBSCRIPTION");
 
-      // Verify user still exists
       const [existingUser] = await db
         .select()
         .from(schema.users)
@@ -235,7 +265,7 @@ describe("Delete Account", () => {
   });
 
   describe("owner with other members", () => {
-    test("should block deletion", async () => {
+    test("should block deletion with 400", async () => {
       const ownerResult = await UserFactory.create();
       const memberResult = await UserFactory.create();
 
@@ -251,16 +281,58 @@ describe("Delete Account", () => {
 
       const response = await deleteAccount(app, ownerResult.headers.Cookie);
 
-      expect(response.status).not.toBe(200);
+      expect(response.status).toBe(400);
 
       const body = await response.json();
       expect(body.code).toBe("ORGANIZATION_HAS_MEMBERS");
 
-      // Verify user still exists
       const [existingUser] = await db
         .select()
         .from(schema.users)
         .where(eq(schema.users.id, ownerResult.user.id))
+        .limit(1);
+      expect(existingUser).toBeDefined();
+    });
+  });
+
+  describe("admin and super_admin accounts", () => {
+    test("should block admin from deleting own account", async () => {
+      const adminResult = await UserFactory.createAdmin({ role: "admin" });
+
+      const response = await deleteAccount(app, adminResult.headers.Cookie);
+
+      expect(response.status).toBe(400);
+
+      const body = await response.json();
+      expect(body.code).toBe("ADMIN_ACCOUNT_DELETE_FORBIDDEN");
+
+      const [existingUser] = await db
+        .select()
+        .from(schema.users)
+        .where(eq(schema.users.id, adminResult.user.id))
+        .limit(1);
+      expect(existingUser).toBeDefined();
+    });
+
+    test("should block super_admin from deleting own account", async () => {
+      const superAdminResult = await UserFactory.createAdmin({
+        role: "super_admin",
+      });
+
+      const response = await deleteAccount(
+        app,
+        superAdminResult.headers.Cookie
+      );
+
+      expect(response.status).toBe(400);
+
+      const body = await response.json();
+      expect(body.code).toBe("ADMIN_ACCOUNT_DELETE_FORBIDDEN");
+
+      const [existingUser] = await db
+        .select()
+        .from(schema.users)
+        .where(eq(schema.users.id, superAdminResult.user.id))
         .limit(1);
       expect(existingUser).toBeDefined();
     });

@@ -374,6 +374,16 @@ export const auth = betterAuth({
     deleteUser: {
       enabled: true,
       async beforeDelete(user, request) {
+        // Block admin/super_admin from deleting their own account
+        const userRole = (user as AuthUser).role;
+        if (userRole === "admin" || userRole === "super_admin") {
+          throw new APIError("BAD_REQUEST", {
+            code: "ADMIN_ACCOUNT_DELETE_FORBIDDEN",
+            message:
+              "Contas de administrador não podem ser excluídas por esta ação.",
+          });
+        }
+
         const membership = await db.query.members.findFirst({
           where: eq(schema.members.userId, user.id),
         });
@@ -391,7 +401,7 @@ export const auth = betterAuth({
           membership.organizationId
         );
         const paidStatuses: string[] = ["active", "past_due"];
-        if (paidStatuses.includes(access.status)) {
+        if (access.hasAccess && paidStatuses.includes(access.status)) {
           throw new APIError("BAD_REQUEST", {
             code: "ACTIVE_SUBSCRIPTION",
             message:
@@ -696,7 +706,7 @@ export const auth = betterAuth({
 
           const access = await SubscriptionService.checkAccess(org.id);
           const paidStatuses: string[] = ["active", "past_due"];
-          if (paidStatuses.includes(access.status)) {
+          if (access.hasAccess && paidStatuses.includes(access.status)) {
             throw new APIError("BAD_REQUEST", {
               code: "ORGANIZATION_HAS_ACTIVE_SUBSCRIPTION",
               message:
