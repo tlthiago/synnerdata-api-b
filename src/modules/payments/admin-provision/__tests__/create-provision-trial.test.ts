@@ -458,13 +458,25 @@ describe("POST /v1/payments/admin/provisions/trial", () => {
     );
     expect(diffDays).toBe(30);
 
-    // ── Step 11: Verify custom pricing tier (maxEmployees=50) ───
+    // ── Step 11: Verify private trial plan and custom tier ───
+    const [privatePlan] = await db
+      .select()
+      .from(schema.subscriptionPlans)
+      .where(eq(schema.subscriptionPlans.id, subscription.planId))
+      .limit(1);
+
+    expect(privatePlan.isTrial).toBe(true);
+    expect(privatePlan.isPublic).toBe(false);
+    expect(privatePlan.organizationId).toBe(data.organizationId);
+    expect(privatePlan.basePlanId).toBeDefined();
+
     const [tier] = await db
       .select()
       .from(schema.planPricingTiers)
       .where(eq(schema.planPricingTiers.id, String(subscription.pricingTierId)))
       .limit(1);
 
+    expect(tier.planId).toBe(privatePlan.id);
     expect(tier.maxEmployees).toBe(50);
     expect(tier.priceMonthly).toBe(0);
     expect(tier.priceYearly).toBe(0);
