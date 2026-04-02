@@ -425,7 +425,7 @@ export const auth = betterAuth({
         // Delete organization via Better Auth API (triggers existing org hooks)
         await auth.api.deleteOrganization({
           body: { organizationId: membership.organizationId },
-          headers: request?.headers,
+          headers: request?.headers ?? new Headers(),
         });
       },
       async afterDelete(user) {
