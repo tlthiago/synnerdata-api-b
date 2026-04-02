@@ -198,34 +198,31 @@ export abstract class AdminProvisionService {
     });
 
     try {
-      // Create custom pricing tier if needed
-      let trialOptions:
-        | { customPricingTierId?: string; customTrialDays?: number }
-        | undefined;
-
-      if (trialDays || maxEmployees) {
-        const trialPlan = await PlansService.getTrialPlan();
-        const customTierId = maxEmployees
-          ? await AdminProvisionService.createCustomTrialTier(
-              trialPlan.id,
-              maxEmployees
-            )
-          : undefined;
-
-        trialOptions = {
-          customPricingTierId: customTierId,
-          customTrialDays: trialDays,
-        };
-      }
-
       // 4. Create organization directly (bypasses allowUserToCreateOrganization)
       const createdOrg = await createOrganizationForUser({
         name: organization.name,
         tradeName: organization.tradeName,
         slug: organizationSlug,
         userId: createdUser.id,
-        trialOptions,
+        trialOptions: trialDays ? { customTrialDays: trialDays } : undefined,
       });
+
+      // Create private trial plan with custom tier if maxEmployees is specified
+      if (maxEmployees) {
+        const trialPlan = await PlansService.getTrialPlan();
+        const { planId, tierId } =
+          await AdminProvisionService.createCustomTrialPlan(
+            trialPlan,
+            maxEmployees,
+            createdOrg.id
+          );
+
+        // Update subscription to reference the private plan and custom tier
+        await db
+          .update(schema.orgSubscriptions)
+          .set({ planId, pricingTierId: tierId })
+          .where(eq(schema.orgSubscriptions.organizationId, createdOrg.id));
+      }
 
       // 5. Enrich org profile with provided data
       const { OrganizationService } = await import(
@@ -894,20 +891,81 @@ export abstract class AdminProvisionService {
     });
   }
 
-  private static async createCustomTrialTier(
-    trialPlanId: string,
-    maxEmployees: number
-  ): Promise<string> {
+  /**
+   * Creates a private trial plan with a custom tier for admin provisions.
+   * Unlike the old approach that added tiers to the default trial plan (polluting it),
+   * this creates an isolated private plan per provision — same pattern as admin-checkout.
+   */
+  private static async createCustomTrialPlan(
+    trialPlan: { id: string; displayName: string; trialDays: number },
+    maxEmployees: number,
+    organizationId: string
+  ): Promise<{ planId: string; tierId: string }> {
+    const planId = `plan-${crypto.randomUUID()}`;
     const tierId = `tier-${crypto.randomUUID()}`;
-    await db.insert(schema.planPricingTiers).values({
-      id: tierId,
-      planId: trialPlanId,
-      minEmployees: 0,
-      maxEmployees,
-      priceMonthly: 0,
-      priceYearly: 0,
+    const timestamp = Date.now();
+
+    await db.transaction(async (tx) => {
+      await tx.insert(schema.subscriptionPlans).values({
+        id: planId,
+        name: `custom-trial-${organizationId}-${timestamp}`,
+        displayName: trialPlan.displayName,
+        description: `Custom trial plan for org ${organizationId}`,
+        trialDays: trialPlan.trialDays,
+        isActive: true,
+        isPublic: false,
+        isTrial: false,
+        sortOrder: -1,
+        organizationId,
+        basePlanId: trialPlan.id,
+      });
+
+      // Copy features from base trial plan
+      const baseFeatures = await tx
+        .select({ featureId: schema.planFeatures.featureId })
+        .from(schema.planFeatures)
+        .where(eq(schema.planFeatures.planId, trialPlan.id));
+
+      if (baseFeatures.length > 0) {
+        await tx.insert(schema.planFeatures).values(
+          baseFeatures.map((f) => ({
+            planId,
+            featureId: f.featureId,
+          }))
+        );
+      }
+
+      // Copy limits from base trial plan (with custom maxEmployees)
+      const baseLimits = await tx
+        .select({
+          limitKey: schema.planLimits.limitKey,
+          limitValue: schema.planLimits.limitValue,
+        })
+        .from(schema.planLimits)
+        .where(eq(schema.planLimits.planId, trialPlan.id));
+
+      if (baseLimits.length > 0) {
+        await tx.insert(schema.planLimits).values(
+          baseLimits.map((l) => ({
+            planId,
+            limitKey: l.limitKey,
+            limitValue:
+              l.limitKey === "max_employees" ? maxEmployees : l.limitValue,
+          }))
+        );
+      }
+
+      await tx.insert(schema.planPricingTiers).values({
+        id: tierId,
+        planId,
+        minEmployees: 0,
+        maxEmployees,
+        priceMonthly: 0,
+        priceYearly: 0,
+      });
     });
-    return tierId;
+
+    return { planId, tierId };
   }
 
   private static async fetchSubscriptionInfo(
