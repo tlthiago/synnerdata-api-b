@@ -16,6 +16,7 @@ import {
   cancelSubscriptionResponseSchema,
   getSubscriptionResponseSchema,
   restoreSubscriptionResponseSchema,
+  retryTrialResponseSchema,
 } from "./subscription.model";
 import { SubscriptionService } from "./subscription.service";
 
@@ -139,6 +140,31 @@ export const subscriptionController = new Elysia({
         summary: "Restore canceled subscription",
         description:
           "Restores a subscription that was scheduled for cancellation, reactivating it before the period ends.",
+      },
+    }
+  )
+  .post(
+    "/retry-trial",
+    async ({ session }) => {
+      await SubscriptionService.createTrial(
+        session.activeOrganizationId as string
+      );
+      return wrapSuccess({ created: true });
+    },
+    {
+      auth: {
+        requireOrganization: true,
+      },
+      response: {
+        200: retryTrialResponseSchema,
+        401: unauthorizedErrorSchema,
+        403: forbiddenErrorSchema,
+      },
+      detail: {
+        hide: isProduction,
+        summary: "Retry trial subscription creation",
+        description:
+          "Creates a trial subscription for the active organization if one does not already exist. Idempotent — returns success if trial already exists.",
       },
     }
   );

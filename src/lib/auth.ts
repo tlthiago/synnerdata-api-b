@@ -651,7 +651,16 @@ export const auth = betterAuth({
             "@/modules/organizations/profile/organization.service"
           );
 
-          await SubscriptionService.createTrial(org.id);
+          try {
+            await SubscriptionService.createTrial(org.id);
+          } catch (error) {
+            logger.error({
+              type: "organization:trial-creation:failed",
+              organizationId: org.id,
+              userId: member.userId,
+              error: error instanceof Error ? error.message : String(error),
+            });
+          }
 
           OrganizationService.createMinimalProfile(org.id, org.name).catch(
             (error) => {
