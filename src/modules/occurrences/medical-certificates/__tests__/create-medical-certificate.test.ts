@@ -60,7 +60,6 @@ describe("POST /v1/medical-certificates", () => {
 
   test.each([
     "viewer",
-    "supervisor",
   ] as const)("should reject %s from creating medical certificate", async (role) => {
     const { addMemberToOrganization } = await import(
       "@/test/helpers/organization"

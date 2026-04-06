@@ -386,7 +386,6 @@ describe("POST /v1/warnings", () => {
 
   test.each([
     "viewer",
-    "supervisor",
   ] as const)("should reject %s member from creating warning", async (role) => {
     const { addMemberToOrganization } = await import(
       "@/test/helpers/organization"

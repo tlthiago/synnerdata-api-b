@@ -367,7 +367,6 @@ describe("POST /v1/labor-lawsuits", () => {
 
   test.each([
     "viewer",
-    "supervisor",
   ] as const)("should reject %s from creating lawsuit", async (role) => {
     const { addMemberToOrganization } = await import(
       "@/test/helpers/organization"

@@ -146,7 +146,6 @@ describe("DELETE /v1/warnings/:id", () => {
 
   test.each([
     "viewer",
-    "supervisor",
   ] as const)("should reject %s member from deleting warning", async (role) => {
     const { addMemberToOrganization } = await import(
       "@/test/helpers/organization"

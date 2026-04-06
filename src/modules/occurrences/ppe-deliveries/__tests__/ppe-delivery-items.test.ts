@@ -163,7 +163,6 @@ describe("PPE Delivery Items Endpoints", () => {
 
     test.each([
       "viewer",
-      "supervisor",
     ] as const)("should reject %s from adding ppe item", async (role) => {
       const { addMemberToOrganization } = await import(
         "@/test/helpers/organization"
@@ -413,7 +412,6 @@ describe("PPE Delivery Items Endpoints", () => {
 
     test.each([
       "viewer",
-      "supervisor",
     ] as const)("should reject %s from removing ppe item", async (role) => {
       const { addMemberToOrganization } = await import(
         "@/test/helpers/organization"

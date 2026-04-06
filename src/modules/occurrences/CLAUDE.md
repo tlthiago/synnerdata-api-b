@@ -47,5 +47,5 @@ Shared errors: `EmployeeTerminatedError` (422), `EmployeeOnVacationError` (422).
 ## Permissions
 
 - Maioria usa resource name específico: `{ absence: ["create"] }`, `{ accident: ["read"] }`
-- Exceções: terminations e promotions usam `{ occurrence: ["create"] }` genérico
+- Sem exceções: cada recurso usa sua chave específica (e.g., `{ promotion: ["create"] }`, `{ termination: ["create"] }`)
 - Todos requerem `requireOrganization: true`

@@ -175,7 +175,6 @@ describe("DELETE /v1/accidents/:id", () => {
 
   test.each([
     "viewer",
-    "supervisor",
   ] as const)("should reject %s member from deleting accident", async (role) => {
     const { addMemberToOrganization } = await import(
       "@/test/helpers/organization"

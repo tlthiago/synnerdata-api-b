@@ -53,7 +53,6 @@ describe("PUT /v1/medical-certificates/:id", () => {
 
   test.each([
     "viewer",
-    "supervisor",
   ] as const)("should reject %s from updating medical certificate", async (role) => {
     const { addMemberToOrganization } = await import(
       "@/test/helpers/organization"

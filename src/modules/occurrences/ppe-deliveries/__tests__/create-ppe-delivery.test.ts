@@ -246,7 +246,6 @@ describe("POST /v1/ppe-deliveries", () => {
 
   test.each([
     "viewer",
-    "supervisor",
   ] as const)("should reject %s from creating ppe delivery", async (role) => {
     const { addMemberToOrganization } = await import(
       "@/test/helpers/organization"

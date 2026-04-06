@@ -17,11 +17,22 @@ jobs:
       - name: Checkout backend
         uses: actions/checkout@v4
 
+      - name: Resolve frontend ref
+        id: resolve-ref
+        run: |
+          BRANCH="${{ github.head_ref }}"
+          if git ls-remote --exit-code --heads https://github.com/tlthiago/synnerdata-web-n.git "refs/heads/$BRANCH" > /dev/null 2>&1; then
+            echo "ref=$BRANCH" >> "$GITHUB_OUTPUT"
+          else
+            echo "ref=main" >> "$GITHUB_OUTPUT"
+          fi
+
       - name: Checkout frontend
         uses: actions/checkout@v4
         with:
           repository: tlthiago/synnerdata-web-n
           path: synnerdata-web-n
+          ref: ${{ steps.resolve-ref.outputs.ref }}
           sparse-checkout: src/lib/permissions.ts
           sparse-checkout-cone-mode: false
 

@@ -48,12 +48,44 @@ async function getMinimumPlanForFeature(
 // Cache for plan display names (loaded from database)
 let planDisplayNamesCache: Map<string, string> | null = null;
 
+// Cache for feature display names (loaded from database)
+let featureDisplayNamesCache: Map<string, string> | null = null;
+
 /**
  * Clears the plan display names cache.
  * Useful for testing when plans are created dynamically.
  */
 export function clearPlanDisplayNamesCache(): void {
   planDisplayNamesCache = null;
+}
+
+/**
+ * Clears the feature display names cache.
+ */
+export function clearFeatureDisplayNamesCache(): void {
+  featureDisplayNamesCache = null;
+}
+
+/**
+ * Gets the display name for a feature from the database.
+ * Falls back to the feature ID if not found.
+ */
+async function getFeatureDisplayName(featureId: string): Promise<string> {
+  if (!featureDisplayNamesCache) {
+    featureDisplayNamesCache = new Map();
+    const features = await db
+      .select({
+        id: schema.features.id,
+        displayName: schema.features.displayName,
+      })
+      .from(schema.features);
+
+    for (const feature of features) {
+      featureDisplayNamesCache.set(feature.id, feature.displayName);
+    }
+  }
+
+  return featureDisplayNamesCache.get(featureId) ?? featureId;
 }
 
 /**
@@ -100,7 +132,10 @@ export abstract class LimitsService {
     );
 
     if (!result.hasAccess) {
-      throw new FeatureNotAvailableError(featureName);
+      throw new FeatureNotAvailableError(
+        result.featureDisplayName,
+        result.requiredPlan ?? undefined
+      );
     }
   }
 
@@ -115,13 +150,17 @@ export abstract class LimitsService {
     const planFeatures = await LimitsService.getPlanFeatures(organizationId);
 
     const hasAccess = planFeatures.includes(featureName);
-    const requiredPlanType = await getMinimumPlanForFeature(featureName);
+    const [requiredPlanType, featureDisplayName] = await Promise.all([
+      getMinimumPlanForFeature(featureName),
+      getFeatureDisplayName(featureName),
+    ]);
     const requiredPlan = requiredPlanType
       ? await getPlanDisplayName(requiredPlanType)
       : null;
 
     return {
       featureName,
+      featureDisplayName,
       hasAccess,
       requiredPlan,
     };
@@ -143,13 +182,17 @@ export abstract class LimitsService {
     const results: FeatureAccess[] = await Promise.all(
       featureNames.map(async (featureName) => {
         const hasAccess = planFeatures.includes(featureName);
-        const requiredPlanType = await getMinimumPlanForFeature(featureName);
+        const [requiredPlanType, featureDisplayName] = await Promise.all([
+          getMinimumPlanForFeature(featureName),
+          getFeatureDisplayName(featureName),
+        ]);
         const requiredPlan = requiredPlanType
           ? await getPlanDisplayName(requiredPlanType)
           : null;
 
         return {
           featureName,
+          featureDisplayName,
           hasAccess,
           requiredPlan,
         };
@@ -222,22 +265,25 @@ export abstract class LimitsService {
     } = await LimitsService.getPlanInfo(organizationId);
 
     const allFeatures = await db
-      .select({ id: schema.features.id })
+      .select({
+        id: schema.features.id,
+        displayName: schema.features.displayName,
+      })
       .from(schema.features)
       .where(eq(schema.features.isActive, true))
       .orderBy(schema.features.sortOrder);
-    const allFeatureNames = allFeatures.map((f) => f.id);
 
     const features: FeatureAccess[] = await Promise.all(
-      allFeatureNames.map(async (featureName) => {
-        const hasAccess = availableFeatures.includes(featureName);
-        const requiredPlanType = await getMinimumPlanForFeature(featureName);
+      allFeatures.map(async (feature) => {
+        const hasAccess = availableFeatures.includes(feature.id);
+        const requiredPlanType = await getMinimumPlanForFeature(feature.id);
         const requiredPlan = requiredPlanType
           ? await getPlanDisplayName(requiredPlanType)
           : null;
 
         return {
-          featureName,
+          featureName: feature.id,
+          featureDisplayName: feature.displayName,
           hasAccess,
           requiredPlan,
         };

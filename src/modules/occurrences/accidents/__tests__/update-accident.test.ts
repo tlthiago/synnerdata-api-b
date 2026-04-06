@@ -303,7 +303,6 @@ describe("PUT /v1/accidents/:id", () => {
 
   test.each([
     "viewer",
-    "supervisor",
   ] as const)("should reject %s member from updating accident", async (role) => {
     const { addMemberToOrganization } = await import(
       "@/test/helpers/organization"

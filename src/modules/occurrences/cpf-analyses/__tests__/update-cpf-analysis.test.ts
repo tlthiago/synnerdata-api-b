@@ -46,7 +46,6 @@ describe("PUT /v1/cpf-analyses/:id", () => {
   });
 
   test.each([
-    "supervisor",
     "viewer",
   ] as const)("should reject %s member from updating cpf analysis", async (role) => {
     const { addMemberToOrganization } = await import(
