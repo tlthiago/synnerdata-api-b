@@ -265,22 +265,25 @@ export abstract class LimitsService {
     } = await LimitsService.getPlanInfo(organizationId);
 
     const allFeatures = await db
-      .select({ id: schema.features.id })
+      .select({
+        id: schema.features.id,
+        displayName: schema.features.displayName,
+      })
       .from(schema.features)
       .where(eq(schema.features.isActive, true))
       .orderBy(schema.features.sortOrder);
-    const allFeatureNames = allFeatures.map((f) => f.id);
 
     const features: FeatureAccess[] = await Promise.all(
-      allFeatureNames.map(async (featureName) => {
-        const hasAccess = availableFeatures.includes(featureName);
-        const requiredPlanType = await getMinimumPlanForFeature(featureName);
+      allFeatures.map(async (feature) => {
+        const hasAccess = availableFeatures.includes(feature.id);
+        const requiredPlanType = await getMinimumPlanForFeature(feature.id);
         const requiredPlan = requiredPlanType
           ? await getPlanDisplayName(requiredPlanType)
           : null;
 
         return {
-          featureName,
+          featureName: feature.id,
+          featureDisplayName: feature.displayName,
           hasAccess,
           requiredPlan,
         };

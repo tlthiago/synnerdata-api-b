@@ -396,9 +396,11 @@ export class InvalidEmployeeRangeError extends PaymentError {
 export class FeatureNotAvailableError extends PaymentError {
   status = 403;
 
-  constructor(featureName: string) {
+  constructor(featureName: string, requiredPlan?: string) {
     super(
-      `Funcionalidade "${featureName}" não disponível no seu plano atual`,
+      requiredPlan
+        ? `Funcionalidade "${featureName}" requer o plano ${requiredPlan}`
+        : `Funcionalidade "${featureName}" não disponível no seu plano atual`,
       "FEATURE_NOT_AVAILABLE",
       { featureName }
     );
