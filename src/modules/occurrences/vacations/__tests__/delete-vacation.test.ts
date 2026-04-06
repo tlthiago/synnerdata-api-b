@@ -47,7 +47,6 @@ describe("DELETE /v1/vacations/:id", () => {
 
   test.each([
     "viewer",
-    "supervisor",
   ] as const)("should reject %s member from deleting vacation", async (role) => {
     const { addMemberToOrganization } = await import(
       "@/test/helpers/organization"

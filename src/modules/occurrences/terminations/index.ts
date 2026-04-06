@@ -39,7 +39,7 @@ export const terminationController = new Elysia({
       ),
     {
       auth: {
-        permissions: { occurrence: ["create"] },
+        permissions: { termination: ["create"] },
         requireOrganization: true,
         requireFeature: "terminated_employees",
       },
@@ -68,7 +68,7 @@ export const terminationController = new Elysia({
       ),
     {
       auth: {
-        permissions: { occurrence: ["read"] },
+        permissions: { termination: ["read"] },
         requireOrganization: true,
         requireFeature: "terminated_employees",
       },
@@ -94,7 +94,7 @@ export const terminationController = new Elysia({
       ),
     {
       auth: {
-        permissions: { occurrence: ["read"] },
+        permissions: { termination: ["read"] },
         requireOrganization: true,
         requireFeature: "terminated_employees",
       },
@@ -127,7 +127,7 @@ export const terminationController = new Elysia({
       ),
     {
       auth: {
-        permissions: { occurrence: ["update"] },
+        permissions: { termination: ["update"] },
         requireOrganization: true,
         requireFeature: "terminated_employees",
       },
@@ -159,7 +159,7 @@ export const terminationController = new Elysia({
       ),
     {
       auth: {
-        permissions: { occurrence: ["delete"] },
+        permissions: { termination: ["delete"] },
         requireOrganization: true,
         requireFeature: "terminated_employees",
       },

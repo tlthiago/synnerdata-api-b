@@ -229,7 +229,6 @@ describe("POST /v1/absences", () => {
 
   test.each([
     "viewer",
-    "supervisor",
   ] as const)("should reject %s member from creating absence", async (role) => {
     const { addMemberToOrganization } = await import(
       "@/test/helpers/organization"

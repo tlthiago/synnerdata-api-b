@@ -11,7 +11,7 @@ Registro de desligamentos de funcionários.
 - Criar desligamento altera automaticamente o status do funcionário para `TERMINATED`
 - Deletar (soft delete) desligamento reverte o status do funcionário para `ACTIVE`
 - Sem verificação de status do employee no create (diferente dos demais sub-módulos)
-- Permissão usa resource genérico `occurrence`, não `termination`
+- Permissão usa resource específico `termination`
 - Listagem ordenada por `terminationDate`
 
 ## Enums

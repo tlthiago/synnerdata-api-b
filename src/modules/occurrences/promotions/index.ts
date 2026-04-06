@@ -39,7 +39,7 @@ export const promotionController = new Elysia({
       ),
     {
       auth: {
-        permissions: { occurrence: ["create"] },
+        permissions: { promotion: ["create"] },
         requireOrganization: true,
       },
       body: createPromotionSchema,
@@ -65,7 +65,7 @@ export const promotionController = new Elysia({
       ),
     {
       auth: {
-        permissions: { occurrence: ["read"] },
+        permissions: { promotion: ["read"] },
         requireOrganization: true,
       },
       response: {
@@ -90,7 +90,7 @@ export const promotionController = new Elysia({
       ),
     {
       auth: {
-        permissions: { occurrence: ["read"] },
+        permissions: { promotion: ["read"] },
         requireOrganization: true,
       },
       params: idParamSchema,
@@ -122,7 +122,7 @@ export const promotionController = new Elysia({
       ),
     {
       auth: {
-        permissions: { occurrence: ["update"] },
+        permissions: { promotion: ["update"] },
         requireOrganization: true,
       },
       params: idParamSchema,
@@ -154,7 +154,7 @@ export const promotionController = new Elysia({
       ),
     {
       auth: {
-        permissions: { occurrence: ["delete"] },
+        permissions: { promotion: ["delete"] },
         requireOrganization: true,
       },
       params: idParamSchema,

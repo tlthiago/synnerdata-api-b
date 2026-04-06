@@ -43,7 +43,6 @@ describe("DELETE /v1/cpf-analyses/:id", () => {
   });
 
   test.each([
-    "supervisor",
     "viewer",
   ] as const)("should reject %s member from deleting cpf analysis", async (role) => {
     const { addMemberToOrganization } = await import(

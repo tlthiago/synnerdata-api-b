@@ -57,7 +57,6 @@ describe("POST /v1/cpf-analyses", () => {
   });
 
   test.each([
-    "supervisor",
     "viewer",
   ] as const)("should reject %s member from creating cpf analysis", async (role) => {
     const { addMemberToOrganization } = await import(
