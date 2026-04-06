@@ -11,6 +11,7 @@ export const checkFeaturesSchema = z.object({
 
 const featureAccessSchema = z.object({
   featureName: z.string().describe("Feature name"),
+  featureDisplayName: z.string().describe("Feature display name in Portuguese"),
   hasAccess: z.boolean().describe("Whether the feature is available"),
   requiredPlan: z
     .string()

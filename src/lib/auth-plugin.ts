@@ -140,7 +140,7 @@ async function validateFeatureAccess(
   const result = await LimitsService.checkFeature(organizationId, featureName);
   if (!result.hasAccess) {
     throw new FeatureNotAvailableError(
-      featureName,
+      result.featureDisplayName,
       result.requiredPlan ?? undefined
     );
   }
