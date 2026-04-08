@@ -468,6 +468,7 @@ export const auth = betterAuth({
       "/sign-up/*": { window: 60, max: 3 },
       "/two-factor/*": { window: 60, max: 3 },
       "/forgot-password/*": { window: 300, max: 3 },
+      "/send-verification-email": { window: 300, max: 3 },
       "/get-session": false,
     },
   },
