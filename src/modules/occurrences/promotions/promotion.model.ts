@@ -24,24 +24,12 @@ export const createPromotionSchema = z.object({
     .min(1, "ID do novo cargo é obrigatório")
     .describe("ID do novo cargo"),
   previousSalary: z
-    .string()
-    .refine(
-      (val) =>
-        !Number.isNaN(Number.parseFloat(val)) && Number.parseFloat(val) >= 0,
-      {
-        message: "Salário anterior deve ser um número válido e não negativo",
-      }
-    )
+    .number()
+    .min(0, "Salário anterior não pode ser negativo")
     .describe("Salário anterior"),
   newSalary: z
-    .string()
-    .refine(
-      (val) =>
-        !Number.isNaN(Number.parseFloat(val)) && Number.parseFloat(val) >= 0,
-      {
-        message: "Novo salário deve ser um número válido e não negativo",
-      }
-    )
+    .number()
+    .min(0, "Novo salário não pode ser negativo")
     .describe("Novo salário"),
   reason: z
     .string()

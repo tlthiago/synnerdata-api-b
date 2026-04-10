@@ -15,8 +15,8 @@ type PromotionOverrides = {
   previousJobPositionId?: string;
   newJobPositionId?: string;
   promotionDate?: string;
-  previousSalary?: string;
-  newSalary?: string;
+  previousSalary?: number;
+  newSalary?: number;
   reason?: string;
   notes?: string;
 };
@@ -94,9 +94,8 @@ export async function createTestPromotion(
     dependencies
   );
 
-  const previousSalary = overrides.previousSalary ?? "3000.00";
-  const newSalary =
-    overrides.newSalary ?? (Number.parseFloat(previousSalary) * 1.2).toFixed(2);
+  const previousSalary = overrides.previousSalary ?? 3000;
+  const newSalary = overrides.newSalary ?? previousSalary * 1.2;
 
   const promotion = await PromotionService.create({
     organizationId,

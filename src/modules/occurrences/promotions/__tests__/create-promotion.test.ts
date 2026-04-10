@@ -30,8 +30,8 @@ describe("POST /v1/promotions", () => {
           previousJobPositionId: "job-position-123",
           newJobPositionId: "job-position-456",
           promotionDate: "2024-01-15",
-          previousSalary: "3000.00",
-          newSalary: "3600.00",
+          previousSalary: 3000,
+          newSalary: 3600,
         }),
       })
     );
@@ -51,8 +51,8 @@ describe("POST /v1/promotions", () => {
           previousJobPositionId: "job-position-123",
           newJobPositionId: "job-position-456",
           promotionDate: "2024-01-15",
-          previousSalary: "3000.00",
-          newSalary: "3600.00",
+          previousSalary: 3000,
+          newSalary: 3600,
         }),
       })
     );
@@ -92,8 +92,8 @@ describe("POST /v1/promotions", () => {
           previousJobPositionId: "",
           newJobPositionId: "",
           promotionDate: "2024-01-15",
-          previousSalary: "3000.00",
-          newSalary: "3600.00",
+          previousSalary: 3000,
+          newSalary: 3600,
         }),
       })
     );
@@ -127,8 +127,8 @@ describe("POST /v1/promotions", () => {
           previousJobPositionId: "job-position-123",
           newJobPositionId: "job-position-456",
           promotionDate: futureDateStr,
-          previousSalary: "3000.00",
-          newSalary: "3600.00",
+          previousSalary: 3000,
+          newSalary: 3600,
         }),
       })
     );
@@ -161,8 +161,8 @@ describe("POST /v1/promotions", () => {
           previousJobPositionId: previousJobPosition.id,
           newJobPositionId: newJobPosition.id,
           promotionDate: "2024-01-15",
-          previousSalary: "3000.00",
-          newSalary: "3600.00",
+          previousSalary: 3000,
+          newSalary: 3600,
         }),
       })
     );
@@ -196,8 +196,8 @@ describe("POST /v1/promotions", () => {
           previousJobPositionId: "job-position-nonexistent",
           newJobPositionId: newJobPosition.id,
           promotionDate: "2024-01-15",
-          previousSalary: "3000.00",
-          newSalary: "3600.00",
+          previousSalary: 3000,
+          newSalary: 3600,
         }),
       })
     );
@@ -231,8 +231,8 @@ describe("POST /v1/promotions", () => {
           previousJobPositionId: previousJobPosition.id,
           newJobPositionId: "job-position-nonexistent",
           promotionDate: "2024-01-15",
-          previousSalary: "3000.00",
-          newSalary: "3600.00",
+          previousSalary: 3000,
+          newSalary: 3600,
         }),
       })
     );
@@ -266,8 +266,8 @@ describe("POST /v1/promotions", () => {
           previousJobPositionId: jobPosition.id,
           newJobPositionId: jobPosition.id,
           promotionDate: "2024-01-15",
-          previousSalary: "3000.00",
-          newSalary: "3600.00",
+          previousSalary: 3000,
+          newSalary: 3600,
         }),
       })
     );
@@ -307,8 +307,8 @@ describe("POST /v1/promotions", () => {
           previousJobPositionId: previousJobPosition.id,
           newJobPositionId: newJobPosition.id,
           promotionDate: "2024-01-15",
-          previousSalary: "3000.00",
-          newSalary: "3000.00",
+          previousSalary: 3000,
+          newSalary: 3000,
         }),
       })
     );
@@ -348,8 +348,8 @@ describe("POST /v1/promotions", () => {
           previousJobPositionId: previousJobPosition.id,
           newJobPositionId: newJobPosition.id,
           promotionDate: "2024-01-15",
-          previousSalary: "3000.00",
-          newSalary: "3600.00",
+          previousSalary: 3000,
+          newSalary: 3600,
           reason: "Promoção por mérito",
           notes: "Excelente desempenho no último ano",
         }),
@@ -405,8 +405,8 @@ describe("POST /v1/promotions", () => {
           previousJobPositionId: prevPos1.id,
           newJobPositionId: newPos1.id,
           promotionDate: "2024-02-20",
-          previousSalary: "3000.00",
-          newSalary: "3600.00",
+          previousSalary: 3000,
+          newSalary: 3600,
         }),
       })
     );
@@ -433,8 +433,8 @@ describe("POST /v1/promotions", () => {
           previousJobPositionId: prevPos2.id,
           newJobPositionId: newPos2.id,
           promotionDate: "2024-02-20",
-          previousSalary: "3600.00",
-          newSalary: "4200.00",
+          previousSalary: 3600,
+          newSalary: 4200,
         }),
       })
     );
@@ -478,8 +478,8 @@ describe("POST /v1/promotions", () => {
           previousJobPositionId: previousJobPosition.id,
           newJobPositionId: newJobPosition.id,
           promotionDate: "2024-01-15",
-          previousSalary: "3000.00",
-          newSalary: "3600.00",
+          previousSalary: 3000,
+          newSalary: 3600,
         }),
       })
     );
@@ -524,8 +524,8 @@ describe("POST /v1/promotions", () => {
           previousJobPositionId: previousJobPosition.id,
           newJobPositionId: newJobPosition.id,
           promotionDate: "2024-01-15",
-          previousSalary: "3000.00",
-          newSalary: "3600.00",
+          previousSalary: 3000,
+          newSalary: 3600,
         }),
       })
     );
@@ -578,8 +578,8 @@ describe("POST /v1/promotions", () => {
           previousJobPositionId: previousJobPosition.id,
           newJobPositionId: newJobPosition.id,
           promotionDate: "2024-01-15",
-          previousSalary: "3000.00",
-          newSalary: "3600.00",
+          previousSalary: 3000,
+          newSalary: 3600,
         }),
       })
     );
@@ -630,8 +630,8 @@ describe("POST /v1/promotions", () => {
           previousJobPositionId: previousJobPosition.id,
           newJobPositionId: newJobPosition.id,
           promotionDate: "2024-01-15",
-          previousSalary: "3000.00",
-          newSalary: "3600.00",
+          previousSalary: 3000,
+          newSalary: 3600,
         }),
       })
     );
@@ -665,8 +665,8 @@ describe("POST /v1/promotions", () => {
           previousJobPositionId: "job-position-123",
           newJobPositionId: "job-position-456",
           promotionDate: "2024-01-15",
-          previousSalary: "3000.00",
-          newSalary: "3600.00",
+          previousSalary: 3000,
+          newSalary: 3600,
         }),
       })
     );
@@ -674,5 +674,98 @@ describe("POST /v1/promotions", () => {
     expect(response.status).toBe(403);
     const body = await response.json();
     expect(body.error.code).toBe("FORBIDDEN");
+  });
+
+  test("should reject string salary values", async () => {
+    const { headers } = await createTestUserWithOrganization({
+      emailVerified: true,
+    });
+
+    const response = await app.handle(
+      new Request(`${BASE_URL}/v1/promotions`, {
+        method: "POST",
+        headers: { ...headers, "Content-Type": "application/json" },
+        body: JSON.stringify({
+          employeeId: "employee-123",
+          previousJobPositionId: "job-position-123",
+          newJobPositionId: "job-position-456",
+          promotionDate: "2024-01-15",
+          previousSalary: "3000.00",
+          newSalary: "3600.00",
+        }),
+      })
+    );
+
+    expect(response.status).toBe(422);
+    const body = await response.json();
+    expect(body.error.code).toBe("VALIDATION_ERROR");
+  });
+
+  test("should reject negative salary values", async () => {
+    const { headers } = await createTestUserWithOrganization({
+      emailVerified: true,
+    });
+
+    const response = await app.handle(
+      new Request(`${BASE_URL}/v1/promotions`, {
+        method: "POST",
+        headers: { ...headers, "Content-Type": "application/json" },
+        body: JSON.stringify({
+          employeeId: "employee-123",
+          previousJobPositionId: "job-position-123",
+          newJobPositionId: "job-position-456",
+          promotionDate: "2024-01-15",
+          previousSalary: -100,
+          newSalary: 3600,
+        }),
+      })
+    );
+
+    expect(response.status).toBe(422);
+    const body = await response.json();
+    expect(body.error.code).toBe("VALIDATION_ERROR");
+  });
+
+  test("should create promotion with decimal salary values", async () => {
+    const { headers, organizationId, user } =
+      await createTestUserWithOrganization({ emailVerified: true });
+
+    const { employee } = await createTestEmployee({
+      organizationId,
+      userId: user.id,
+    });
+
+    const previousJobPosition = await createTestJobPosition({
+      organizationId,
+      userId: user.id,
+      name: "Analista Júnior",
+    });
+
+    const newJobPosition = await createTestJobPosition({
+      organizationId,
+      userId: user.id,
+      name: "Analista Pleno",
+    });
+
+    const response = await app.handle(
+      new Request(`${BASE_URL}/v1/promotions`, {
+        method: "POST",
+        headers: { ...headers, "Content-Type": "application/json" },
+        body: JSON.stringify({
+          employeeId: employee.id,
+          previousJobPositionId: previousJobPosition.id,
+          newJobPositionId: newJobPosition.id,
+          promotionDate: "2024-01-15",
+          previousSalary: 2608.6,
+          newSalary: 3100.0,
+        }),
+      })
+    );
+
+    expect(response.status).toBe(200);
+    const body = await response.json();
+    expect(body.success).toBe(true);
+    expect(body.data.previousSalary).toBeString();
+    expect(body.data.newSalary).toBeString();
   });
 });

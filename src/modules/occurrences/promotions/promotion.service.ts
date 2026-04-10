@@ -15,6 +15,7 @@ import type {
   CreatePromotionInput,
   DeletedPromotionData,
   PromotionData,
+  UpdatePromotion,
   UpdatePromotionInput,
 } from "./promotion.model";
 
@@ -177,14 +178,47 @@ export abstract class PromotionService {
     return result ?? null;
   }
 
-  private static validateSalaryIncrease(
-    previousSalary: string,
-    newSalary: string
-  ): void {
-    const parsedPrevious = Number.parseFloat(previousSalary);
-    const parsedNew = Number.parseFloat(newSalary);
+  private static buildUpdateData(
+    data: UpdatePromotion,
+    userId: string
+  ): Record<string, unknown> {
+    const updateData: Record<string, unknown> = {
+      updatedBy: userId,
+    };
 
-    if (parsedNew <= parsedPrevious) {
+    if (data.employeeId !== undefined) {
+      updateData.employeeId = data.employeeId;
+    }
+    if (data.promotionDate !== undefined) {
+      updateData.promotionDate = data.promotionDate;
+    }
+    if (data.previousJobPositionId !== undefined) {
+      updateData.previousJobPositionId = data.previousJobPositionId;
+    }
+    if (data.newJobPositionId !== undefined) {
+      updateData.newJobPositionId = data.newJobPositionId;
+    }
+    if (data.previousSalary !== undefined) {
+      updateData.previousSalary = data.previousSalary.toString();
+    }
+    if (data.newSalary !== undefined) {
+      updateData.newSalary = data.newSalary.toString();
+    }
+    if (data.reason !== undefined) {
+      updateData.reason = data.reason;
+    }
+    if (data.notes !== undefined) {
+      updateData.notes = data.notes;
+    }
+
+    return updateData;
+  }
+
+  private static validateSalaryIncrease(
+    previousSalary: number,
+    newSalary: number
+  ): void {
+    if (newSalary <= previousSalary) {
       throw new InvalidPromotionDataError(
         "O novo salário deve ser maior que o salário anterior",
         { previousSalary, newSalary }
@@ -268,8 +302,8 @@ export abstract class PromotionService {
         promotionDate,
         previousJobPositionId,
         newJobPositionId,
-        previousSalary,
-        newSalary,
+        previousSalary: previousSalary.toString(),
+        newSalary: newSalary.toString(),
         reason: reason ?? null,
         notes: notes ?? null,
         createdBy: userId,
@@ -414,10 +448,11 @@ export abstract class PromotionService {
       );
     }
 
-    if (data.previousSalary || data.newSalary) {
+    if (data.previousSalary !== undefined || data.newSalary !== undefined) {
       const effectivePreviousSalary =
-        data.previousSalary ?? existing.previousSalary;
-      const effectiveNewSalary = data.newSalary ?? existing.newSalary;
+        data.previousSalary ?? Number.parseFloat(existing.previousSalary);
+      const effectiveNewSalary =
+        data.newSalary ?? Number.parseFloat(existing.newSalary);
       PromotionService.validateSalaryIncrease(
         effectivePreviousSalary,
         effectiveNewSalary
@@ -435,10 +470,7 @@ export abstract class PromotionService {
 
     await db
       .update(schema.promotions)
-      .set({
-        ...data,
-        updatedBy: userId,
-      })
+      .set(PromotionService.buildUpdateData(data, userId))
       .where(
         and(
           eq(schema.promotions.id, id),
