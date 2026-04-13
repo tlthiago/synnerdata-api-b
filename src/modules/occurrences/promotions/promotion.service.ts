@@ -10,6 +10,7 @@ import {
   PromotionAlreadyDeletedError,
   PromotionDuplicateDateError,
   PromotionNotFoundError,
+  PromotionNotLatestError,
 } from "./errors";
 import type {
   CreatePromotionInput,
@@ -249,6 +250,83 @@ export abstract class PromotionService {
 
     if (existing && existing.id !== excludeId) {
       throw new PromotionDuplicateDateError(employeeId, promotionDate);
+    }
+  }
+
+  private static async findLatestPromotionRaw(
+    employeeId: string,
+    organizationId: string,
+    excludeId?: string
+  ): Promise<{
+    id: string;
+    newSalary: string;
+    newJobPositionId: string;
+    promotionDate: string;
+  } | null> {
+    const { desc } = await import("drizzle-orm");
+
+    const conditions = [
+      eq(schema.promotions.employeeId, employeeId),
+      eq(schema.promotions.organizationId, organizationId),
+      isNull(schema.promotions.deletedAt),
+    ];
+
+    if (excludeId) {
+      const { ne } = await import("drizzle-orm");
+      conditions.push(ne(schema.promotions.id, excludeId));
+    }
+
+    const [result] = await db
+      .select({
+        id: schema.promotions.id,
+        newSalary: schema.promotions.newSalary,
+        newJobPositionId: schema.promotions.newJobPositionId,
+        promotionDate: schema.promotions.promotionDate,
+      })
+      .from(schema.promotions)
+      .where(and(...conditions))
+      .orderBy(desc(schema.promotions.promotionDate))
+      .limit(1);
+
+    return result ?? null;
+  }
+
+  // biome-ignore lint/correctness/noUnusedPrivateClassMembers: used by later sync tasks
+  private static async syncEmployeeFromPromotion(params: {
+    employeeId: string;
+    organizationId: string;
+    salary: string;
+    jobPositionId: string;
+    userId: string;
+  }): Promise<void> {
+    await db
+      .update(schema.employees)
+      .set({
+        salary: params.salary,
+        jobPositionId: params.jobPositionId,
+        updatedBy: params.userId,
+      })
+      .where(
+        and(
+          eq(schema.employees.id, params.employeeId),
+          eq(schema.employees.organizationId, params.organizationId)
+        )
+      );
+  }
+
+  // biome-ignore lint/correctness/noUnusedPrivateClassMembers: used by later sync tasks
+  private static async ensureIsLatestPromotion(
+    promotionId: string,
+    employeeId: string,
+    organizationId: string
+  ): Promise<void> {
+    const latest = await PromotionService.findLatestPromotionRaw(
+      employeeId,
+      organizationId
+    );
+
+    if (latest && latest.id !== promotionId) {
+      throw new PromotionNotLatestError(promotionId);
     }
   }
 
