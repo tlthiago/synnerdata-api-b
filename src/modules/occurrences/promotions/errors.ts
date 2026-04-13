@@ -47,3 +47,15 @@ export class PromotionDuplicateDateError extends PromotionError {
     );
   }
 }
+
+export class PromotionNotLatestError extends PromotionError {
+  status = 422;
+
+  constructor(promotionId: string) {
+    super(
+      "Apenas a promoção mais recente do funcionário pode ser alterada ou excluída",
+      "PROMOTION_NOT_LATEST",
+      { promotionId }
+    );
+  }
+}
