@@ -10,10 +10,12 @@ import {
   PromotionAlreadyDeletedError,
   PromotionDuplicateDateError,
   PromotionNotFoundError,
+  PromotionNotLatestError,
 } from "./errors";
 import type {
   CreatePromotionInput,
   DeletedPromotionData,
+  PromotionCreateResult,
   PromotionData,
   UpdatePromotion,
   UpdatePromotionInput,
@@ -252,7 +254,84 @@ export abstract class PromotionService {
     }
   }
 
-  static async create(input: CreatePromotionInput): Promise<PromotionData> {
+  private static async findLatestPromotionRaw(
+    employeeId: string,
+    organizationId: string,
+    excludeId?: string
+  ): Promise<{
+    id: string;
+    newSalary: string;
+    newJobPositionId: string;
+    promotionDate: string;
+  } | null> {
+    const { desc } = await import("drizzle-orm");
+
+    const conditions = [
+      eq(schema.promotions.employeeId, employeeId),
+      eq(schema.promotions.organizationId, organizationId),
+      isNull(schema.promotions.deletedAt),
+    ];
+
+    if (excludeId) {
+      const { ne } = await import("drizzle-orm");
+      conditions.push(ne(schema.promotions.id, excludeId));
+    }
+
+    const [result] = await db
+      .select({
+        id: schema.promotions.id,
+        newSalary: schema.promotions.newSalary,
+        newJobPositionId: schema.promotions.newJobPositionId,
+        promotionDate: schema.promotions.promotionDate,
+      })
+      .from(schema.promotions)
+      .where(and(...conditions))
+      .orderBy(desc(schema.promotions.promotionDate))
+      .limit(1);
+
+    return result ?? null;
+  }
+
+  private static async syncEmployeeFromPromotion(params: {
+    employeeId: string;
+    organizationId: string;
+    salary: string;
+    jobPositionId: string;
+    userId: string;
+  }): Promise<void> {
+    await db
+      .update(schema.employees)
+      .set({
+        salary: params.salary,
+        jobPositionId: params.jobPositionId,
+        updatedBy: params.userId,
+      })
+      .where(
+        and(
+          eq(schema.employees.id, params.employeeId),
+          eq(schema.employees.organizationId, params.organizationId)
+        )
+      );
+  }
+
+  private static async ensureIsLatestPromotion(
+    promotionId: string,
+    employeeId: string,
+    organizationId: string
+  ): Promise<void> {
+    const latest = await PromotionService.findLatestPromotionRaw(
+      employeeId,
+      organizationId
+    );
+
+    if (latest && latest.id !== promotionId) {
+      throw new PromotionNotLatestError(promotionId);
+    }
+  }
+
+  static async create(
+    input: CreatePromotionInput
+  ): Promise<PromotionCreateResult> {
     const {
       organizationId,
       userId,
@@ -310,6 +389,25 @@ export abstract class PromotionService {
       })
       .returning();
 
+    // Sync employee if this is the latest promotion
+    const latestPromotion = await PromotionService.findLatestPromotionRaw(
+      employeeId,
+      organizationId
+    );
+
+    const employeeSynced =
+      !!latestPromotion && latestPromotion.id === promotionId;
+
+    if (employeeSynced) {
+      await PromotionService.syncEmployeeFromPromotion({
+        employeeId,
+        organizationId,
+        salary: newSalary.toString(),
+        jobPositionId: newJobPositionId,
+        userId,
+      });
+    }
+
     const employee = await PromotionService.getEmployeeReference(
       employeeId,
       organizationId
@@ -324,20 +422,23 @@ export abstract class PromotionService {
     );
 
     return {
-      id: promotion.id,
-      organizationId: promotion.organizationId,
-      employee,
-      promotionDate: promotion.promotionDate,
-      previousJobPosition,
-      newJobPosition,
-      previousSalary: promotion.previousSalary,
-      newSalary: promotion.newSalary,
-      reason: promotion.reason,
-      notes: promotion.notes,
-      createdAt: promotion.createdAt,
-      updatedAt: promotion.updatedAt,
-      createdBy: promotion.createdBy,
-      updatedBy: promotion.updatedBy,
+      data: {
+        id: promotion.id,
+        organizationId: promotion.organizationId,
+        employee,
+        promotionDate: promotion.promotionDate,
+        previousJobPosition,
+        newJobPosition,
+        previousSalary: promotion.previousSalary,
+        newSalary: promotion.newSalary,
+        reason: promotion.reason,
+        notes: promotion.notes,
+        createdAt: promotion.createdAt,
+        updatedAt: promotion.updatedAt,
+        createdBy: promotion.createdBy,
+        updatedBy: promotion.updatedBy,
+      },
+      employeeSynced,
     };
   }
 
@@ -468,6 +569,13 @@ export abstract class PromotionService {
       });
     }
 
+    // Only the latest promotion can be updated
+    await PromotionService.ensureIsLatestPromotion(
+      id,
+      existing.employee.id,
+      organizationId
+    );
+
     await db
       .update(schema.promotions)
       .set(PromotionService.buildUpdateData(data, userId))
@@ -478,8 +586,24 @@ export abstract class PromotionService {
         )
       );
 
-    const updated = await PromotionService.findById(id, organizationId);
-    return updated as PromotionData;
+    // Re-sync employee with the updated promotion values
+    const updatedPromotion = await PromotionService.findById(
+      id,
+      organizationId
+    );
+    if (!updatedPromotion) {
+      throw new PromotionNotFoundError(id);
+    }
+
+    await PromotionService.syncEmployeeFromPromotion({
+      employeeId: existing.employee.id,
+      organizationId,
+      salary: updatedPromotion.newSalary,
+      jobPositionId: updatedPromotion.newJobPosition.id,
+      userId,
+    });
+
+    return updatedPromotion;
   }
 
   static async delete(
@@ -500,6 +624,23 @@ export abstract class PromotionService {
       throw new PromotionAlreadyDeletedError(id);
     }
 
+    // Get raw data for guard check and potential revert
+    const [rawPromotion] = await db
+      .select({
+        employeeId: schema.promotions.employeeId,
+        previousSalary: schema.promotions.previousSalary,
+        previousJobPositionId: schema.promotions.previousJobPositionId,
+      })
+      .from(schema.promotions)
+      .where(eq(schema.promotions.id, id))
+      .limit(1);
+
+    await PromotionService.ensureIsLatestPromotion(
+      id,
+      rawPromotion.employeeId,
+      organizationId
+    );
+
     const [deleted] = await db
       .update(schema.promotions)
       .set({
@@ -513,6 +654,32 @@ export abstract class PromotionService {
         )
       )
       .returning();
+
+    // Revert employee to previous promotion or pre-promotion values
+    const previousPromotion = await PromotionService.findLatestPromotionRaw(
+      rawPromotion.employeeId,
+      organizationId
+    );
+
+    if (previousPromotion) {
+      // Revert to previous promotion's new values
+      await PromotionService.syncEmployeeFromPromotion({
+        employeeId: rawPromotion.employeeId,
+        organizationId,
+        salary: previousPromotion.newSalary,
+        jobPositionId: previousPromotion.newJobPositionId,
+        userId,
+      });
+    } else {
+      // No previous promotion — revert to pre-promotion values
+      await PromotionService.syncEmployeeFromPromotion({
+        employeeId: rawPromotion.employeeId,
+        organizationId,
+        salary: rawPromotion.previousSalary,
+        jobPositionId: rawPromotion.previousJobPositionId,
+        userId,
+      });
+    }
 
     return {
       id: deleted.id,

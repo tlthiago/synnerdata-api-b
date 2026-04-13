@@ -97,7 +97,7 @@ export async function createTestPromotion(
   const previousSalary = overrides.previousSalary ?? 3000;
   const newSalary = overrides.newSalary ?? previousSalary * 1.2;
 
-  const promotion = await PromotionService.create({
+  const result = await PromotionService.create({
     organizationId,
     userId,
     employeeId: overrides.employeeId ?? resolvedDeps.employeeId,
@@ -112,7 +112,7 @@ export async function createTestPromotion(
     notes: overrides.notes,
   });
 
-  return { promotion, dependencies: resolvedDeps };
+  return { promotion: result.data, dependencies: resolvedDeps };
 }
 
 type CreateMultiplePromotionsOptions = {

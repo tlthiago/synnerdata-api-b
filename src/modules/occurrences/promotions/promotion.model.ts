@@ -110,3 +110,8 @@ export type UpdatePromotionInput = UpdatePromotion & {
 
 export type PromotionData = z.infer<typeof promotionDataSchema>;
 export type DeletedPromotionData = z.infer<typeof deletedPromotionDataSchema>;
+
+export type PromotionCreateResult = {
+  data: PromotionData;
+  employeeSynced: boolean;
+};
