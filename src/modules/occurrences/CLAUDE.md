@@ -38,7 +38,7 @@ Shared errors: `EmployeeTerminatedError` (422), `EmployeeOnVacationError` (422).
 | vacations | Date overlap | same employee (excluding canceled) | `VacationOverlapError` |
 | accidents | CAT unique | per organization (only when provided) | `AccidentCatAlreadyExistsError` |
 | cpf-analyses | Same date | same employee | `CpfAnalysisDuplicateDateError` |
-| promotions | Same date | same employee | `PromotionDuplicateDateError` |
+| promotions | Same date | same employee | `PromotionDuplicateDateError`. Update/delete restricted to latest promotion per employee (`PromotionNotLatestError`) |
 | warnings | Same date + type | same employee | `WarningDuplicateError` |
 | terminations | One active | per employee | `TerminationAlreadyExistsError` |
 | labor-lawsuits | processNumber unique | global (CNJ, unique index) | `LaborLawsuitProcessNumberAlreadyExistsError` |
