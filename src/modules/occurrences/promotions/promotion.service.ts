@@ -615,6 +615,23 @@ export abstract class PromotionService {
       throw new PromotionAlreadyDeletedError(id);
     }
 
+    // Get raw data for guard check and potential revert
+    const [rawPromotion] = await db
+      .select({
+        employeeId: schema.promotions.employeeId,
+        previousSalary: schema.promotions.previousSalary,
+        previousJobPositionId: schema.promotions.previousJobPositionId,
+      })
+      .from(schema.promotions)
+      .where(eq(schema.promotions.id, id))
+      .limit(1);
+
+    await PromotionService.ensureIsLatestPromotion(
+      id,
+      rawPromotion.employeeId,
+      organizationId
+    );
+
     const [deleted] = await db
       .update(schema.promotions)
       .set({
@@ -628,6 +645,32 @@ export abstract class PromotionService {
         )
       )
       .returning();
+
+    // Revert employee to previous promotion or pre-promotion values
+    const previousPromotion = await PromotionService.findLatestPromotionRaw(
+      rawPromotion.employeeId,
+      organizationId
+    );
+
+    if (previousPromotion) {
+      // Revert to previous promotion's new values
+      await PromotionService.syncEmployeeFromPromotion({
+        employeeId: rawPromotion.employeeId,
+        organizationId,
+        salary: previousPromotion.newSalary,
+        jobPositionId: previousPromotion.newJobPositionId,
+        userId,
+      });
+    } else {
+      // No previous promotion — revert to pre-promotion values
+      await PromotionService.syncEmployeeFromPromotion({
+        employeeId: rawPromotion.employeeId,
+        organizationId,
+        salary: rawPromotion.previousSalary,
+        jobPositionId: rawPromotion.previousJobPositionId,
+        userId,
+      });
+    }
 
     return {
       id: deleted.id,

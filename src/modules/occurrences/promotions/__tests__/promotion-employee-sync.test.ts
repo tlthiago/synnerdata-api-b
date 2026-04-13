@@ -307,4 +307,209 @@ describe("Promotion-Employee Sync", () => {
       expect(response.status).toBe(200);
     });
   });
+
+  describe("Delete — latest guard + employee revert", () => {
+    test("should reject delete of a non-latest promotion", async () => {
+      const { headers, organizationId, user } =
+        await createTestUserWithOrganization({ emailVerified: true });
+
+      const { employee } = await createTestEmployee({
+        organizationId,
+        userId: user.id,
+      });
+
+      const prevPos = await createTestJobPosition({
+        organizationId,
+        userId: user.id,
+        name: "Estagiário",
+      });
+
+      const midPos = await createTestJobPosition({
+        organizationId,
+        userId: user.id,
+        name: "Analista Júnior",
+      });
+
+      const newPos = await createTestJobPosition({
+        organizationId,
+        userId: user.id,
+        name: "Analista Pleno",
+      });
+
+      // Create older promotion
+      const firstResponse = await app.handle(
+        new Request(`${BASE_URL}/v1/promotions`, {
+          method: "POST",
+          headers: { ...headers, "Content-Type": "application/json" },
+          body: JSON.stringify({
+            employeeId: employee.id,
+            previousJobPositionId: prevPos.id,
+            newJobPositionId: midPos.id,
+            promotionDate: "2024-01-15",
+            previousSalary: 2000,
+            newSalary: 3000,
+          }),
+        })
+      );
+      const firstPromotion = (await firstResponse.json()).data;
+
+      // Create newer promotion
+      await app.handle(
+        new Request(`${BASE_URL}/v1/promotions`, {
+          method: "POST",
+          headers: { ...headers, "Content-Type": "application/json" },
+          body: JSON.stringify({
+            employeeId: employee.id,
+            previousJobPositionId: midPos.id,
+            newJobPositionId: newPos.id,
+            promotionDate: "2024-06-15",
+            previousSalary: 3000,
+            newSalary: 4000,
+          }),
+        })
+      );
+
+      // Try to delete the older promotion
+      const response = await app.handle(
+        new Request(`${BASE_URL}/v1/promotions/${firstPromotion.id}`, {
+          method: "DELETE",
+          headers,
+        })
+      );
+
+      expect(response.status).toBe(422);
+      const body = await response.json();
+      expect(body.error.code).toBe("PROMOTION_NOT_LATEST");
+    });
+
+    test("should revert employee to previous promotion values when deleting latest", async () => {
+      const { headers, organizationId, user } =
+        await createTestUserWithOrganization({ emailVerified: true });
+
+      const { employee } = await createTestEmployee({
+        organizationId,
+        userId: user.id,
+      });
+
+      const midPos = await createTestJobPosition({
+        organizationId,
+        userId: user.id,
+        name: "Analista Júnior",
+      });
+
+      const newPos = await createTestJobPosition({
+        organizationId,
+        userId: user.id,
+        name: "Analista Pleno",
+      });
+
+      // Create first promotion (2024-01-15)
+      await app.handle(
+        new Request(`${BASE_URL}/v1/promotions`, {
+          method: "POST",
+          headers: { ...headers, "Content-Type": "application/json" },
+          body: JSON.stringify({
+            employeeId: employee.id,
+            previousJobPositionId: employee.jobPosition.id,
+            newJobPositionId: midPos.id,
+            promotionDate: "2024-01-15",
+            previousSalary: 3000,
+            newSalary: 4000,
+          }),
+        })
+      );
+
+      // Create second promotion (2024-06-15)
+      const secondResponse = await app.handle(
+        new Request(`${BASE_URL}/v1/promotions`, {
+          method: "POST",
+          headers: { ...headers, "Content-Type": "application/json" },
+          body: JSON.stringify({
+            employeeId: employee.id,
+            previousJobPositionId: midPos.id,
+            newJobPositionId: newPos.id,
+            promotionDate: "2024-06-15",
+            previousSalary: 4000,
+            newSalary: 5000,
+          }),
+        })
+      );
+      const secondPromotion = (await secondResponse.json()).data;
+
+      // Employee should be at 5000 / newPos
+      const beforeDelete = await getEmployeeRaw(employee.id, organizationId);
+      expect(beforeDelete.salary).toBe("5000.00");
+      expect(beforeDelete.jobPositionId).toBe(newPos.id);
+
+      // Delete the latest promotion
+      const deleteResponse = await app.handle(
+        new Request(`${BASE_URL}/v1/promotions/${secondPromotion.id}`, {
+          method: "DELETE",
+          headers,
+        })
+      );
+
+      expect(deleteResponse.status).toBe(200);
+
+      // Employee should revert to first promotion values (4000 / midPos)
+      const afterDelete = await getEmployeeRaw(employee.id, organizationId);
+      expect(afterDelete.salary).toBe("4000.00");
+      expect(afterDelete.jobPositionId).toBe(midPos.id);
+    });
+
+    test("should revert employee to pre-promotion values when deleting the only promotion", async () => {
+      const { headers, organizationId, user } =
+        await createTestUserWithOrganization({ emailVerified: true });
+
+      const { employee } = await createTestEmployee({
+        organizationId,
+        userId: user.id,
+      });
+
+      const originalEmployee = await getEmployeeRaw(
+        employee.id,
+        organizationId
+      );
+      const originalSalary = originalEmployee.salary;
+      const originalJobPositionId = originalEmployee.jobPositionId;
+
+      const newJobPosition = await createTestJobPosition({
+        organizationId,
+        userId: user.id,
+        name: "Analista Pleno",
+      });
+
+      // Create single promotion
+      const createResponse = await app.handle(
+        new Request(`${BASE_URL}/v1/promotions`, {
+          method: "POST",
+          headers: { ...headers, "Content-Type": "application/json" },
+          body: JSON.stringify({
+            employeeId: employee.id,
+            previousJobPositionId: employee.jobPosition.id,
+            newJobPositionId: newJobPosition.id,
+            promotionDate: "2024-06-15",
+            previousSalary: Number.parseFloat(originalSalary),
+            newSalary: Number.parseFloat(originalSalary) + 1000,
+          }),
+        })
+      );
+      const promotion = (await createResponse.json()).data;
+
+      // Delete the only promotion
+      const deleteResponse = await app.handle(
+        new Request(`${BASE_URL}/v1/promotions/${promotion.id}`, {
+          method: "DELETE",
+          headers,
+        })
+      );
+
+      expect(deleteResponse.status).toBe(200);
+
+      // Employee should revert to original values
+      const afterDelete = await getEmployeeRaw(employee.id, organizationId);
+      expect(afterDelete.salary).toBe(originalSalary);
+      expect(afterDelete.jobPositionId).toBe(originalJobPositionId);
+    });
+  });
 });
