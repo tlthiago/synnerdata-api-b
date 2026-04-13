@@ -163,6 +163,7 @@ export const promotionController = new Elysia({
         401: unauthorizedErrorSchema,
         403: forbiddenErrorSchema,
         404: notFoundErrorSchema,
+        422: validationErrorSchema,
       },
       detail: {
         hide: isProduction,
