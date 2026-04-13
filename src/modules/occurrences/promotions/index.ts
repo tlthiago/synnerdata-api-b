@@ -1,7 +1,7 @@
 import { Elysia } from "elysia";
 import { isProduction } from "@/env";
 import { betterAuthPlugin } from "@/lib/auth-plugin";
-import { wrapSuccess } from "@/lib/responses/envelope";
+import { wrapSuccess, wrapSuccessWithMessage } from "@/lib/responses/envelope";
 import {
   conflictErrorSchema,
   forbiddenErrorSchema,
@@ -21,6 +21,11 @@ import {
 } from "./promotion.model";
 import { PromotionService } from "./promotion.service";
 
+const EMPLOYEE_SYNCED_MESSAGE =
+  "Salário e cargo do funcionário foram atualizados";
+const EMPLOYEE_REVERTED_MESSAGE =
+  "Salário e cargo do funcionário foram revertidos para os valores anteriores";
+
 export const promotionController = new Elysia({
   name: "promotions",
   prefix: "/v1/promotions",
@@ -29,14 +34,19 @@ export const promotionController = new Elysia({
   .use(betterAuthPlugin)
   .post(
     "/",
-    async ({ session, body, user }) =>
-      wrapSuccess(
-        await PromotionService.create({
-          ...body,
-          organizationId: session.activeOrganizationId as string,
-          userId: user.id,
-        })
-      ),
+    async ({ session, body, user }) => {
+      const result = await PromotionService.create({
+        ...body,
+        organizationId: session.activeOrganizationId as string,
+        userId: user.id,
+      });
+
+      if (result.employeeSynced) {
+        return wrapSuccessWithMessage(result.data, EMPLOYEE_SYNCED_MESSAGE);
+      }
+
+      return wrapSuccess(result.data);
+    },
     {
       auth: {
         permissions: { promotion: ["create"] },
@@ -110,7 +120,7 @@ export const promotionController = new Elysia({
   .put(
     "/:id",
     async ({ session, params, body, user }) =>
-      wrapSuccess(
+      wrapSuccessWithMessage(
         await PromotionService.update(
           params.id,
           session.activeOrganizationId as string,
@@ -118,7 +128,8 @@ export const promotionController = new Elysia({
             ...body,
             userId: user.id,
           }
-        )
+        ),
+        EMPLOYEE_SYNCED_MESSAGE
       ),
     {
       auth: {
@@ -145,12 +156,13 @@ export const promotionController = new Elysia({
   .delete(
     "/:id",
     async ({ session, params, user }) =>
-      wrapSuccess(
+      wrapSuccessWithMessage(
         await PromotionService.delete(
           params.id,
           session.activeOrganizationId as string,
           user.id
-        )
+        ),
+        EMPLOYEE_REVERTED_MESSAGE
       ),
     {
       auth: {

@@ -328,7 +328,9 @@ export abstract class PromotionService {
     }
   }
 
-  static async create(input: CreatePromotionInput): Promise<PromotionData> {
+  static async create(
+    input: CreatePromotionInput
+  ): Promise<PromotionCreateResult> {
     const {
       organizationId,
       userId,
@@ -392,7 +394,10 @@ export abstract class PromotionService {
       organizationId
     );
 
-    if (latestPromotion && latestPromotion.id === promotionId) {
+    const employeeSynced =
+      !!latestPromotion && latestPromotion.id === promotionId;
+
+    if (employeeSynced) {
       await PromotionService.syncEmployeeFromPromotion({
         employeeId,
         organizationId,
@@ -416,20 +421,23 @@ export abstract class PromotionService {
     );
 
     return {
-      id: promotion.id,
-      organizationId: promotion.organizationId,
-      employee,
-      promotionDate: promotion.promotionDate,
-      previousJobPosition,
-      newJobPosition,
-      previousSalary: promotion.previousSalary,
-      newSalary: promotion.newSalary,
-      reason: promotion.reason,
-      notes: promotion.notes,
-      createdAt: promotion.createdAt,
-      updatedAt: promotion.updatedAt,
-      createdBy: promotion.createdBy,
-      updatedBy: promotion.updatedBy,
+      data: {
+        id: promotion.id,
+        organizationId: promotion.organizationId,
+        employee,
+        promotionDate: promotion.promotionDate,
+        previousJobPosition,
+        newJobPosition,
+        previousSalary: promotion.previousSalary,
+        newSalary: promotion.newSalary,
+        reason: promotion.reason,
+        notes: promotion.notes,
+        createdAt: promotion.createdAt,
+        updatedAt: promotion.updatedAt,
+        createdBy: promotion.createdBy,
+        updatedBy: promotion.updatedBy,
+      },
+      employeeSynced,
     };
   }
 
