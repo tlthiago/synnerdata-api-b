@@ -15,6 +15,7 @@ import {
 import type {
   CreatePromotionInput,
   DeletedPromotionData,
+  PromotionCreateResult,
   PromotionData,
   UpdatePromotion,
   UpdatePromotionInput,
