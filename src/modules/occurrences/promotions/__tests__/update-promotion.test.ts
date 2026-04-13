@@ -346,4 +346,59 @@ describe("PUT /v1/promotions/:id", () => {
     const body = await response.json();
     expect(body.error.code).toBe("FORBIDDEN");
   });
+
+  test("should update salary with number values", async () => {
+    const { headers, organizationId, user } =
+      await createTestUserWithOrganization({ emailVerified: true });
+
+    const { promotion } = await createTestPromotion({
+      organizationId,
+      userId: user.id,
+      previousSalary: 3000,
+      newSalary: 3600,
+    });
+
+    const response = await app.handle(
+      new Request(`${BASE_URL}/v1/promotions/${promotion.id}`, {
+        method: "PUT",
+        headers: { ...headers, "Content-Type": "application/json" },
+        body: JSON.stringify({
+          previousSalary: 3500,
+          newSalary: 4200,
+        }),
+      })
+    );
+
+    expect(response.status).toBe(200);
+    const body = await response.json();
+    expect(body.success).toBe(true);
+    expect(body.data.previousSalary).toBeString();
+    expect(body.data.newSalary).toBeString();
+  });
+
+  test("should reject update when new salary is not greater than previous", async () => {
+    const { headers, organizationId, user } =
+      await createTestUserWithOrganization({ emailVerified: true });
+
+    const { promotion } = await createTestPromotion({
+      organizationId,
+      userId: user.id,
+      previousSalary: 3000,
+      newSalary: 3600,
+    });
+
+    const response = await app.handle(
+      new Request(`${BASE_URL}/v1/promotions/${promotion.id}`, {
+        method: "PUT",
+        headers: { ...headers, "Content-Type": "application/json" },
+        body: JSON.stringify({
+          newSalary: 2000,
+        }),
+      })
+    );
+
+    expect(response.status).toBe(400);
+    const body = await response.json();
+    expect(body.error.code).toBe("INVALID_PROMOTION_DATA");
+  });
 });
