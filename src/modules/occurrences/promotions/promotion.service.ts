@@ -313,7 +313,6 @@ export abstract class PromotionService {
       );
   }
 
-  // biome-ignore lint/correctness/noUnusedPrivateClassMembers: used by later sync tasks
   private static async ensureIsLatestPromotion(
     promotionId: string,
     employeeId: string,
@@ -561,6 +560,13 @@ export abstract class PromotionService {
       });
     }
 
+    // Only the latest promotion can be updated
+    await PromotionService.ensureIsLatestPromotion(
+      id,
+      existing.employee.id,
+      organizationId
+    );
+
     await db
       .update(schema.promotions)
       .set(PromotionService.buildUpdateData(data, userId))
@@ -571,8 +577,24 @@ export abstract class PromotionService {
         )
       );
 
-    const updated = await PromotionService.findById(id, organizationId);
-    return updated as PromotionData;
+    // Re-sync employee with the updated promotion values
+    const updatedPromotion = await PromotionService.findById(
+      id,
+      organizationId
+    );
+    if (!updatedPromotion) {
+      throw new PromotionNotFoundError(id);
+    }
+
+    await PromotionService.syncEmployeeFromPromotion({
+      employeeId: existing.employee.id,
+      organizationId,
+      salary: updatedPromotion.newSalary,
+      jobPositionId: updatedPromotion.newJobPosition.id,
+      userId,
+    });
+
+    return updatedPromotion;
   }
 
   static async delete(
