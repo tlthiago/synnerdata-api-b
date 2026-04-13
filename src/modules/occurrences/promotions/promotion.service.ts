@@ -291,7 +291,6 @@ export abstract class PromotionService {
     return result ?? null;
   }
 
-  // biome-ignore lint/correctness/noUnusedPrivateClassMembers: used by later sync tasks
   private static async syncEmployeeFromPromotion(params: {
     employeeId: string;
     organizationId: string;
@@ -387,6 +386,22 @@ export abstract class PromotionService {
         createdBy: userId,
       })
       .returning();
+
+    // Sync employee if this is the latest promotion
+    const latestPromotion = await PromotionService.findLatestPromotionRaw(
+      employeeId,
+      organizationId
+    );
+
+    if (latestPromotion && latestPromotion.id === promotionId) {
+      await PromotionService.syncEmployeeFromPromotion({
+        employeeId,
+        organizationId,
+        salary: newSalary.toString(),
+        jobPositionId: newJobPositionId,
+        userId,
+      });
+    }
 
     const employee = await PromotionService.getEmployeeReference(
       employeeId,
