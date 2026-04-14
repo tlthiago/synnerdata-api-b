@@ -107,13 +107,6 @@ export const errorPlugin = new Elysia({ name: "error-handler" })
       "unhandled error"
     );
 
-    // Write directly to stderr to guarantee terminal visibility
-    const errMsg =
-      error instanceof Error
-        ? `${error.name}: ${error.message}${error.cause instanceof Error ? `\n  Caused by: ${error.cause.message}` : ""}${isDev && error.stack ? `\n${error.stack}` : ""}`
-        : String(error);
-    process.stderr.write(`\n[UNHANDLED ERROR] ${errMsg}\n\n`);
-
     set.status = 500;
     return {
       success: false as const,
