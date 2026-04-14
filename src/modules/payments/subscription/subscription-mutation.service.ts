@@ -312,25 +312,21 @@ export abstract class SubscriptionMutationService {
 
     const updatedSubscription = await updateById(subscription.id, updateData);
 
-    // Archive previous private plan if subscription changed to a different plan
+    // Archive previous private plan if subscription changed to a different plan.
+    // Only archive org-specific plans (organizationId set) — the default trial
+    // plan (organizationId=NULL) is shared and must never be archived.
     if (planId && subscription.planId !== planId) {
-      const { eq } = await import("drizzle-orm");
+      const { eq, and, isNotNull } = await import("drizzle-orm");
 
-      const [previousPlan] = await db
-        .select({
-          id: schema.subscriptionPlans.id,
-          isPublic: schema.subscriptionPlans.isPublic,
-        })
-        .from(schema.subscriptionPlans)
-        .where(eq(schema.subscriptionPlans.id, subscription.planId))
-        .limit(1);
-
-      if (previousPlan && !previousPlan.isPublic) {
-        await db
-          .update(schema.subscriptionPlans)
-          .set({ archivedAt: new Date() })
-          .where(eq(schema.subscriptionPlans.id, previousPlan.id));
-      }
+      await db
+        .update(schema.subscriptionPlans)
+        .set({ archivedAt: new Date() })
+        .where(
+          and(
+            eq(schema.subscriptionPlans.id, subscription.planId),
+            isNotNull(schema.subscriptionPlans.organizationId)
+          )
+        );
     }
 
     if (updatedSubscription) {

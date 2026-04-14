@@ -1006,27 +1006,22 @@ export abstract class PlanChangeService {
   }
 
   /**
-   * Archives a private (custom) plan by setting archivedAt.
-   * Public plans are left untouched.
+   * Archives an org-specific (custom) plan by setting archivedAt.
+   * Plans without organizationId (shared/default plans) are never archived.
    */
   private static async archivePrivatePlan(
     tx: Parameters<Parameters<typeof db.transaction>[0]>[0],
     planId: string
   ): Promise<void> {
-    const [plan] = await tx
-      .select({
-        id: schema.subscriptionPlans.id,
-        isPublic: schema.subscriptionPlans.isPublic,
-      })
-      .from(schema.subscriptionPlans)
-      .where(eq(schema.subscriptionPlans.id, planId));
-
-    if (plan && !plan.isPublic) {
-      await tx
-        .update(schema.subscriptionPlans)
-        .set({ archivedAt: new Date() })
-        .where(eq(schema.subscriptionPlans.id, plan.id));
-    }
+    await tx
+      .update(schema.subscriptionPlans)
+      .set({ archivedAt: new Date() })
+      .where(
+        and(
+          eq(schema.subscriptionPlans.id, planId),
+          isNotNull(schema.subscriptionPlans.organizationId)
+        )
+      );
   }
 
   /**
