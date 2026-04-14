@@ -46,19 +46,23 @@ function formatErrorDetail(error: unknown): Record<string, unknown> {
 
 export const errorPlugin = new Elysia({ name: "error-handler" })
   .error({ AppError })
-  .onError({ as: "global" }, ({ code, error, set }) => {
+  .onError({ as: "global" }, ({ code, error, set, request }) => {
     // Custom AppError instances
     if (error instanceof AppError) {
       // Report 5xx AppErrors to Sentry/GlitchTip
       if (error.status >= 500) {
         captureException(error);
-        logger.error({
-          type: "app:error:5xx",
-          code: error.code,
-          message: error.message,
-          details: error.details,
-          stack: isDev ? error.stack : undefined,
-        });
+        const pathname = new URL(request.url).pathname;
+        logger.error(
+          {
+            method: request.method,
+            path: pathname,
+            code: error.code,
+            details: error.details,
+            stack: isDev ? error.stack : undefined,
+          },
+          error.message
+        );
       }
       set.status = error.status;
       return error.toResponse();
@@ -93,7 +97,15 @@ export const errorPlugin = new Elysia({ name: "error-handler" })
     captureException(error);
 
     const errorDetail = formatErrorDetail(error);
-    logger.error({ type: "unhandled:error", error: errorDetail });
+    const pathname = new URL(request.url).pathname;
+    logger.error(
+      {
+        method: request.method,
+        path: pathname,
+        error: errorDetail,
+      },
+      "unhandled error"
+    );
 
     // Write directly to stderr to guarantee terminal visibility
     const errMsg =
