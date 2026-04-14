@@ -50,7 +50,9 @@ export const loggerPlugin = new Elysia({ name: "logger" })
     set.headers["X-Request-ID"] = requestId;
   })
   .onError({ as: "global" }, ({ set, requestId }) => {
-    set.headers["X-Request-ID"] = requestId;
+    if (requestId) {
+      set.headers["X-Request-ID"] = requestId;
+    }
   })
   .onAfterResponse({ as: "global" }, ({ request, requestStart, set }) => {
     const pathname = new URL(request.url).pathname;
