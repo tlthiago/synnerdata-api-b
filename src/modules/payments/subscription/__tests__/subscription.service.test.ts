@@ -634,11 +634,11 @@ describe("SubscriptionService", () => {
     test("should archive private plan when subscription changes to a different plan", async () => {
       const org = await OrganizationFactory.create();
 
-      // Create a private (custom) plan
-      const privatePlanResult = await PlanFactory.create({
+      // Create a private (org-specific custom) plan
+      const privatePlanResult = await PlanFactory.createCustom({
+        organizationId: org.id,
+        basePlanId: "plan-gold",
         type: "gold",
-        isPublic: false,
-        name: `custom-private-${crypto.randomUUID().slice(0, 8)}`,
       });
 
       // Create subscription on the private plan
@@ -709,6 +709,41 @@ describe("SubscriptionService", () => {
         .limit(1);
 
       expect(publicPlan.archivedAt).toBeNull();
+    });
+
+    test("should NOT archive default trial plan when subscription migrates to paid plan", async () => {
+      const org = await OrganizationFactory.create();
+
+      // Create subscription on the default trial plan (no organizationId)
+      await SubscriptionFactory.create(org.id, trialPlanResult.plan.id, {
+        status: "active",
+      });
+
+      // Create a paid plan to switch to
+      const paidPlanResult = await PlanFactory.createPaid("gold");
+
+      const periodStart = new Date();
+      const periodEnd = new Date();
+      periodEnd.setDate(periodEnd.getDate() + 30);
+
+      // Activate with the paid plan (simulates successful checkout after trial)
+      await SubscriptionService.activate({
+        organizationId: org.id,
+        pagarmeSubscriptionId: `sub_trial_to_paid_${crypto.randomUUID().slice(0, 8)}`,
+        periodStart,
+        periodEnd,
+        planId: paidPlanResult.plan.id,
+        pricingTierId: paidPlanResult.tiers[0].id,
+      });
+
+      // Verify the default trial plan was NOT archived
+      const [trialPlan] = await db
+        .select({ archivedAt: schema.subscriptionPlans.archivedAt })
+        .from(schema.subscriptionPlans)
+        .where(eq(schema.subscriptionPlans.id, trialPlanResult.plan.id))
+        .limit(1);
+
+      expect(trialPlan.archivedAt).toBeNull();
     });
   });
 

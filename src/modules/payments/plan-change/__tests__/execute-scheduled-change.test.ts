@@ -478,9 +478,13 @@ describe("PlanChangeService.executeScheduledChange", () => {
       emailVerified: true,
     });
 
-    // Create a PRIVATE plan (custom plan for the org)
+    // Create a PRIVATE plan (org-specific custom plan — has organizationId)
     const { plan: privatePlan, tiers: privateTiers } =
-      await PlanFactory.createPaid("diamond", { isPublic: false });
+      await PlanFactory.createCustom({
+        organizationId,
+        basePlanId: "plan-diamond",
+        type: "diamond",
+      });
 
     // Create a PUBLIC catalog plan to downgrade to
     const { plan: publicPlan, tiers: publicTiers } =
@@ -595,6 +599,61 @@ describe("PlanChangeService.executeScheduledChange", () => {
       .limit(1);
 
     expect(diamondPlanAfter.archivedAt).toBeNull();
+
+    cancelSpy.mockRestore();
+  });
+
+  test("should NOT archive default trial plan after executing scheduled change", async () => {
+    const { organizationId } = await UserFactory.createWithOrganization({
+      emailVerified: true,
+    });
+
+    // Create a trial plan (no organizationId — shared default)
+    const { plan: trialPlan, tiers: trialTiers } =
+      await PlanFactory.createTrial();
+
+    // Create a PUBLIC catalog plan to change to
+    const { plan: paidPlan, tiers: paidTiers } =
+      await PlanFactory.createPaid("gold");
+
+    const subscriptionId = await SubscriptionFactory.createActive(
+      organizationId,
+      trialPlan.id
+    );
+
+    // Schedule a change to the paid plan
+    const scheduledAt = new Date();
+    scheduledAt.setDate(scheduledAt.getDate() - 1);
+
+    await db
+      .update(schema.orgSubscriptions)
+      .set({
+        pendingPlanId: paidPlan.id,
+        pendingBillingCycle: "monthly",
+        pendingPricingTierId: paidTiers[0].id,
+        pricingTierId: trialTiers[0].id,
+        planChangeAt: scheduledAt,
+      })
+      .where(eq(schema.orgSubscriptions.id, subscriptionId));
+
+    // Mock Pagarme cancel
+    const { PagarmeClient } = await import("@/modules/payments/pagarme/client");
+    const cancelSpy = spyOn(
+      PagarmeClient,
+      "cancelSubscription"
+    ).mockResolvedValue({} as never);
+
+    // Execute the scheduled change
+    await PlanChangeService.executeScheduledChange(subscriptionId);
+
+    // Verify the default trial plan was NOT archived
+    const [trialPlanAfter] = await db
+      .select()
+      .from(schema.subscriptionPlans)
+      .where(eq(schema.subscriptionPlans.id, trialPlan.id))
+      .limit(1);
+
+    expect(trialPlanAfter.archivedAt).toBeNull();
 
     cancelSpy.mockRestore();
   });
