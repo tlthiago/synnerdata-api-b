@@ -1,5 +1,7 @@
 import { describe, expect, test } from "bun:test";
 import { Elysia } from "elysia";
+import { AppError } from "@/lib/errors/base-error";
+import { errorPlugin } from "@/lib/errors/error-plugin";
 import { loggerPlugin } from "..";
 
 // UUIDv4: xxxxxxxx-xxxx-4xxx-yxxx-xxxxxxxxxxxx (version 4)
@@ -88,6 +90,79 @@ describe("Logger Plugin", () => {
       expect(body.requestStart).toBeDefined();
       expect(typeof body.requestStart).toBe("number");
       expect(body.requestStart).toBeGreaterThan(0);
+    });
+  });
+
+  describe("Status code capture with errorPlugin", () => {
+    class TestError extends AppError {
+      status = 400;
+      code = "TEST_ERROR";
+    }
+
+    class TestServerError extends AppError {
+      status = 500;
+      code = "TEST_SERVER_ERROR";
+    }
+
+    test("should return correct status for successful requests", async () => {
+      const app = new Elysia()
+        .use(loggerPlugin)
+        .use(errorPlugin)
+        .get("/ok", () => ({ success: true }));
+
+      const response = await app.handle(new Request("http://localhost/ok"));
+      expect(response.status).toBe(200);
+    });
+
+    test("should return correct status for AppError (4xx)", async () => {
+      const app = new Elysia()
+        .use(loggerPlugin)
+        .use(errorPlugin)
+        .get("/fail", () => {
+          throw new TestError("bad request");
+        });
+
+      const response = await app.handle(new Request("http://localhost/fail"));
+      expect(response.status).toBe(400);
+    });
+
+    test("should return correct status for AppError (5xx)", async () => {
+      const app = new Elysia()
+        .use(loggerPlugin)
+        .use(errorPlugin)
+        .get("/crash", () => {
+          throw new TestServerError("server error");
+        });
+
+      const response = await app.handle(new Request("http://localhost/crash"));
+      expect(response.status).toBe(500);
+    });
+
+    test("should return 404 for unknown routes", async () => {
+      const app = new Elysia()
+        .use(loggerPlugin)
+        .use(errorPlugin)
+        .get("/exists", () => ({ success: true }));
+
+      const response = await app.handle(
+        new Request("http://localhost/does-not-exist")
+      );
+      expect(response.status).toBe(404);
+    });
+
+    test("should include X-Request-ID in error responses", async () => {
+      const app = new Elysia()
+        .use(loggerPlugin)
+        .use(errorPlugin)
+        .get("/fail", () => {
+          throw new TestError("bad request");
+        });
+
+      const response = await app.handle(new Request("http://localhost/fail"));
+      const requestId = response.headers.get("X-Request-ID");
+
+      expect(requestId).toBeDefined();
+      expect(requestId).toMatch(REQUEST_ID_PATTERN);
     });
   });
 });
