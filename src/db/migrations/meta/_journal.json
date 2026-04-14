@@ -267,6 +267,13 @@
       "when": 1775168400000,
       "tag": "0037_allow-private-trial-plans",
       "breakpoints": true
+    },
+    {
+      "idx": 38,
+      "version": "7",
+      "when": 1776126800000,
+      "tag": "0038_fix-default-trial-plan-archived",
+      "breakpoints": true
     }
   ]
 }

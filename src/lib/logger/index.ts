@@ -31,14 +31,18 @@ const customLogFormatter = (object: Record<string, unknown>) => {
     const ctx = object as {
       request: Request;
       store: { responseTime?: number };
+      set: { status?: number };
+      requestId?: string;
       isError: boolean;
       code?: string;
       error?: Error | { message?: string; code?: string; response?: string };
     };
 
     const log: Record<string, unknown> = {
+      requestId: ctx.requestId,
       method: ctx.request.method,
       url: new URL(ctx.request.url).pathname,
+      status: ctx.set.status ?? 200,
     };
 
     if (ctx.isError) {
