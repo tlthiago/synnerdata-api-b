@@ -458,6 +458,18 @@ export class EmployeeCountExceedsNewPlanLimitError extends PaymentError {
   }
 }
 
+export class EmployeeCountExceedsTierLimitError extends PaymentError {
+  status = 400;
+
+  constructor(currentCount: number, maxEmployees: number) {
+    super(
+      `A organização possui ${currentCount} funcionários ativos, mas o plano selecionado suporta até ${maxEmployees}. Remova ${currentCount - maxEmployees} funcionário(s) ou escolha um plano com limite maior.`,
+      "EMPLOYEE_COUNT_EXCEEDS_TIER_LIMIT",
+      { currentCount, maxEmployees, toRemove: currentCount - maxEmployees }
+    );
+  }
+}
+
 // Plans Module - Tier Errors
 
 export class TrialPlanNotFoundError extends PaymentError {

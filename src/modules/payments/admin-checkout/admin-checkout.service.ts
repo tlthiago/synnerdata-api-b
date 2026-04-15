@@ -9,6 +9,7 @@ import {
   OrganizationNotFoundError,
   TrialPlanAsBaseError,
 } from "@/modules/payments/errors";
+import { LimitsService } from "@/modules/payments/limits/limits.service";
 import {
   PAGARME_RETRY_CONFIG,
   PagarmeClient,
@@ -63,6 +64,12 @@ export abstract class AdminCheckoutService {
     if (basePlan.isTrial) {
       throw new TrialPlanAsBaseError(basePlanId);
     }
+
+    // 3b. Validate employee count fits in the requested tier
+    await LimitsService.requireEmployeeCountFitsInTier(
+      organizationId,
+      maxEmployees
+    );
 
     // 4. Handle billing profile
     await AdminCheckoutService.ensureBillingProfile(organizationId, billing);

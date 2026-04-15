@@ -3,6 +3,7 @@ import { eq } from "drizzle-orm";
 import { db } from "@/db";
 import { schema } from "@/db/schema";
 import { env } from "@/env";
+import { EmployeeFactory } from "@/test/factories/employee.factory";
 import { OrganizationFactory } from "@/test/factories/organization.factory";
 import { BillingProfileFactory } from "@/test/factories/payments/billing-profile.factory";
 import {
@@ -313,6 +314,61 @@ describe("POST /v1/payments/admin/checkout", () => {
     expect(response.status).toBe(400);
     const body = await response.json();
     expect(body.error.code).toBe("BILLING_PROFILE_REQUIRED");
+  });
+
+  test("should reject admin checkout when employee count exceeds maxEmployees", async () => {
+    const { headers: adminHeaders } = await UserFactory.createAdmin();
+    const { organizationId, userId } =
+      await UserFactory.createWithOrganization();
+
+    // Create trial subscription
+    await SubscriptionFactory.createTrial(
+      organizationId,
+      trialPlanResult.plan.id
+    );
+
+    // Patch subscription to reference a gold tier with large maxEmployees
+    // so EmployeeFactory (which calls requireEmployeeLimit) can create employees.
+    // The second gold tier has maxEmployees=20, enough to hold 15 employees.
+    const secondTier = goldPlanResult.tiers[1];
+    if (!secondTier) {
+      throw new Error("goldPlanResult must have at least 2 tiers");
+    }
+    await db
+      .update(schema.orgSubscriptions)
+      .set({ pricingTierId: secondTier.id })
+      .where(eq(schema.orgSubscriptions.organizationId, organizationId));
+
+    // Create billing profile
+    await BillingProfileFactory.create({ organizationId });
+
+    // Create 15 employees (will exceed maxEmployees=10 in the payload)
+    await EmployeeFactory.createMany({
+      organizationId,
+      userId,
+      count: 15,
+    });
+
+    const response = await app.handle(
+      new Request(ENDPOINT, {
+        method: "POST",
+        headers: {
+          ...adminHeaders,
+          "Content-Type": "application/json",
+        },
+        body: JSON.stringify(
+          buildPayload({
+            organizationId,
+            basePlanId: goldPlanResult.plan.id,
+            maxEmployees: 10,
+          })
+        ),
+      })
+    );
+
+    expect(response.status).toBe(400);
+    const body = await response.json();
+    expect(body.error.code).toBe("EMPLOYEE_COUNT_EXCEEDS_TIER_LIMIT");
   });
 
   // ── Success — Pagarme integration ───────────────────────────────

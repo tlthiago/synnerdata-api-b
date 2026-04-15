@@ -10,6 +10,7 @@ Criação de links de pagamento via Pagar.me para ativação de assinatura.
 - Pricing tier deve existir
 - Billing cycle: `monthly` | `yearly`
 - Pending checkout expira em 24 horas
+- Employee count da org deve ser <= `tier.maxEmployees` do tier selecionado (validado antes de criar payment link)
 
 ## Flow
 
@@ -31,3 +32,4 @@ Criação de links de pagamento via Pagar.me para ativação de assinatura.
 
 - `EmailNotVerifiedError`, `SubscriptionAlreadyActiveError`
 - `PlanNotFoundError`, `PricingTierNotFoundError`
+- `EmployeeCountExceedsTierLimitError`
