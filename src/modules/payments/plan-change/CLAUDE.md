@@ -15,6 +15,12 @@ Upgrades imediatos e downgrades agendados com proration.
 - **Prioridade 2**: mesmo cycle, compara preço mensal normalizado
 - **Default**: upgrade se mesmo preço/cycle
 
+## Employee Count Validation
+
+- Valida employee count em **todas** as mudancas (upgrade e downgrade), nao apenas downgrades
+- Impede mudanca se `currentEmployeeCount > newTier.maxEmployees`
+- Erro: `EMPLOYEE_COUNT_EXCEEDS_TIER_LIMIT`
+
 ## Upgrade (imediato)
 
 - Proration: `(newPrice - currentPrice) × (remainingDays / totalDays)`
@@ -24,7 +30,6 @@ Upgrades imediatos e downgrades agendados com proration.
 
 ## Downgrade (agendado)
 
-- Valida se employee count cabe no novo tier
 - Armazena: `pendingPlanId`, `pendingBillingCycle`, `pendingPricingTierId`, `planChangeAt`
 - User mantém plano atual até fim do período
 - Job executa no fim do período: cancela Pagar.me atual, ativa novo plano
