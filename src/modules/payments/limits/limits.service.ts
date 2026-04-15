@@ -371,6 +371,35 @@ export abstract class LimitsService {
     return Math.round((current / limit) * 100);
   }
 
+  /**
+   * Throws EmployeeCountExceedsTierLimitError if the organization's current
+   * employee count exceeds the given maxEmployees.
+   * Used to validate checkout/plan-change before creating payment links.
+   */
+  static async requireEmployeeCountFitsInTier(
+    organizationId: string,
+    maxEmployees: number
+  ): Promise<void> {
+    const [countResult] = await db
+      .select({ value: count() })
+      .from(schema.employees)
+      .where(
+        and(
+          eq(schema.employees.organizationId, organizationId),
+          isNull(schema.employees.deletedAt)
+        )
+      );
+
+    const current = countResult?.value ?? 0;
+
+    if (current > maxEmployees) {
+      const { EmployeeCountExceedsTierLimitError } = await import(
+        "@/modules/payments/errors"
+      );
+      throw new EmployeeCountExceedsTierLimitError(current, maxEmployees);
+    }
+  }
+
   private static async getPlanFeatures(
     organizationId: string
   ): Promise<string[]> {
