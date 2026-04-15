@@ -312,6 +312,16 @@ export abstract class SubscriptionMutationService {
 
     const updatedSubscription = await updateById(subscription.id, updateData);
 
+    // Safety net: warn if employee count exceeds new tier limit
+    if (pricingTierId) {
+      await SubscriptionMutationService.warnIfEmployeeCountExceedsTier({
+        pricingTierId,
+        organizationId,
+        subscriptionId: subscription.id,
+        planId,
+      });
+    }
+
     // Archive previous private plan if subscription changed to a different plan.
     // Only archive org-specific plans (organizationId set) — the default trial
     // plan (organizationId=NULL) is shared and must never be archived.
@@ -336,6 +346,55 @@ export abstract class SubscriptionMutationService {
     }
 
     return updatedSubscription;
+  }
+
+  /**
+   * Logs a warning if the active employee count exceeds the tier's maxEmployees.
+   * Called after activation as a non-blocking safety net for edge cases where
+   * employees were added between checkout creation and payment completion.
+   */
+  private static async warnIfEmployeeCountExceedsTier(input: {
+    pricingTierId: string;
+    organizationId: string;
+    subscriptionId: string;
+    planId?: string;
+  }): Promise<void> {
+    const { pricingTierId, organizationId, subscriptionId, planId } = input;
+    const { eq, and, isNull, count: countFn } = await import("drizzle-orm");
+
+    const [tierInfo] = await db
+      .select({ maxEmployees: schema.planPricingTiers.maxEmployees })
+      .from(schema.planPricingTiers)
+      .where(eq(schema.planPricingTiers.id, pricingTierId))
+      .limit(1);
+
+    if (!tierInfo) {
+      return;
+    }
+
+    const [empCount] = await db
+      .select({ value: countFn() })
+      .from(schema.employees)
+      .where(
+        and(
+          eq(schema.employees.organizationId, organizationId),
+          isNull(schema.employees.deletedAt)
+        )
+      );
+
+    const currentEmployees = empCount?.value ?? 0;
+    if (currentEmployees > tierInfo.maxEmployees) {
+      const { logger } = await import("@/lib/logger");
+      logger.warn({
+        type: "subscription:activate:employee-count-exceeds-tier",
+        organizationId,
+        subscriptionId,
+        currentEmployees,
+        tierMaxEmployees: tierInfo.maxEmployees,
+        pricingTierId,
+        planId,
+      });
+    }
   }
 
   /**
