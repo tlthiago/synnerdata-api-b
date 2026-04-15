@@ -5,6 +5,7 @@ import { sendCheckoutLinkEmail } from "@/lib/email";
 import { Retry } from "@/lib/utils/retry";
 import { CustomerService } from "@/modules/payments/customer/customer.service";
 import { EmailNotVerifiedError } from "@/modules/payments/errors";
+import { LimitsService } from "@/modules/payments/limits/limits.service";
 import {
   PAGARME_RETRY_CONFIG,
   PagarmeClient,
@@ -42,6 +43,11 @@ export abstract class CheckoutService {
 
     const plan = await PlansService.getAvailableById(planId);
     const tier = await PlansService.getTierById(tierId);
+
+    await LimitsService.requireEmployeeCountFitsInTier(
+      organizationId,
+      tier.maxEmployees
+    );
 
     const pagarmePlanId = await PagarmePlanService.ensurePlan(
       tierId,

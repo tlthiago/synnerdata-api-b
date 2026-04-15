@@ -2,6 +2,7 @@ import { and, asc, count, eq, isNull, like } from "drizzle-orm";
 import { db } from "@/db";
 import { schema } from "@/db/schema";
 import {
+  EmployeeCountExceedsTierLimitError,
   EmployeeLimitReachedError,
   FeatureNotAvailableError,
 } from "@/modules/payments/errors";
@@ -369,6 +370,32 @@ export abstract class LimitsService {
       return 100;
     }
     return Math.round((current / limit) * 100);
+  }
+
+  /**
+   * Throws EmployeeCountExceedsTierLimitError if the organization's current
+   * employee count exceeds the given maxEmployees.
+   * Used to validate checkout/plan-change before creating payment links.
+   */
+  static async requireEmployeeCountFitsInTier(
+    organizationId: string,
+    maxEmployees: number
+  ): Promise<void> {
+    const [countResult] = await db
+      .select({ value: count() })
+      .from(schema.employees)
+      .where(
+        and(
+          eq(schema.employees.organizationId, organizationId),
+          isNull(schema.employees.deletedAt)
+        )
+      );
+
+    const current = countResult?.value ?? 0;
+
+    if (current > maxEmployees) {
+      throw new EmployeeCountExceedsTierLimitError(current, maxEmployees);
+    }
   }
 
   private static async getPlanFeatures(

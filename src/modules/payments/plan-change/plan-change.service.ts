@@ -119,13 +119,11 @@ export abstract class PlanChangeService {
       newBillingCycle: resolved.finalBillingCycle,
     });
 
-    // 8. If downgrade, validate employee count fits in new tier
-    if (changeType === "downgrade") {
-      await PlanChangeService.validateEmployeeCountForDowngrade(
-        organizationId,
-        newTier.maxEmployees
-      );
-    }
+    // 8. Validate employee count fits in new tier (all change types)
+    await LimitsService.requireEmployeeCountFitsInTier(
+      organizationId,
+      newTier.maxEmployees
+    );
 
     // 9. Process upgrade or schedule downgrade
     const planData = {

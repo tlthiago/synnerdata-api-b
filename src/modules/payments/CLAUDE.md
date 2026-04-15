@@ -11,6 +11,8 @@ Assinaturas, checkout, billing e integração Pagar.me. Módulo mais crítico do
 - Subscriptions ativas referenciam tiers arquivados normalmente (grandfathering)
 - Trial (default): exatamente 1 tier (0-10). Trial (privado/provision): 1 tier customizado. Paid: >= 1 tier, contíguos, sem gaps/overlaps, min >= 0, min <= max
 - Employee count não pode exceder `tier.maxEmployees`
+- Checkout (self-service e admin) valida que employee count cabe no `tier.maxEmployees` antes de criar payment link
+- Plan-change valida employee count em todas as mudancas (upgrade e downgrade), nao apenas downgrades
 - Webhooks são idempotentes (mesmo evento processado uma vez)
 - Customer ID e plan changes são atômicos (proteção contra race condition)
 - Preço customizado rastreado via `priceAtPurchase` e `isCustomPrice` em `org_subscriptions`

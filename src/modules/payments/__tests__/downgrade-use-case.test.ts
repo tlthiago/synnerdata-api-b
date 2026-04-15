@@ -572,7 +572,7 @@ describe("Downgrade Use Case: Bloqueio por Limite de Funcionários", () => {
       expect(response.status).toBe(400);
 
       const body = await response.json();
-      expect(body.error.code).toBe("EMPLOYEE_COUNT_EXCEEDS_NEW_PLAN_LIMIT");
+      expect(body.error.code).toBe("EMPLOYEE_COUNT_EXCEEDS_TIER_LIMIT");
     });
 
     test("should allow downgrade to tier that fits employees", async () => {

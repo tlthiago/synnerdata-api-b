@@ -9,6 +9,7 @@ Cria um **plano privado dedicado** (`isPublic=false`) com faixa de funcionários
 - Organização NÃO pode ter subscription paga ativa (trial é permitido)
 - `basePlanId` deve referenciar plano ativo e não-trial (herda features via `plan_features`)
 - `minEmployees >= 0`, `maxEmployees > minEmployees` (faixa livre, não precisa existir no catálogo)
+- Employee count da org deve ser <= `maxEmployees` informado (validado antes de criar plano privado)
 - `customPriceMonthly >= 100` centavos (R$ 1,00)
 - Preço anual: `calculateYearlyPrice(customPriceMonthly, basePlan.yearlyDiscountPercent)` — usa o desconto do plano base. Fallback: **20%** se o plano base não definir `yearlyDiscountPercent`
 - Billing profile obrigatório — admin pode enviar dados de billing no payload para criação automática

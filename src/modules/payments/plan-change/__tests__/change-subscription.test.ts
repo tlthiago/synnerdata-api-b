@@ -284,7 +284,7 @@ describe("POST /v1/payments/subscription/change", () => {
       expect(body.error.code).toBe("YEARLY_BILLING_NOT_AVAILABLE");
     });
 
-    test("should return EMPLOYEE_COUNT_EXCEEDS_NEW_PLAN_LIMIT on downgrade with too many employees", async () => {
+    test("should return EMPLOYEE_COUNT_EXCEEDS_TIER_LIMIT on downgrade with too many employees", async () => {
       const result = await UserFactory.createWithOrganization({
         emailVerified: true,
       });
@@ -328,7 +328,71 @@ describe("POST /v1/payments/subscription/change", () => {
 
       expect(response.status).toBe(400);
       const body = await response.json();
-      expect(body.error.code).toBe("EMPLOYEE_COUNT_EXCEEDS_NEW_PLAN_LIMIT");
+      expect(body.error.code).toBe("EMPLOYEE_COUNT_EXCEEDS_TIER_LIMIT");
+    });
+
+    test("should return EMPLOYEE_COUNT_EXCEEDS_TIER_LIMIT on upgrade with too many employees for target tier", async () => {
+      const result = await UserFactory.createWithOrganization({
+        emailVerified: true,
+      });
+
+      // Create two plans: gold (lower price) and diamond (higher price)
+      const { plan: goldPlan, tiers: goldTiers } =
+        await PlanFactory.createPaid("gold");
+      const { plan: diamondPlan, tiers: diamondTiers } =
+        await PlanFactory.createPaid("diamond");
+
+      const goldTier = goldTiers[1]; // 11-20 employees
+      const diamondTier = diamondTiers[0]; // 0-10 employees
+
+      // Make gold more expensive so that switching to diamond is a downgrade-by-price — wait, we need upgrade
+      // Make diamond more expensive (higher price = upgrade direction)
+      await db
+        .update(schema.planPricingTiers)
+        .set({ priceMonthly: 3000 })
+        .where(eq(schema.planPricingTiers.id, goldTier.id));
+
+      await db
+        .update(schema.planPricingTiers)
+        .set({ priceMonthly: 10_000 })
+        .where(eq(schema.planPricingTiers.id, diamondTier.id));
+
+      // Start on gold tier (11-20 employees, maxEmployees=20)
+      await SubscriptionFactory.create(result.organizationId, goldPlan.id, {
+        pricingTierId: goldTier.id,
+      });
+
+      // Create 15 employees — fits in goldTier (max 20) but not in diamondTier (max 10)
+      const { createTestEmployees } = await import("@/test/helpers/employee");
+      await createTestEmployees({
+        organizationId: result.organizationId,
+        userId: result.user.id,
+        count: 15,
+      });
+
+      await BillingProfileFactory.create({
+        organizationId: result.organizationId,
+      });
+
+      // Attempt upgrade to diamond plan with lower-capacity tier
+      const response = await app.handle(
+        new Request(ENDPOINT, {
+          method: "POST",
+          headers: {
+            ...result.headers,
+            "Content-Type": "application/json",
+          },
+          body: JSON.stringify({
+            newPlanId: diamondPlan.id,
+            newTierId: diamondTier.id,
+            successUrl: "https://example.com/success",
+          }),
+        })
+      );
+
+      expect(response.status).toBe(400);
+      const body = await response.json();
+      expect(body.error.code).toBe("EMPLOYEE_COUNT_EXCEEDS_TIER_LIMIT");
     });
 
     test("should return PLAN_NOT_FOUND for non-existent plan", async () => {
