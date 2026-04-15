@@ -4,6 +4,7 @@ import { db } from "@/db";
 import { schema } from "@/db/schema";
 import { billingProfiles } from "@/db/schema/billing-profiles";
 import { env } from "@/env";
+import { EmployeeFactory } from "@/test/factories/employee.factory";
 import { OrganizationFactory } from "@/test/factories/organization.factory";
 import { BillingProfileFactory } from "@/test/factories/payments/billing-profile.factory";
 import {
@@ -779,5 +780,64 @@ describe("POST /v1/payments/checkout", () => {
     expect(response.status).toBe(404);
     const body = await response.json();
     expect(body.error.code).toBe("BILLING_PROFILE_NOT_FOUND");
+  });
+
+  test("should reject checkout when employee count exceeds tier maxEmployees", async () => {
+    const { headers, organizationId, userId } =
+      await UserFactory.createWithOrganization();
+
+    // Gold tier 0-10: maxEmployees=10. Use second gold tier (11-20) as subscription
+    // tier so EmployeeFactory can create 11 employees without hitting the limit.
+    const firstTier = PlanFactory.getFirstTier(goldPlanResult);
+    const secondTier = goldPlanResult.tiers[1];
+    if (!secondTier) {
+      throw new Error("goldPlanResult must have at least 2 tiers");
+    }
+
+    // Create trial subscription with a tier that allows >10 employees
+    await SubscriptionFactory.createTrial(
+      organizationId,
+      trialPlanResult.plan.id
+    );
+
+    // Also need an active subscription referencing a tier with enough capacity
+    // so EmployeeFactory (which calls requireEmployeeLimit) can insert employees.
+    // Patch the subscription to reference a gold tier with maxEmployees=20.
+    await db
+      .update(schema.orgSubscriptions)
+      .set({ pricingTierId: secondTier.id })
+      .where(eq(schema.orgSubscriptions.organizationId, organizationId));
+
+    // Verify email
+    await db
+      .update(schema.users)
+      .set({ emailVerified: true })
+      .where(eq(schema.users.id, userId));
+
+    // Create 11 employees — exceeds the first tier's maxEmployees (10)
+    await EmployeeFactory.createMany({
+      organizationId,
+      userId,
+      count: firstTier.maxEmployees + 1,
+    });
+
+    const response = await app.handle(
+      new Request(`${BASE_URL}/v1/payments/checkout`, {
+        method: "POST",
+        headers: {
+          ...headers,
+          "Content-Type": "application/json",
+        },
+        body: JSON.stringify({
+          planId: goldPlanResult.plan.id,
+          tierId: firstTier.id,
+          successUrl: "https://example.com/success",
+        }),
+      })
+    );
+
+    expect(response.status).toBe(400);
+    const body = await response.json();
+    expect(body.error.code).toBe("EMPLOYEE_COUNT_EXCEEDS_TIER_LIMIT");
   });
 });

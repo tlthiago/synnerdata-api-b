@@ -2,6 +2,7 @@ import { and, asc, count, eq, isNull, like } from "drizzle-orm";
 import { db } from "@/db";
 import { schema } from "@/db/schema";
 import {
+  EmployeeCountExceedsTierLimitError,
   EmployeeLimitReachedError,
   FeatureNotAvailableError,
 } from "@/modules/payments/errors";
@@ -393,9 +394,6 @@ export abstract class LimitsService {
     const current = countResult?.value ?? 0;
 
     if (current > maxEmployees) {
-      const { EmployeeCountExceedsTierLimitError } = await import(
-        "@/modules/payments/errors"
-      );
       throw new EmployeeCountExceedsTierLimitError(current, maxEmployees);
     }
   }
