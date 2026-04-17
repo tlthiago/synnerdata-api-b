@@ -293,16 +293,6 @@ const employeeFieldsSchema = z.object({
     .date("Data do exame demissional deve ser uma data válida")
     .optional()
     .describe("Data do exame demissional"),
-  probation1ExpiryDate: z
-    .string()
-    .date("Data de vencimento da experiência 1 deve ser uma data válida")
-    .optional()
-    .describe("Vencimento experiência 1"),
-  probation2ExpiryDate: z
-    .string()
-    .date("Data de vencimento da experiência 2 deve ser uma data válida")
-    .optional()
-    .describe("Vencimento experiência 2"),
 
   // Acquisition Period (manual seed)
   acquisitionPeriodStart: z
@@ -483,16 +473,6 @@ export const updateEmployeeSchema = employeeFieldsSchema.partial().extend({
   terminationExamDate: z
     .string()
     .date("Data do exame demissional deve ser uma data válida")
-    .nullable()
-    .optional(),
-  probation1ExpiryDate: z
-    .string()
-    .date("Data de vencimento da experiência 1 deve ser uma data válida")
-    .nullable()
-    .optional(),
-  probation2ExpiryDate: z
-    .string()
-    .date("Data de vencimento da experiência 2 deve ser uma data válida")
     .nullable()
     .optional(),
 
