@@ -576,8 +576,6 @@ export abstract class EmployeeService {
         lastHealthExamDate: data.lastHealthExamDate,
         admissionExamDate: data.admissionExamDate,
         terminationExamDate: data.terminationExamDate,
-        probation1ExpiryDate: data.probation1ExpiryDate,
-        probation2ExpiryDate: data.probation2ExpiryDate,
         acquisitionPeriodStart: data.acquisitionPeriodStart,
         acquisitionPeriodEnd: data.acquisitionPeriodEnd,
         createdBy: userId,
@@ -700,8 +698,6 @@ export abstract class EmployeeService {
       lastHealthExamDate: data.lastHealthExamDate,
       admissionExamDate: data.admissionExamDate,
       terminationExamDate: data.terminationExamDate,
-      probation1ExpiryDate: data.probation1ExpiryDate,
-      probation2ExpiryDate: data.probation2ExpiryDate,
       acquisitionPeriodStart: data.acquisitionPeriodStart,
       acquisitionPeriodEnd: data.acquisitionPeriodEnd,
     };
