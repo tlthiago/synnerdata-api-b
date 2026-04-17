@@ -92,8 +92,6 @@ type EmployeeOverrides = {
   lastHealthExamDate?: string;
   admissionExamDate?: string;
   terminationExamDate?: string;
-  probation1ExpiryDate?: string;
-  probation2ExpiryDate?: string;
   acquisitionPeriodStart?: string | null;
   acquisitionPeriodEnd?: string | null;
 };
@@ -310,10 +308,6 @@ function generateHealthDates(
     overrides.admissionExamDate ??
     maybe(profile, () => generatePastDateFrom(hireDate, 7));
 
-  const probation1ExpiryDate =
-    overrides.probation1ExpiryDate ??
-    maybe(profile, () => generatePastDateFrom(hireDate, 45));
-
   return {
     lastHealthExamDate:
       overrides.lastHealthExamDate ??
@@ -323,12 +317,6 @@ function generateHealthDates(
       }),
     admissionExamDate,
     terminationExamDate: overrides.terminationExamDate,
-    probation1ExpiryDate,
-    probation2ExpiryDate:
-      overrides.probation2ExpiryDate ??
-      (probation1ExpiryDate
-        ? maybe(profile, () => generatePastDateFrom(hireDate, 90))
-        : undefined),
   };
 }
 

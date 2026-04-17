@@ -792,8 +792,12 @@ export abstract class EmployeeService {
 
     const updateData = EmployeeService.buildUpdateData(data, userId);
 
-    if (data.hireDate && data.hireDate !== existingRaw.hireDate) {
-      Object.assign(updateData, computeProbationDates(data.hireDate));
+    const newHireDate = data.hireDate;
+    const hireDateChanged =
+      newHireDate !== undefined && newHireDate !== existingRaw.hireDate;
+
+    if (hireDateChanged) {
+      Object.assign(updateData, computeProbationDates(newHireDate));
     }
 
     const [updated] = await db
@@ -807,13 +811,13 @@ export abstract class EmployeeService {
       )
       .returning();
 
-    if (data.hireDate && data.hireDate !== existingRaw.hireDate) {
+    if (hireDateChanged) {
       const { EmployeeHooks } = await import("@/modules/employees/hooks");
       EmployeeHooks.emit("employee.hireDateUpdated", {
         employeeId: id,
         organizationId,
         oldHireDate: existingRaw.hireDate,
-        newHireDate: data.hireDate,
+        newHireDate,
       });
     }
 
