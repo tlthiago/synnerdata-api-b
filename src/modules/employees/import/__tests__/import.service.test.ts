@@ -408,4 +408,86 @@ describe("ImportService.importFromFile", () => {
 
     expect(recentEmployees.length).toBeGreaterThanOrEqual(2);
   });
+
+  test("computes probation dates from hireDate for each imported employee", async () => {
+    // Use a fresh org so the employee count starts at 0 (shared org accumulates
+    // employees across tests and may be close to the tier limit).
+    const probResult = await createTestUserWithOrganization({
+      emailVerified: true,
+      skipTrialCreation: true,
+    });
+    const probOrgId = probResult.organizationId;
+    const probUserId = probResult.user.id;
+
+    await createTestSector({
+      organizationId: probOrgId,
+      userId: probUserId,
+      name: "Import Setor",
+    });
+    await createTestJobPosition({
+      organizationId: probOrgId,
+      userId: probUserId,
+      name: "Import Cargo",
+    });
+    await createTestJobClassification({
+      organizationId: probOrgId,
+      userId: probUserId,
+      name: "Import CBO",
+    });
+    await setupSubscription(probOrgId);
+
+    const probTemplate = await TemplateService.generate(probOrgId);
+
+    const rows = [
+      validRow({
+        name: "Empl A Probation",
+        hireDate: "06/04/2025",
+        cpf: generateCpf(),
+        sectorId: "Import Setor",
+        jobPositionId: "Import Cargo",
+        jobClassificationId: "Import CBO",
+      }),
+      validRow({
+        name: "Empl B Probation",
+        hireDate: "03/03/2025",
+        cpf: generateCpf(),
+        sectorId: "Import Setor",
+        jobPositionId: "Import Cargo",
+        jobClassificationId: "Import CBO",
+      }),
+    ];
+    const buffer = await buildWorkbookWithRows(probTemplate, rows);
+
+    const result = await ImportService.importFromFile({
+      buffer,
+      organizationId: probOrgId,
+      userId: probUserId,
+    });
+
+    expect(result.imported).toBe(2);
+    expect(result.failed).toBe(0);
+
+    const inserted = await db
+      .select({
+        name: schema.employees.name,
+        hireDate: schema.employees.hireDate,
+        p1: schema.employees.probation1ExpiryDate,
+        p2: schema.employees.probation2ExpiryDate,
+      })
+      .from(schema.employees)
+      .where(
+        and(
+          eq(schema.employees.organizationId, probOrgId),
+          isNull(schema.employees.deletedAt)
+        )
+      );
+
+    const a = inserted.find((e) => e.name === "Empl A Probation");
+    const b = inserted.find((e) => e.name === "Empl B Probation");
+
+    expect(a?.p1).toBe("2025-05-20");
+    expect(a?.p2).toBe("2025-07-04");
+    expect(b?.p1).toBe("2025-04-16");
+    expect(b?.p2).toBe("2025-05-31");
+  });
 });

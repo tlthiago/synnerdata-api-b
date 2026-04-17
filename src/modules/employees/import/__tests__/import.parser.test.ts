@@ -332,8 +332,6 @@ describe("ImportParser.parseRow", () => {
       lastHealthExamDate: undefined,
       admissionExamDate: undefined,
       terminationExamDate: undefined,
-      probation1ExpiryDate: undefined,
-      probation2ExpiryDate: undefined,
     });
     const result = parser.parseRow(rawRow, 8);
 
