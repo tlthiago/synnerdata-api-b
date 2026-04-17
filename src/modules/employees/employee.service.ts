@@ -792,6 +792,10 @@ export abstract class EmployeeService {
 
     const updateData = EmployeeService.buildUpdateData(data, userId);
 
+    if (data.hireDate && data.hireDate !== existingRaw.hireDate) {
+      Object.assign(updateData, computeProbationDates(data.hireDate));
+    }
+
     const [updated] = await db
       .update(schema.employees)
       .set(updateData)
