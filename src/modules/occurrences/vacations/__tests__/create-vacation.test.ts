@@ -453,6 +453,129 @@ describe("POST /v1/vacations", () => {
     expect(body.error.code).toBe("VACATION_DATE_BEFORE_HIRE");
   });
 
+  test("computes periods from hireDate for employee without prior vacations", async () => {
+    const { headers, organizationId, user } =
+      await createTestUserWithOrganization({
+        emailVerified: true,
+      });
+
+    const { employee } = await createTestEmployee({
+      organizationId,
+      userId: user.id,
+      hireDate: "2024-06-10",
+      acquisitionPeriodStart: null,
+      acquisitionPeriodEnd: null,
+    });
+
+    const response = await app.handle(
+      new Request(`${BASE_URL}/v1/vacations`, {
+        method: "POST",
+        headers: { ...headers, "Content-Type": "application/json" },
+        body: JSON.stringify({
+          employeeId: employee.id,
+          startDate: "2026-07-01",
+          endDate: "2026-07-30",
+          daysEntitled: 30,
+          daysUsed: 30,
+          status: "scheduled",
+        }),
+      })
+    );
+
+    expect(response.status).toBe(200);
+    const body = await response.json();
+    // hireDate=2024-06-10, today~2026-04-19: completed=1 (2025-06-10<=today, 2026-06-10>today)
+    // acquisitionPeriodStart = addMonths("2024-06-10", 12) = "2025-06-10"
+    // acquisitionPeriodEnd = addDays(addMonths("2024-06-10", 24), -1) = "2026-06-09"
+    // concessivePeriodStart = "2026-06-10", concessivePeriodEnd = "2027-06-09"
+    expect(body.data.acquisitionPeriodStart).toBe("2025-06-10");
+    expect(body.data.acquisitionPeriodEnd).toBe("2026-06-09");
+    expect(body.data.concessivePeriodStart).toBe("2026-06-10");
+    expect(body.data.concessivePeriodEnd).toBe("2027-06-09");
+  });
+
+  test("computes next periods from last acquisition when employee has prior period seed", async () => {
+    const { headers, organizationId, user } =
+      await createTestUserWithOrganization({
+        emailVerified: true,
+      });
+
+    const { employee } = await createTestEmployee({
+      organizationId,
+      userId: user.id,
+      hireDate: "2024-06-10",
+      acquisitionPeriodStart: "2025-04-19",
+      acquisitionPeriodEnd: "2026-04-18",
+    });
+
+    const response = await app.handle(
+      new Request(`${BASE_URL}/v1/vacations`, {
+        method: "POST",
+        headers: { ...headers, "Content-Type": "application/json" },
+        body: JSON.stringify({
+          employeeId: employee.id,
+          startDate: "2026-10-06",
+          endDate: "2026-11-04",
+          daysEntitled: 30,
+          daysUsed: 30,
+          status: "scheduled",
+        }),
+      })
+    );
+
+    expect(response.status).toBe(200);
+    const body = await response.json();
+    // lastAcquisitionPeriod.end = "2026-04-18" (manual seed from employee fields)
+    // computePeriodsFromLastAcquisition("2026-04-18"):
+    //   acquisitionPeriodStart = addDays("2026-04-18", 1) = "2026-04-19"
+    //   acquisitionPeriodEnd = addDays(addMonths("2026-04-19", 12), -1) = "2027-04-18"
+    //   concessivePeriodStart = "2027-04-19", concessivePeriodEnd = "2028-04-18"
+    expect(body.data.acquisitionPeriodStart).toBe("2026-04-19");
+    expect(body.data.acquisitionPeriodEnd).toBe("2027-04-18");
+    expect(body.data.concessivePeriodStart).toBe("2027-04-19");
+    expect(body.data.concessivePeriodEnd).toBe("2028-04-18");
+  });
+
+  test("ignores period fields in payload and computes from backend", async () => {
+    const { headers, organizationId, user } =
+      await createTestUserWithOrganization({
+        emailVerified: true,
+      });
+
+    const { employee } = await createTestEmployee({
+      organizationId,
+      userId: user.id,
+      hireDate: "2024-06-10",
+      acquisitionPeriodStart: "2025-04-19",
+      acquisitionPeriodEnd: "2026-04-18",
+    });
+
+    const response = await app.handle(
+      new Request(`${BASE_URL}/v1/vacations`, {
+        method: "POST",
+        headers: { ...headers, "Content-Type": "application/json" },
+        body: JSON.stringify({
+          employeeId: employee.id,
+          startDate: "2026-10-06",
+          endDate: "2026-11-04",
+          daysEntitled: 30,
+          daysUsed: 30,
+          status: "scheduled",
+          acquisitionPeriodStart: "2099-01-01",
+          acquisitionPeriodEnd: "2099-12-31",
+          concessivePeriodStart: "2100-01-01",
+          concessivePeriodEnd: "2100-12-31",
+        }),
+      })
+    );
+
+    expect(response.status).toBe(200);
+    const body = await response.json();
+    // Zod strips the 4 garbage values; backend uses lastAcquisitionPeriod.end = "2026-04-18"
+    expect(body.data.acquisitionPeriodStart).toBe("2026-04-19");
+    expect(body.data.concessivePeriodEnd).toBe("2028-04-18");
+  });
+
   test("should set employee status to VACATION_SCHEDULED after creating vacation", async () => {
     const { headers, organizationId, user } =
       await createTestUserWithOrganization({ emailVerified: true });

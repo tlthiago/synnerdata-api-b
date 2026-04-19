@@ -1,5 +1,9 @@
 import { beforeAll, describe, expect, test } from "bun:test";
 import { env } from "@/env";
+import {
+  computePeriodsFromHireDate,
+  computePeriodsFromLastAcquisition,
+} from "@/modules/occurrences/vacations/period-calculation";
 import { VacationService } from "@/modules/occurrences/vacations/vacation.service";
 import { createTestApp, type TestApp } from "@/test/helpers/app";
 import { createTestEmployee } from "@/test/helpers/employee";
@@ -38,43 +42,7 @@ describe("GET /v1/employees/:id — lastAcquisitionPeriod", () => {
     expect(body.data.lastAcquisitionPeriod).toBeNull();
   });
 
-  test("should return null when vacations have no acquisition period", async () => {
-    const { headers, organizationId, user } =
-      await createTestUserWithOrganization({ emailVerified: true });
-
-    const { employee } = await createTestEmployee({
-      organizationId,
-      userId: user.id,
-      acquisitionPeriodStart: null,
-      acquisitionPeriodEnd: null,
-    });
-
-    await createTestVacation({
-      organizationId,
-      userId: user.id,
-      employeeId: employee.id,
-      startDate: "2027-01-10",
-      endDate: "2027-01-20",
-      daysEntitled: 11,
-    });
-
-    const response = await app.handle(
-      new Request(`${BASE_URL}/v1/employees/${employee.id}`, {
-        method: "GET",
-        headers,
-      })
-    );
-
-    expect(response.status).toBe(200);
-    const body = await response.json();
-    expect(body.data.lastAcquisitionPeriod).toBeNull();
-  });
-
-  // biome-ignore lint/suspicious/noSkippedTests: intentionally skipped — re-enabled in Task 4 once period computation is wired
-  test.skip("should return the acquisition period when vacation has one — re-enabled in Task 4 once periods are computed from hireDate", async () => {
-    // After Task 3, createTestVacation no longer stores period fields (backend
-    // computes them). Task 4 wires the computation: re-enable then and update
-    // assertions to match the auto-computed values from hireDate.
+  test("should return the acquisition period when vacation has one", async () => {
     const { headers, organizationId, user } =
       await createTestUserWithOrganization({ emailVerified: true });
 
@@ -102,16 +70,16 @@ describe("GET /v1/employees/:id — lastAcquisitionPeriod", () => {
 
     expect(response.status).toBe(200);
     const body = await response.json();
+    // Vacation was created against hireDate "2025-01-01" with no prior vacations
+    // → computePeriodsFromHireDate computes the current period based on today.
+    const expected = computePeriodsFromHireDate("2025-01-01");
     expect(body.data.lastAcquisitionPeriod).toEqual({
-      start: "2025-01-01",
-      end: "2025-12-31",
+      start: expected.acquisitionPeriodStart,
+      end: expected.acquisitionPeriodEnd,
     });
   });
 
-  // biome-ignore lint/suspicious/noSkippedTests: intentionally skipped — re-enabled in Task 4 once period computation is wired
-  test.skip("should return the most recent acquisition period when multiple vacations exist — re-enabled in Task 4", async () => {
-    // After Task 3, createTestVacation no longer stores period fields.
-    // Task 4 wires computation: re-enable then and update assertions.
+  test("should return the most recent acquisition period when multiple vacations exist", async () => {
     const { headers, organizationId, user } =
       await createTestUserWithOrganization({ emailVerified: true });
 
@@ -148,16 +116,17 @@ describe("GET /v1/employees/:id — lastAcquisitionPeriod", () => {
 
     expect(response.status).toBe(200);
     const body = await response.json();
+    const firstPeriods = computePeriodsFromHireDate("2024-01-01");
+    const secondPeriods = computePeriodsFromLastAcquisition(
+      firstPeriods.acquisitionPeriodEnd
+    );
     expect(body.data.lastAcquisitionPeriod).toEqual({
-      start: "2025-01-01",
-      end: "2025-12-31",
+      start: secondPeriods.acquisitionPeriodStart,
+      end: secondPeriods.acquisitionPeriodEnd,
     });
   });
 
-  // biome-ignore lint/suspicious/noSkippedTests: intentionally skipped — re-enabled in Task 4 once period computation is wired
-  test.skip("should ignore deleted vacations — re-enabled in Task 4", async () => {
-    // After Task 3, createTestVacation no longer stores period fields.
-    // Task 4 wires computation: re-enable then and update assertions.
+  test("should ignore deleted vacations", async () => {
     const { headers, organizationId, user } =
       await createTestUserWithOrganization({ emailVerified: true });
 
@@ -196,16 +165,15 @@ describe("GET /v1/employees/:id — lastAcquisitionPeriod", () => {
 
     expect(response.status).toBe(200);
     const body = await response.json();
+    const firstPeriods = computePeriodsFromHireDate("2024-01-01");
+    // Second vacation was deleted, so the last remaining period is from the first vacation.
     expect(body.data.lastAcquisitionPeriod).toEqual({
-      start: "2024-01-01",
-      end: "2024-12-31",
+      start: firstPeriods.acquisitionPeriodStart,
+      end: firstPeriods.acquisitionPeriodEnd,
     });
   });
 
-  // biome-ignore lint/suspicious/noSkippedTests: intentionally skipped — re-enabled in Task 4 once period computation is wired
-  test.skip("should include canceled vacations (acquisition period is a labor right) — re-enabled in Task 4", async () => {
-    // After Task 3, createTestVacation no longer stores period fields.
-    // Task 4 wires computation: re-enable then and update assertions.
+  test("should include canceled vacations (acquisition period is a labor right)", async () => {
     const { headers, organizationId, user } =
       await createTestUserWithOrganization({ emailVerified: true });
 
@@ -234,9 +202,10 @@ describe("GET /v1/employees/:id — lastAcquisitionPeriod", () => {
 
     expect(response.status).toBe(200);
     const body = await response.json();
+    const periods = computePeriodsFromHireDate("2024-01-01");
     expect(body.data.lastAcquisitionPeriod).toEqual({
-      start: "2024-01-01",
-      end: "2024-12-31",
+      start: periods.acquisitionPeriodStart,
+      end: periods.acquisitionPeriodEnd,
     });
   });
 
@@ -277,11 +246,7 @@ describe("GET /v1/employees/:id — lastAcquisitionPeriod", () => {
     });
   });
 
-  // biome-ignore lint/suspicious/noSkippedTests: intentionally skipped — re-enabled in Task 4 once period computation is wired
-  test.skip("should prefer vacation acquisition period over manual fields — re-enabled in Task 4", async () => {
-    // After Task 3, createTestVacation no longer stores period fields (NULL).
-    // The vacation's NULL period means the manual employee field is returned
-    // instead of the vacation period. Task 4 wires computation: re-enable then.
+  test("should prefer vacation acquisition period over manual fields", async () => {
     const { headers, organizationId, user } =
       await createTestUserWithOrganization({ emailVerified: true });
 
@@ -303,7 +268,8 @@ describe("GET /v1/employees/:id — lastAcquisitionPeriod", () => {
       })
     );
 
-    // Create vacation with a newer acquisition period
+    // Create vacation — service sees manual seed via getLastAcquisitionPeriod,
+    // then computes next period from it.
     await createTestVacation({
       organizationId,
       userId: user.id,
@@ -322,9 +288,12 @@ describe("GET /v1/employees/:id — lastAcquisitionPeriod", () => {
 
     expect(response.status).toBe(200);
     const body = await response.json();
+    // Manual seed: 2024-01-01 to 2024-12-31
+    // Vacation creation sees this via getLastAcquisitionPeriod, computes next period
+    const vacationPeriods = computePeriodsFromLastAcquisition("2024-12-31");
     expect(body.data.lastAcquisitionPeriod).toEqual({
-      start: "2025-01-01",
-      end: "2025-12-31",
+      start: vacationPeriods.acquisitionPeriodStart,
+      end: vacationPeriods.acquisitionPeriodEnd,
     });
   });
 });

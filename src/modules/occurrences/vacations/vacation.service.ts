@@ -3,6 +3,11 @@ import { db } from "@/db";
 import { schema } from "@/db/schema";
 import { ensureEmployeeNotTerminated } from "@/lib/helpers/employee-status";
 import { calculateDaysBetween } from "@/lib/schemas/date-helpers";
+import { EmployeeService } from "@/modules/employees/employee.service";
+import {
+  computePeriodsFromHireDate,
+  computePeriodsFromLastAcquisition,
+} from "@/modules/occurrences/vacations/period-calculation";
 import {
   VacationAlreadyDeletedError,
   VacationDateBeforeHireError,
@@ -146,26 +151,15 @@ export abstract class VacationService {
 
   private static validateDatesNotBeforeHire(
     hireDate: string,
-    dates: {
-      startDate: string;
-      endDate: string;
-      acquisitionPeriodStart?: string;
-      acquisitionPeriodEnd?: string;
-      concessivePeriodStart?: string;
-      concessivePeriodEnd?: string;
-    }
+    dates: { startDate: string; endDate: string }
   ): void {
-    const fields: [string, string | undefined][] = [
+    const fields: [string, string][] = [
       ["startDate", dates.startDate],
       ["endDate", dates.endDate],
-      ["acquisitionPeriodStart", dates.acquisitionPeriodStart],
-      ["acquisitionPeriodEnd", dates.acquisitionPeriodEnd],
-      ["concessivePeriodStart", dates.concessivePeriodStart],
-      ["concessivePeriodEnd", dates.concessivePeriodEnd],
     ];
 
     for (const [field, value] of fields) {
-      if (value && value < hireDate) {
+      if (value < hireDate) {
         throw new VacationDateBeforeHireError(field, value, hireDate);
       }
     }
@@ -248,6 +242,29 @@ export abstract class VacationService {
 
     await ensureEmployeeNotTerminated(data.employeeId, organizationId);
 
+    const [employeeRaw] = await db
+      .select()
+      .from(schema.employees)
+      .where(
+        and(
+          eq(schema.employees.id, data.employeeId),
+          eq(schema.employees.organizationId, organizationId),
+          isNull(schema.employees.deletedAt)
+        )
+      )
+      .limit(1);
+    if (!employeeRaw) {
+      throw new VacationInvalidEmployeeError(data.employeeId);
+    }
+
+    const lastPeriod = await EmployeeService.getLastAcquisitionPeriod(
+      data.employeeId,
+      employeeRaw
+    );
+    const periods = lastPeriod
+      ? computePeriodsFromLastAcquisition(lastPeriod.end)
+      : computePeriodsFromHireDate(employee.hireDate);
+
     VacationService.validateDates(data.startDate, data.endDate);
     VacationService.validateDatesNotBeforeHire(employee.hireDate, {
       startDate: data.startDate,
@@ -275,6 +292,10 @@ export abstract class VacationService {
       employeeId: data.employeeId,
       startDate: data.startDate,
       endDate: data.endDate,
+      acquisitionPeriodStart: periods.acquisitionPeriodStart,
+      acquisitionPeriodEnd: periods.acquisitionPeriodEnd,
+      concessivePeriodStart: periods.concessivePeriodStart,
+      concessivePeriodEnd: periods.concessivePeriodEnd,
       daysEntitled: data.daysEntitled,
       daysUsed: data.daysUsed,
       status: data.status,
@@ -294,10 +315,10 @@ export abstract class VacationService {
       employee,
       startDate: data.startDate,
       endDate: data.endDate,
-      acquisitionPeriodStart: null,
-      acquisitionPeriodEnd: null,
-      concessivePeriodStart: null,
-      concessivePeriodEnd: null,
+      acquisitionPeriodStart: periods.acquisitionPeriodStart,
+      acquisitionPeriodEnd: periods.acquisitionPeriodEnd,
+      concessivePeriodStart: periods.concessivePeriodStart,
+      concessivePeriodEnd: periods.concessivePeriodEnd,
       daysEntitled: data.daysEntitled,
       daysUsed: data.daysUsed,
       status: data.status,

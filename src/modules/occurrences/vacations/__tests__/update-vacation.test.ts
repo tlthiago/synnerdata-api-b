@@ -515,13 +515,7 @@ describe("PUT /v1/vacations/:id", () => {
     expect(updatedEmployee.status).toBe("ON_VACATION");
   });
 
-  // biome-ignore lint/suspicious/noSkippedTests: intentionally skipped — re-enabled in Task 4 once period computation is wired
-  test.skip("should not change period fields that are not sent — re-enabled in Task 4 once periods are computed from hireDate", async () => {
-    // This test was originally verifying that period fields set at create time
-    // are preserved when a PUT only changes daysUsed. After Task 3, periods are
-    // no longer accepted via API and are always NULL until Task 4 computes them.
-    // Task 4 will re-enable this test after adjusting the assertions to match
-    // the auto-computed period values.
+  test("should not change period fields that are not sent", async () => {
     const { headers, organizationId, user } =
       await createTestUserWithOrganization({
         emailVerified: true,
@@ -533,7 +527,7 @@ describe("PUT /v1/vacations/:id", () => {
       hireDate: "2020-01-01",
     });
 
-    const vacation = await createTestVacation({
+    const created = await createTestVacation({
       organizationId,
       userId: user.id,
       employeeId: employee.id,
@@ -544,7 +538,7 @@ describe("PUT /v1/vacations/:id", () => {
     });
 
     const response = await app.handle(
-      new Request(`${BASE_URL}/v1/vacations/${vacation.id}`, {
+      new Request(`${BASE_URL}/v1/vacations/${created.id}`, {
         method: "PUT",
         headers: { ...headers, "Content-Type": "application/json" },
         body: JSON.stringify({
@@ -558,5 +552,12 @@ describe("PUT /v1/vacations/:id", () => {
     expect(body.success).toBe(true);
     expect(body.data.daysUsed).toBe(5);
     expect(body.data.notes).toBe("Original notes");
+    // Period fields computed at create time must be preserved when not sent in update
+    expect(body.data.acquisitionPeriodStart).toBe(
+      created.acquisitionPeriodStart
+    );
+    expect(body.data.acquisitionPeriodEnd).toBe(created.acquisitionPeriodEnd);
+    expect(body.data.concessivePeriodStart).toBe(created.concessivePeriodStart);
+    expect(body.data.concessivePeriodEnd).toBe(created.concessivePeriodEnd);
   });
 });
