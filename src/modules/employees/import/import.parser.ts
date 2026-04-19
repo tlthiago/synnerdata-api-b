@@ -68,8 +68,6 @@ const DATE_FIELDS = [
   "lastHealthExamDate",
   "admissionExamDate",
   "terminationExamDate",
-  "probation1ExpiryDate",
-  "probation2ExpiryDate",
   "acquisitionPeriodStart",
   "acquisitionPeriodEnd",
 ] as const;

@@ -531,4 +531,84 @@ describe("PUT /v1/employees/:id — acquisition period", () => {
 
     expect(response.status).toBe(422);
   });
+
+  test("recalculates probation dates when hireDate changes", async () => {
+    const { headers, organizationId, user } =
+      await createTestUserWithOrganization({ emailVerified: true });
+
+    const { employee } = await createTestEmployee({
+      organizationId,
+      userId: user.id,
+      hireDate: "2025-04-06",
+      acquisitionPeriodStart: null,
+      acquisitionPeriodEnd: null,
+    });
+
+    const updateResponse = await app.handle(
+      new Request(`${BASE_URL}/v1/employees/${employee.id}`, {
+        method: "PUT",
+        headers: { ...headers, "Content-Type": "application/json" },
+        body: JSON.stringify({ hireDate: "2025-05-01" }),
+      })
+    );
+
+    expect(updateResponse.status).toBe(200);
+    const { data: updated } = await updateResponse.json();
+    expect(updated.hireDate).toBe("2025-05-01");
+    expect(updated.probation1ExpiryDate).toBe("2025-06-14");
+    expect(updated.probation2ExpiryDate).toBe("2025-07-29");
+  });
+
+  test("does not recalculate probation when hireDate is unchanged", async () => {
+    const { headers, organizationId, user } =
+      await createTestUserWithOrganization({ emailVerified: true });
+
+    const { employee } = await createTestEmployee({
+      organizationId,
+      userId: user.id,
+      hireDate: "2025-04-06",
+    });
+
+    const updateResponse = await app.handle(
+      new Request(`${BASE_URL}/v1/employees/${employee.id}`, {
+        method: "PUT",
+        headers: { ...headers, "Content-Type": "application/json" },
+        body: JSON.stringify({ name: "Novo Nome" }),
+      })
+    );
+
+    const { data: updated } = await updateResponse.json();
+    expect(updated.name).toBe("Novo Nome");
+    expect(updated.probation1ExpiryDate).toBe(employee.probation1ExpiryDate);
+    expect(updated.probation2ExpiryDate).toBe(employee.probation2ExpiryDate);
+  });
+
+  test("ignores probation dates in update payload and recalculates from hireDate", async () => {
+    const { headers, organizationId, user } =
+      await createTestUserWithOrganization({ emailVerified: true });
+
+    const { employee } = await createTestEmployee({
+      organizationId,
+      userId: user.id,
+      hireDate: "2025-04-06",
+      acquisitionPeriodStart: null,
+      acquisitionPeriodEnd: null,
+    });
+
+    const updateResponse = await app.handle(
+      new Request(`${BASE_URL}/v1/employees/${employee.id}`, {
+        method: "PUT",
+        headers: { ...headers, "Content-Type": "application/json" },
+        body: JSON.stringify({
+          hireDate: "2025-03-03",
+          probation1ExpiryDate: "2099-01-01",
+          probation2ExpiryDate: "2099-01-01",
+        }),
+      })
+    );
+
+    const { data: updated } = await updateResponse.json();
+    expect(updated.probation1ExpiryDate).toBe("2025-04-16");
+    expect(updated.probation2ExpiryDate).toBe("2025-05-31");
+  });
 });

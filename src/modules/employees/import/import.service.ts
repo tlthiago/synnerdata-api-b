@@ -4,6 +4,7 @@ import { db } from "@/db";
 import { schema } from "@/db/schema";
 import { AuditService } from "@/modules/audit/audit.service";
 import type { CreateEmployee } from "@/modules/employees/employee.model";
+import { computeProbationDates } from "@/modules/employees/probation";
 import { LimitsService } from "@/modules/payments/limits/limits.service";
 import {
   FIELD_KEY_TO_HEADER,
@@ -178,6 +179,7 @@ export abstract class ImportService {
           healthInsurance: row.data.healthInsurance?.toString(),
           latitude: row.data.latitude?.toString(),
           longitude: row.data.longitude?.toString(),
+          ...computeProbationDates(row.data.hireDate),
           status: "ACTIVE" as const,
           createdBy: userId,
         });

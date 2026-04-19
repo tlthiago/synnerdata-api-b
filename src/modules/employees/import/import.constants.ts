@@ -587,20 +587,6 @@ export const IMPORT_COLUMNS: ImportColumn[] = [
     required: false,
     section: "health",
   },
-  {
-    key: "probation1ExpiryDate",
-    header: "Vencimento experiência 1",
-    width: 24,
-    required: false,
-    section: "health",
-  },
-  {
-    key: "probation2ExpiryDate",
-    header: "Vencimento experiência 2",
-    width: 24,
-    required: false,
-    section: "health",
-  },
 ];
 
 // ── Field key → PT-BR header map ────────────────────────────────────────────
