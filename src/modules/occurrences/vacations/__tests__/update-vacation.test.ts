@@ -515,6 +515,64 @@ describe("PUT /v1/vacations/:id", () => {
     expect(updatedEmployee.status).toBe("ON_VACATION");
   });
 
+  test("silently strips period fields from update payload (periods are immutable)", async () => {
+    // Mirrors the create-side "ignores period fields in payload" test:
+    // the 4 period fields are no longer in the update Zod schema, so any values
+    // sent by a stale SDK are dropped before reaching the service.
+    const { headers, organizationId, user } =
+      await createTestUserWithOrganization({
+        emailVerified: true,
+        skipTrialCreation: true,
+      });
+
+    const { employee } = await createTestEmployee({
+      organizationId,
+      userId: user.id,
+      hireDate: "2024-06-10",
+      acquisitionPeriodStart: null,
+      acquisitionPeriodEnd: null,
+    });
+
+    const createResponse = await app.handle(
+      new Request(`${BASE_URL}/v1/vacations`, {
+        method: "POST",
+        headers: { ...headers, "Content-Type": "application/json" },
+        body: JSON.stringify({
+          employeeId: employee.id,
+          startDate: "2026-10-06",
+          endDate: "2026-11-04",
+          daysEntitled: 30,
+          daysUsed: 30,
+          status: "scheduled",
+        }),
+      })
+    );
+    const { data: created } = await createResponse.json();
+
+    const updateResponse = await app.handle(
+      new Request(`${BASE_URL}/v1/vacations/${created.id}`, {
+        method: "PUT",
+        headers: { ...headers, "Content-Type": "application/json" },
+        body: JSON.stringify({
+          notes: "apenas notas novas",
+          acquisitionPeriodStart: "2099-01-01",
+          acquisitionPeriodEnd: "2099-12-31",
+          concessivePeriodStart: "2100-01-01",
+          concessivePeriodEnd: "2100-12-31",
+        }),
+      })
+    );
+
+    expect(updateResponse.status).toBe(200);
+    const { data: updated } = await updateResponse.json();
+    expect(updated.notes).toBe("apenas notas novas");
+    // Garbage period values in the payload are stripped; stored values unchanged.
+    expect(updated.acquisitionPeriodStart).toBe(created.acquisitionPeriodStart);
+    expect(updated.acquisitionPeriodEnd).toBe(created.acquisitionPeriodEnd);
+    expect(updated.concessivePeriodStart).toBe(created.concessivePeriodStart);
+    expect(updated.concessivePeriodEnd).toBe(created.concessivePeriodEnd);
+  });
+
   test("should not change period fields that are not sent", async () => {
     const { headers, organizationId, user } =
       await createTestUserWithOrganization({

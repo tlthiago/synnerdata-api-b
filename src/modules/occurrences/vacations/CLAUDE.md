@@ -40,8 +40,8 @@ Prioridade: `in_progress` > `scheduled` > `ACTIVE`. O helper consulta todas as f
 ## Fields
 
 - `startDate`, `endDate` (datas das ferias)
-- `acquisitionPeriodStart`, `acquisitionPeriodEnd` (periodo aquisitivo, opcionais)
-- `concessivePeriodStart`, `concessivePeriodEnd` (periodo concessivo, opcionais)
+- `acquisitionPeriodStart`, `acquisitionPeriodEnd` (periodo aquisitivo — **computado pelo backend**, read-only na API, presente na response)
+- `concessivePeriodStart`, `concessivePeriodEnd` (periodo concessivo — **computado pelo backend**, read-only na API, presente na response)
 - `daysEntitled` (inteiro, obrigatorio, sem default)
 - `daysUsed` (inteiro)
 - `notes` (opcional)
