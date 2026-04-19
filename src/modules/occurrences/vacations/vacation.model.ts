@@ -18,26 +18,6 @@ const vacationFieldsSchema = z.object({
     .string()
     .date("Data de término deve ser uma data válida")
     .describe("Data de término das férias (YYYY-MM-DD)"),
-  acquisitionPeriodStart: z
-    .string()
-    .date("Data deve ser válida")
-    .optional()
-    .describe("Início do período aquisitivo (YYYY-MM-DD)"),
-  acquisitionPeriodEnd: z
-    .string()
-    .date("Data deve ser válida")
-    .optional()
-    .describe("Fim do período aquisitivo (YYYY-MM-DD)"),
-  concessivePeriodStart: z
-    .string()
-    .date("Data deve ser válida")
-    .optional()
-    .describe("Início do período concessivo (YYYY-MM-DD)"),
-  concessivePeriodEnd: z
-    .string()
-    .date("Data deve ser válida")
-    .optional()
-    .describe("Fim do período concessivo (YYYY-MM-DD)"),
   daysEntitled: z
     .number()
     .int("Dias deve ser um número inteiro")
@@ -60,30 +40,6 @@ export const createVacationSchema = vacationFieldsSchema
     message: "Data de início deve ser anterior ou igual à data de término",
     path: ["endDate"],
   })
-  .refine(
-    (data) => {
-      if (data.acquisitionPeriodStart && data.acquisitionPeriodEnd) {
-        return data.acquisitionPeriodStart <= data.acquisitionPeriodEnd;
-      }
-      return true;
-    },
-    {
-      message: "Início do período aquisitivo deve ser anterior ou igual ao fim",
-      path: ["acquisitionPeriodEnd"],
-    }
-  )
-  .refine(
-    (data) => {
-      if (data.concessivePeriodStart && data.concessivePeriodEnd) {
-        return data.concessivePeriodStart <= data.concessivePeriodEnd;
-      }
-      return true;
-    },
-    {
-      message: "Início do período concessivo deve ser anterior ou igual ao fim",
-      path: ["concessivePeriodEnd"],
-    }
-  )
   .refine((data) => data.daysUsed <= data.daysEntitled, {
     message: "Dias utilizados não pode exceder dias de direito",
     path: ["daysUsed"],
@@ -93,26 +49,6 @@ export const updateVacationSchema = vacationFieldsSchema
   .omit({ employeeId: true })
   .partial()
   .extend({
-    acquisitionPeriodStart: z
-      .string()
-      .date("Data deve ser válida")
-      .nullable()
-      .optional(),
-    acquisitionPeriodEnd: z
-      .string()
-      .date("Data deve ser válida")
-      .nullable()
-      .optional(),
-    concessivePeriodStart: z
-      .string()
-      .date("Data deve ser válida")
-      .nullable()
-      .optional(),
-    concessivePeriodEnd: z
-      .string()
-      .date("Data deve ser válida")
-      .nullable()
-      .optional(),
     notes: z.string().nullable().optional(),
   })
   .refine(
@@ -125,30 +61,6 @@ export const updateVacationSchema = vacationFieldsSchema
     {
       message: "Data de início deve ser anterior ou igual à data de término",
       path: ["endDate"],
-    }
-  )
-  .refine(
-    (data) => {
-      if (data.acquisitionPeriodStart && data.acquisitionPeriodEnd) {
-        return data.acquisitionPeriodStart <= data.acquisitionPeriodEnd;
-      }
-      return true;
-    },
-    {
-      message: "Início do período aquisitivo deve ser anterior ou igual ao fim",
-      path: ["acquisitionPeriodEnd"],
-    }
-  )
-  .refine(
-    (data) => {
-      if (data.concessivePeriodStart && data.concessivePeriodEnd) {
-        return data.concessivePeriodStart <= data.concessivePeriodEnd;
-      }
-      return true;
-    },
-    {
-      message: "Início do período concessivo deve ser anterior ou igual ao fim",
-      path: ["concessivePeriodEnd"],
     }
   )
   .refine(

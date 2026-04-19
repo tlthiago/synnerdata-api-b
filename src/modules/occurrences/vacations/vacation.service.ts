@@ -5,7 +5,6 @@ import { ensureEmployeeNotTerminated } from "@/lib/helpers/employee-status";
 import { calculateDaysBetween } from "@/lib/schemas/date-helpers";
 import {
   VacationAlreadyDeletedError,
-  VacationConcessiveBeforeAcquisitionError,
   VacationDateBeforeHireError,
   VacationInvalidDateRangeError,
   VacationInvalidDaysError,
@@ -172,22 +171,6 @@ export abstract class VacationService {
     }
   }
 
-  private static validateConcessiveAfterAcquisition(
-    acquisitionPeriodEnd?: string,
-    concessivePeriodStart?: string
-  ): void {
-    if (
-      acquisitionPeriodEnd &&
-      concessivePeriodStart &&
-      concessivePeriodStart <= acquisitionPeriodEnd
-    ) {
-      throw new VacationConcessiveBeforeAcquisitionError(
-        concessivePeriodStart,
-        acquisitionPeriodEnd
-      );
-    }
-  }
-
   private static async syncEmployeeStatus(
     employeeId: string,
     organizationId: string,
@@ -269,15 +252,7 @@ export abstract class VacationService {
     VacationService.validateDatesNotBeforeHire(employee.hireDate, {
       startDate: data.startDate,
       endDate: data.endDate,
-      acquisitionPeriodStart: data.acquisitionPeriodStart,
-      acquisitionPeriodEnd: data.acquisitionPeriodEnd,
-      concessivePeriodStart: data.concessivePeriodStart,
-      concessivePeriodEnd: data.concessivePeriodEnd,
     });
-    VacationService.validateConcessiveAfterAcquisition(
-      data.acquisitionPeriodEnd,
-      data.concessivePeriodStart
-    );
     VacationService.validateDays(
       data.startDate,
       data.endDate,
@@ -300,10 +275,6 @@ export abstract class VacationService {
       employeeId: data.employeeId,
       startDate: data.startDate,
       endDate: data.endDate,
-      acquisitionPeriodStart: data.acquisitionPeriodStart,
-      acquisitionPeriodEnd: data.acquisitionPeriodEnd,
-      concessivePeriodStart: data.concessivePeriodStart,
-      concessivePeriodEnd: data.concessivePeriodEnd,
       daysEntitled: data.daysEntitled,
       daysUsed: data.daysUsed,
       status: data.status,
@@ -323,10 +294,10 @@ export abstract class VacationService {
       employee,
       startDate: data.startDate,
       endDate: data.endDate,
-      acquisitionPeriodStart: data.acquisitionPeriodStart ?? null,
-      acquisitionPeriodEnd: data.acquisitionPeriodEnd ?? null,
-      concessivePeriodStart: data.concessivePeriodStart ?? null,
-      concessivePeriodEnd: data.concessivePeriodEnd ?? null,
+      acquisitionPeriodStart: null,
+      acquisitionPeriodEnd: null,
+      concessivePeriodStart: null,
+      concessivePeriodEnd: null,
       daysEntitled: data.daysEntitled,
       daysUsed: data.daysUsed,
       status: data.status,
@@ -393,16 +364,6 @@ export abstract class VacationService {
     return incoming !== undefined ? incoming : existing;
   }
 
-  private static resolveNullableField(
-    incoming: string | null | undefined,
-    existing: string | null
-  ): string | undefined {
-    if (incoming !== undefined) {
-      return incoming ?? undefined;
-    }
-    return existing ?? undefined;
-  }
-
   private static mergeWithExisting(
     data: Omit<UpdateVacationInput, "userId">,
     existing: VacationData
@@ -418,22 +379,6 @@ export abstract class VacationService {
         existing.daysEntitled
       ),
       daysUsed: VacationService.resolveField(data.daysUsed, existing.daysUsed),
-      acquisitionPeriodStart: VacationService.resolveNullableField(
-        data.acquisitionPeriodStart,
-        existing.acquisitionPeriodStart
-      ),
-      acquisitionPeriodEnd: VacationService.resolveNullableField(
-        data.acquisitionPeriodEnd,
-        existing.acquisitionPeriodEnd
-      ),
-      concessivePeriodStart: VacationService.resolveNullableField(
-        data.concessivePeriodStart,
-        existing.concessivePeriodStart
-      ),
-      concessivePeriodEnd: VacationService.resolveNullableField(
-        data.concessivePeriodEnd,
-        existing.concessivePeriodEnd
-      ),
     };
   }
 
@@ -448,12 +393,7 @@ export abstract class VacationService {
     }
 
     const hasDateChange =
-      data.startDate !== undefined ||
-      data.endDate !== undefined ||
-      data.acquisitionPeriodStart !== undefined ||
-      data.acquisitionPeriodEnd !== undefined ||
-      data.concessivePeriodStart !== undefined ||
-      data.concessivePeriodEnd !== undefined;
+      data.startDate !== undefined || data.endDate !== undefined;
 
     if (hasDateChange) {
       const employee = await VacationService.getEmployeeReference(
@@ -461,16 +401,6 @@ export abstract class VacationService {
         organizationId
       );
       VacationService.validateDatesNotBeforeHire(employee.hireDate, merged);
-    }
-
-    if (
-      data.acquisitionPeriodEnd !== undefined ||
-      data.concessivePeriodStart !== undefined
-    ) {
-      VacationService.validateConcessiveAfterAcquisition(
-        merged.acquisitionPeriodEnd,
-        merged.concessivePeriodStart
-      );
     }
   }
 
