@@ -74,18 +74,6 @@ export class VacationDateBeforeHireError extends VacationError {
   }
 }
 
-export class VacationConcessiveBeforeAcquisitionError extends VacationError {
-  status = 422;
-
-  constructor(concessivePeriodStart: string, acquisitionPeriodEnd: string) {
-    super(
-      `Início do período concessivo (${concessivePeriodStart}) deve ser posterior ao fim do período aquisitivo (${acquisitionPeriodEnd})`,
-      "VACATION_CONCESSIVE_BEFORE_ACQUISITION",
-      { concessivePeriodStart, acquisitionPeriodEnd }
-    );
-  }
-}
-
 export class VacationOverlapError extends VacationError {
   status = 409;
 
