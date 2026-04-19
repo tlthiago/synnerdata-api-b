@@ -387,4 +387,35 @@ describe("TemplateService.generate", () => {
       expect(details.missing).toContain("CBOs");
     }
   });
+
+  test("generated template does not contain probation columns", async () => {
+    const { organizationId, userId } = await createTestUserWithOrganization();
+
+    await createTestSector({ organizationId, userId, name: "Setor Prob" });
+    await createTestJobPosition({
+      organizationId,
+      userId,
+      name: "Cargo Prob",
+    });
+    await createTestJobClassification({
+      organizationId,
+      userId,
+      name: "CBO Prob",
+    });
+
+    const buffer = await TemplateService.generate(organizationId);
+    const wb = await loadWorkbook(buffer);
+    const ws = getWorksheet(wb, SHEET_NAME_EMPLOYEES);
+
+    const headerRow = ws.getRow(1);
+    const headerValues: string[] = [];
+    headerRow.eachCell((cell) => {
+      if (typeof cell.value === "string") {
+        headerValues.push(cell.value);
+      }
+    });
+
+    expect(headerValues).not.toContain("Vencimento experiência 1");
+    expect(headerValues).not.toContain("Vencimento experiência 2");
+  });
 });

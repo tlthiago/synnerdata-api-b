@@ -417,6 +417,100 @@ describe("POST /v1/employees", () => {
 
     expect(response.status).toBe(200);
   });
+
+  test("computes probation dates from hireDate using +44/+89 rule", async () => {
+    const { headers, organizationId, user } =
+      await createTestUserWithOrganization({
+        emailVerified: true,
+        skipTrialCreation: true,
+      });
+    const deps = await createTestDependencies(organizationId, user.id);
+
+    const response = await app.handle(
+      new Request(`${BASE_URL}/v1/employees`, {
+        method: "POST",
+        headers: { ...headers, "Content-Type": "application/json" },
+        body: JSON.stringify(
+          createValidEmployeeData({
+            hireDate: "2026-04-06",
+            cpf: generateCpf(),
+            ...deps,
+          })
+        ),
+      })
+    );
+
+    expect(response.status).toBe(200);
+    const body = await response.json();
+    expect(body.data.probation1ExpiryDate).toBe("2026-05-20");
+    expect(body.data.probation2ExpiryDate).toBe("2026-07-04");
+  });
+
+  test("ignores probation dates in payload and calculates from hireDate", async () => {
+    const { headers, organizationId, user } =
+      await createTestUserWithOrganization({
+        emailVerified: true,
+        skipTrialCreation: true,
+      });
+    const deps = await createTestDependencies(organizationId, user.id);
+
+    const response = await app.handle(
+      new Request(`${BASE_URL}/v1/employees`, {
+        method: "POST",
+        headers: { ...headers, "Content-Type": "application/json" },
+        body: JSON.stringify(
+          createValidEmployeeData({
+            hireDate: "2026-03-03",
+            cpf: generateCpf(),
+            probation1ExpiryDate: "2099-01-01",
+            probation2ExpiryDate: "2099-01-01",
+            ...deps,
+          })
+        ),
+      })
+    );
+
+    expect(response.status).toBe(200);
+    const body = await response.json();
+    expect(body.data.probation1ExpiryDate).toBe("2026-04-16");
+    expect(body.data.probation2ExpiryDate).toBe("2026-05-31");
+  });
+
+  test("persists computed probation dates in the database", async () => {
+    const { headers, organizationId, user } =
+      await createTestUserWithOrganization({
+        emailVerified: true,
+        skipTrialCreation: true,
+      });
+    const deps = await createTestDependencies(organizationId, user.id);
+
+    const response = await app.handle(
+      new Request(`${BASE_URL}/v1/employees`, {
+        method: "POST",
+        headers: { ...headers, "Content-Type": "application/json" },
+        body: JSON.stringify(
+          createValidEmployeeData({
+            hireDate: "2026-04-06",
+            cpf: generateCpf(),
+            ...deps,
+          })
+        ),
+      })
+    );
+
+    const body = await response.json();
+    const [row] = await db
+      .select({
+        p1: schema.employees.probation1ExpiryDate,
+        p2: schema.employees.probation2ExpiryDate,
+      })
+      .from(schema.employees)
+      .where(eq(schema.employees.id, body.data.id))
+      .limit(1);
+
+    expect(row.p1).toBe("2026-05-20");
+    expect(row.p2).toBe("2026-07-04");
+  });
 });
 
 describe("POST /v1/employees — acquisition period", () => {

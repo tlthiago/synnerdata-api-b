@@ -2,6 +2,7 @@ import { and, eq, isNull, ne } from "drizzle-orm";
 import { db } from "@/db";
 import { schema } from "@/db/schema";
 import type { EntityReference } from "@/lib/schemas/relationships";
+import { computeProbationDates } from "@/modules/employees/probation";
 import type {
   CreateEmployeeInput,
   DeletedEmployeeData,
@@ -576,10 +577,9 @@ export abstract class EmployeeService {
         lastHealthExamDate: data.lastHealthExamDate,
         admissionExamDate: data.admissionExamDate,
         terminationExamDate: data.terminationExamDate,
-        probation1ExpiryDate: data.probation1ExpiryDate,
-        probation2ExpiryDate: data.probation2ExpiryDate,
         acquisitionPeriodStart: data.acquisitionPeriodStart,
         acquisitionPeriodEnd: data.acquisitionPeriodEnd,
+        ...computeProbationDates(data.hireDate),
         createdBy: userId,
       })
       .returning();
@@ -700,8 +700,6 @@ export abstract class EmployeeService {
       lastHealthExamDate: data.lastHealthExamDate,
       admissionExamDate: data.admissionExamDate,
       terminationExamDate: data.terminationExamDate,
-      probation1ExpiryDate: data.probation1ExpiryDate,
-      probation2ExpiryDate: data.probation2ExpiryDate,
       acquisitionPeriodStart: data.acquisitionPeriodStart,
       acquisitionPeriodEnd: data.acquisitionPeriodEnd,
     };
@@ -794,6 +792,14 @@ export abstract class EmployeeService {
 
     const updateData = EmployeeService.buildUpdateData(data, userId);
 
+    const newHireDate = data.hireDate;
+    const hireDateChanged =
+      newHireDate !== undefined && newHireDate !== existingRaw.hireDate;
+
+    if (hireDateChanged) {
+      Object.assign(updateData, computeProbationDates(newHireDate));
+    }
+
     const [updated] = await db
       .update(schema.employees)
       .set(updateData)
@@ -805,13 +811,13 @@ export abstract class EmployeeService {
       )
       .returning();
 
-    if (data.hireDate && data.hireDate !== existingRaw.hireDate) {
+    if (hireDateChanged) {
       const { EmployeeHooks } = await import("@/modules/employees/hooks");
       EmployeeHooks.emit("employee.hireDateUpdated", {
         employeeId: id,
         organizationId,
         oldHireDate: existingRaw.hireDate,
-        newHireDate: data.hireDate,
+        newHireDate,
       });
     }
 

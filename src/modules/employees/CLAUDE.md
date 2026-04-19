@@ -9,6 +9,7 @@ Cadastro e gestão de funcionários vinculados a uma organização.
 - Criação verifica limite do plano de assinatura via `LimitsService.requireEmployeeLimit()`
 - Soft delete — nunca hard delete
 - Período aquisitivo manual (seed): `acquisitionPeriodStart` e `acquisitionPeriodEnd` opcionais, pair-or-nothing, datas >= `hireDate`. Usado como fallback no `lastAcquisitionPeriod` quando não há férias com período aquisitivo cadastrado
+- Período de experiência (`probation1ExpiryDate` / `probation2ExpiryDate`) é calculado automaticamente pelo backend via `hireDate + 44 / +89 dias` (contagem inclusiva, onde o dia da admissão é dia 1). Campos read-only na API — enviados via payload são silenciosamente ignorados (Zod strip). Frontend exibe em campo `disabled`
 
 ## Relationships (validated on create/update)
 
@@ -56,6 +57,7 @@ Alterado via `PATCH /:id/status` (endpoint dedicado, não pelo PUT geral)
 - FK fields (setor, cargo, CBO, filial, centro de custo) resolvidos por nome → ID
 - Datas no template: DD/MM/AAAA, parseadas para YYYY-MM-DD
 - CPF validado: formato + algoritmo + unicidade na org + unicidade no arquivo
+- Período de experiência (`probation1ExpiryDate` / `probation2ExpiryDate`): **NÃO** presente na planilha. Calculado pelo backend a partir de `hireDate` durante o insert (regra `hireDate + 44 / +89 dias`)
 
 ## Hooks System
 
