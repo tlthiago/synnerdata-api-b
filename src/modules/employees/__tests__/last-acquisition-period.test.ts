@@ -50,6 +50,8 @@ describe("GET /v1/employees/:id — lastAcquisitionPeriod", () => {
       organizationId,
       userId: user.id,
       hireDate: "2025-01-01",
+      acquisitionPeriodStart: null,
+      acquisitionPeriodEnd: null,
     });
 
     await createTestVacation({
@@ -87,6 +89,8 @@ describe("GET /v1/employees/:id — lastAcquisitionPeriod", () => {
       organizationId,
       userId: user.id,
       hireDate: "2024-01-01",
+      acquisitionPeriodStart: null,
+      acquisitionPeriodEnd: null,
     });
 
     await createTestVacation({
@@ -134,6 +138,8 @@ describe("GET /v1/employees/:id — lastAcquisitionPeriod", () => {
       organizationId,
       userId: user.id,
       hireDate: "2024-01-01",
+      acquisitionPeriodStart: null,
+      acquisitionPeriodEnd: null,
     });
 
     await createTestVacation({
@@ -181,6 +187,8 @@ describe("GET /v1/employees/:id — lastAcquisitionPeriod", () => {
       organizationId,
       userId: user.id,
       hireDate: "2024-01-01",
+      acquisitionPeriodStart: null,
+      acquisitionPeriodEnd: null,
     });
 
     await createTestVacation({
@@ -217,6 +225,8 @@ describe("GET /v1/employees/:id — lastAcquisitionPeriod", () => {
       organizationId,
       userId: user.id,
       hireDate: "2024-01-01",
+      acquisitionPeriodStart: null,
+      acquisitionPeriodEnd: null,
     });
 
     // Set manual acquisition period via update
@@ -254,6 +264,8 @@ describe("GET /v1/employees/:id — lastAcquisitionPeriod", () => {
       organizationId,
       userId: user.id,
       hireDate: "2024-01-01",
+      acquisitionPeriodStart: null,
+      acquisitionPeriodEnd: null,
     });
 
     // Set manual acquisition period
