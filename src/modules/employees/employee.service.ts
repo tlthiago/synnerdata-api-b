@@ -113,7 +113,7 @@ export abstract class EmployeeService {
     return costCenter ?? null;
   }
 
-  private static async getLastAcquisitionPeriod(
+  static async getLastAcquisitionPeriod(
     employeeId: string,
     employee: EmployeeRaw
   ): Promise<{ start: string; end: string } | null> {

@@ -6,10 +6,6 @@ type VacationOverrides = {
   employeeId?: string;
   startDate?: string;
   endDate?: string;
-  acquisitionPeriodStart?: string;
-  acquisitionPeriodEnd?: string;
-  concessivePeriodStart?: string;
-  concessivePeriodEnd?: string;
   daysEntitled?: number;
   daysUsed?: number;
   status?: "scheduled" | "in_progress" | "completed" | "canceled";
@@ -44,10 +40,6 @@ export async function createTestVacation(
     employeeId,
     startDate,
     endDate,
-    acquisitionPeriodStart: overrides.acquisitionPeriodStart,
-    acquisitionPeriodEnd: overrides.acquisitionPeriodEnd,
-    concessivePeriodStart: overrides.concessivePeriodStart,
-    concessivePeriodEnd: overrides.concessivePeriodEnd,
     daysEntitled:
       overrides.daysEntitled ??
       Math.round(

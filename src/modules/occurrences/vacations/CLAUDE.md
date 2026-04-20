@@ -5,14 +5,15 @@ Gestao de ferias com periodos aquisitivo e concessivo inline e controle de dias.
 ## Business Rules
 
 - `startDate` deve ser <= `endDate`
-- Nenhuma data pode ser anterior a data de admissao do funcionario (`hireDate`): `startDate`, `endDate`, `acquisitionPeriodStart`, `acquisitionPeriodEnd`, `concessivePeriodStart`, `concessivePeriodEnd`
+- Nenhuma data das ferias pode ser anterior a data de admissao do funcionario (`hireDate`): `startDate`, `endDate`. (Os periodos aquisitivo/concessivo sao computados a partir do `hireDate`, portanto sempre posteriores por construcao.)
 - `daysEntitled` deve corresponder exatamente ao intervalo de datas (`endDate - startDate + 1`), validado via `calculateDaysBetween` no service
 - `daysUsed` deve ser >= 0 e <= `daysEntitled`
 - Periodos aquisitivo e concessivo: campos inline na tabela `vacations` (nao entidade separada)
-  - `acquisitionPeriodStart` / `acquisitionPeriodEnd` (opcionais)
-  - `concessivePeriodStart` / `concessivePeriodEnd` (opcionais)
-  - Calculados pelo frontend a partir da data de admissao do employee (12 meses cada)
-  - Periodo concessivo deve ser posterior ao periodo aquisitivo (`concessivePeriodStart > acquisitionPeriodEnd`)
+  - `acquisitionPeriodStart` / `acquisitionPeriodEnd` / `concessivePeriodStart` / `concessivePeriodEnd`
+  - **Calculados pelo backend** via `computePeriodsFromLastAcquisition` (quando o funcionario ja tem ferias anteriores ou seed manual no employee) ou `computePeriodsFromHireDate` (primeira ferias). Helper em `src/modules/occurrences/vacations/period-calculation.ts`.
+  - Regra CLT: aquisitivo = 12 meses; concessivo = 12 meses apos o fim do aquisitivo.
+  - **Read-only na API**: removidos dos schemas Zod de create/update. Enviados no payload sao silenciosamente stripados. Frontend exibe em DatePickers desabilitados.
+  - Snapshot historico do momento da criacao — updates preservam os valores (nao recalculam).
 - `daysEntitled`: dias (calculado pelo frontend como endDate - startDate + 1, sem default)
 - Overlap check no create/update: mesmo employee + datas sobrepostas (excluindo ferias canceladas) lanca `VacationOverlapError`
 - Employee nao pode estar desligado no create (`ensureEmployeeNotTerminated` -- ON_VACATION e esperado/permitido)
@@ -39,8 +40,8 @@ Prioridade: `in_progress` > `scheduled` > `ACTIVE`. O helper consulta todas as f
 ## Fields
 
 - `startDate`, `endDate` (datas das ferias)
-- `acquisitionPeriodStart`, `acquisitionPeriodEnd` (periodo aquisitivo, opcionais)
-- `concessivePeriodStart`, `concessivePeriodEnd` (periodo concessivo, opcionais)
+- `acquisitionPeriodStart`, `acquisitionPeriodEnd` (periodo aquisitivo — **computado pelo backend**, read-only na API, presente na response)
+- `concessivePeriodStart`, `concessivePeriodEnd` (periodo concessivo — **computado pelo backend**, read-only na API, presente na response)
 - `daysEntitled` (inteiro, obrigatorio, sem default)
 - `daysUsed` (inteiro)
 - `notes` (opcional)
@@ -53,7 +54,6 @@ Prioridade: `in_progress` > `scheduled` > `ACTIVE`. O helper consulta todas as f
 - `VacationInvalidDateRangeError` (422)
 - `VacationInvalidDaysError` (422) -- daysEntitled != intervalo de datas, ou daysUsed > daysEntitled
 - `VacationDateBeforeHireError` (422) -- qualquer data anterior a hireDate do funcionario
-- `VacationConcessiveBeforeAcquisitionError` (422) -- concessivePeriodStart <= acquisitionPeriodEnd
 - `VacationOverlapError` (409) -- same employee + overlapping dates (excluding canceled)
 - `EmployeeTerminatedError` (422) -- shared, from `src/lib/errors/employee-status-errors.ts`
 
