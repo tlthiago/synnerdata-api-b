@@ -85,3 +85,15 @@ export class VacationOverlapError extends VacationError {
     );
   }
 }
+
+export class VacationNoRightsError extends VacationError {
+  status = 422;
+
+  constructor(hireDate: string, referenceDate: string) {
+    super(
+      "Funcionário ainda não tem direito a férias (menos de 12 meses desde a admissão)",
+      "VACATION_NO_RIGHTS",
+      { hireDate, referenceDate }
+    );
+  }
+}
