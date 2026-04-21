@@ -3,11 +3,7 @@ import { db } from "@/db";
 import { schema } from "@/db/schema";
 import { ensureEmployeeNotTerminated } from "@/lib/helpers/employee-status";
 import { calculateDaysBetween } from "@/lib/schemas/date-helpers";
-import { EmployeeService } from "@/modules/employees/employee.service";
-import {
-  computePeriodsFromHireDate,
-  computePeriodsFromLastAcquisition,
-} from "@/modules/occurrences/vacations/period-calculation";
+import { computePeriodsFromHireDate } from "@/modules/occurrences/vacations/period-calculation";
 import {
   VacationAlreadyDeletedError,
   VacationDateBeforeHireError,
@@ -242,34 +238,20 @@ export abstract class VacationService {
 
     await ensureEmployeeNotTerminated(data.employeeId, organizationId);
 
-    const [employeeRaw] = await db
-      .select()
-      .from(schema.employees)
-      .where(
-        and(
-          eq(schema.employees.id, data.employeeId),
-          eq(schema.employees.organizationId, organizationId),
-          isNull(schema.employees.deletedAt)
-        )
-      )
-      .limit(1);
-    if (!employeeRaw) {
-      throw new VacationInvalidEmployeeError(data.employeeId);
-    }
-
-    const lastPeriod = await EmployeeService.getLastAcquisitionPeriod(
-      data.employeeId,
-      employeeRaw
-    );
-    const periods = lastPeriod
-      ? computePeriodsFromLastAcquisition(lastPeriod.end)
-      : computePeriodsFromHireDate(employee.hireDate);
-
     VacationService.validateDates(data.startDate, data.endDate);
+    // validateDatesNotBeforeHire must run before computePeriodsFromHireDate so
+    // `startDate < hireDate` throws VacationDateBeforeHireError (specific)
+    // instead of VacationNoRightsError (generic, fired when completed = 0).
     VacationService.validateDatesNotBeforeHire(employee.hireDate, {
       startDate: data.startDate,
       endDate: data.endDate,
     });
+
+    const periods = computePeriodsFromHireDate(
+      employee.hireDate,
+      new Date(`${data.startDate}T00:00:00Z`)
+    );
+
     VacationService.validateDays(
       data.startDate,
       data.endDate,

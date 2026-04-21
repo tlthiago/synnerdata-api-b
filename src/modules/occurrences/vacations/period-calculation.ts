@@ -1,3 +1,5 @@
+import { VacationNoRightsError } from "./errors";
+
 export function addDays(isoDate: string, days: number): string {
   const d = new Date(`${isoDate}T00:00:00Z`);
   d.setUTCDate(d.getUTCDate() + days);
@@ -37,23 +39,33 @@ export function computePeriodsFromLastAcquisition(
 
 export function computePeriodsFromHireDate(
   hireDate: string,
-  today: Date = new Date()
+  referenceDate: Date = new Date()
 ): VacationPeriods {
   let completed = 0;
-  const test = new Date(`${hireDate}T00:00:00Z`);
-  while (test <= today) {
-    test.setUTCFullYear(test.getUTCFullYear() + 1);
-    if (test <= today) {
+  const anniversary = new Date(`${hireDate}T00:00:00Z`);
+  while (anniversary <= referenceDate) {
+    anniversary.setUTCFullYear(anniversary.getUTCFullYear() + 1);
+    if (anniversary <= referenceDate) {
       completed += 1;
     }
   }
-  const acquisitionPeriodStart = addMonths(hireDate, completed * 12);
+
+  if (completed < 1) {
+    throw new VacationNoRightsError(
+      hireDate,
+      referenceDate.toISOString().slice(0, 10)
+    );
+  }
+
+  const index = completed - 1;
+  const acquisitionPeriodStart = addMonths(hireDate, index * 12);
   const acquisitionPeriodEnd = addDays(
-    addMonths(hireDate, (completed + 1) * 12),
+    addMonths(hireDate, (index + 1) * 12),
     -1
   );
   const concessivePeriodStart = addDays(acquisitionPeriodEnd, 1);
   const concessivePeriodEnd = addDays(addMonths(concessivePeriodStart, 12), -1);
+
   return {
     acquisitionPeriodStart,
     acquisitionPeriodEnd,

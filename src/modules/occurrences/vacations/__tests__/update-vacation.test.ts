@@ -372,8 +372,8 @@ describe("PUT /v1/vacations/:id", () => {
       organizationId,
       userId: user.id,
       employeeId: employee.id,
-      startDate: "2025-02-01",
-      endDate: "2025-02-15",
+      startDate: "2026-02-01",
+      endDate: "2026-02-15",
       daysUsed: 0,
     });
 
@@ -401,6 +401,7 @@ describe("PUT /v1/vacations/:id", () => {
     const { employee } = await createTestEmployee({
       organizationId,
       userId: user.id,
+      hireDate: "2020-01-01",
     });
 
     const vacation = await createTestVacation({
@@ -435,6 +436,7 @@ describe("PUT /v1/vacations/:id", () => {
     const { employee } = await createTestEmployee({
       organizationId,
       userId: user.id,
+      hireDate: "2020-01-01",
     });
 
     const vacation = await createTestVacation({
@@ -617,5 +619,46 @@ describe("PUT /v1/vacations/:id", () => {
     expect(body.data.acquisitionPeriodEnd).toBe(created.acquisitionPeriodEnd);
     expect(body.data.concessivePeriodStart).toBe(created.concessivePeriodStart);
     expect(body.data.concessivePeriodEnd).toBe(created.concessivePeriodEnd);
+  });
+
+  test("rejects update with 422 when daysEntitled > 30", async () => {
+    const { headers, organizationId, user } =
+      await createTestUserWithOrganization({
+        emailVerified: true,
+      });
+
+    const { employee } = await createTestEmployee({
+      organizationId,
+      userId: user.id,
+      hireDate: "2024-06-10",
+      acquisitionPeriodStart: null,
+      acquisitionPeriodEnd: null,
+    });
+
+    const createResponse = await app.handle(
+      new Request(`${BASE_URL}/v1/vacations`, {
+        method: "POST",
+        headers: { ...headers, "Content-Type": "application/json" },
+        body: JSON.stringify({
+          employeeId: employee.id,
+          startDate: "2026-07-01",
+          endDate: "2026-07-10",
+          daysEntitled: 10,
+          daysUsed: 0,
+          status: "scheduled",
+        }),
+      })
+    );
+    const { data: created } = await createResponse.json();
+
+    const updateResponse = await app.handle(
+      new Request(`${BASE_URL}/v1/vacations/${created.id}`, {
+        method: "PUT",
+        headers: { ...headers, "Content-Type": "application/json" },
+        body: JSON.stringify({ daysEntitled: 45 }),
+      })
+    );
+
+    expect(updateResponse.status).toBe(422);
   });
 });
