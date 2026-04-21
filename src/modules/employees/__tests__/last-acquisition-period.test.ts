@@ -1,9 +1,6 @@
 import { beforeAll, describe, expect, test } from "bun:test";
 import { env } from "@/env";
-import {
-  computePeriodsFromHireDate,
-  computePeriodsFromLastAcquisition,
-} from "@/modules/occurrences/vacations/period-calculation";
+import { computePeriodsFromHireDate } from "@/modules/occurrences/vacations/period-calculation";
 import { VacationService } from "@/modules/occurrences/vacations/vacation.service";
 import { createTestApp, type TestApp } from "@/test/helpers/app";
 import { createTestEmployee } from "@/test/helpers/employee";
@@ -72,9 +69,11 @@ describe("GET /v1/employees/:id — lastAcquisitionPeriod", () => {
 
     expect(response.status).toBe(200);
     const body = await response.json();
-    // Vacation was created against hireDate "2025-01-01" with no prior vacations
-    // → computePeriodsFromHireDate computes the current period based on today.
-    const expected = computePeriodsFromHireDate("2025-01-01");
+    // The service computes periods using hireDate + vacation's startDate as reference.
+    const expected = computePeriodsFromHireDate(
+      "2025-01-01",
+      new Date("2027-02-01T00:00:00Z") // vacation startDate
+    );
     expect(body.data.lastAcquisitionPeriod).toEqual({
       start: expected.acquisitionPeriodStart,
       end: expected.acquisitionPeriodEnd,
@@ -120,9 +119,11 @@ describe("GET /v1/employees/:id — lastAcquisitionPeriod", () => {
 
     expect(response.status).toBe(200);
     const body = await response.json();
-    const firstPeriods = computePeriodsFromHireDate("2024-01-01");
-    const secondPeriods = computePeriodsFromLastAcquisition(
-      firstPeriods.acquisitionPeriodEnd
+    // The service computes each vacation's periods independently using its own startDate.
+    // getLastAcquisitionPeriod returns the one with the latest acquisitionPeriodEnd.
+    const secondPeriods = computePeriodsFromHireDate(
+      "2024-01-01",
+      new Date("2027-04-01T00:00:00Z") // second vacation startDate
     );
     expect(body.data.lastAcquisitionPeriod).toEqual({
       start: secondPeriods.acquisitionPeriodStart,
@@ -171,8 +172,11 @@ describe("GET /v1/employees/:id — lastAcquisitionPeriod", () => {
 
     expect(response.status).toBe(200);
     const body = await response.json();
-    const firstPeriods = computePeriodsFromHireDate("2024-01-01");
     // Second vacation was deleted, so the last remaining period is from the first vacation.
+    const firstPeriods = computePeriodsFromHireDate(
+      "2024-01-01",
+      new Date("2027-05-01T00:00:00Z") // first vacation startDate
+    );
     expect(body.data.lastAcquisitionPeriod).toEqual({
       start: firstPeriods.acquisitionPeriodStart,
       end: firstPeriods.acquisitionPeriodEnd,
@@ -210,7 +214,10 @@ describe("GET /v1/employees/:id — lastAcquisitionPeriod", () => {
 
     expect(response.status).toBe(200);
     const body = await response.json();
-    const periods = computePeriodsFromHireDate("2024-01-01");
+    const periods = computePeriodsFromHireDate(
+      "2024-01-01",
+      new Date("2027-07-01T00:00:00Z") // vacation startDate
+    );
     expect(body.data.lastAcquisitionPeriod).toEqual({
       start: periods.acquisitionPeriodStart,
       end: periods.acquisitionPeriodEnd,
@@ -280,8 +287,8 @@ describe("GET /v1/employees/:id — lastAcquisitionPeriod", () => {
       })
     );
 
-    // Create vacation — service sees manual seed via getLastAcquisitionPeriod,
-    // then computes next period from it.
+    // Create vacation — the service now computes periods using hireDate + vacation's
+    // startDate as reference, ignoring the manual seed.
     await createTestVacation({
       organizationId,
       userId: user.id,
@@ -300,9 +307,12 @@ describe("GET /v1/employees/:id — lastAcquisitionPeriod", () => {
 
     expect(response.status).toBe(200);
     const body = await response.json();
-    // Manual seed: 2024-01-01 to 2024-12-31
-    // Vacation creation sees this via getLastAcquisitionPeriod, computes next period
-    const vacationPeriods = computePeriodsFromLastAcquisition("2024-12-31");
+    // The vacation's periods are computed from hireDate + vacation's startDate,
+    // not from the manual seed. The vacation's period takes priority over the manual seed.
+    const vacationPeriods = computePeriodsFromHireDate(
+      "2024-01-01",
+      new Date("2027-08-01T00:00:00Z") // vacation startDate
+    );
     expect(body.data.lastAcquisitionPeriod).toEqual({
       start: vacationPeriods.acquisitionPeriodStart,
       end: vacationPeriods.acquisitionPeriodEnd,
