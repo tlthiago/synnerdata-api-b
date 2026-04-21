@@ -10,7 +10,9 @@ Gestao de ferias com periodos aquisitivo e concessivo inline e controle de dias.
 - `daysUsed` deve ser >= 0 e <= `daysEntitled`
 - Periodos aquisitivo e concessivo: campos inline na tabela `vacations` (nao entidade separada)
   - `acquisitionPeriodStart` / `acquisitionPeriodEnd` / `concessivePeriodStart` / `concessivePeriodEnd`
-  - **Calculados pelo backend** via `computePeriodsFromLastAcquisition` (quando o funcionario ja tem ferias anteriores ou seed manual no employee) ou `computePeriodsFromHireDate` (primeira ferias). Helper em `src/modules/occurrences/vacations/period-calculation.ts`.
+  - **Calculados pelo backend** via `computePeriodsFromHireDate(hireDate, vacation.startDate)`. O aquisitivo retornado eh aquele cujo concessivo contem a `startDate` — ou seja, o ciclo pendente para gozo, nao o ciclo que esta acumulando. Helper em `src/modules/occurrences/vacations/period-calculation.ts`.
+  - **Nao considera historico** de ferias anteriores nem seed manual no employee — tudo eh derivado de `hireDate` + `startDate`. Suporte a ferias fracionadas (multiplos registros no mesmo aquisitivo) sera implementado em issue separada (#227).
+  - **Erro `VacationNoRightsError` (422)** quando `startDate` eh anterior ao primeiro aniversario da admissao (funcionario sem direito adquirido).
   - Regra CLT: aquisitivo = 12 meses; concessivo = 12 meses apos o fim do aquisitivo.
   - **Read-only na API**: removidos dos schemas Zod de create/update. Enviados no payload sao silenciosamente stripados. Frontend exibe em DatePickers desabilitados.
   - Snapshot historico do momento da criacao — updates preservam os valores (nao recalculam).
@@ -42,7 +44,7 @@ Prioridade: `in_progress` > `scheduled` > `ACTIVE`. O helper consulta todas as f
 - `startDate`, `endDate` (datas das ferias)
 - `acquisitionPeriodStart`, `acquisitionPeriodEnd` (periodo aquisitivo — **computado pelo backend**, read-only na API, presente na response)
 - `concessivePeriodStart`, `concessivePeriodEnd` (periodo concessivo — **computado pelo backend**, read-only na API, presente na response)
-- `daysEntitled` (inteiro, obrigatorio, sem default)
+- `daysEntitled` (inteiro, 1 a 30 conforme CLT art. 130, obrigatorio, sem default)
 - `daysUsed` (inteiro)
 - `notes` (opcional)
 
@@ -54,6 +56,7 @@ Prioridade: `in_progress` > `scheduled` > `ACTIVE`. O helper consulta todas as f
 - `VacationInvalidDateRangeError` (422)
 - `VacationInvalidDaysError` (422) -- daysEntitled != intervalo de datas, ou daysUsed > daysEntitled
 - `VacationDateBeforeHireError` (422) -- qualquer data anterior a hireDate do funcionario
+- `VacationNoRightsError` (422) -- `startDate` anterior ao primeiro aniversario da admissao
 - `VacationOverlapError` (409) -- same employee + overlapping dates (excluding canceled)
 - `EmployeeTerminatedError` (422) -- shared, from `src/lib/errors/employee-status-errors.ts`
 
