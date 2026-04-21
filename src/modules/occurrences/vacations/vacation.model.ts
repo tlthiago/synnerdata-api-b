@@ -21,8 +21,9 @@ const vacationFieldsSchema = z.object({
   daysEntitled: z
     .number()
     .int("Dias deve ser um número inteiro")
-    .positive("Dias deve ser positivo")
-    .describe("Dias"),
+    .min(1, "Dias deve ser pelo menos 1")
+    .max(30, "Dias não pode exceder 30 (CLT art. 130)")
+    .describe("Dias (1 a 30 conforme CLT art. 130)"),
   daysUsed: z
     .number()
     .int("Dias utilizados deve ser um número inteiro")

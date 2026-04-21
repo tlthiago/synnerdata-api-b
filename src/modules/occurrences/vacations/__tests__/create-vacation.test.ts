@@ -645,4 +645,68 @@ describe("POST /v1/vacations", () => {
       .limit(1);
     expect(updatedEmployee.status).toBe("VACATION_SCHEDULED");
   });
+
+  test("rejects with 422 when daysEntitled > 30 (CLT art. 130 limit)", async () => {
+    const { headers, organizationId, user } =
+      await createTestUserWithOrganization({
+        emailVerified: true,
+      });
+
+    const { employee } = await createTestEmployee({
+      organizationId,
+      userId: user.id,
+      hireDate: "2024-06-10",
+      acquisitionPeriodStart: null,
+      acquisitionPeriodEnd: null,
+    });
+
+    const response = await app.handle(
+      new Request(`${BASE_URL}/v1/vacations`, {
+        method: "POST",
+        headers: { ...headers, "Content-Type": "application/json" },
+        body: JSON.stringify({
+          employeeId: employee.id,
+          startDate: "2026-07-01",
+          endDate: "2026-08-14",
+          daysEntitled: 45,
+          daysUsed: 0,
+          status: "scheduled",
+        }),
+      })
+    );
+
+    expect(response.status).toBe(422);
+  });
+
+  test("accepts daysEntitled = 30 (upper boundary)", async () => {
+    const { headers, organizationId, user } =
+      await createTestUserWithOrganization({
+        emailVerified: true,
+      });
+
+    const { employee } = await createTestEmployee({
+      organizationId,
+      userId: user.id,
+      hireDate: "2024-06-10",
+      acquisitionPeriodStart: null,
+      acquisitionPeriodEnd: null,
+    });
+
+    const response = await app.handle(
+      new Request(`${BASE_URL}/v1/vacations`, {
+        method: "POST",
+        headers: { ...headers, "Content-Type": "application/json" },
+        body: JSON.stringify({
+          employeeId: employee.id,
+          startDate: "2026-07-01",
+          endDate: "2026-07-30",
+          daysEntitled: 30,
+          daysUsed: 0,
+          status: "scheduled",
+        }),
+      })
+    );
+
+    expect(response.status).toBe(200);
+  });
 });
