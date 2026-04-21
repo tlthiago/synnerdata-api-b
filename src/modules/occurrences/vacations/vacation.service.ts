@@ -239,6 +239,9 @@ export abstract class VacationService {
     await ensureEmployeeNotTerminated(data.employeeId, organizationId);
 
     VacationService.validateDates(data.startDate, data.endDate);
+    // validateDatesNotBeforeHire must run before computePeriodsFromHireDate so
+    // `startDate < hireDate` throws VacationDateBeforeHireError (specific)
+    // instead of VacationNoRightsError (generic, fired when completed = 0).
     VacationService.validateDatesNotBeforeHire(employee.hireDate, {
       startDate: data.startDate,
       endDate: data.endDate,
