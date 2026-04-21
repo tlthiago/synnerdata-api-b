@@ -484,7 +484,7 @@ describe("POST /v1/vacations", () => {
 
     expect(response.status).toBe(200);
     const body = await response.json();
-    // hireDate=2024-06-10, today~2026-04-19: completed=1 (2025-06-10<=today, 2026-06-10>today)
+    // startDate=2026-07-01 as reference: completed=2 (2025-06-10 and 2026-06-10 anniversaries), index=1
     // acquisitionPeriodStart = addMonths("2024-06-10", 12) = "2025-06-10"
     // acquisitionPeriodEnd = addDays(addMonths("2024-06-10", 24), -1) = "2026-06-09"
     // concessivePeriodStart = "2026-06-10", concessivePeriodEnd = "2027-06-09"

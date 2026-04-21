@@ -401,6 +401,7 @@ describe("PUT /v1/vacations/:id", () => {
     const { employee } = await createTestEmployee({
       organizationId,
       userId: user.id,
+      hireDate: "2020-01-01",
     });
 
     const vacation = await createTestVacation({
@@ -435,6 +436,7 @@ describe("PUT /v1/vacations/:id", () => {
     const { employee } = await createTestEmployee({
       organizationId,
       userId: user.id,
+      hireDate: "2020-01-01",
     });
 
     const vacation = await createTestVacation({
