@@ -24,6 +24,7 @@ describe("VacationJobsService", () => {
       const { employee } = await createTestEmployee({
         organizationId,
         userId,
+        hireDate: "2020-01-01",
       });
 
       const today = new Date();
@@ -74,6 +75,7 @@ describe("VacationJobsService", () => {
       const { employee } = await createTestEmployee({
         organizationId,
         userId,
+        hireDate: "2020-01-01",
       });
 
       const future = new Date();
@@ -118,6 +120,7 @@ describe("VacationJobsService", () => {
       const { employee } = await createTestEmployee({
         organizationId,
         userId,
+        hireDate: "2020-01-01",
       });
 
       const today = new Date();
@@ -168,6 +171,7 @@ describe("VacationJobsService", () => {
       const { employee } = await createTestEmployee({
         organizationId,
         userId,
+        hireDate: "2020-01-01",
       });
 
       const today = new Date();

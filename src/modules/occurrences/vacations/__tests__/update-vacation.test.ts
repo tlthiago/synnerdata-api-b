@@ -372,8 +372,8 @@ describe("PUT /v1/vacations/:id", () => {
       organizationId,
       userId: user.id,
       employeeId: employee.id,
-      startDate: "2025-02-01",
-      endDate: "2025-02-15",
+      startDate: "2026-02-01",
+      endDate: "2026-02-15",
       daysUsed: 0,
     });
 

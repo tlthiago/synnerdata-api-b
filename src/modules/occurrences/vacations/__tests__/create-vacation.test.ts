@@ -494,7 +494,7 @@ describe("POST /v1/vacations", () => {
     expect(body.data.concessivePeriodEnd).toBe("2027-06-09");
   });
 
-  test("computes next periods from last acquisition when employee has prior period seed", async () => {
+  test("ignores employee manual seed and computes periods from hireDate + startDate", async () => {
     const { headers, organizationId, user } =
       await createTestUserWithOrganization({
         emailVerified: true,
@@ -525,15 +525,12 @@ describe("POST /v1/vacations", () => {
 
     expect(response.status).toBe(200);
     const body = await response.json();
-    // lastAcquisitionPeriod.end = "2026-04-18" (manual seed from employee fields)
-    // computePeriodsFromLastAcquisition("2026-04-18"):
-    //   acquisitionPeriodStart = addDays("2026-04-18", 1) = "2026-04-19"
-    //   acquisitionPeriodEnd = addDays(addMonths("2026-04-19", 12), -1) = "2027-04-18"
-    //   concessivePeriodStart = "2027-04-19", concessivePeriodEnd = "2028-04-18"
-    expect(body.data.acquisitionPeriodStart).toBe("2026-04-19");
-    expect(body.data.acquisitionPeriodEnd).toBe("2027-04-18");
-    expect(body.data.concessivePeriodStart).toBe("2027-04-19");
-    expect(body.data.concessivePeriodEnd).toBe("2028-04-18");
+    // Manual seed on employee is now ignored; periods always computed
+    // from hireDate + vacation.startDate.
+    expect(body.data.acquisitionPeriodStart).toBe("2025-06-10");
+    expect(body.data.acquisitionPeriodEnd).toBe("2026-06-09");
+    expect(body.data.concessivePeriodStart).toBe("2026-06-10");
+    expect(body.data.concessivePeriodEnd).toBe("2027-06-09");
   });
 
   test("ignores period fields in payload and computes from backend", async () => {
@@ -571,9 +568,46 @@ describe("POST /v1/vacations", () => {
 
     expect(response.status).toBe(200);
     const body = await response.json();
-    // Zod strips the 4 garbage values; backend uses lastAcquisitionPeriod.end = "2026-04-18"
-    expect(body.data.acquisitionPeriodStart).toBe("2026-04-19");
-    expect(body.data.concessivePeriodEnd).toBe("2028-04-18");
+    // Zod strips the 4 garbage values; backend computes from hireDate + startDate.
+    expect(body.data.acquisitionPeriodStart).toBe("2025-06-10");
+    expect(body.data.acquisitionPeriodEnd).toBe("2026-06-09");
+    expect(body.data.concessivePeriodStart).toBe("2026-06-10");
+    expect(body.data.concessivePeriodEnd).toBe("2027-06-09");
+  });
+
+  test("rejects with 422 when vacation startDate is before the first anniversary", async () => {
+    const { headers, organizationId, user } =
+      await createTestUserWithOrganization({
+        emailVerified: true,
+      });
+
+    const { employee } = await createTestEmployee({
+      organizationId,
+      userId: user.id,
+      hireDate: "2025-06-10",
+      acquisitionPeriodStart: null,
+      acquisitionPeriodEnd: null,
+    });
+
+    // startDate is before hireDate + 12 months (no acquired rights yet)
+    const response = await app.handle(
+      new Request(`${BASE_URL}/v1/vacations`, {
+        method: "POST",
+        headers: { ...headers, "Content-Type": "application/json" },
+        body: JSON.stringify({
+          employeeId: employee.id,
+          startDate: "2026-03-01",
+          endDate: "2026-03-10",
+          daysEntitled: 10,
+          daysUsed: 0,
+          status: "scheduled",
+        }),
+      })
+    );
+
+    expect(response.status).toBe(422);
+    const body = await response.json();
+    expect(body.error.code).toBe("VACATION_NO_RIGHTS");
   });
 
   test("should set employee status to VACATION_SCHEDULED after creating vacation", async () => {
