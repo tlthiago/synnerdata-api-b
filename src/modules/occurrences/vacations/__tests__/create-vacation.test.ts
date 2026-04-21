@@ -617,6 +617,7 @@ describe("POST /v1/vacations", () => {
     const { employee } = await createTestEmployee({
       organizationId,
       userId: user.id,
+      hireDate: "2020-01-01",
     });
 
     const startDate = "2027-06-01";
