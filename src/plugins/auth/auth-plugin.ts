@@ -10,6 +10,11 @@ import type { OrgPermissions } from "@/lib/permissions";
 import { LimitsService } from "@/modules/payments/limits/limits.service";
 import { SubscriptionService } from "@/modules/payments/subscription/subscription.service";
 
+export type AuthContext = {
+  user: AuthUser;
+  session: AuthSession;
+};
+
 export type AuthOptions =
   | true
   | {

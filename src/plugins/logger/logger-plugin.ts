@@ -2,6 +2,11 @@ import { Elysia } from "elysia";
 import { generateRequestId, logger, shouldIgnore } from "@/lib/logger";
 import { enterRequestContext, getRequestId } from "@/lib/request-context";
 
+export type LoggerContext = {
+  requestId: string;
+  requestStart: number;
+};
+
 export const loggerPlugin = new Elysia({ name: "logger" })
   .onRequest(({ set }) => {
     const requestId = generateRequestId();
