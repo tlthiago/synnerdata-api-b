@@ -9,6 +9,7 @@ export const auditActionSchema = z.enum([
   "export",
   "login",
   "logout",
+  "accept",
 ]);
 
 export const auditResourceSchema = z.enum([
@@ -22,6 +23,7 @@ export const auditResourceSchema = z.enum([
   "subscription",
   "export",
   "api_key",
+  "invitation",
 ]);
 
 export const auditChangesSchema = z
@@ -93,8 +95,8 @@ export type AuditQueryOptions = {
 
 // Input type for service layer
 export type AuditLogEntry = {
-  action: AuditAction | string;
-  resource: AuditResource | string;
+  action: AuditAction;
+  resource: AuditResource;
   resourceId?: string;
   userId: string;
   organizationId?: string | null;

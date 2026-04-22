@@ -130,7 +130,7 @@ describe("GET /audit-logs", () => {
     for (let i = 0; i < 5; i++) {
       await AuditService.log({
         action: "create",
-        resource: "pagination-test",
+        resource: "user",
         resourceId: `pt-${i}`,
         userId: user.id,
         organizationId,
@@ -138,13 +138,10 @@ describe("GET /audit-logs", () => {
     }
 
     const response = await app.handle(
-      new Request(
-        `${BASE_URL}/audit-logs?resource=pagination-test&limit=2&offset=0`,
-        {
-          method: "GET",
-          headers,
-        }
-      )
+      new Request(`${BASE_URL}/audit-logs?resource=user&limit=2&offset=0`, {
+        method: "GET",
+        headers,
+      })
     );
 
     expect(response.status).toBe(200);
