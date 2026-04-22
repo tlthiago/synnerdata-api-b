@@ -262,9 +262,9 @@ Seção específica do projeto. Começa pelo **status atual** da iniciativa (7.0
 | **0. Contexto aplicado** | ✅ Concluída | 2026-04-21 | Seções 7.1–7.3, 7.6, 7.7 preenchidas + convenção semântica + 10 débitos pré-audit |
 | **1. Audit item a item** | ✅ Concluída | 2026-04-21 | Status nas seções 4 e 5 preenchidos (~65 itens); 95 débitos totais em 7.7; relatório em [`docs/reports/2026-04-21-api-infrastructure-audit.md`](../reports/2026-04-21-api-infrastructure-audit.md) |
 | **2. Roadmap priorizado** | ✅ Concluída | 2026-04-21 | Seção 7.5 com 69 ações organizadas em 3 buckets (🔴 10 urgentes / 🟡 38 curto prazo / 🟢 21 sob demanda) com IDs, dependências, tipo e esforço |
-| **3. Execução** | 🔄 Em execução | 2026-04-22 | **Bucket 🔴 concluído (10/10)**. Bucket 🟡 **Onda 1 completa (10/10)** + **Onda 2 em progresso (1/2, CP-42 ✅, CP-43 pendente)**. Total concluídas no 🟡: **11 CPs** (CP-7, CP-8, CP-9, CP-13, CP-20, CP-21, CP-22, CP-23, CP-40, CP-42, CP-45). RU-1..RU-10 entregues em PRs sequenciais em `preview`. Grupo 3 fechado. `src/plugins/` inaugurado. BOLA audit completo (0 gaps). Runbook de backup em `docs/runbooks/`. Helper `buildAuditChanges` entregue (3 módulos retrofitados: employees, medical-certificates, subscription). CP-39..CP-50 registrados como follow-ups. Débito #96 parcialmente endereçado. |
+| **3. Execução** | 🔄 Em execução | 2026-04-22 | **Bucket 🔴 concluído (10/10)**. Bucket 🟡 **Onda 1 completa (10/10)** + **Onda 2 completa (2/2)**. Total concluídas no 🟡: **12 CPs** (CP-7, CP-8, CP-9, CP-13, CP-20, CP-21, CP-22, CP-23, CP-40, CP-42, CP-43, CP-45). RU-1..RU-10 entregues em PRs sequenciais em `preview`. Grupo 3 fechado. `src/plugins/` inaugurado. BOLA audit completo (0 gaps). Runbook de backup em `docs/runbooks/`. Helper `buildAuditChanges` + `auditPlugin` em produção (4 módulos auditando reads sensíveis: employees, medical-certificates, cpf-analyses, labor-lawsuits). CP-39..CP-50 registrados como follow-ups. **Débito #96 100% endereçado**. |
 
-**➡️ Próxima ação:** **Bucket 🟡 — Onda 2, CP-43** — audit de reads em GET handlers de recursos sensíveis (Art. 11 LGPD). Ambos os prereqs estão entregues em `preview`: RU-7 (auditPlugin com auto-context do macro auth) e CP-42 (convenção de redação PII). Após CP-43, Onda 2 fecha e débito #96 fica 100% endereçado. Ondas 3-5 mapeadas em 7.5 § Ordem de execução sugerida.
+**➡️ Próxima ação:** **Bucket 🟡 — Onda 3** (Qualidade pontual). Agrupáveis em 2-3 PRs temáticas: **auth hardening** (CP-24, CP-25, CP-30), **error handling** (CP-27, CP-29), **env centralization** (CP-31), **qualidade geral** (CP-34, CP-35, CP-36, CP-37, CP-39). CP-41 (workflow dedicado Pagar.me) vale PR separada. Total: 9 S's + 3 M's.
 
 ### 7.1 Contexto do projeto
 
@@ -558,7 +558,7 @@ Organizado em **5 PRs dedicados** (refactors grandes) + ações pontuais.
 | **CP-40** | ✅ **2026-04-22** — Triagem de 13 highs em dev + prod deps. Estratégia ajustada após auditoria: `bun update` → upgrade secretlint 11→12 → `overrides` para transitivas de deps já no latest (commitizen, drizzle-orm, exceljs) + transitivas dentro de ranges de parents não-latest (better-auth, ultracite 6). CI threshold subiu `critical` → `high`. Escopos não-CVE saíram como CP-46/47/48/49 | Follow-up de RU-4a | refactor | M | RU-4b |
 | **CP-41** | Workflow dedicado para integration tests externos (Pagar.me) — novo `.github/workflows/test-integration.yml` com `workflow_dispatch` + schedule semanal, secrets de sandbox Pagar.me configurados, rodando apenas testes gated por `skipIntegration`. Destrava cobertura real dos módulos `src/modules/payments/*` em CI (hoje só rodam em máquina de dev) | Follow-up de RU-5 | new | M | — |
 | **CP-42** | ✅ **2026-04-22** — Helper `buildAuditChanges(before, after)` em `src/modules/audit/pii-redaction.ts` com 25 unit tests. Redação automática de 11 campos PII (CPF, RG, pisPasep, CTPS, email, phone, mobile, salary, hourlyRate, CID, birthDate) e exclusão de metadata (createdAt/updatedAt/createdBy/updatedBy/deletedAt/deletedBy). Convenção documentada em `src/modules/audit/CLAUDE.md`. Aplicado em employees (create/update/updateStatus/delete), medical-certificates (create/update/delete) e subscription (cancel/restore). Enum `auditResourceSchema` alinhado com a spec: renomeado `medical_leave` → `medical_certificate`, adicionado `labor_lawsuit` | #96 (parcial), LGPD Art. 18/48 | refactor | M | — |
-| **CP-43** | Audit de reads em dados sensíveis (Art. 11 LGPD) — usar `auditPlugin` pós RU-7 (signature `audit(entry)` simples) em GET handlers de recursos sensíveis: `medical_certificate`, `labor_lawsuit`, `employee` (quando incluir CPF/salário), `cpf_analysis`. Granularidade: get individual + export sempre; listagem opcional (batch). Destrava reconstituição de acessos para Art. 48 LGPD | #96 (parcial), LGPD Art. 11 | new | M | RU-7 |
+| **CP-43** | ✅ **2026-04-22** — `auditPlugin` mountado nos 4 controllers (`employee`, `medical_certificate`, `cpf_analysis`, `labor_lawsuit`). GET `/:id` emite `audit({ action: "read", resource, resourceId })` após resolve bem-sucedido. Listagens **não** auditam (ruído). Fix no plugin: destructure movido pra dentro do `audit()` (derive rodava antes do macro auth resolver user/session). Enum `auditResourceSchema` ganhou `cpf_analysis`. Integration test em `medical-certificates/__tests__/get-medical-certificate.test.ts`. Convenção documentada em `src/modules/audit/CLAUDE.md` seção "Read Audit (CP-43)" | #96 (complementa), LGPD Art. 11/48 | new | M | RU-7 |
 | **CP-44** | Audit BOLA automatizado em CI — script que AST-scan `src/modules/**/*.service.ts` identificando queries `db.select/update/delete` em tabelas org-scoped sem filtro `organizationId`. Falha PR se gap novo introduzido. Preventivo contra regressão após RU-9 ter validado o estado limpo atual | Follow-up de RU-9 | new | M | — |
 | **CP-45** | ✅ **2026-04-22** — Local Backup Retention ajustado para 7 backups / 7 dias / 2 GB no Coolify (R2 inalterado em 30/30/8). Ação operacional pura na UI, sem código. Runbook atualizado | Follow-up de RU-10 | config | S | — |
 | **CP-46** | Migração ultracite 6 → 7 (Biome → Oxc) — descoberto em CP-40. Ultracite 7 trocou o engine subjacente de Biome para Oxc (`oxlint` + `oxfmt`). Requer: remover `@biomejs/biome` das devDeps, validar `biome.json`/`biome.jsonc` → config equivalente em Oxc, rodar `ultracite check` + `ultracite fix` em todo o codebase, validar que pre-commit via `lint-staged` continua funcionando. Não é tooling crítico para segurança — espera janela dedicada | Descoberto em CP-40 | refactor | L | — |
@@ -567,7 +567,7 @@ Organizado em **5 PRs dedicados** (refactors grandes) + ações pontuais.
 | **CP-49** | Sync react/react-dom versions — descoberto em CP-40. `react-dom` não está nas devDeps diretas mas é pulled por `@react-email/components`, e fica desalinhado de `react` em patches (`bun update` bumpou react → 19.2.5 enquanto react-dom ficou em 19.2.4, causando runtime mismatch). Opções: (a) adicionar `react-dom` às devDeps pinado ao mesmo patch; (b) manter `react` pinado exato (feito em CP-40 como contenção); (c) override de `react-dom` matching `react`. Decidir quando for revisar deps novamente | Descoberto em CP-40 | config | S | — |
 | **CP-50** | Migração TypeScript 5.9 → 6.x — descoberto em CP-40 quando CI falhou ao puxar TS 6.0.3 ephemerally (TS não estava em devDeps). TS 6 transforma `moduleResolution=node` em erro deprecated (antes era warning). Requer: (a) alterar `tsconfig.json` de `"moduleResolution": "node"` para `"bundler"` (recomendado Elysia/Bun) ou `"node16"`; (b) auditar imports para compatibilidade com resolução nova (extensões obrigatórias em alguns casos); (c) remover o pin `~5.9.3` após migração validada. Contenção atual: TS pinado em devDeps `~5.9.3` | Descoberto em CP-40 | refactor | M | — |
 
-**Total bucket 🟡: 50 ações registradas · 38 ativas · 11 concluídas (CP-7, CP-8, CP-9, CP-13, CP-20, CP-21, CP-22, CP-23, CP-40, CP-42, CP-45 em 2026-04-22) · 1 contenção temporária (CP-50).**
+**Total bucket 🟡: 50 ações registradas · 37 ativas · 12 concluídas (CP-7, CP-8, CP-9, CP-13, CP-20, CP-21, CP-22, CP-23, CP-40, CP-42, CP-43, CP-45 em 2026-04-22) · 1 contenção temporária (CP-50).**
 
 ##### Ordem de execução sugerida
 
@@ -576,7 +576,7 @@ Sequência proposta para extrair valor rápido antes de atacar os refactors gran
 | Onda | Foco | Itens | Racional |
 |---|---|---|---|
 | **Onda 1 — Ganhos rápidos de CI/segurança** | ✅ **Concluída em 2026-04-22** | CP-40 (M) → CP-7 (S), CP-8 (S), CP-9 (S), CP-22 (S), CP-21 (S), CP-23 (S), CP-13 (S), CP-20 (S) | CP-40 entregue em PR separada (escopo maior). Os 8 S's entregues numa PR agrupada com 8 commits atômicos |
-| **Onda 2 — Compliance LGPD (débito #96)** | Atacar lacuna de rastreabilidade em dados sensíveis | CP-42 (M) → CP-43 (M) | CP-42 é a convenção (`changes: { before, after }` + PII redacted); CP-43 aplica em reads sensíveis. Ordem importa: regra primeiro, aplicação depois |
+| **Onda 2 — Compliance LGPD (débito #96)** | ✅ **Concluída em 2026-04-22** | CP-42 (M) → CP-43 (M) | CP-42 entregou a convenção (`buildAuditChanges` + redação PII); CP-43 aplicou `auditPlugin` nos 4 GET handlers sensíveis. Débito #96 100% endereçado |
 | **Onda 3 — Qualidade pontual** | Resolver débitos S restantes enquanto XL ainda não começou | CP-24, CP-27, CP-29, CP-31, CP-34, CP-35, CP-36, CP-37, CP-39 (todos S); CP-25, CP-30, CP-41 (M) | Podem ser agrupados em 2-3 PRs temáticos (auth hardening, error handling, env centralization). CP-41 vale dedicar PR separada (workflow novo) |
 | **Onda 4 — Cloudflare + Observabilidade** | Depende de janela com o dono (CP-14 precisa alinhar DNS) | CP-14 → CP-15 → CP-16; CP-17, CP-18, CP-19 | Cloudflare é sequencial (CP-14 destrava CP-15 destrava CP-16). Observabilidade (CP-17/18/19) pode rodar em paralelo — CP-18 depende de CP-3 |
 | **Onda 5 — Refactors grandes** | PRs dedicados, worktree obrigatório, plan formal em `docs/plans/` | CP-1 (XL) → CP-4, CP-26, CP-28, CP-32 (dependem de CP-1); CP-2 (XL); CP-3 (L) → CP-18; CP-5 (L); CP-6 (M), CP-33, CP-38, CP-44 | CP-1 tem o maior raio de desbloqueio (4 CPs menores dependem dele). CP-2 e CP-3 independentes. CP-38 e CP-44 são documentação/tooling — podem intercalar |
@@ -1379,6 +1379,54 @@ Rodados testes que cobrem as áreas a serem tocadas pelo bucket 🔴 para confir
 - Extensão `cy-idea-factory` — traz council de 6 agentes (security-advocate, architect-advisor, pragmatic-engineer, product-mind, devils-advocate, the-thinker) e skill `/cy-idea-factory`. Motivo: roadmap atual (bucket 🔴 + maior parte do 🟡) já tem escopo claro do audit; council é overkill para ações bem escopadas. Instalar apenas antes de CP-1/CP-2 (XL) ou qualquer item do bucket 🟢 (decisões com múltiplos trade-offs sem design pronto)
 
 **Estado:** pronto para iniciar Fase 3. Próxima ação — **RU-1 (hardening `env.ts`)** via fluxo simples (branch direta, sem Compozy).
+
+### 2026-04-22 — CP-43 concluída (audit de reads em recursos sensíveis) + **Onda 2 fechada**
+
+Última ação da Onda 2 entregue. **Débito #96 100% endereçado**: CP-42 cobriu mutations (diff + PII redaction) e CP-43 cobre reads (quem leu o quê e quando).
+
+**Entregáveis:**
+
+1. **Fix no `auditPlugin`** (`src/plugins/audit/audit-plugin.ts`): destructure de `user/session/request` movido de dentro do `.derive()` (execução ansiosa) para dentro da função `audit()` retornada (execução no call-time). Motivo: no lifecycle do Elysia, `.derive()` roda ANTES do macro `auth.resolve`, então user/session eram `undefined` no snapshot do derive. Bug mascarado nos testes do auditPlugin (usavam `.derive()` para mockar user/session, populando o ctx antes do plugin rodar). Unblock-aria desde RU-7 se alguém tivesse tentado adotar em controller real. **Tests do plugin continuam verdes** (6/6).
+
+2. **Adoção nos 4 controllers sensíveis**:
+   - `src/modules/employees/index.ts`
+   - `src/modules/occurrences/medical-certificates/index.ts`
+   - `src/modules/occurrences/cpf-analyses/index.ts`
+   - `src/modules/occurrences/labor-lawsuits/index.ts`
+
+   Padrão uniforme: `.use(betterAuthPlugin).use(auditPlugin)` + `audit({ action: "read", resource, resourceId })` após o service resolver com sucesso. Ordem importa — auditPlugin lê user/session do ctx injetado pelo `auth` macro.
+
+3. **Enum `auditResourceSchema` ganha `cpf_analysis`** — completa os 4 resources de reads sensíveis.
+
+4. **Integration test** em `medical-certificates/__tests__/get-medical-certificate.test.ts` valida: GET `/:id` com sucesso → audit_log row com `action: "read"`, `resource: "medical_certificate"`, `resourceId: <certificate.id>`, `userId: <session user>`, `changes: null`. Canonical test do pattern — os outros 3 módulos seguem o mesmo wiring.
+
+5. **Documentação** em `src/modules/audit/CLAUDE.md` seção "Read Audit (CP-43)" com padrão de uso, regras (só sucesso, só individual, changes null), motivos (por que não listagem) e lista de resources cobertos.
+
+**Decisões operacionais:**
+
+- **Listagem NÃO audita** — cada request de lista geraria um log por request sem `resourceId` específico. O log HTTP já cobre "endpoint X foi acessado"; audit é para reconstituir acesso a registros individuais.
+- **Audit só em sucesso** — a call vem depois do service resolver, então 404/403 não geram log. Erros ficam no logger/Sentry. Audit é rastreabilidade de acesso efetivo a dado.
+- **`changes: null` em read** — reads não têm before/after. O tuplo `(userId, resourceId, ipAddress, userAgent, createdAt)` é o que LGPD Art. 48 precisa.
+- **Plugin fix urgente, não refactor** — bug era real e bloqueava adoção. Ficou num commit separado com explicação detalhada para audit trail.
+
+**Arquivos tocados:**
+
+- Fix: `src/plugins/audit/audit-plugin.ts`
+- Modificados: `src/modules/audit/audit.model.ts` (enum), `src/modules/audit/CLAUDE.md` (seção nova), 4 controllers
+- Novo teste: `src/modules/occurrences/medical-certificates/__tests__/get-medical-certificate.test.ts` (+1 caso)
+
+**Validação:**
+- ✅ `bun run lint:types` clean
+- ✅ 6 tests do auditPlugin passando (regression clean)
+- ✅ 199 tests em audit + subscription + api-keys + plugin audit passando
+- ✅ 223/224 tests nos 4 módulos tocados (1 falha pré-existente em preview — FK constraint em factory de sectors, unrelated to CP-43)
+- ✅ `npx ultracite check` clean nos arquivos tocados
+
+**Lições:**
+
+- **Testes mockados podem mascarar bugs de lifecycle**: o `.derive()` no test mockou user/session de forma síncrona, simulando um estado que nunca existe em produção (onde macro.resolve roda DEPOIS do .derive). Integration test em controller real pegou o bug. Lição: quando um plugin é infra dormente, integration test com auth real antes de declarar "done" salva retrabalho.
+- **Ordem de plugins importa quando há dependência de contexto**: `auditPlugin` lê `user/session` que vêm do `betterAuthPlugin`. Mountado antes ou independente, breaks. Documentar a ordem no CLAUDE.md do plugin.
+- **Escopo "1 módulo, 1 teste focado" é suficiente quando o pattern é uniforme**: os 4 controllers têm wiring idêntico. 1 test canônico em medical-certificates cobre a prova do helper; replicar em 3 módulos seria duplicação.
 
 ### 2026-04-22 — CP-42 concluída (convenção de audit diff + PII redaction)
 
