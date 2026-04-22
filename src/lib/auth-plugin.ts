@@ -7,6 +7,7 @@ import {
   FeatureNotAvailableError,
   SubscriptionRequiredError,
 } from "./errors/subscription-errors";
+import { logger } from "./logger";
 import type { OrgPermissions } from "./permissions";
 
 export type AuthOptions =
@@ -91,6 +92,26 @@ function validateRoleRequirements(
 
 function isApiKeyRequest(headers: Headers): boolean {
   return !!headers.get("x-api-key");
+}
+
+function extractClientIp(headers: Headers): string | null {
+  const forwarded = headers.get("x-forwarded-for");
+  if (forwarded) {
+    return forwarded.split(",")[0]?.trim() ?? null;
+  }
+  return headers.get("x-real-ip");
+}
+
+function logUnauthorizedAccess(request: Request): void {
+  const { headers, method, url } = request;
+  logger.warn({
+    type: "security:unauthorized_access",
+    method,
+    path: new URL(url).pathname,
+    ip: extractClientIp(headers),
+    userAgent: headers.get("user-agent"),
+    hasApiKey: isApiKeyRequest(headers),
+  });
 }
 
 function canBypassSubscriptionCheck(
@@ -216,10 +237,12 @@ export const betterAuthPlugin = new Elysia({ name: "better-auth" })
   .mount(auth.handler)
   .macro({
     auth: (options: AuthOptions) => ({
-      resolve: async ({ request: { headers } }) => {
+      resolve: async ({ request }) => {
+        const { headers } = request;
         const result = await auth.api.getSession({ headers });
 
         if (!result) {
+          logUnauthorizedAccess(request);
           throw new UnauthorizedError();
         }
 
