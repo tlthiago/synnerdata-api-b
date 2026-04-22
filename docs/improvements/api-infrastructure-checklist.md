@@ -264,7 +264,7 @@ Seção específica do projeto. Começa pelo **status atual** da iniciativa (7.0
 | **2. Roadmap priorizado** | ✅ Concluída | 2026-04-21 | Seção 7.5 com 69 ações organizadas em 3 buckets (🔴 10 urgentes / 🟡 38 curto prazo / 🟢 21 sob demanda) com IDs, dependências, tipo e esforço |
 | **3. Execução** | 🔄 Em execução | 2026-04-22 | **Bucket 🔴 concluído (10/10)**. RU-1..RU-10 entregues em PRs sequenciais em `preview`. Grupo 3 fechado. `src/plugins/` inaugurado. BOLA audit completo (0 gaps). Runbook de backup em `docs/runbooks/`. CP-39..CP-45 registrados como follow-ups. Débito #96 identificado. |
 
-**➡️ Próxima ação:** **Priorização do bucket 🟡** com o dono do projeto. 44 ações disponíveis; candidatos naturais para começar: (a) **CP-40** (triagem de dev deps highs → destrava subir audit threshold para `high`), (b) **CP-1/2** (XL refactors que destravam outros CPs), (c) **CP-42/CP-43** (convenção de `changes` + audit de reads sensíveis — LGPD). Ver seção 7.5 bucket 🟡 para a lista completa.
+**➡️ Próxima ação:** **Priorização do bucket 🟡** com o dono do projeto. 45 ações disponíveis; candidatos naturais para começar: (a) **CP-40** (triagem de dev deps highs → destrava subir audit threshold para `high`), (b) **CP-1/2** (XL refactors que destravam outros CPs), (c) **CP-42/CP-43** (convenção de `changes` + audit de reads sensíveis — LGPD). Ver seção 7.5 bucket 🟡 para a lista completa.
 
 ### 7.1 Contexto do projeto
 
@@ -598,11 +598,11 @@ Não investir antes do sinal. Cada item lista o **sinal que justifica investir**
 
 ### Resumo executivo do roadmap
 
-| Bucket | Ações | Esforço consolidado | Prazo alvo |
-|---|---|---|---|
-| 🔴 Urgente | 10 | ~7 S/M + 1 L = 2-3 semanas com foco parcial | até 30 dias |
-| 🟡 Curto prazo | 45 (5 plans dedicados + 40 pontuais) | 5 planos XL/L + ~37 S/M | 30-90 dias |
-| 🟢 Médio prazo | 21 | Sob demanda | indefinido (monitorar sinais) |
+| Bucket | Ações | Esforço consolidado | Prazo alvo | Estado |
+|---|---|---|---|---|
+| 🔴 Urgente | 10 | ~7 S/M + 1 L = 2-3 semanas com foco parcial | até 30 dias | ✅ Concluído em 2026-04-22 (1 dia de execução efetiva) |
+| 🟡 Curto prazo | 45 (5 plans dedicados + 40 pontuais) | 5 planos XL/L + ~37 S/M | 30-90 dias | 🔜 A priorizar com o dono |
+| 🟢 Médio prazo | 21 | Sob demanda | indefinido (monitorar sinais) | ⏸️ Sem investimento até sinal concreto |
 
 **Princípios de execução:**
 - Atacar 🔴 **primeiro e até o fim** antes de iniciar 🟡
