@@ -79,3 +79,18 @@ jobs:
         with:
           sarif_file: "trivy-results.sarif"
           category: "trivy-image"
+
+      - name: Generate SBOM (CycloneDX)
+        uses: aquasecurity/trivy-action@0.35.0
+        with:
+          image-ref: synnerdata-api:${{ github.sha }}
+          format: "cyclonedx"
+          output: "sbom.cdx.json"
+
+      - name: Upload SBOM artifact
+        uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: sbom-${{ github.sha }}
+          path: sbom.cdx.json
+          retention-days: 90
