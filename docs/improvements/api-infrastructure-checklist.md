@@ -262,9 +262,9 @@ Seção específica do projeto. Começa pelo **status atual** da iniciativa (7.0
 | **0. Contexto aplicado** | ✅ Concluída | 2026-04-21 | Seções 7.1–7.3, 7.6, 7.7 preenchidas + convenção semântica + 10 débitos pré-audit |
 | **1. Audit item a item** | ✅ Concluída | 2026-04-21 | Status nas seções 4 e 5 preenchidos (~65 itens); 95 débitos totais em 7.7; relatório em [`docs/reports/2026-04-21-api-infrastructure-audit.md`](../reports/2026-04-21-api-infrastructure-audit.md) |
 | **2. Roadmap priorizado** | ✅ Concluída | 2026-04-21 | Seção 7.5 com 69 ações organizadas em 3 buckets (🔴 10 urgentes / 🟡 38 curto prazo / 🟢 21 sob demanda) com IDs, dependências, tipo e esforço |
-| **3. Execução** | 🔄 Em execução | 2026-04-22 | **Bucket 🔴 concluído (10/10)**. Bucket 🟡 **Onda 1 completa (10/10)** + **Onda 2 completa (2/2)**. Total concluídas no 🟡: **12 CPs** (CP-7, CP-8, CP-9, CP-13, CP-20, CP-21, CP-22, CP-23, CP-40, CP-42, CP-43, CP-45). RU-1..RU-10 entregues em PRs sequenciais em `preview`. Grupo 3 fechado. `src/plugins/` inaugurado. BOLA audit completo (0 gaps). Runbook de backup em `docs/runbooks/`. Helper `buildAuditChanges` + `auditPlugin` em produção (4 módulos auditando reads sensíveis: employees, medical-certificates, cpf-analyses, labor-lawsuits). CP-39..CP-50 registrados como follow-ups. **Débito #96 100% endereçado**. |
+| **3. Execução** | 🔄 Em execução | 2026-04-22 | **Bucket 🔴 concluído (10/10)**. Bucket 🟡 **Onda 1 completa (10/10)** + **Onda 2 completa (2/2)** + **Onda 3 PR-C parcial (5/9 S's)**. Total concluídas no 🟡: **17 CPs** (CP-7, CP-8, CP-9, CP-13, CP-20, CP-21, CP-22, CP-23, CP-34, CP-35, CP-36, CP-37, CP-39, CP-40, CP-42, CP-43, CP-45). RU-1..RU-10 entregues em PRs sequenciais em `preview`. Grupo 3 fechado. `src/plugins/` inaugurado. BOLA audit completo (0 gaps). Runbook de backup em `docs/runbooks/`. Helper `buildAuditChanges` + `auditPlugin` em produção (4 módulos auditando reads sensíveis: employees, medical-certificates, cpf-analyses, labor-lawsuits). PR-C entregue: branded `EncryptedString`, wrapper `withApiKeyNotFoundFallback`, newsletter anti-enumeration, health `VERSION` de `package.json`, split `SMTP_FROM`/`SMTP_FROM_NAME`. **Débito #96 100% endereçado**. |
 
-**➡️ Próxima ação:** **Bucket 🟡 — Onda 3** (Qualidade pontual). Agrupáveis em 2-3 PRs temáticas: **auth hardening** (CP-24, CP-25, CP-30), **error handling** (CP-27, CP-29), **env centralization** (CP-31), **qualidade geral** (CP-34, CP-35, CP-36, CP-37, CP-39). CP-41 (workflow dedicado Pagar.me) vale PR separada. Total: 9 S's + 3 M's.
+**➡️ Próxima ação:** **Bucket 🟡 — Onda 3** (Qualidade pontual) — PR-C entregue. Restam: **auth hardening** (CP-24, CP-25, CP-30), **error handling + env** (CP-27, CP-29, CP-31), **CP-41** (workflow Pagar.me standalone).
 
 ### 7.1 Contexto do projeto
 
@@ -549,12 +549,12 @@ Organizado em **5 PRs dedicados** (refactors grandes) + ações pontuais.
 | **CP-31** | Centralizar uso de `isProduction`/`isDev` via `@/env` (hoje há `process.env.NODE_ENV` direto em vários arquivos) | #26, #41 | refactor | S | — |
 | **CP-32** | `cron-plugin.ts` — refatorar 7 jobs duplicados via array declarativo ou helper `createCronJob({ name, pattern, handler })` | #46 | refactor | M | CP-1 |
 | **CP-33** | `auth.ts` helpers `auditXxx` duplicados — consolidar em `buildAuditEntry(...)` | #51 (parcial — resto em CP-4) | refactor | S | CP-4 |
-| **CP-34** | Branded type `EncryptedString` para `lib/crypto/pii.ts` diferenciando plaintext de ciphertext | #47 | refactor | S | — |
-| **CP-35** | `isBetterAuthNotFound` wrapper genérico em `api-key.service.ts` (reduz duplicação em 3 métodos) | #61 | refactor | S | — |
-| **CP-36** | Newsletter — não revelar existência de email (retornar mesma response em duplicado e novo) | #62 | refactor | S | — |
-| **CP-37** | Version fallback em `lib/health/index.ts` — trocar `"1.0.50"` hardcoded por `"unknown"` ou ler do `package.json` | #29 | config | S | — |
+| **CP-34** | ✅ **2026-04-22** — Branded type `EncryptedString` aplicado em `lib/crypto/pii.ts`. `PII.encrypt` retorna `Promise<EncryptedString>`; `PII.decrypt` exige `EncryptedString`; `PII.isEncrypted` vira type guard. Sem mudança de runtime. | #47 | refactor | S | — |
+| **CP-35** | ✅ **2026-04-22** — Wrapper `withApiKeyNotFoundFallback(keyId, fn)` em `api-key.service.ts`. Elimina try/catch duplicado em `getById`, `revoke` e `delete`. Métodos perdem `async` (retornam a promise do wrapper direto). | #61 | refactor | S | — |
+| **CP-36** | ✅ **2026-04-22** — `POST /v1/public/newsletter/subscribe` não revela mais existência de email: duplicado ativo agora retorna 200 silencioso (no-op). Removido `ConflictError` + schema 409 do controller. Teste atualizado para verificar body idêntico em 1ª e 2ª subscribe. CLAUDE.md do módulo documenta anti-enumeration. | #62 | refactor | S | — |
+| **CP-37** | ✅ **2026-04-22** — `lib/health/index.ts` lê `version` de `package.json` via `readFileSync` no module-init; fallback para `"unknown"` só em erro de leitura. Remove `"1.0.50"` hardcoded que drifava quando `npm_package_version` não era populada (ex: container iniciado com `bun src/index.ts`). | #29 | config | S | — |
 | **CP-38** | Runbook de oncall em `docs/runbooks/` — DB down, webhook Pagar.me falhando, SMTP caído, Sentry recebendo 5xx em massa | #93 | docs | M | — |
-| **CP-39** | Separar `SMTP_FROM` em duas envs — `SMTP_FROM` (apenas endereço, `z.email()` puro) + `SMTP_FROM_NAME` (display name opcional); remover `smtpFromSchema` custom; montar `from: { name, address }` em `src/lib/email.tsx`; migrar value no Coolify | Revisão de design do #17 após RU-1 | refactor | S | — |
+| **CP-39** | ✅ **2026-04-22** — `SMTP_FROM` virou `z.email()` puro; `SMTP_FROM_NAME` adicionado como `z.string().min(1).optional()`. Custom `smtpFromSchema` (com regex RFC 5322) removido. `src/lib/email.tsx` monta `from: { name, address }` quando `SMTP_FROM_NAME` está setado, fallback para string pura caso contrário. **Ação operacional pendente**: split do valor no Coolify (`"Synnerdata <contato@synnerdata.com.br>"` → `SMTP_FROM=contato@synnerdata.com.br` + `SMTP_FROM_NAME=Synnerdata`) antes do deploy. | Revisão de design do #17 após RU-1 | refactor | S | — |
 | **CP-40** | ✅ **2026-04-22** — Triagem de 13 highs em dev + prod deps. Estratégia ajustada após auditoria: `bun update` → upgrade secretlint 11→12 → `overrides` para transitivas de deps já no latest (commitizen, drizzle-orm, exceljs) + transitivas dentro de ranges de parents não-latest (better-auth, ultracite 6). CI threshold subiu `critical` → `high`. Escopos não-CVE saíram como CP-46/47/48/49 | Follow-up de RU-4a | refactor | M | RU-4b |
 | **CP-41** | Workflow dedicado para integration tests externos (Pagar.me) — novo `.github/workflows/test-integration.yml` com `workflow_dispatch` + schedule semanal, secrets de sandbox Pagar.me configurados, rodando apenas testes gated por `skipIntegration`. Destrava cobertura real dos módulos `src/modules/payments/*` em CI (hoje só rodam em máquina de dev) | Follow-up de RU-5 | new | M | — |
 | **CP-42** | ✅ **2026-04-22** — Helper `buildAuditChanges(before, after)` em `src/modules/audit/pii-redaction.ts` com 25 unit tests. Redação automática de 11 campos PII (CPF, RG, pisPasep, CTPS, email, phone, mobile, salary, hourlyRate, CID, birthDate) e exclusão de metadata (createdAt/updatedAt/createdBy/updatedBy/deletedAt/deletedBy). Convenção documentada em `src/modules/audit/CLAUDE.md`. Aplicado em employees (create/update/updateStatus/delete), medical-certificates (create/update/delete) e subscription (cancel/restore). Enum `auditResourceSchema` alinhado com a spec: renomeado `medical_leave` → `medical_certificate`, adicionado `labor_lawsuit` | #96 (parcial), LGPD Art. 18/48 | refactor | M | — |
@@ -567,7 +567,7 @@ Organizado em **5 PRs dedicados** (refactors grandes) + ações pontuais.
 | **CP-49** | Sync react/react-dom versions — descoberto em CP-40. `react-dom` não está nas devDeps diretas mas é pulled por `@react-email/components`, e fica desalinhado de `react` em patches (`bun update` bumpou react → 19.2.5 enquanto react-dom ficou em 19.2.4, causando runtime mismatch). Opções: (a) adicionar `react-dom` às devDeps pinado ao mesmo patch; (b) manter `react` pinado exato (feito em CP-40 como contenção); (c) override de `react-dom` matching `react`. Decidir quando for revisar deps novamente | Descoberto em CP-40 | config | S | — |
 | **CP-50** | Migração TypeScript 5.9 → 6.x — descoberto em CP-40 quando CI falhou ao puxar TS 6.0.3 ephemerally (TS não estava em devDeps). TS 6 transforma `moduleResolution=node` em erro deprecated (antes era warning). Requer: (a) alterar `tsconfig.json` de `"moduleResolution": "node"` para `"bundler"` (recomendado Elysia/Bun) ou `"node16"`; (b) auditar imports para compatibilidade com resolução nova (extensões obrigatórias em alguns casos); (c) remover o pin `~5.9.3` após migração validada. Contenção atual: TS pinado em devDeps `~5.9.3` | Descoberto em CP-40 | refactor | M | — |
 
-**Total bucket 🟡: 50 ações registradas · 37 ativas · 12 concluídas (CP-7, CP-8, CP-9, CP-13, CP-20, CP-21, CP-22, CP-23, CP-40, CP-42, CP-43, CP-45 em 2026-04-22) · 1 contenção temporária (CP-50).**
+**Total bucket 🟡: 50 ações registradas · 32 ativas · 17 concluídas (CP-7, CP-8, CP-9, CP-13, CP-20, CP-21, CP-22, CP-23, CP-34, CP-35, CP-36, CP-37, CP-39, CP-40, CP-42, CP-43, CP-45 em 2026-04-22) · 1 contenção temporária (CP-50).**
 
 ##### Ordem de execução sugerida
 
@@ -577,7 +577,7 @@ Sequência proposta para extrair valor rápido antes de atacar os refactors gran
 |---|---|---|---|
 | **Onda 1 — Ganhos rápidos de CI/segurança** | ✅ **Concluída em 2026-04-22** | CP-40 (M) → CP-7 (S), CP-8 (S), CP-9 (S), CP-22 (S), CP-21 (S), CP-23 (S), CP-13 (S), CP-20 (S) | CP-40 entregue em PR separada (escopo maior). Os 8 S's entregues numa PR agrupada com 8 commits atômicos |
 | **Onda 2 — Compliance LGPD (débito #96)** | ✅ **Concluída em 2026-04-22** | CP-42 (M) → CP-43 (M) | CP-42 entregou a convenção (`buildAuditChanges` + redação PII); CP-43 aplicou `auditPlugin` nos 4 GET handlers sensíveis. Débito #96 100% endereçado |
-| **Onda 3 — Qualidade pontual** | Resolver débitos S restantes enquanto XL ainda não começou | CP-24, CP-27, CP-29, CP-31, CP-34, CP-35, CP-36, CP-37, CP-39 (todos S); CP-25, CP-30, CP-41 (M) | Podem ser agrupados em 2-3 PRs temáticos (auth hardening, error handling, env centralization). CP-41 vale dedicar PR separada (workflow novo) |
+| **Onda 3 — Qualidade pontual** | 🔄 Em progresso — **PR-C entregue 2026-04-22** (CP-34, CP-35, CP-36, CP-37, CP-39). Restam CP-24, CP-27, CP-29, CP-31 (S); CP-25, CP-30, CP-41 (M) | CP-24, CP-27, CP-29, CP-31, CP-34✅, CP-35✅, CP-36✅, CP-37✅, CP-39✅ (todos S); CP-25, CP-30, CP-41 (M) | PR-C agrupou os 5 S's de "Qualidade geral" em 5 commits atômicos. Próximas PRs temáticas: **PR-B** (CP-27, CP-29, CP-31 — error handling + env), **PR-A** (CP-24, CP-25, CP-30 — auth hardening). CP-41 vale PR separada (workflow novo, requer secrets sandbox Pagar.me) |
 | **Onda 4 — Cloudflare + Observabilidade** | Depende de janela com o dono (CP-14 precisa alinhar DNS) | CP-14 → CP-15 → CP-16; CP-17, CP-18, CP-19 | Cloudflare é sequencial (CP-14 destrava CP-15 destrava CP-16). Observabilidade (CP-17/18/19) pode rodar em paralelo — CP-18 depende de CP-3 |
 | **Onda 5 — Refactors grandes** | PRs dedicados, worktree obrigatório, plan formal em `docs/plans/` | CP-1 (XL) → CP-4, CP-26, CP-28, CP-32 (dependem de CP-1); CP-2 (XL); CP-3 (L) → CP-18; CP-5 (L); CP-6 (M), CP-33, CP-38, CP-44 | CP-1 tem o maior raio de desbloqueio (4 CPs menores dependem dele). CP-2 e CP-3 independentes. CP-38 e CP-44 são documentação/tooling — podem intercalar |
 
@@ -624,7 +624,7 @@ Não investir antes do sinal. Cada item lista o **sinal que justifica investir**
 | Bucket | Ações | Esforço consolidado | Prazo alvo | Estado |
 |---|---|---|---|---|
 | 🔴 Urgente | 10 | ~7 S/M + 1 L = 2-3 semanas com foco parcial | até 30 dias | ✅ Concluído em 2026-04-22 (1 dia de execução efetiva) |
-| 🟡 Curto prazo | 45 registradas (1 done · 44 ativas) | 5 planos XL/L + ~37 S/M | 30-90 dias | 🔄 Ordem de execução definida (ver 7.5 § Ordem de execução sugerida) |
+| 🟡 Curto prazo | 50 registradas (17 done · 32 ativas · 1 contenção) | 5 planos XL/L + ~32 S/M | 30-90 dias | 🔄 Em execução — Ondas 1/2 completas, Onda 3 com PR-C entregue (5/9 S's) |
 | 🟢 Médio prazo | 21 | Sob demanda | indefinido (monitorar sinais) | ⏸️ Sem investimento até sinal concreto |
 
 **Princípios de execução:**
@@ -1379,6 +1379,22 @@ Rodados testes que cobrem as áreas a serem tocadas pelo bucket 🔴 para confir
 - Extensão `cy-idea-factory` — traz council de 6 agentes (security-advocate, architect-advisor, pragmatic-engineer, product-mind, devils-advocate, the-thinker) e skill `/cy-idea-factory`. Motivo: roadmap atual (bucket 🔴 + maior parte do 🟡) já tem escopo claro do audit; council é overkill para ações bem escopadas. Instalar apenas antes de CP-1/CP-2 (XL) ou qualquer item do bucket 🟢 (decisões com múltiplos trade-offs sem design pronto)
 
 **Estado:** pronto para iniciar Fase 3. Próxima ação — **RU-1 (hardening `env.ts`)** via fluxo simples (branch direta, sem Compozy).
+
+### 2026-04-22 — Onda 3 PR-C entregue (CP-34, CP-35, CP-36, CP-37, CP-39)
+
+Primeira PR da Onda 3. Agrupa 5 S's de "Qualidade geral" em 5 commits atômicos em `chore/onda-3-pr-c-qualidade-geral`, targeting `preview`.
+
+**Entregáveis:**
+
+- **CP-34** — Branded type `EncryptedString` em `src/lib/crypto/pii.ts`. `PII.encrypt` retorna `Promise<EncryptedString>`; `PII.decrypt` exige `EncryptedString`; `PII.isEncrypted` vira type guard. Zero custo runtime. Testes: 21 pass (1 novo cobrindo narrow via guard).
+- **CP-35** — Helper `withApiKeyNotFoundFallback(keyId, fn)` em `src/modules/admin/api-keys/api-key.service.ts`. Elimina 3 cópias idênticas do try/catch que traduzia Better Auth 404 em `ApiKeyNotFoundError`. Métodos `getById`, `revoke`, `delete` perderam `async` (retornam promise do wrapper direto). Testes: 35 pass (mesma cobertura de 404).
+- **CP-36** — Anti-enumeration em `POST /v1/public/newsletter/subscribe`. Duplicado ativo agora retorna 200 idêntico ao primeiro subscribe (no-op silencioso); 409 removido do controller + schema. CLAUDE.md do módulo documenta a invariante. Testes: 4 pass (teste de duplicado reescrito para verificar body idêntico).
+- **CP-37** — `src/lib/health/index.ts` lê `version` de `package.json` via `readFileSync` síncrono no module-init; fallback `"unknown"` só em erro genuíno. Remove `"1.0.50"` hardcoded que drifava quando `npm_package_version` não era populada (caso típico: container rodando `bun src/index.ts`). Testes: 7 pass (SEMVER_PATTERN continua batendo).
+- **CP-39** — Split `SMTP_FROM` / `SMTP_FROM_NAME` em `src/env.ts`. `SMTP_FROM` virou `z.email()` puro; `SMTP_FROM_NAME` é `z.string().min(1).optional()`. Custom `smtpFromSchema` (regex RFC 5322) removido. `src/lib/email.tsx` usa `from: { name, address }` quando `SMTP_FROM_NAME` setado, fallback para string. Testes: 28 pass (5 de SMTP_FROM + 3 novos de SMTP_FROM_NAME).
+
+**Ação operacional pendente:** split do `SMTP_FROM` no Coolify antes do deploy da PR-C — `"Synnerdata <contato@synnerdata.com.br>"` vira `SMTP_FROM=contato@synnerdata.com.br` + `SMTP_FROM_NAME=Synnerdata`.
+
+**Contadores atualizados:** bucket 🟡 passou de 12 → **17 CPs concluídos** (32 ativas, 1 contenção). Onda 3 com 5/9 S's entregues. Próximas PRs: **PR-B** (CP-27, CP-29, CP-31), **PR-A** (CP-24, CP-25, CP-30), **PR-D** standalone (CP-41).
 
 ### 2026-04-22 — CP-43 concluída (audit de reads em recursos sensíveis) + **Onda 2 fechada**
 
