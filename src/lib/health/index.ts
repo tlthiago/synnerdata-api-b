@@ -1,3 +1,5 @@
+import { readFileSync } from "node:fs";
+import { resolve } from "node:path";
 import { sql } from "drizzle-orm";
 import { Elysia } from "elysia";
 import { db } from "@/db";
@@ -8,6 +10,15 @@ import {
   type LiveResponse,
   liveResponseSchema,
 } from "./health.model";
+
+const VERSION: string = (() => {
+  try {
+    const raw = readFileSync(resolve(process.cwd(), "package.json"), "utf8");
+    return (JSON.parse(raw) as { version?: string }).version ?? "unknown";
+  } catch {
+    return "unknown";
+  }
+})();
 
 async function checkDatabase(): Promise<HealthCheck> {
   const start = performance.now();
@@ -42,7 +53,7 @@ export const healthPlugin = new Elysia({
         success: true,
         data: {
           status: isHealthy ? "healthy" : "unhealthy",
-          version: process.env.npm_package_version ?? "1.0.50",
+          version: VERSION,
           uptime: Math.round(process.uptime()),
           checks,
         },

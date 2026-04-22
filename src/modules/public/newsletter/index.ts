@@ -2,7 +2,6 @@ import { Elysia } from "elysia";
 import { isProduction } from "@/env";
 import { wrapMessage } from "@/lib/responses/envelope";
 import {
-  conflictErrorSchema,
   messageOnlyResponseSchema,
   validationErrorSchema,
 } from "@/lib/responses/response.types";
@@ -23,7 +22,6 @@ export const newsletterController = new Elysia({
     body: subscribeNewsletterSchema,
     response: {
       200: messageOnlyResponseSchema,
-      409: conflictErrorSchema,
       422: validationErrorSchema,
     },
     detail: {
