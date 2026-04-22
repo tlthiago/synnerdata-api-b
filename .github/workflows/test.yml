@@ -45,14 +45,6 @@ jobs:
       SUPER_ADMIN_EMAILS: superadmin@test.com
       ADMIN_EMAILS: admin@test.com
       SKIP_INTEGRATION_TESTS: "true"
-      BETTER_AUTH_SECRET: ${{ secrets.BETTER_AUTH_SECRET }}
-      PAGARME_BASE_URL: ${{ secrets.PAGARME_BASE_URL }}
-      PAGARME_SECRET_KEY: ${{ secrets.PAGARME_SECRET_KEY }}
-      PAGARME_PUBLIC_KEY: ${{ secrets.PAGARME_PUBLIC_KEY }}
-      PAGARME_WEBHOOK_USERNAME: ${{ secrets.PAGARME_WEBHOOK_USERNAME }}
-      PAGARME_WEBHOOK_PASSWORD: ${{ secrets.PAGARME_WEBHOOK_PASSWORD }}
-      INTERNAL_API_KEY: ${{ secrets.INTERNAL_API_KEY }}
-      PII_ENCRYPTION_KEY: ${{ secrets.PII_ENCRYPTION_KEY }}
 
     steps:
       - name: Checkout
@@ -67,6 +59,15 @@ jobs:
         run: bun install
 
       - name: Run migrations
+        env:
+          BETTER_AUTH_SECRET: ${{ secrets.BETTER_AUTH_SECRET }}
+          PAGARME_BASE_URL: ${{ secrets.PAGARME_BASE_URL }}
+          PAGARME_SECRET_KEY: ${{ secrets.PAGARME_SECRET_KEY }}
+          PAGARME_PUBLIC_KEY: ${{ secrets.PAGARME_PUBLIC_KEY }}
+          PAGARME_WEBHOOK_USERNAME: ${{ secrets.PAGARME_WEBHOOK_USERNAME }}
+          PAGARME_WEBHOOK_PASSWORD: ${{ secrets.PAGARME_WEBHOOK_PASSWORD }}
+          INTERNAL_API_KEY: ${{ secrets.INTERNAL_API_KEY }}
+          PII_ENCRYPTION_KEY: ${{ secrets.PII_ENCRYPTION_KEY }}
         run: bun run db:migrate
 
       - name: Detect affected tests
@@ -80,10 +81,28 @@ jobs:
 
       - name: Run affected tests
         if: github.event_name == 'pull_request' && steps.affected.outputs.tests != 'NO_TESTS'
+        env:
+          BETTER_AUTH_SECRET: ${{ secrets.BETTER_AUTH_SECRET }}
+          PAGARME_BASE_URL: ${{ secrets.PAGARME_BASE_URL }}
+          PAGARME_SECRET_KEY: ${{ secrets.PAGARME_SECRET_KEY }}
+          PAGARME_PUBLIC_KEY: ${{ secrets.PAGARME_PUBLIC_KEY }}
+          PAGARME_WEBHOOK_USERNAME: ${{ secrets.PAGARME_WEBHOOK_USERNAME }}
+          PAGARME_WEBHOOK_PASSWORD: ${{ secrets.PAGARME_WEBHOOK_PASSWORD }}
+          INTERNAL_API_KEY: ${{ secrets.INTERNAL_API_KEY }}
+          PII_ENCRYPTION_KEY: ${{ secrets.PII_ENCRYPTION_KEY }}
         run: bun test ${{ steps.affected.outputs.tests }}
 
       - name: Run full test suite (scheduled)
         if: github.event_name == 'schedule'
+        env:
+          BETTER_AUTH_SECRET: ${{ secrets.BETTER_AUTH_SECRET }}
+          PAGARME_BASE_URL: ${{ secrets.PAGARME_BASE_URL }}
+          PAGARME_SECRET_KEY: ${{ secrets.PAGARME_SECRET_KEY }}
+          PAGARME_PUBLIC_KEY: ${{ secrets.PAGARME_PUBLIC_KEY }}
+          PAGARME_WEBHOOK_USERNAME: ${{ secrets.PAGARME_WEBHOOK_USERNAME }}
+          PAGARME_WEBHOOK_PASSWORD: ${{ secrets.PAGARME_WEBHOOK_PASSWORD }}
+          INTERNAL_API_KEY: ${{ secrets.INTERNAL_API_KEY }}
+          PII_ENCRYPTION_KEY: ${{ secrets.PII_ENCRYPTION_KEY }}
         run: bun run test
 
       - name: Skip (no tests affected)
