@@ -55,6 +55,55 @@ export function paginatedResponseSchema<T extends z.ZodTypeAny>(itemSchema: T) {
 }
 
 // ============================================================
+// AUDIT USER PRIMITIVES
+// ============================================================
+
+/** Schema Zod para o usuário exposto em campos de auditoria (`createdBy`, `updatedBy`, `deletedBy`). */
+export const auditUserSchema = z
+  .object({
+    id: z.string().describe("User ID"),
+    name: z.string().describe("User display name"),
+  })
+  .nullable()
+  .describe(
+    "User who performed the action (null when system-originated or user removed)"
+  );
+
+export type AuditUser = z.infer<typeof auditUserSchema>;
+
+/**
+ * Reshape de resultado Drizzle Relational API para o payload da API:
+ * descarta as colunas textuais `createdBy` / `updatedBy` / `deletedBy` e
+ * promove as relações `*User` para essas mesmas chaves como `AuditUser`.
+ */
+export function mapAuditRelations<
+  T extends {
+    createdBy: string | null;
+    updatedBy: string | null;
+    deletedBy: string | null;
+    createdByUser: AuditUser;
+    updatedByUser: AuditUser;
+    deletedByUser: AuditUser;
+  },
+>(raw: T) {
+  const {
+    createdByUser,
+    updatedByUser,
+    deletedByUser,
+    createdBy: _createdBy,
+    updatedBy: _updatedBy,
+    deletedBy: _deletedBy,
+    ...rest
+  } = raw;
+  return {
+    ...rest,
+    createdBy: createdByUser,
+    updatedBy: updatedByUser,
+    deletedBy: deletedByUser,
+  };
+}
+
+// ============================================================
 // ERROR RESPONSE SCHEMAS
 // ============================================================
 
