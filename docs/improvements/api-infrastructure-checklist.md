@@ -262,9 +262,9 @@ Seção específica do projeto. Começa pelo **status atual** da iniciativa (7.0
 | **0. Contexto aplicado** | ✅ Concluída | 2026-04-21 | Seções 7.1–7.3, 7.6, 7.7 preenchidas + convenção semântica + 10 débitos pré-audit |
 | **1. Audit item a item** | ✅ Concluída | 2026-04-21 | Status nas seções 4 e 5 preenchidos (~65 itens); 95 débitos totais em 7.7; relatório em [`docs/reports/2026-04-21-api-infrastructure-audit.md`](../reports/2026-04-21-api-infrastructure-audit.md) |
 | **2. Roadmap priorizado** | ✅ Concluída | 2026-04-21 | Seção 7.5 com 69 ações organizadas em 3 buckets (🔴 10 urgentes / 🟡 38 curto prazo / 🟢 21 sob demanda) com IDs, dependências, tipo e esforço |
-| **3. Execução** | 🔄 Em execução | 2026-04-22 | RU-1, RU-2, RU-3, RU-4a (patch CVEs), RU-4b (audit no CI) concluídas. CP-39 + CP-40 registrados como follow-ups. Hotfix SMTP_FROM aplicado. 4/10 ações do bucket 🔴 concluídas (RU-4 contada como 1 após conclusão de 4a+4b). |
+| **3. Execução** | 🔄 Em execução | 2026-04-22 | RU-1, RU-2, RU-3, RU-4 (4a+4b), RU-5 concluídas. CP-39 + CP-40 + CP-41 registrados como follow-ups. Hotfix SMTP_FROM aplicado. 5/10 ações do bucket 🔴 concluídas. |
 
-**➡️ Próxima ação:** **RU-5 (validar `SKIP_INTEGRATION_TESTS` em `test.yml`)** — confirmar semântica da flag, remover se estiver pulando testes importantes, documentar se for caso legítimo. Ação S, sem dependências.
+**➡️ Próxima ação:** **RU-6 (audit em operações de API keys)** — adicionar `AuditService.log()` em `ApiKeyService.create/revoke/delete` com `resource: "api_key"`, captando prefix da key (nunca a key completa). Ação M — entra no pipeline Compozy conforme metodologia 7.5.1.
 
 ### 7.1 Contexto do projeto
 
@@ -556,8 +556,9 @@ Organizado em **5 PRs dedicados** (refactors grandes) + ações pontuais.
 | **CP-38** | Runbook de oncall em `docs/runbooks/` — DB down, webhook Pagar.me falhando, SMTP caído, Sentry recebendo 5xx em massa | #93 | docs | M | — |
 | **CP-39** | Separar `SMTP_FROM` em duas envs — `SMTP_FROM` (apenas endereço, `z.email()` puro) + `SMTP_FROM_NAME` (display name opcional); remover `smtpFromSchema` custom; montar `from: { name, address }` em `src/lib/email.tsx`; migrar value no Coolify | Revisão de design do #17 após RU-1 | refactor | S | — |
 | **CP-40** | Triagem dos 13 highs remanescentes em dev deps — upgrades de `ultracite`, `commitizen`, `secretlint`, `lint-staged` para resolver `minimatch`/`picomatch`/`lodash`/`@isaacs/brace-expansion`/`@trpc/server`; `--ignore=<CVE>` documentado quando upgrade breaking. Destrava threshold `--audit-level=high` no CI (RU-4b sobe de `critical` para `high` após CP-40) | Follow-up de RU-4a | refactor | M | RU-4b |
+| **CP-41** | Workflow dedicado para integration tests externos (Pagar.me) — novo `.github/workflows/test-integration.yml` com `workflow_dispatch` + schedule semanal, secrets de sandbox Pagar.me configurados, rodando apenas testes gated por `skipIntegration`. Destrava cobertura real dos módulos `src/modules/payments/*` em CI (hoje só rodam em máquina de dev) | Follow-up de RU-5 | new | M | — |
 
-**Total bucket 🟡: 40 ações. Execução sugerida em paralelo por tema (PRs dedicados CP-1…CP-5 podem rodar em paralelo com ações pontuais).**
+**Total bucket 🟡: 41 ações. Execução sugerida em paralelo por tema (PRs dedicados CP-1…CP-5 podem rodar em paralelo com ações pontuais).**
 
 #### 🟢 Bucket Médio Prazo / Sob Demanda (quando houver sinal real)
 
@@ -596,7 +597,7 @@ Não investir antes do sinal. Cada item lista o **sinal que justifica investir**
 | Bucket | Ações | Esforço consolidado | Prazo alvo |
 |---|---|---|---|
 | 🔴 Urgente | 10 | ~7 S/M + 1 L = 2-3 semanas com foco parcial | até 30 dias |
-| 🟡 Curto prazo | 40 (5 plans dedicados + 35 pontuais) | 5 planos XL/L + ~32 S/M | 30-90 dias |
+| 🟡 Curto prazo | 41 (5 plans dedicados + 36 pontuais) | 5 planos XL/L + ~33 S/M | 30-90 dias |
 | 🟢 Médio prazo | 21 | Sob demanda | indefinido (monitorar sinais) |
 
 **Princípios de execução:**
@@ -1350,6 +1351,27 @@ Rodados testes que cobrem as áreas a serem tocadas pelo bucket 🔴 para confir
 - Extensão `cy-idea-factory` — traz council de 6 agentes (security-advocate, architect-advisor, pragmatic-engineer, product-mind, devils-advocate, the-thinker) e skill `/cy-idea-factory`. Motivo: roadmap atual (bucket 🔴 + maior parte do 🟡) já tem escopo claro do audit; council é overkill para ações bem escopadas. Instalar apenas antes de CP-1/CP-2 (XL) ou qualquer item do bucket 🟢 (decisões com múltiplos trade-offs sem design pronto)
 
 **Estado:** pronto para iniciar Fase 3. Próxima ação — **RU-1 (hardening `env.ts`)** via fluxo simples (branch direta, sem Compozy).
+
+### 2026-04-22 — RU-5 concluída (SKIP_INTEGRATION_TESTS documentado)
+
+Débito #77 era "validar semântica da flag". Análise revelou **duas verdades**:
+
+**Verdade 1 — a semântica é legítima**: a flag gateia só 16 casos em 6 arquivos de `src/modules/payments/*`, todos fazendo chamadas HTTP reais a Pagar.me. DB-level integration tests (Postgres + `app.handle(Request)`) **não** usam a flag e rodam sempre em CI. Skipar API externa é pattern defensável (flakiness, credentials, sandbox pollution).
+
+**Verdade 2 — há um gap real**: o env var `SKIP_INTEGRATION_TESTS=true` está no `env:` do **job inteiro** em `test.yml`, então afeta tanto o step de PR quanto o step de full suite no cron (linhas 85-87). Resultado: **esses 16 casos não rodam em NENHUM workflow** — nem PR, nem schedule diário, nem manual dispatch. Só em máquina de dev quando alguém explicitamente desativa. Para cliente em produção processando pagamentos, rot de integração Pagar.me significa risco real quando a API deles mudar contrato.
+
+**RU-5 (esta entrega)** — documentação:
+- `src/test/support/skip-integration.ts`: docstring expandido com semântica, uso, motivos do skip em CI, como rodar local, e aviso do gap (CP-41).
+- `.claude/CLAUDE.md`: nova subseção em "Execução de Testes" explicando a flag + tabela de contextos + disciplina local até CP-41.
+- `README.md`: tabela CI/CD atualizada com nota que externos são skipados em PR e cron.
+
+**Decisão de escopo**: não implementar o workflow dedicado (CP-41). RU-5 era Ação S; criar workflow + configurar secrets Pagar.me sandbox é Ação M com decisão operacional (é dono quem gerencia credenciais de pagamento). Esse tipo de escopo não deve subir dentro de RU numerada.
+
+**CP-41 registrado (🟡, M)**: workflow `test-integration.yml` dedicado com `workflow_dispatch` + schedule semanal + secrets sandbox. Destrava cobertura real de `src/modules/payments/*` em CI.
+
+**Débito resolvido em 7.7:** #77 (parcial — a semântica foi validada e documentada; a execução em CI pendente é agora CP-41).
+
+**Lição**: um débito de checklist pode ser **mais profundo do que o título sugere**. "Validar semântica" soava simples — mas a validação revelou que a flag, aplicada no job todo, também exclui os testes do cron que supostamente dava cobertura completa. Ler o texto da ação não basta — é preciso investigar a configuração real do CI.
 
 ### 2026-04-22 — RU-4b concluída (bun audit reintroduzido no CI)
 
