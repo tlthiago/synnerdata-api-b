@@ -38,9 +38,13 @@ type SendEmailParams = {
   text?: string;
 };
 
+const FROM_ADDRESS = env.SMTP_FROM_NAME
+  ? { name: env.SMTP_FROM_NAME, address: env.SMTP_FROM }
+  : env.SMTP_FROM;
+
 export async function sendEmail({ to, subject, html, text }: SendEmailParams) {
   await transporter.sendMail({
-    from: env.SMTP_FROM,
+    from: FROM_ADDRESS,
     to,
     subject,
     html,

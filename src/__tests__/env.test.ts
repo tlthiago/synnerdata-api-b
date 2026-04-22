@@ -102,27 +102,39 @@ describe("envSchema — SMTP_FROM email validation", () => {
     ).toThrow();
   });
 
-  test("accepts valid email address", () => {
-    expect(() =>
-      envSchema.parse({ ...VALID_ENV, SMTP_FROM: "noreply@synnerdata.com" })
-    ).not.toThrow();
-  });
-
-  test("accepts RFC 5322 display name format", () => {
+  test("rejects value that includes a display name", () => {
     expect(() =>
       envSchema.parse({
         ...VALID_ENV,
         SMTP_FROM: "Synnerdata <contato@synnerdata.com.br>",
       })
-    ).not.toThrow();
+    ).toThrow();
   });
 
-  test("rejects display name wrapping an invalid email", () => {
+  test("accepts valid email address", () => {
     expect(() =>
-      envSchema.parse({
-        ...VALID_ENV,
-        SMTP_FROM: "Synnerdata <not-an-email>",
-      })
+      envSchema.parse({ ...VALID_ENV, SMTP_FROM: "noreply@synnerdata.com" })
+    ).not.toThrow();
+  });
+});
+
+describe("envSchema — SMTP_FROM_NAME", () => {
+  test("is optional", () => {
+    const result = envSchema.parse({ ...VALID_ENV });
+    expect(result.SMTP_FROM_NAME).toBeUndefined();
+  });
+
+  test("accepts a display name", () => {
+    const result = envSchema.parse({
+      ...VALID_ENV,
+      SMTP_FROM_NAME: "Synnerdata",
+    });
+    expect(result.SMTP_FROM_NAME).toBe("Synnerdata");
+  });
+
+  test("rejects empty string", () => {
+    expect(() =>
+      envSchema.parse({ ...VALID_ENV, SMTP_FROM_NAME: "" })
     ).toThrow();
   });
 });
