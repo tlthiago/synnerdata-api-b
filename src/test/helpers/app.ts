@@ -3,7 +3,6 @@ import { Elysia } from "elysia";
 import { env } from "@/env";
 import { betterAuthPlugin } from "@/lib/auth-plugin";
 import { errorPlugin } from "@/lib/errors/error-plugin";
-import { healthPlugin } from "@/lib/health";
 import { loggerPlugin } from "@/lib/logger";
 import { adminController } from "@/modules/admin";
 import { auditController } from "@/modules/audit";
@@ -12,6 +11,7 @@ import { employeeController } from "@/modules/employees";
 import { occurrencesController } from "@/modules/occurrences";
 import { organizationController } from "@/modules/organizations";
 import { paymentsController } from "@/modules/payments";
+import { healthPlugin } from "@/plugins/health/health-plugin";
 
 export function createTestApp() {
   return new Elysia()
