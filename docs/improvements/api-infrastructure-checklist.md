@@ -262,9 +262,9 @@ Seção específica do projeto. Começa pelo **status atual** da iniciativa (7.0
 | **0. Contexto aplicado** | ✅ Concluída | 2026-04-21 | Seções 7.1–7.3, 7.6, 7.7 preenchidas + convenção semântica + 10 débitos pré-audit |
 | **1. Audit item a item** | ✅ Concluída | 2026-04-21 | Status nas seções 4 e 5 preenchidos (~65 itens); 95 débitos totais em 7.7; relatório em [`docs/reports/2026-04-21-api-infrastructure-audit.md`](../reports/2026-04-21-api-infrastructure-audit.md) |
 | **2. Roadmap priorizado** | ✅ Concluída | 2026-04-21 | Seção 7.5 com 69 ações organizadas em 3 buckets (🔴 10 urgentes / 🟡 38 curto prazo / 🟢 21 sob demanda) com IDs, dependências, tipo e esforço |
-| **3. Execução** | 🔄 Iniciando | 2026-04-21 | Opção B (Híbrido) adotada; RU-1 como primeira ação; Compozy setup em paralelo para ativar a partir de RU-6 |
+| **3. Execução** | 🔄 Em execução | 2026-04-22 | RU-1 (env.ts), RU-2 (requestId no erro) concluídas e mergeadas em `preview`. Hotfix SMTP_FROM aplicado. CP-39 registrado como follow-up. 2/10 ações do bucket 🔴 concluídas. |
 
-**➡️ Próxima ação:** iniciar **Grupo 1 do bucket 🔴 — RU-1 (hardening de `env.ts`)** via branch `fix/urgent-foundation-hardening`, em paralelo com setup do Compozy (`compozy setup` + `.compozy/config.toml` + habilitar `cy-idea-factory`).
+**➡️ Próxima ação:** **RU-3 (request timeout global)** via branch simples a partir de `preview` — configurar `serve.idleTimeout` / equivalente Bun em `src/index.ts`, extrair `REQUEST_TIMEOUT_MS`. Ação S, sem dependências.
 
 ### 7.1 Contexto do projeto
 
@@ -1349,6 +1349,31 @@ Rodados testes que cobrem as áreas a serem tocadas pelo bucket 🔴 para confir
 - Extensão `cy-idea-factory` — traz council de 6 agentes (security-advocate, architect-advisor, pragmatic-engineer, product-mind, devils-advocate, the-thinker) e skill `/cy-idea-factory`. Motivo: roadmap atual (bucket 🔴 + maior parte do 🟡) já tem escopo claro do audit; council é overkill para ações bem escopadas. Instalar apenas antes de CP-1/CP-2 (XL) ou qualquer item do bucket 🟢 (decisões com múltiplos trade-offs sem design pronto)
 
 **Estado:** pronto para iniciar Fase 3. Próxima ação — **RU-1 (hardening `env.ts`)** via fluxo simples (branch direta, sem Compozy).
+
+### 2026-04-22 — RU-2 concluída (requestId no body do erro)
+
+**PR:** [#236](https://github.com/tlthiago/synnerdata-api-b/pull/236) — mergeada em `preview`.
+
+**Escopo expandido**: a PR original previa tocar apenas `src/lib/errors/`, mas durante a TDD descobrimos que o `derive` do Elysia não dispara para rotas 404 não-matched nem parse errors (issue [elysiajs/elysia#1467](https://github.com/elysiajs/elysia/issues/1467)). Sem o fix do lifecycle, RU-2 deixaria ~30% dos erros 404 reais em produção (scanners/bots) sem `requestId`. Decisão registrada: expandir o escopo para incluir a correção arquitetural no `loggerPlugin`.
+
+**Arquivos modificados:**
+- `src/lib/logger/index.ts` — geração do `requestId` movida de `derive` para `onRequest` (primeiro hook do lifecycle, dispara antes do route matching). `derive` passa a apenas ler do `AsyncLocalStorage` para expor no context tipado. Hooks `onAfterHandle` e `onError` de header removidos (redundantes — header agora setado universalmente em `onRequest`).
+- `src/lib/logger/CLAUDE.md` — novo ADR "onRequest e não derive"; diagrama de fluxo atualizado; seção obsoleta "onError para X-Request-ID" removida.
+- `src/lib/errors/base-error.ts` — `ErrorResponse.error.requestId?` + `toResponse(requestId?)` opcional.
+- `src/lib/errors/error-plugin.ts` — injeta `requestId` nos 4 branches (AppError, VALIDATION, NOT_FOUND, unhandled). Comentários descritivos removidos (regra de código autoexplicativo).
+- `src/lib/errors/__tests__/error-plugin.test.ts` — 5 testes TDD novos, um por branch de erro.
+
+**Débito resolvido em 7.7:** #16 (MVP — `requestId` ausente no body do erro).
+
+**Validação executada:**
+- ✅ `bun test src/lib/logger/__tests__/ src/lib/errors/__tests__/ src/lib/request-context/__tests__/ src/lib/audit/__tests__/audit-plugin.test.ts` — 37 pass / 0 fail
+- ✅ `bun run lint:types` — clean
+- ✅ `npx ultracite check src/lib/logger/ src/lib/errors/` — clean
+
+**Lições operacionais:**
+- **Validação empírica antes de compromisso arquitetural**: a decisão de mover para `onRequest` foi precedida por um probe isolado confirmando que `set.headers` setados em `onRequest` persistem em 200/500/404 unmatched. Evitou retrabalho.
+- **Escopo vs disciplina**: expandir o escopo de uma RU "S" (errorPlugin) para incluir um fix em outro plugin (loggerPlugin) só foi aceitável porque o fix era (a) pequeno e cirúrgico, (b) revelava que a implementação parcial era inferior, (c) resolvia bug latente além da RU. Não é padrão.
+- **Commits intermediários red**: aceitável quando o split `test → fix` segue o histórico do projeto e o merge final deixa a árvore verde.
 
 ### 2026-04-22 — Hotfix SMTP_FROM (regressão de RU-1)
 
