@@ -198,7 +198,7 @@ SENTRY_DSN=                 # GlitchTip/Sentry DSN — omit to disable
 
 | Workflow | Trigger | O que faz |
 |---|---|---|
-| **Lint** | PR (todas as branches) | Type check, Biome lint, secretlint, `bun audit --audit-level=critical` |
+| **Lint** | PR (todas as branches) | Type check, Biome lint, secretlint, `bun audit --audit-level=high` |
 | **Build** | PR (todas as branches) | Build do binário para verificar compilação |
 | **Test** | PR (main, preview) | Testes afetados pelo escopo da PR (externos a APIs terceiras skipados via `SKIP_INTEGRATION_TESTS=true`) |
 | **Test** | Schedule (diário 6h BRT) | Suite completa de testes (idem — externos skipados) |
