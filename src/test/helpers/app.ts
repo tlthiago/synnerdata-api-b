@@ -1,7 +1,6 @@
 import { cors } from "@elysiajs/cors";
 import { Elysia } from "elysia";
 import { env } from "@/env";
-import { betterAuthPlugin } from "@/lib/auth-plugin";
 import { adminController } from "@/modules/admin";
 import { auditController } from "@/modules/audit";
 import { cboOccupationController } from "@/modules/cbo-occupations";
@@ -9,6 +8,7 @@ import { employeeController } from "@/modules/employees";
 import { occurrencesController } from "@/modules/occurrences";
 import { organizationController } from "@/modules/organizations";
 import { paymentsController } from "@/modules/payments";
+import { betterAuthPlugin } from "@/plugins/auth/auth-plugin";
 import { errorPlugin } from "@/plugins/errors/error-plugin";
 import { healthPlugin } from "@/plugins/health/health-plugin";
 import { loggerPlugin } from "@/plugins/logger/logger-plugin";

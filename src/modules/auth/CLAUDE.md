@@ -8,7 +8,7 @@ Autenticação via Email/Password e lifecycle de usuários/organizações.
 - `appName: "Synnerdata"` — exibido em authenticator apps (TOTP)
 - Criação automática de usuário no sign-up
 - Rate limits: 5 tentativas/60s (sign-in), 3/60s (sign-up), 3/60s (two-factor), 3/300s (forgot-password)
-- Implementação real em `src/lib/auth.ts` e `src/lib/auth-plugin.ts` — este módulo contém apenas testes
+- Implementação real em `src/lib/auth.ts` e `src/plugins/auth/auth-plugin.ts` — este módulo contém apenas testes
 
 ## User Roles (system-level)
 
@@ -52,7 +52,7 @@ Autenticação via Email/Password e lifecycle de usuários/organizações.
 - `useSecureCookies` — ativado em produção, desabilitado em teste
 - `ipAddressHeaders` — `["x-forwarded-for", "x-real-ip"]` para reverse proxy (Coolify)
 
-## Auth Plugin (`src/lib/auth-plugin.ts`) — Macro Checks
+## Auth Plugin (`src/plugins/auth/auth-plugin.ts`) — Macro Checks
 
 - `requireAdmin` → exige admin ou super_admin
 - `requireSuperAdmin` → exige super_admin

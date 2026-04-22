@@ -1,7 +1,6 @@
 import { Elysia } from "elysia";
 import { z } from "zod";
 import { isProduction } from "@/env";
-import { betterAuthPlugin } from "@/lib/auth-plugin";
 import { wrapSuccess } from "@/lib/responses/envelope";
 import {
   badRequestErrorSchema,
@@ -12,6 +11,7 @@ import {
   unauthorizedErrorSchema,
   validationErrorSchema,
 } from "@/lib/responses/response.types";
+import { betterAuthPlugin } from "@/plugins/auth/auth-plugin";
 import {
   createProvisionCheckoutResponseSchema,
   createProvisionCheckoutSchema,

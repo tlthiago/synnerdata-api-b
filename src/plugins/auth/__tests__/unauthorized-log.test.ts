@@ -1,8 +1,8 @@
 import { beforeEach, describe, expect, spyOn, test } from "bun:test";
 import Elysia from "elysia";
 import { env } from "@/env";
-import { betterAuthPlugin } from "@/lib/auth-plugin";
 import { logger } from "@/lib/logger";
+import { betterAuthPlugin } from "@/plugins/auth/auth-plugin";
 
 const BASE_URL = env.API_URL;
 
