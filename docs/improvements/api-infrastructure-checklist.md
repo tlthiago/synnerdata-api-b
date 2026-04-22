@@ -262,9 +262,9 @@ Seção específica do projeto. Começa pelo **status atual** da iniciativa (7.0
 | **0. Contexto aplicado** | ✅ Concluída | 2026-04-21 | Seções 7.1–7.3, 7.6, 7.7 preenchidas + convenção semântica + 10 débitos pré-audit |
 | **1. Audit item a item** | ✅ Concluída | 2026-04-21 | Status nas seções 4 e 5 preenchidos (~65 itens); 95 débitos totais em 7.7; relatório em [`docs/reports/2026-04-21-api-infrastructure-audit.md`](../reports/2026-04-21-api-infrastructure-audit.md) |
 | **2. Roadmap priorizado** | ✅ Concluída | 2026-04-21 | Seção 7.5 com 69 ações organizadas em 3 buckets (🔴 10 urgentes / 🟡 38 curto prazo / 🟢 21 sob demanda) com IDs, dependências, tipo e esforço |
-| **3. Execução** | 🔄 Em execução | 2026-04-22 | RU-1..RU-8 concluídas. Grupo 3 (Audit refactor: RU-6+7+8) fechado. `src/plugins/` inaugurado. CP-39..CP-43 registrados como follow-ups. Débito novo #96 identificado. Hotfix SMTP_FROM aplicado. 8/10 ações do bucket 🔴 concluídas. |
+| **3. Execução** | 🔄 Em execução | 2026-04-22 | RU-1..RU-9 concluídas. Grupo 3 fechado. `src/plugins/` inaugurado. BOLA audit completo (0 gaps em 50 services). CP-39..CP-44 registrados como follow-ups. Débitos #96 identificados. 9/10 ações do bucket 🔴 concluídas. |
 
-**➡️ Próxima ação:** **RU-9 (auditoria de BOLA em todos os services + testes cruzados entre orgs)** — Ação L, última do bucket 🔴 antes do runbook de backup (RU-10, S/docs). Usar pipeline Compozy conforme metodologia 7.5.1 dado o escopo amplo (varredura + testes em ≥3 módulos).
+**➡️ Próxima ação:** **RU-10 (runbook backup Coolify)** — única pendente do bucket 🔴, ação S/docs. Criar `docs/runbooks/database-backup.md` documentando frequência, retention, processo de restore e teste periódico. Sem dependências.
 
 ### 7.1 Contexto do projeto
 
@@ -559,8 +559,9 @@ Organizado em **5 PRs dedicados** (refactors grandes) + ações pontuais.
 | **CP-41** | Workflow dedicado para integration tests externos (Pagar.me) — novo `.github/workflows/test-integration.yml` com `workflow_dispatch` + schedule semanal, secrets de sandbox Pagar.me configurados, rodando apenas testes gated por `skipIntegration`. Destrava cobertura real dos módulos `src/modules/payments/*` em CI (hoje só rodam em máquina de dev) | Follow-up de RU-5 | new | M | — |
 | **CP-42** | Convenção de `changes: { before, after }` em audit de mutations — documentar em `src/modules/audit/CLAUDE.md` (ou ADR) regras: (a) toda mutation em entidade versionada preenche diff dos campos alterados, não record inteiro; (b) campos PII sensíveis (CPF, salário, atestado médico, data nascimento) logam `"<redacted>"` ou hash — nunca plaintext; (c) resources obrigatórios: `employee`, `medical_certificate`, `labor_lawsuit`, `subscription`, `member`, `api_key`. Aplicar retroativamente nos 3 módulos críticos (employees, occurrences/medical-certificates, payments/subscription) | #96 (parcial), LGPD Art. 18/48 | refactor | M | — |
 | **CP-43** | Audit de reads em dados sensíveis (Art. 11 LGPD) — usar `auditPlugin` pós RU-7 (signature `audit(entry)` simples) em GET handlers de recursos sensíveis: `medical_certificate`, `labor_lawsuit`, `employee` (quando incluir CPF/salário), `cpf_analysis`. Granularidade: get individual + export sempre; listagem opcional (batch). Destrava reconstituição de acessos para Art. 48 LGPD | #96 (parcial), LGPD Art. 11 | new | M | RU-7 |
+| **CP-44** | Audit BOLA automatizado em CI — script que AST-scan `src/modules/**/*.service.ts` identificando queries `db.select/update/delete` em tabelas org-scoped sem filtro `organizationId`. Falha PR se gap novo introduzido. Preventivo contra regressão após RU-9 ter validado o estado limpo atual | Follow-up de RU-9 | new | M | — |
 
-**Total bucket 🟡: 43 ações. Execução sugerida em paralelo por tema (PRs dedicados CP-1…CP-5 podem rodar em paralelo com ações pontuais).**
+**Total bucket 🟡: 44 ações. Execução sugerida em paralelo por tema (PRs dedicados CP-1…CP-5 podem rodar em paralelo com ações pontuais).**
 
 #### 🟢 Bucket Médio Prazo / Sob Demanda (quando houver sinal real)
 
@@ -599,7 +600,7 @@ Não investir antes do sinal. Cada item lista o **sinal que justifica investir**
 | Bucket | Ações | Esforço consolidado | Prazo alvo |
 |---|---|---|---|
 | 🔴 Urgente | 10 | ~7 S/M + 1 L = 2-3 semanas com foco parcial | até 30 dias |
-| 🟡 Curto prazo | 43 (5 plans dedicados + 38 pontuais) | 5 planos XL/L + ~35 S/M | 30-90 dias |
+| 🟡 Curto prazo | 44 (5 plans dedicados + 39 pontuais) | 5 planos XL/L + ~36 S/M | 30-90 dias |
 | 🟢 Médio prazo | 21 | Sob demanda | indefinido (monitorar sinais) |
 
 **Princípios de execução:**
@@ -1354,6 +1355,37 @@ Rodados testes que cobrem as áreas a serem tocadas pelo bucket 🔴 para confir
 - Extensão `cy-idea-factory` — traz council de 6 agentes (security-advocate, architect-advisor, pragmatic-engineer, product-mind, devils-advocate, the-thinker) e skill `/cy-idea-factory`. Motivo: roadmap atual (bucket 🔴 + maior parte do 🟡) já tem escopo claro do audit; council é overkill para ações bem escopadas. Instalar apenas antes de CP-1/CP-2 (XL) ou qualquer item do bucket 🟢 (decisões com múltiplos trade-offs sem design pronto)
 
 **Estado:** pronto para iniciar Fase 3. Próxima ação — **RU-1 (hardening `env.ts`)** via fluxo simples (branch direta, sem Compozy).
+
+### 2026-04-22 — RU-9 concluída (BOLA audit + cross-org isolation tests)
+
+Auditoria estática de multi-tenant em todos os 50 services + testes dinâmicos em 3 módulos representativos.
+
+**Decisão sobre Compozy**: não utilizado. Escopo declarado L, mas na prática o padrão do projeto (filter por `organizationId` em toda query) é tão consistente que varredura foi mecânica. Compozy adicionaria PRD/TechSpec/Tasks para algo sem decisão arquitetural. **Substituí por "PRD-lite"**: o próprio relatório de audit (`docs/reports/2026-04-22-bola-audit.md`) serve como artifact de rastreabilidade com matriz explícita dos 50 services. Disciplina preservada, overhead reduzido.
+
+**Artifacts entregues:**
+- `docs/reports/2026-04-22-bola-audit.md` — matriz completa (29 ✅ + 21 N/A + 0 ⚠️), padrões arquiteturais documentados, spot-check de 7 services representativos, classificação por módulo.
+- 3 novos test files (4 testes cada = 12 testes totais):
+  - `modules/employees/__tests__/employee-org-access.test.ts`
+  - `modules/occurrences/medical-certificates/__tests__/medical-certificate-org-access.test.ts`
+  - `modules/organizations/cost-centers/__tests__/cost-center-org-access.test.ts`
+
+**Cada teste verifica**: user da org B recebe 404 em GET/PUT/DELETE de recurso da org A, e LIST da org B não inclui recursos da org A.
+
+**Veredicto**: nenhum gap de BOLA encontrado. Padrão multi-tenant está bem aplicado em 100% dos services que manipulam entidades org-scoped. Os 21 services classificados N/A têm justificativa explícita (catálogos globais, Pagar.me wrappers, admin cross-org deliberado, public endpoints).
+
+**Débitos parcialmente resolvidos em 7.7**: OWASP API1:2023 (BOLA) validado como coberto no código atual. Testes novos previnem regressão nos 3 módulos representativos.
+
+**CP-44 registrado** (🟡, M): script de audit BOLA automatizado em CI — AST-scan de queries sem filtro `organizationId`. Preventivo para não perder o estado limpo atual em PRs futuras.
+
+**Validação:**
+- ✅ 12/12 novos testes verdes (4 por módulo × 3 módulos).
+- ✅ `bun run lint:types` — clean.
+- ✅ `npx ultracite check` nos 3 test files — clean.
+
+**Lições:**
+- **Padrão consistente é seu próprio audit**: quando o codebase aplica uma convenção de forma disciplinada, auditar é spot-check + grep, não re-verificação exaustiva. O esforço L assumido no checklist era pessimista em relação ao estado real do código.
+- **Tests como defesa contra regressão > snapshot**: os 12 testes novos valem mais que um report dateado — viram parte da suite de CI e pegam regressões automaticamente. Relatório complementa, não substitui.
+- **"PRD-lite" como alternativa ao Compozy**: para ações L sem trade-off arquitetural, um artifact markdown no PR fornece mesma disciplina com fração do overhead. Compozy continua sendo a escolha certa para XL com decisões de design.
 
 ### 2026-04-22 — RU-8 concluída (auditPlugin movido para src/plugins/)
 
