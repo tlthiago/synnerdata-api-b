@@ -262,9 +262,9 @@ Seção específica do projeto. Começa pelo **status atual** da iniciativa (7.0
 | **0. Contexto aplicado** | ✅ Concluída | 2026-04-21 | Seções 7.1–7.3, 7.6, 7.7 preenchidas + convenção semântica + 10 débitos pré-audit |
 | **1. Audit item a item** | ✅ Concluída | 2026-04-21 | Status nas seções 4 e 5 preenchidos (~65 itens); 95 débitos totais em 7.7; relatório em [`docs/reports/2026-04-21-api-infrastructure-audit.md`](../reports/2026-04-21-api-infrastructure-audit.md) |
 | **2. Roadmap priorizado** | ✅ Concluída | 2026-04-21 | Seção 7.5 com 69 ações organizadas em 3 buckets (🔴 10 urgentes / 🟡 38 curto prazo / 🟢 21 sob demanda) com IDs, dependências, tipo e esforço |
-| **3. Execução** | 🔄 Em execução | 2026-04-22 | RU-1, RU-2, RU-3 concluídas. RU-4 desdobrada em RU-4a (patch CVEs — em PR) + RU-4b (audit na CI, pendente) + CP-40 (triagem de highs em dev deps). Hotfix SMTP_FROM. CP-39 registrado. 3.5/10 ações do bucket 🔴 concluídas. |
+| **3. Execução** | 🔄 Em execução | 2026-04-22 | RU-1, RU-2, RU-3, RU-4a (patch CVEs), RU-4b (audit no CI) concluídas. CP-39 + CP-40 registrados como follow-ups. Hotfix SMTP_FROM aplicado. 4/10 ações do bucket 🔴 concluídas (RU-4 contada como 1 após conclusão de 4a+4b). |
 
-**➡️ Próxima ação:** **RU-4b (reintroduzir `bun audit` no CI)** após merge de RU-4a — adicionar step em `.github/workflows/lint.yml` com `--audit-level=critical` (threshold conservador dado que ainda existem highs em dev deps), corrigir README linha 201 (`bun pm audit` → `bun audit`), documentar que Trivy container scan **não** substitui `bun audit` (vide lição de RU-4a).
+**➡️ Próxima ação:** **RU-5 (validar `SKIP_INTEGRATION_TESTS` em `test.yml`)** — confirmar semântica da flag, remover se estiver pulando testes importantes, documentar se for caso legítimo. Ação S, sem dependências.
 
 ### 7.1 Contexto do projeto
 
@@ -1350,6 +1350,27 @@ Rodados testes que cobrem as áreas a serem tocadas pelo bucket 🔴 para confir
 - Extensão `cy-idea-factory` — traz council de 6 agentes (security-advocate, architect-advisor, pragmatic-engineer, product-mind, devils-advocate, the-thinker) e skill `/cy-idea-factory`. Motivo: roadmap atual (bucket 🔴 + maior parte do 🟡) já tem escopo claro do audit; council é overkill para ações bem escopadas. Instalar apenas antes de CP-1/CP-2 (XL) ou qualquer item do bucket 🟢 (decisões com múltiplos trade-offs sem design pronto)
 
 **Estado:** pronto para iniciar Fase 3. Próxima ação — **RU-1 (hardening `env.ts`)** via fluxo simples (branch direta, sem Compozy).
+
+### 2026-04-22 — RU-4b concluída (bun audit reintroduzido no CI)
+
+Fecha o segundo terço da RU-4 originalmente escrita no checklist. Adiciona step `bun audit --audit-level=critical` em `.github/workflows/lint.yml` após o `secrets:check`.
+
+**Threshold inicial = `critical`** (não `high` como o checklist original previa):
+- RU-4a zerou as 2 criticals em direct deps, mas restam 13 highs em dev tooling.
+- Adotar `--audit-level=high` bloquearia PRs por CVEs em `ultracite`/`commitizen`/`secretlint`/`lint-staged` que não têm runtime impact.
+- Upgrade pra `high` acontece após CP-40 (triagem dos dev deps).
+
+**Correções no README**:
+- Linha 201: `bun pm audit` → `bun audit --audit-level=critical` (o comando foi renomeado pelo Bun; o README ficou mentindo por ~6 semanas desde o commit `1958c52`).
+- Linha 205: "Trivy scan (imagem Docker + filesystem)" → "Trivy container scan (imagem Docker de produção)" — o filesystem scan foi removido em 2026-03-09 (commit `f5e8bc2`), README nunca foi sincronizado.
+
+**Débito 100% resolvido em 7.7**: #76 (CI security audit).
+
+**Validação:**
+- ✅ `bun audit --audit-level=critical` local — exit code 0 (0 criticals).
+- ✅ CI do próprio PR valida a integração (se a step não funcionasse, o próprio PR falharia no lint job).
+
+**Lição extra**: documentação no README sobre CI/CD deu duas mentiras simultâneas no commit `1958c52` (anunciou audit que estava sendo removido + declarou filesystem scan que também foi removido no mesmo dia). É sinal de **ausência de review cruzado entre mudança de código e documentação**. Considerar como prática: sempre que um workflow for alterado, abrir README.md no mesmo PR e auditar a seção CI/CD.
 
 ### 2026-04-22 — RU-4a concluída (patch CVEs em auth + db deps)
 
