@@ -62,3 +62,6 @@ package-lock.json
 
 # claude prompts
 .claude/prompts/
+
+# compozy run artifacts (event logs + job output per execution) — local only
+.compozy/runs/

@@ -1,5 +1,5 @@
 ---
-status: pending
+status: completed
 title: Export `auditUserSchema` + `mapAuditRelations` helper
 type: backend
 complexity: low
@@ -32,10 +32,10 @@ Introduce the shared Zod schema `auditUserSchema` (`{ id, name } | null`) and th
 
 ## Subtasks
 
-- [ ] 01.1 Add `auditUserSchema` Zod export at a logical position among existing schemas in `response.types.ts`
-- [ ] 01.2 Export `AuditUser` as the inferred type
-- [ ] 01.3 Implement and export `mapAuditRelations<T>` generic helper
-- [ ] 01.4 Create unit-test coverage exercising schema validation (happy, null, invalid) and mapping reshape (populated, null, mixed)
+- [x] 01.1 Add `auditUserSchema` Zod export at a logical position among existing schemas in `response.types.ts`
+- [x] 01.2 Export `AuditUser` as the inferred type
+- [x] 01.3 Implement and export `mapAuditRelations<T>` generic helper
+- [x] 01.4 Create unit-test coverage exercising schema validation (happy, null, invalid) and mapping reshape (populated, null, mixed)
 
 ## Implementation Details
 
@@ -65,17 +65,17 @@ See TechSpec **"Core Interfaces" → "Shared Zod helper"** and **"Mapping helper
 ## Tests
 
 - Unit tests:
-  - [ ] `auditUserSchema.parse({ id: "user-1", name: "João" })` returns the object unchanged
-  - [ ] `auditUserSchema.parse(null)` returns `null`
-  - [ ] `auditUserSchema.parse({ id: 123, name: "João" })` throws (id is not a string)
-  - [ ] `auditUserSchema.parse({ id: "user-1" })` throws (name missing)
-  - [ ] `auditUserSchema.parse({ id: "user-1", name: "João", email: "x@y" })` strips unknown keys or throws per Zod's default mode — verify expected behavior
-  - [ ] `mapAuditRelations` with all three `*User` keys populated drops the three `*By` text columns and returns them as `AuditUser` values under the same `*By` keys
-  - [ ] `mapAuditRelations` with all three `*User` keys `null` returns `null` under all three `*By` keys
-  - [ ] `mapAuditRelations` preserves non-audit fields (id, name, createdAt, etc.) unchanged
-  - [ ] `mapAuditRelations` preserves the declared return type inferred from the input (TypeScript compile check via a small type assertion in the test file)
+  - [x] `auditUserSchema.parse({ id: "user-1", name: "João" })` returns the object unchanged
+  - [x] `auditUserSchema.parse(null)` returns `null`
+  - [x] `auditUserSchema.parse({ id: 123, name: "João" })` throws (id is not a string)
+  - [x] `auditUserSchema.parse({ id: "user-1" })` throws (name missing)
+  - [x] `auditUserSchema.parse({ id: "user-1", name: "João", email: "x@y" })` strips unknown keys or throws per Zod's default mode — verify expected behavior
+  - [x] `mapAuditRelations` with all three `*User` keys populated drops the three `*By` text columns and returns them as `AuditUser` values under the same `*By` keys
+  - [x] `mapAuditRelations` with all three `*User` keys `null` returns `null` under all three `*By` keys
+  - [x] `mapAuditRelations` preserves non-audit fields (id, name, createdAt, etc.) unchanged
+  - [x] `mapAuditRelations` preserves the declared return type inferred from the input (TypeScript compile check via a small type assertion in the test file)
 - Integration tests:
-  - [ ] N/A — helper is exercised through module-level tests in task_06
+  - [x] N/A — helper is exercised through module-level tests in task_06
 - Test coverage target: >=80%
 - All tests must pass
 

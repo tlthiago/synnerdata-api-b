@@ -1,5 +1,5 @@
 ---
-status: pending
+status: completed
 title: Update `cost-centers` module `CLAUDE.md` with canonical pattern
 type: docs
 complexity: low
@@ -31,10 +31,10 @@ Document the new user-attribution pattern in the `cost-centers` module-level `CL
 
 ## Subtasks
 
-- [ ] 07.1 Add a "User attribution" section to the module CLAUDE.md
-- [ ] 07.2 Document the query pattern (`db.query.costCenters.findFirst/findMany({ with })`) with a one-paragraph summary
-- [ ] 07.3 Document the transaction-wrapped write-then-reread and the rationale
-- [ ] 07.4 Add a note marking the module as the canonical reference for Phase 3 replication
+- [x] 07.1 Add a "User attribution" section to the module CLAUDE.md
+- [x] 07.2 Document the query pattern (`db.query.costCenters.findFirst/findMany({ with })`) with a one-paragraph summary
+- [x] 07.3 Document the transaction-wrapped write-then-reread and the rationale
+- [x] 07.4 Add a note marking the module as the canonical reference for Phase 3 replication
 
 ## Implementation Details
 

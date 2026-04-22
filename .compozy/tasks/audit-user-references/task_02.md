@@ -1,5 +1,5 @@
 ---
-status: pending
+status: completed
 title: Add FK + `relations()` to all 26 domain schema files
 type: infra
 complexity: high
@@ -31,11 +31,11 @@ Add `.references(() => users.id, { onDelete: "set null" })` to every existing `c
 
 ## Subtasks
 
-- [ ] 02.1 Import `users` from `./auth` in every target schema file that does not already import it
-- [ ] 02.2 Update every audit column declaration with the `.references()` clause
-- [ ] 02.3 Extend each `*Relations` export with the corresponding `createdByUser` / `updatedByUser` / `deletedByUser` entries (skipping those whose columns do not exist on the table)
-- [ ] 02.4 Run `bun db:generate` against the updated schema and inspect the produced migration diff for correctness
-- [ ] 02.5 Verify TypeScript compilation (`bun x tsc --noEmit`) passes with zero errors
+- [x] 02.1 Import `users` from `./auth` in every target schema file that does not already import it
+- [x] 02.2 Update every audit column declaration with the `.references()` clause
+- [x] 02.3 Extend each `*Relations` export with the corresponding `createdByUser` / `updatedByUser` / `deletedByUser` entries (skipping those whose columns do not exist on the table)
+- [x] 02.4 Run `bun db:generate` against the updated schema and inspect the produced migration diff for correctness
+- [x] 02.5 Verify TypeScript compilation (`bun x tsc --noEmit`) passes with zero errors
 
 ## Implementation Details
 

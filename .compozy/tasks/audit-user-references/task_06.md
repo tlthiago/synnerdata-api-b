@@ -1,5 +1,5 @@
 ---
-status: pending
+status: completed
 title: Pilot — refactor `cost-centers` module (model + service + tests)
 type: refactor
 complexity: medium
@@ -35,13 +35,13 @@ Apply the canonical user-attribution pattern end-to-end in the `cost-centers` mo
 
 ## Subtasks
 
-- [ ] 06.1 Extend `costCenterDataSchema` with three `auditUserSchema` fields
-- [ ] 06.2 Refactor read methods (`findByIdOrThrow`, `findAll`) to use the Relational API + `mapAuditRelations`
-- [ ] 06.3 Refactor write methods (`create`, `update`, `delete`) with `db.transaction()` wrapping write-then-reread
-- [ ] 06.4 Update existing assertions in all 5 test files to verify the new fields
-- [ ] 06.5 Add the null-case integration tests (system-created record, hard-deleted creator user)
-- [ ] 06.6 Run the affected test suite to 100% pass
-- [ ] 06.7 Spot-check the OpenAPI output (dev server `/swagger` or equivalent) to confirm the new shape is documented
+- [x] 06.1 Extend `costCenterDataSchema` with three `auditUserSchema` fields
+- [x] 06.2 Refactor read methods (`findByIdOrThrow`, `findAll`) to use the Relational API + `mapAuditRelations`
+- [x] 06.3 Refactor write methods (`create`, `update`, `delete`) with `db.transaction()` wrapping write-then-reread
+- [x] 06.4 Update existing assertions in all 5 test files to verify the new fields
+- [x] 06.5 Add the null-case integration tests (system-created record, hard-deleted creator user)
+- [x] 06.6 Run the affected test suite to 100% pass
+- [x] 06.7 Spot-check the OpenAPI output (dev server `/swagger` or equivalent) to confirm the new shape is documented
 
 ## Implementation Details
 
@@ -79,15 +79,15 @@ See TechSpec **"Core Interfaces"** for every code pattern (schema extension, ser
 ## Tests
 
 - Unit tests:
-  - [ ] N/A — service exercises DB through integration tests; no logic worth isolating from Drizzle
+  - [x] N/A — service exercises DB through integration tests; no logic worth isolating from Drizzle
 - Integration tests:
-  - [ ] POST `/v1/cost-centers` returns 200 with `createdBy: { id, name }` populated, `updatedBy` populated, `deletedBy: null`
-  - [ ] GET `/v1/cost-centers` returns each item with populated `createdBy`/`updatedBy` and `deletedBy: null`
-  - [ ] GET `/v1/cost-centers/:id` returns the three new fields correctly populated for an active record
-  - [ ] PUT `/v1/cost-centers/:id` returns `updatedBy: { id, name }` matching the acting session user
-  - [ ] DELETE `/v1/cost-centers/:id` returns the record with `deletedBy: { id, name }` populated
-  - [ ] GET `/v1/cost-centers/:id` on a record inserted directly with `createdBy = null` returns `createdBy: null` without Zod validation errors
-  - [ ] After hard-deleting the creator user via `db.delete(users)...`, GET `/v1/cost-centers/:id` returns `createdBy: null` (validates end-to-end wiring of `ON DELETE SET NULL`)
+  - [x] POST `/v1/cost-centers` returns 200 with `createdBy: { id, name }` populated, `updatedBy` populated, `deletedBy: null`
+  - [x] GET `/v1/cost-centers` returns each item with populated `createdBy`/`updatedBy` and `deletedBy: null`
+  - [x] GET `/v1/cost-centers/:id` returns the three new fields correctly populated for an active record
+  - [x] PUT `/v1/cost-centers/:id` returns `updatedBy: { id, name }` matching the acting session user
+  - [x] DELETE `/v1/cost-centers/:id` returns the record with `deletedBy: { id, name }` populated
+  - [x] GET `/v1/cost-centers/:id` on a record inserted directly with `createdBy = null` returns `createdBy: null` without Zod validation errors
+  - [x] After hard-deleting the creator user via `db.delete(users)...`, GET `/v1/cost-centers/:id` returns `createdBy: null` (validates end-to-end wiring of `ON DELETE SET NULL`)
 - Test coverage target: >=80% on `cost-center.service.ts`
 - All tests must pass
 

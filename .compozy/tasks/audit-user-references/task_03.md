@@ -1,5 +1,5 @@
 ---
-status: pending
+status: completed
 title: Generate + manually edit migration `0038_audit_fk_references.sql` (`NOT VALID + VALIDATE`)
 type: infra
 complexity: medium
@@ -32,11 +32,11 @@ Run `drizzle-kit generate` against the schema updates from task_02 to produce th
 
 ## Subtasks
 
-- [ ] 03.1 Run `bun db:generate` and confirm the raw migration file is produced
-- [ ] 03.2 Edit every `ADD CONSTRAINT ... ON DELETE SET NULL;` statement to append `NOT VALID` before the semicolon
-- [ ] 03.3 Append an `ALTER TABLE ... VALIDATE CONSTRAINT "<name>";` block covering every constraint added
-- [ ] 03.4 Apply the migration locally against a fresh database and confirm zero errors
-- [ ] 03.5 Query `pg_constraint` and `information_schema.table_constraints` to verify expected count and validation status of new FK constraints
+- [x] 03.1 Run `bun db:generate` and confirm the raw migration file is produced (already produced by task_02 as `0039_audit_fk_references.sql`; no regeneration needed)
+- [x] 03.2 Edit every `ADD CONSTRAINT ... ON DELETE SET NULL;` statement to append `NOT VALID` before the semicolon
+- [x] 03.3 Append an `ALTER TABLE ... VALIDATE CONSTRAINT "<name>";` block covering every constraint added
+- [x] 03.4 Apply the migration locally against a fresh database and confirm zero errors
+- [x] 03.5 Query `pg_constraint` and `information_schema.table_constraints` to verify expected count and validation status of new FK constraints
 
 ## Implementation Details
 
@@ -68,13 +68,13 @@ See TechSpec **"Core Interfaces"** (migration file location) and **ADR-004 "Impl
 ## Tests
 
 - Unit tests:
-  - [ ] N/A — migration file is declarative SQL
+  - [x] N/A — migration file is declarative SQL
 - Integration tests:
-  - [ ] After `bun db:migrate` on a fresh DB, `SELECT COUNT(*) FROM pg_constraint WHERE conname LIKE '%_created_by_users_id_fk';` returns the expected count (matches the number of tables with `created_by`)
-  - [ ] Every FK added shows `convalidated = true` in `pg_constraint` (i.e., `VALIDATE` ran successfully)
-  - [ ] Attempting `INSERT INTO cost_centers (id, organization_id, name, created_by) VALUES ('cc-test', <valid_org>, 'x', 'non-existent-user');` raises a FK violation (SQLSTATE `23503`)
-  - [ ] `INSERT` with a valid `users.id` in `created_by` succeeds
-  - [ ] After `DELETE FROM users WHERE id = <id with cost_center reference>`, the related `cost_centers.created_by` is updated to `NULL` (confirming `ON DELETE SET NULL`)
+  - [x] After `bun db:migrate` on a fresh DB, `SELECT COUNT(*) FROM pg_constraint WHERE conname LIKE '%_created_by_users_id_fk';` returns the expected count (26 — matches every domain table with `created_by`; overall 72 audit FKs with the full breakdown 26/22/24 for created/updated/deleted)
+  - [x] Every FK added shows `convalidated = true` in `pg_constraint` (i.e., `VALIDATE` ran successfully) — `audit_fk_total=72, validated=72` on the fresh `synnerdata-api-b-test` DB
+  - [x] Attempting `INSERT INTO cost_centers (id, organization_id, name, created_by) VALUES ('cc-test', <valid_org>, 'x', 'non-existent-user');` raises a FK violation (SQLSTATE `23503`) — error: `violates foreign key constraint "cost_centers_created_by_users_id_fk"`
+  - [x] `INSERT` with a valid `users.id` in `created_by` succeeds — `cc-verify-good | user-verify` returned by the subsequent SELECT
+  - [x] After `DELETE FROM users WHERE id = <id with cost_center reference>`, the related `cost_centers.created_by` is updated to `NULL` (confirming `ON DELETE SET NULL`) — SELECT after DELETE returned `cc-verify-good | (null)`
 - Test coverage target: qualitative — all integration checks above must be manually verified at least once against the applied migration and captured in the PR description
 - All tests must pass
 

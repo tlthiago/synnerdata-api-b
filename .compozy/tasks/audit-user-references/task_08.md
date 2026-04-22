@@ -1,13 +1,13 @@
 ---
-status: pending
+status: completed
 title: Phase 1 deploy gate — pre-deploy re-audit and post-deploy monitoring
-type: ops
+type: infra
 complexity: low
 dependencies:
-  - task_02
-  - task_03
-  - task_04
-  - task_05
+    - task_02
+    - task_03
+    - task_04
+    - task_05
 ---
 
 # Task 08: Phase 1 deploy gate — pre-deploy re-audit and post-deploy monitoring
@@ -35,21 +35,32 @@ Cover the two operational steps the TechSpec mandates around the Phase 1 deploy 
 
 ## Subtasks
 
-- [ ] 08.1 Run the orphan audit SQL against production within 24h before merging PR 1; capture output
-- [ ] 08.2 If output shows any orphan: stop the merge, investigate, fix data or postpone
-- [ ] 08.3 After PR 1 deploy, re-run the audit against production; confirm zero orphans
-- [ ] 08.4 Snapshot 5xx rate, p95 latency, and DB CPU for the 26 affected modules' endpoints (or a representative subset) against a 7-day baseline immediately before deploy
-- [ ] 08.5 Re-check the same three metrics at 24h and 48h post-deploy; note any deviation >10% against baseline
-- [ ] 08.6 Attach pre-audit, post-audit, and 48h metrics comparison to the PR 1 description (or linked operational ticket)
+### Preparation (author gate artifacts so execution cannot be forgotten)
+
+- [x] 08.0a Author a reusable orphan audit SQL script that covers every `(table, column)` in migration `0039_audit_fk_references.sql` and ships a transaction-rolled-back read-only query with per-column summary, orphan detail, and totals. Path: `.compozy/tasks/audit-user-references/scripts/orphan-audit.sql`. Verified by dry-run against the local test DB (3191 populated refs, 0 orphans)
+- [x] 08.0b Author the deploy-gate runbook describing G1–G5 steps, pass/fail actions, and the PR 1 evidence template. Path: `.compozy/tasks/audit-user-references/deploy-gate.md`
+
+### Execution (operator at deploy time)
+
+- [ ] 08.1 Run the orphan audit SQL against production within 24h before merging PR 1; capture output (runbook step G1)
+- [ ] 08.2 If output shows any orphan: stop the merge, investigate, fix data or postpone (runbook "Failure Actions")
+- [ ] 08.3 After PR 1 deploy, re-run the audit against production; confirm zero orphans (runbook step G3)
+- [ ] 08.4 Snapshot 5xx rate, p95 latency, and DB CPU for the 26 affected modules' endpoints (or a representative subset) against a 7-day baseline immediately before deploy (runbook step G2)
+- [ ] 08.5 Re-check the same three metrics at 24h and 48h post-deploy; note any deviation >10% against baseline (runbook steps G4/G5)
+- [ ] 08.6 Attach pre-audit, post-audit, and 48h metrics comparison to the PR 1 description (or linked operational ticket) using the runbook's evidence template
 
 ## Implementation Details
 
-See TechSpec **"Monitoring and Observability"** for the full monitoring checklist and PRD **"Phased Rollout Plan" → Phase 1 "Success criteria to proceed to Phase 2"** for the acceptance bar. The orphan audit SQL is the same script used on 2026-04-21 — reuse it verbatim; do not re-derive.
+See TechSpec **"Monitoring and Observability"** for the full monitoring checklist and PRD **"Phased Rollout Plan" → Phase 1 "Success criteria to proceed to Phase 2"** for the acceptance bar.
+
+The audit script that was run ad-hoc on 2026-04-21 was not persisted to the repo at that time. This task committed it as `.compozy/tasks/audit-user-references/scripts/orphan-audit.sql`; the operator reuses that file verbatim for G1 and G3. The runbook at `.compozy/tasks/audit-user-references/deploy-gate.md` is the single entry point for the operator executing the gate.
 
 ### Relevant Files
 
-- Production database — target of pre- and post-deploy audits (executed by the operator with prod access; no file in-repo)
-- Monitoring stack (Grafana / observability vendor) — baseline and post-deploy metrics
+- `.compozy/tasks/audit-user-references/scripts/orphan-audit.sql` — reusable orphan audit SQL (read-only; runs inside a `BEGIN;…ROLLBACK;` envelope)
+- `.compozy/tasks/audit-user-references/deploy-gate.md` — operator runbook (G1–G5) + PR evidence template
+- Production database — target of G1 and G3 audits (executed by the operator with prod access)
+- Monitoring stack — target of G2, G4, G5 metric captures
 - The PR 1 description — final evidence record
 
 ### Dependent Files
@@ -61,6 +72,13 @@ See TechSpec **"Monitoring and Observability"** for the full monitoring checklis
 - [ADR-004: Migration Strategy](adrs/adr-004.md) — `VALIDATE CONSTRAINT` failure mode; atomic rollback
 
 ## Deliverables
+
+**Preparation (authored by this task, ready at merge time):**
+
+- Reusable orphan audit SQL script committed at `.compozy/tasks/audit-user-references/scripts/orphan-audit.sql` **(DONE)**
+- Deploy-gate runbook committed at `.compozy/tasks/audit-user-references/deploy-gate.md` with G1–G5 procedure, failure actions, and PR 1 evidence template **(DONE)**
+
+**Execution (operator at deploy time, captured in PR 1):**
 
 - Pre-deploy orphan audit evidence captured in PR 1 description or linked comment **(REQUIRED)**
 - Post-deploy orphan audit evidence captured in PR 1 description or linked comment **(REQUIRED)**

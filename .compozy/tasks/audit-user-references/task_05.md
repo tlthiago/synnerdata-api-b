@@ -1,5 +1,5 @@
 ---
-status: pending
+status: completed
 title: Update root `.claude/CLAUDE.md` with user-attribution pattern
 type: docs
 complexity: low
@@ -31,10 +31,10 @@ Document the new user-attribution architectural pattern in the project's root `.
 
 ## Subtasks
 
-- [ ] 05.1 Draft the single bullet following the style of existing Architectural Decisions entries
-- [ ] 05.2 Include a reference to ADR-002 and ADR-003 (or to the `.compozy/tasks/audit-user-references/_techspec.md`) so readers can find the full rationale
-- [ ] 05.3 Proofread for consistency with the surrounding bullets (tone, length, trailing period)
-- [ ] 05.4 Verify markdown renders correctly and all links resolve
+- [x] 05.1 Draft the single bullet following the style of existing Architectural Decisions entries
+- [x] 05.2 Include a reference to ADR-002 and ADR-003 (or to the `.compozy/tasks/audit-user-references/_techspec.md`) so readers can find the full rationale
+- [x] 05.3 Proofread for consistency with the surrounding bullets (tone, length, trailing period)
+- [x] 05.4 Verify markdown renders correctly and all links resolve
 
 ## Implementation Details
 
