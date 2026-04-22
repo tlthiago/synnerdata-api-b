@@ -21,6 +21,7 @@ export const auditResourceSchema = z.enum([
   "document",
   "medical_certificate",
   "labor_lawsuit",
+  "cpf_analysis",
   "subscription",
   "export",
   "api_key",

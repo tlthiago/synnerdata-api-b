@@ -9,6 +9,7 @@ import {
   unauthorizedErrorSchema,
   validationErrorSchema,
 } from "@/lib/responses/response.types";
+import { auditPlugin } from "@/plugins/audit/audit-plugin";
 import {
   createCpfAnalysisResponseSchema,
   createCpfAnalysisSchema,
@@ -27,6 +28,7 @@ export const cpfAnalysisController = new Elysia({
   detail: { tags: ["Occurrences - CPF Analyses"] },
 })
   .use(betterAuthPlugin)
+  .use(auditPlugin)
   .post(
     "/",
     async ({ session, body, user }) =>
@@ -82,13 +84,18 @@ export const cpfAnalysisController = new Elysia({
   )
   .get(
     "/:id",
-    async ({ session, params }) =>
-      wrapSuccess(
-        await CpfAnalysisService.findByIdOrThrow(
-          params.id,
-          session.activeOrganizationId as string
-        )
-      ),
+    async ({ session, params, audit }) => {
+      const data = await CpfAnalysisService.findByIdOrThrow(
+        params.id,
+        session.activeOrganizationId as string
+      );
+      await audit({
+        action: "read",
+        resource: "cpf_analysis",
+        resourceId: params.id,
+      });
+      return wrapSuccess(data);
+    },
     {
       auth: {
         permissions: { cpfAnalysis: ["read"] },
