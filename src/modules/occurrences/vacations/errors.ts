@@ -115,3 +115,19 @@ export class VacationAquisitivoExceededError extends VacationError {
     );
   }
 }
+
+export class VacationStartDateOutsideConcessiveError extends VacationError {
+  status = 422;
+
+  constructor(args: {
+    startDate: string;
+    concessivePeriodStart: string;
+    concessivePeriodEnd: string;
+  }) {
+    super(
+      "Data de início das férias deve estar dentro do período concessivo do ciclo ativo",
+      "VACATION_START_DATE_OUTSIDE_CONCESSIVE",
+      args
+    );
+  }
+}

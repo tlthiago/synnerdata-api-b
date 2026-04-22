@@ -1,3 +1,5 @@
+import { VacationNoRightsError } from "./errors";
+
 export function addDays(isoDate: string, days: number): string {
   const d = new Date(`${isoDate}T00:00:00Z`);
   d.setUTCDate(d.getUTCDate() + days);
@@ -65,7 +67,7 @@ export function computePeriodsFromHireDate(
   };
 }
 
-type ActiveCycleInput = {
+export type ActiveCycleInput = {
   hireDate: string;
   referenceDate?: Date;
   vacationsInCycles: Array<{
@@ -135,7 +137,5 @@ export function computeActiveCycle(input: ActiveCycleInput): ActiveCycle {
     cycleNumber += 1;
   }
 
-  throw new Error(
-    `computeActiveCycle: no active cycle found within ${SAFETY_BOUND_MONTHS} months of referenceDate for hireDate=${input.hireDate}`
-  );
+  throw new VacationNoRightsError(input.hireDate, referenceIso);
 }
