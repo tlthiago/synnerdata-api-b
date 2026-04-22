@@ -200,8 +200,8 @@ SENTRY_DSN=                 # GlitchTip/Sentry DSN — omit to disable
 |---|---|---|
 | **Lint** | PR (todas as branches) | Type check, Biome lint, secretlint, `bun audit --audit-level=critical` |
 | **Build** | PR (todas as branches) | Build do binário para verificar compilação |
-| **Test** | PR (main, preview) | Testes afetados pelo escopo da PR |
-| **Test** | Schedule (diário 6h BRT) | Suite completa de testes |
+| **Test** | PR (main, preview) | Testes afetados pelo escopo da PR (externos a APIs terceiras skipados via `SKIP_INTEGRATION_TESTS=true`) |
+| **Test** | Schedule (diário 6h BRT) | Suite completa de testes (idem — externos skipados) |
 | **Security** | PR (main, preview) + semanal | Trivy container scan (imagem Docker de produção) |
 | **Dependabot** | Semanal (segunda 9h BRT) | Updates de npm, Docker e GitHub Actions |
 
