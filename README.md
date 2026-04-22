@@ -198,11 +198,11 @@ SENTRY_DSN=                 # GlitchTip/Sentry DSN — omit to disable
 
 | Workflow | Trigger | O que faz |
 |---|---|---|
-| **Lint** | PR (todas as branches) | Type check, Biome lint, secretlint, `bun pm audit` |
+| **Lint** | PR (todas as branches) | Type check, Biome lint, secretlint, `bun audit --audit-level=critical` |
 | **Build** | PR (todas as branches) | Build do binário para verificar compilação |
 | **Test** | PR (main, preview) | Testes afetados pelo escopo da PR |
 | **Test** | Schedule (diário 6h BRT) | Suite completa de testes |
-| **Security** | PR (main, preview) + semanal | Trivy scan (imagem Docker + filesystem) |
+| **Security** | PR (main, preview) + semanal | Trivy container scan (imagem Docker de produção) |
 | **Dependabot** | Semanal (segunda 9h BRT) | Updates de npm, Docker e GitHub Actions |
 
 ### Branch Protection
