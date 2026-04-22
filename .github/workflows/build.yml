@@ -48,8 +48,8 @@ jobs:
           INTERNAL_API_KEY: smoke-internal-api-key-at-least-32-characters
           PII_ENCRYPTION_KEY: "0000000000000000000000000000000000000000000000000000000000000000"
         run: |
-          timeout 10 bun dist/index.js
-          code=$?
+          code=0
+          timeout 10 bun dist/index.js || code=$?
           if [ $code -eq 0 ] || [ $code -eq 124 ] || [ $code -eq 143 ]; then
             echo "Smoke test passed (exit $code)"
             exit 0
