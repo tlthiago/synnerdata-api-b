@@ -245,7 +245,7 @@ export abstract class VacationService {
   ): Promise<ActiveCycle> {
     const rows = await db
       .select({
-        acquisitionPeriodStart: schema.vacations.acquisitionPeriodStart,
+        acquisitionPeriodStart: sql<string>`${schema.vacations.acquisitionPeriodStart}`,
         daysEntitled: schema.vacations.daysEntitled,
       })
       .from(schema.vacations)
@@ -259,17 +259,10 @@ export abstract class VacationService {
         )
       );
 
-    const vacationsInCycles = rows
-      .filter(
-        (
-          row
-        ): row is { acquisitionPeriodStart: string; daysEntitled: number } =>
-          row.acquisitionPeriodStart !== null
-      )
-      .map((row) => ({
-        acquisitionPeriodStart: row.acquisitionPeriodStart,
-        daysEntitled: row.daysEntitled,
-      }));
+    const vacationsInCycles = rows.map((row) => ({
+      acquisitionPeriodStart: row.acquisitionPeriodStart,
+      daysEntitled: row.daysEntitled,
+    }));
 
     return computeActiveCycle({
       hireDate,
@@ -377,8 +370,6 @@ export abstract class VacationService {
 
     VacationService.validateDates(data.startDate, data.endDate);
 
-    // Active cycle must be resolved before ensureAquisitivoLimit so the
-    // aquisitivo start anchors the SUM query scope.
     const activeCycle = await VacationService.computeActiveCycleFor(
       data.employeeId,
       organizationId,
