@@ -262,7 +262,7 @@ Seção específica do projeto. Começa pelo **status atual** da iniciativa (7.0
 | **0. Contexto aplicado** | ✅ Concluída | 2026-04-21 | Seções 7.1–7.3, 7.6, 7.7 preenchidas + convenção semântica + 10 débitos pré-audit |
 | **1. Audit item a item** | ✅ Concluída | 2026-04-21 | Status nas seções 4 e 5 preenchidos (~65 itens); 95 débitos totais em 7.7; relatório em [`docs/reports/2026-04-21-api-infrastructure-audit.md`](../reports/2026-04-21-api-infrastructure-audit.md) |
 | **2. Roadmap priorizado** | ✅ Concluída | 2026-04-21 | Seção 7.5 com 69 ações organizadas em 3 buckets (🔴 10 urgentes / 🟡 38 curto prazo / 🟢 21 sob demanda) com IDs, dependências, tipo e esforço |
-| **3. Execução** | 🔄 Em execução | 2026-04-22 | **Bucket 🔴 concluído (10/10)**. Bucket 🟡 iniciado: CP-45 e CP-40 concluídas (13 highs de deps fechados via upgrades + overrides + CI threshold subiu para `high`). RU-1..RU-10 entregues em PRs sequenciais em `preview`. Grupo 3 fechado. `src/plugins/` inaugurado. BOLA audit completo (0 gaps). Runbook de backup em `docs/runbooks/`. CP-39..CP-49 registrados como follow-ups. Débito #96 identificado. |
+| **3. Execução** | 🔄 Em execução | 2026-04-22 | **Bucket 🔴 concluído (10/10)**. Bucket 🟡 iniciado: CP-45 e CP-40 concluídas (13 highs de deps fechados via upgrades + overrides + CI threshold subiu para `high`). RU-1..RU-10 entregues em PRs sequenciais em `preview`. Grupo 3 fechado. `src/plugins/` inaugurado. BOLA audit completo (0 gaps). Runbook de backup em `docs/runbooks/`. CP-39..CP-50 registrados como follow-ups. Débito #96 identificado. |
 
 **➡️ Próxima ação:** **Bucket 🟡 — Onda 1 continua**. CP-40 e CP-45 concluídas. Próximos da Onda 1: **CP-7** (gitleaks/trufflehog), **CP-8** (SBOM Trivy), **CP-9** (Trivy fs scan), **CP-13** (secrets escopados), **CP-20** (coverage), **CP-21** (bun cache), **CP-22** (`--frozen-lockfile`), **CP-23** (build smoke test) — agrupáveis em 1-2 PRs temáticas em `.github/workflows/`. Ondas 2-5 mapeadas em 7.5 § Ordem de execução sugerida.
 
@@ -565,8 +565,9 @@ Organizado em **5 PRs dedicados** (refactors grandes) + ações pontuais.
 | **CP-47** | Migração better-auth 1.4 → 1.6 — descoberto em CP-40. Envolve: (a) adicionar coluna `verified` na tabela `twoFactor` (schema migration, default `true`, sem backfill necessário — run `npx @better-auth/cli generate` + drizzle-kit generate + migrate); (b) validar mudança de semântica de `session.freshAge` (agora calculado de `createdAt` em vez de `updatedAt`); (c) rodar suíte completa de auth + 2FA para detectar regressões em hooks, permissions, api-keys; (d) revisar release notes 1.5/1.6 para features opcionais úteis (OTel instrumentation, WeChat provider, etc.). Não é CVE — CVEs de `defu`/`kysely` foram resolvidas via overrides em CP-40 | Descoberto em CP-40 | refactor | L | — |
 | **CP-48** | Migração Zod 4.1 → 4.3 — descoberto em CP-40. Zod 4.3 proíbe `.partial()` em schemas com `.refine()` (antes permitia com comportamento indefinido). Afeta ~16 `.model.ts` em `src/modules/` (employees, occurrences/*, organizations/*, payments/billing, etc.). Fix padrão: extrair objeto base (sem refine), fazer `.partial().extend()` nele, aplicar refine depois. Zod está pinado em `~4.1.13` em CP-40 como contenção | Descoberto em CP-40 | refactor | M | — |
 | **CP-49** | Sync react/react-dom versions — descoberto em CP-40. `react-dom` não está nas devDeps diretas mas é pulled por `@react-email/components`, e fica desalinhado de `react` em patches (`bun update` bumpou react → 19.2.5 enquanto react-dom ficou em 19.2.4, causando runtime mismatch). Opções: (a) adicionar `react-dom` às devDeps pinado ao mesmo patch; (b) manter `react` pinado exato (feito em CP-40 como contenção); (c) override de `react-dom` matching `react`. Decidir quando for revisar deps novamente | Descoberto em CP-40 | config | S | — |
+| **CP-50** | Migração TypeScript 5.9 → 6.x — descoberto em CP-40 quando CI falhou ao puxar TS 6.0.3 ephemerally (TS não estava em devDeps). TS 6 transforma `moduleResolution=node` em erro deprecated (antes era warning). Requer: (a) alterar `tsconfig.json` de `"moduleResolution": "node"` para `"bundler"` (recomendado Elysia/Bun) ou `"node16"`; (b) auditar imports para compatibilidade com resolução nova (extensões obrigatórias em alguns casos); (c) remover o pin `~5.9.3` após migração validada. Contenção atual: TS pinado em devDeps `~5.9.3` | Descoberto em CP-40 | refactor | M | — |
 
-**Total bucket 🟡: 49 ações registradas · 47 ativas · 2 concluídas (CP-40 e CP-45 em 2026-04-22).**
+**Total bucket 🟡: 50 ações registradas · 47 ativas · 2 concluídas (CP-40 e CP-45 em 2026-04-22) · 1 contenção temporária (CP-50).**
 
 ##### Ordem de execução sugerida
 
@@ -1402,7 +1403,7 @@ Segundo item do bucket 🟡 fechado, primeiro da **Onda 1**. Resultado final: `b
 
 **Débitos resolvidos** em 7.7: follow-up completo de RU-4a/RU-4b. Triagem dos 13 highs encerrada.
 
-**CPs novos criados** (bucket 🟡): CP-46, CP-47, CP-48, CP-49 — todos representam migrações legítimas com escopo próprio, não deveriam ter sido forçados dentro de CP-40.
+**CPs novos criados** (bucket 🟡): CP-46, CP-47, CP-48, CP-49, CP-50 — todos representam migrações legítimas com escopo próprio, não deveriam ter sido forçados dentro de CP-40. CP-50 foi descoberto quando o CI falhou no type check pós-commit da PR #248: `bun x tsc` no CI puxou TS 6.0.3 ephemerally (TS não estava em devDeps), e TS 6 transformou a deprecation de `moduleResolution=node` em erro. Contenção aplicada na mesma branch: `typescript: "~5.9.3"` adicionado ao `devDependencies` — fecha o gap de reprodutibilidade (TS nunca foi dep explícita) e destrava o lint CI.
 
 **Validação:**
 - ✅ `bun audit --audit-level=high` — 0 vulnerabilidades.
