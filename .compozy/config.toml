@@ -1,0 +1,45 @@
+# Compozy workspace configuration — Synnerdata API
+#
+# Defaults aplicados aos comandos do Compozy neste projeto.
+# Flags explícitas na CLI sempre sobrescrevem estes valores.
+#
+# Referências:
+# - CLAUDE.md raiz: "não faça commit sem ser solicitado" → auto_commit = false
+# - docs/improvements/api-infrastructure-checklist.md (seção 7.5.1) — Fase 3 Opção B
+
+[defaults]
+# Claude Code é o runtime ACP primário neste workspace
+ide = "claude"
+# Opus 4.7 (1M context) para ações complexas do roadmap
+model = "opus"
+# NÃO auto-commitar: controle manual de commits é exigência do projeto
+auto_commit = false
+# Análise profunda para refactors de infraestrutura
+reasoning_effort = "xhigh"
+
+[start]
+# Não reexecutar tasks já marcadas como concluídas em execuções anteriores
+include_completed = false
+
+[tasks]
+# Tipos válidos para task files deste projeto
+types = ["backend", "refactor", "test", "infra", "docs", "chore", "bugfix", "security"]
+
+[fix_reviews]
+# Processar até 2 issues em paralelo por round
+concurrent = 2
+# Batch de 3 issues antes de commit/checkpoint
+batch_size = 3
+
+[fetch_reviews]
+# Provider default caso futuramente adotemos ferramenta externa de review
+provider = "coderabbit"
+# Ignorar nitpicks para focar em problemas reais
+nitpicks = false
+
+[exec]
+# Execuções ad-hoc silenciosas por padrão
+verbose = false
+tui = false
+# Não persistir sessões por padrão (opt-in com --persist quando necessário)
+persist = false
