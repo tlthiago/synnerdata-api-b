@@ -264,7 +264,12 @@ Seção específica do projeto. Começa pelo **status atual** da iniciativa (7.0
 | **2. Roadmap priorizado** | ✅ Concluída | 2026-04-21 | Seção 7.5 com 69 ações organizadas em 3 buckets (🔴 10 urgentes / 🟡 38 curto prazo / 🟢 21 sob demanda) com IDs, dependências, tipo e esforço |
 | **3. Execução** | 🔄 Em execução | 2026-04-22 | **Bucket 🔴 concluído (10/10)**. Bucket 🟡 **Onda 1 completa (10/10)** + **Onda 2 completa (2/2)** + **Onda 3 PRs A/B/C entregues (9 S's + 2 M's)**. Total concluídas no 🟡: **23 CPs** (CP-7, CP-8, CP-9, CP-13, CP-20, CP-21, CP-22, CP-23, CP-24, CP-25, CP-27, CP-29, CP-30, CP-31, CP-34, CP-35, CP-36, CP-37, CP-39, CP-40, CP-42, CP-43, CP-45). Resta só **CP-41 (PR-D)** para fechar Onda 3. PR-A: log `security:unauthorized_access`, `inheritRole` em permissions, dynamic imports → static. PR-B: listeners antes do `.listen()`, depth limit em `formatErrorDetail`, centralização `isProduction`/`isDev`/`isTest`. PR-C: branded `EncryptedString`, wrapper `withApiKeyNotFoundFallback`, newsletter anti-enumeration, health `VERSION` de `package.json`, split `SMTP_FROM`/`SMTP_FROM_NAME`. **Débito #96 100% endereçado**. |
 
-**➡️ Próxima ação:** **Bucket 🟡 — Onda 3** (Qualidade pontual) — PRs A/B/C entregues. Resta só **PR-D** (CP-41 — workflow Pagar.me standalone, requer secrets de sandbox). Depois: Onda 4 (Cloudflare + Observabilidade) ou Onda 5 (Refactors grandes).
+**➡️ Próxima ação:** **Bucket 🟡 — Onda 5** (Refactors XL/L) — decisão do dono em 2026-04-22 priorizar Onda 5 antes de fechar Onda 3. **Ordem revisada:**
+
+1. **Onda 5 — Refactors grandes** (em execução) — começando por **CP-1 (XL)**: criar `src/plugins/` e migrar plugins Elysia de `lib/`. Maior raio de desbloqueio (destrava CP-4, CP-26, CP-28, CP-32). Worktree + plano formal em `docs/plans/`.
+2. **Onda 4 — Observabilidade** (pós Onda 5) — CP-17 (métricas OTel/Prometheus), CP-18 (deprecation headers, depende de CP-3), CP-19 (Playwright E2E em CI). Requer brainstorm de estratégia antes de tocar código.
+3. **Fechar Onda 3** — **CP-41 (PR-D)** workflow Pagar.me integration tests. Parkado até dono configurar secrets de sandbox como GitHub Secrets. Tests locais continuam rodando na máquina de dev enquanto isso.
+4. **Onda 4 — Cloudflare** (último) — CP-14 → 15 → 16. Blocked pelo cliente (DNS no registro.br do cliente).
 
 ### 7.1 Contexto do projeto
 
@@ -1379,6 +1384,25 @@ Rodados testes que cobrem as áreas a serem tocadas pelo bucket 🔴 para confir
 - Extensão `cy-idea-factory` — traz council de 6 agentes (security-advocate, architect-advisor, pragmatic-engineer, product-mind, devils-advocate, the-thinker) e skill `/cy-idea-factory`. Motivo: roadmap atual (bucket 🔴 + maior parte do 🟡) já tem escopo claro do audit; council é overkill para ações bem escopadas. Instalar apenas antes de CP-1/CP-2 (XL) ou qualquer item do bucket 🟢 (decisões com múltiplos trade-offs sem design pronto)
 
 **Estado:** pronto para iniciar Fase 3. Próxima ação — **RU-1 (hardening `env.ts`)** via fluxo simples (branch direta, sem Compozy).
+
+### 2026-04-22 — Ordem de execução revisada: Onda 5 eleita como próxima
+
+Decisão do dono após merge de PR-A (Onda 3 com 11/12 CPs fechados):
+
+**Motivação:**
+- **CP-41 (último de Onda 3)** parkado — testes Pagar.me continuam rodando localmente; configurar secrets sandbox como GitHub Secrets fica para momento oportuno
+- **Onda 4 — Observabilidade** requer brainstorm arquitetural antes de implementar (OTel nativo vs Prometheus scraping vs híbrido; onde métricas vão — GlitchTip só faz erros, Coolify pode não expor scrape endpoint)
+- **Onda 4 — Cloudflare** blocked pelo cliente (DNS no registro.br)
+- **Onda 5** tem o maior valor arquitetural desbloqueado: CP-1 (XL) destrava CP-4, CP-26, CP-28, CP-32. Convenção `src/plugins/` já inaugurada em RU-8 — CP-1 só estende
+
+**Ordem revisada:**
+
+1. **Onda 5 agora** — começando por **CP-1 (XL)**, depois CP-2/CP-3/CP-5/CP-6/CP-33/CP-38/CP-44 conforme prioridade
+2. **Onda 4 Observabilidade** — pós CP-1/CP-3 (CP-3 destrava CP-18)
+3. **Onda 3 CP-41** — quando secrets Pagar.me sandbox estiverem configurados
+4. **Onda 4 Cloudflare** — quando cliente alinhar migração DNS
+
+**Primeira PR da Onda 5:** CP-1 em worktree isolado (`../synnerdata-api-b-cp1`, branch `feat/cp-1-plugins-migration` a partir de `preview`). Plano formal em `docs/plans/2026-04-22-cp-1-plugins-migration.md` antes de tocar código — regra mandatória para XL conforme seção 7.5.1.
 
 ### 2026-04-22 — Onda 3 PR-A entregue (CP-24, CP-25, CP-30)
 
