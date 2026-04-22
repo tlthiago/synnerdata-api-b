@@ -2,8 +2,8 @@ import { beforeAll, describe, expect, test } from "bun:test";
 import { Elysia } from "elysia";
 import { z } from "zod";
 import { AppError } from "@/lib/errors/base-error";
-import { errorPlugin, formatErrorDetail } from "@/lib/errors/error-plugin";
-import { loggerPlugin } from "@/lib/logger";
+import { errorPlugin, formatErrorDetail } from "@/plugins/errors/error-plugin";
+import { loggerPlugin } from "@/plugins/logger/logger-plugin";
 
 const REQUEST_ID_PATTERN = /^req-[0-9a-f-]{36}$/;
 

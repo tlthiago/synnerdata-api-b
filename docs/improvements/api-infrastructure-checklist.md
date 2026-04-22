@@ -262,7 +262,7 @@ Seção específica do projeto. Começa pelo **status atual** da iniciativa (7.0
 | **0. Contexto aplicado** | ✅ Concluída | 2026-04-21 | Seções 7.1–7.3, 7.6, 7.7 preenchidas + convenção semântica + 10 débitos pré-audit |
 | **1. Audit item a item** | ✅ Concluída | 2026-04-21 | Status nas seções 4 e 5 preenchidos (~65 itens); 95 débitos totais em 7.7; relatório em [`docs/reports/2026-04-21-api-infrastructure-audit.md`](../reports/2026-04-21-api-infrastructure-audit.md) |
 | **2. Roadmap priorizado** | ✅ Concluída | 2026-04-21 | Seção 7.5 com 69 ações organizadas em 3 buckets (🔴 10 urgentes / 🟡 38 curto prazo / 🟢 21 sob demanda) com IDs, dependências, tipo e esforço |
-| **3. Execução** | 🔄 Em execução | 2026-04-22 | **Bucket 🔴 concluído (10/10)**. Bucket 🟡 **Onda 1 completa (10/10)** + **Onda 2 completa (2/2)** + **Onda 3 PRs A/B/C entregues (9 S's + 2 M's)**. Total concluídas no 🟡: **23 CPs** (CP-7, CP-8, CP-9, CP-13, CP-20, CP-21, CP-22, CP-23, CP-24, CP-25, CP-27, CP-29, CP-30, CP-31, CP-34, CP-35, CP-36, CP-37, CP-39, CP-40, CP-42, CP-43, CP-45). Resta só **CP-41 (PR-D)** para fechar Onda 3. PR-A: log `security:unauthorized_access`, `inheritRole` em permissions, dynamic imports → static. PR-B: listeners antes do `.listen()`, depth limit em `formatErrorDetail`, centralização `isProduction`/`isDev`/`isTest`. PR-C: branded `EncryptedString`, wrapper `withApiKeyNotFoundFallback`, newsletter anti-enumeration, health `VERSION` de `package.json`, split `SMTP_FROM`/`SMTP_FROM_NAME`. **Débito #96 100% endereçado**. |
+| **3. Execução** | 🔄 Em execução | 2026-04-22 | **Bucket 🔴 concluído (10/10)**. Bucket 🟡 **Ondas 1/2/3 quase completas + Onda 5 iniciada** (CP-1 XL entregue). Total concluídas no 🟡: **24 CPs** (CP-1, CP-7, CP-8, CP-9, CP-13, CP-20, CP-21, CP-22, CP-23, CP-24, CP-25, CP-27, CP-29, CP-30, CP-31, CP-34, CP-35, CP-36, CP-37, CP-39, CP-40, CP-42, CP-43, CP-45). Resta **CP-41** (Onda 3 PR-D). CP-1 (src/plugins/ consolidation) destrava CP-4, CP-26, CP-28, CP-32. PR-A: log `security:unauthorized_access`, `inheritRole` em permissions, dynamic imports → static. PR-B: listeners antes do `.listen()`, depth limit em `formatErrorDetail`, centralização `isProduction`/`isDev`/`isTest`. PR-C: branded `EncryptedString`, wrapper `withApiKeyNotFoundFallback`, newsletter anti-enumeration, health `VERSION` de `package.json`, split `SMTP_FROM`/`SMTP_FROM_NAME`. **Débito #96 100% endereçado**. |
 
 **➡️ Próxima ação:** **Bucket 🟡 — Onda 5** (Refactors XL/L) — decisão do dono em 2026-04-22 priorizar Onda 5 antes de fechar Onda 3. **Ordem revisada:**
 
@@ -496,7 +496,7 @@ Organizado em **5 PRs dedicados** (refactors grandes) + ações pontuais.
 
 | ID | Ação | Débitos cobertos | Tipo | Esforço | Depende de |
 |---|---|---|---|---|---|
-| **CP-1** | **PR #1 — Criar `src/plugins/` e migrar plugins Elysia de `lib/`** — `logger/`, `health/`, `cors.ts`, `ratelimit/` (investigar estrutura vazia), `shutdown/`, `auth-plugin.ts` (quebrado em sub-arquivos), `cron-plugin.ts`, `sentry.ts`, `request-context/` (consolidar com `request-context.ts`) | #1, #4, #27 (+ #49 parcial) | plan | XL | RU-8 |
+| **CP-1** | ✅ **2026-04-22** — **Rubrica estrita aplicada**: só plugins Elysia reais (exportam `new Elysia({...})` consumido via `.use()`) foram para `src/plugins/`. 5 plugins migrados: `health`, `logger` (com split Pino util → `lib/logger.ts`, plugin → `plugins/logger/logger-plugin.ts`), `errors/error-plugin` (classes de erro ficam em `lib/errors/`), `cron`, `auth/auth-plugin` (CP-4 quebrará em sub-arquivos). Mantidos em `lib/` (não são plugins): `cors.ts`, `sentry.ts`, `shutdown/`, `request-context.ts`, `zod-config.ts`, `auth.ts`. Cleanups: pastas vazias `lib/ratelimit/` e `lib/request-context/` removidas, tests relocados. Shallow alignment: `CLAUDE.md` por plugin documentando scope + contrato; `LoggerContext` e `AuthContext` types exportados. **Destrava CP-4, CP-26, CP-28, CP-32.** | #1, #4, #27 (+ #49 parcial) | plan | XL | RU-8 |
 | **CP-2** | **PR #2 — Consolidar emails em `src/lib/emails/`** — mapa em débitos #8/#9; padronizar params `to`, abstrair `dispatchEmail({...})`, mover hardcoded contact email p/ env | #8, #9, #68, #69, #70, #71, #72, #73 | plan | XL | — |
 | **CP-3** | **PR #3 — `src/routes/v1/` + versionamento padronizado** — extrair catálogo de controllers de `src/index.ts` para `src/routes/v1/index.ts`; alinhar prefix `/api/v1/` em todos os controllers | #10, #13, #42 | plan | L | — |
 | **CP-4** | **PR #4 — Quebrar `lib/auth.ts` (24KB) e `lib/auth-plugin.ts` (369 linhas)** — `auth/config.ts`, `auth/audit-helpers.ts`, `auth/validators.ts`, `auth/hooks.ts`; `auth/plugin.ts` + `auth/openapi-enhance.ts` | #38, #39, #49, #51 | plan | L | CP-1 |
@@ -572,7 +572,7 @@ Organizado em **5 PRs dedicados** (refactors grandes) + ações pontuais.
 | **CP-49** | Sync react/react-dom versions — descoberto em CP-40. `react-dom` não está nas devDeps diretas mas é pulled por `@react-email/components`, e fica desalinhado de `react` em patches (`bun update` bumpou react → 19.2.5 enquanto react-dom ficou em 19.2.4, causando runtime mismatch). Opções: (a) adicionar `react-dom` às devDeps pinado ao mesmo patch; (b) manter `react` pinado exato (feito em CP-40 como contenção); (c) override de `react-dom` matching `react`. Decidir quando for revisar deps novamente | Descoberto em CP-40 | config | S | — |
 | **CP-50** | Migração TypeScript 5.9 → 6.x — descoberto em CP-40 quando CI falhou ao puxar TS 6.0.3 ephemerally (TS não estava em devDeps). TS 6 transforma `moduleResolution=node` em erro deprecated (antes era warning). Requer: (a) alterar `tsconfig.json` de `"moduleResolution": "node"` para `"bundler"` (recomendado Elysia/Bun) ou `"node16"`; (b) auditar imports para compatibilidade com resolução nova (extensões obrigatórias em alguns casos); (c) remover o pin `~5.9.3` após migração validada. Contenção atual: TS pinado em devDeps `~5.9.3` | Descoberto em CP-40 | refactor | M | — |
 
-**Total bucket 🟡: 50 ações registradas · 26 ativas · 23 concluídas (CP-7, CP-8, CP-9, CP-13, CP-20, CP-21, CP-22, CP-23, CP-24, CP-25, CP-27, CP-29, CP-30, CP-31, CP-34, CP-35, CP-36, CP-37, CP-39, CP-40, CP-42, CP-43, CP-45 em 2026-04-22) · 1 contenção temporária (CP-50).**
+**Total bucket 🟡: 50 ações registradas · 25 ativas · 24 concluídas (CP-1, CP-7, CP-8, CP-9, CP-13, CP-20, CP-21, CP-22, CP-23, CP-24, CP-25, CP-27, CP-29, CP-30, CP-31, CP-34, CP-35, CP-36, CP-37, CP-39, CP-40, CP-42, CP-43, CP-45 em 2026-04-22) · 1 contenção temporária (CP-50).**
 
 ##### Ordem de execução sugerida
 
@@ -629,7 +629,7 @@ Não investir antes do sinal. Cada item lista o **sinal que justifica investir**
 | Bucket | Ações | Esforço consolidado | Prazo alvo | Estado |
 |---|---|---|---|---|
 | 🔴 Urgente | 10 | ~7 S/M + 1 L = 2-3 semanas com foco parcial | até 30 dias | ✅ Concluído em 2026-04-22 (1 dia de execução efetiva) |
-| 🟡 Curto prazo | 50 registradas (23 done · 26 ativas · 1 contenção) | 5 planos XL/L + ~26 S/M | 30-90 dias | 🔄 Em execução — Ondas 1/2 completas, Onda 3 com PRs A/B/C entregues (9 S's + 2 M's); resta só CP-41 (PR-D) |
+| 🟡 Curto prazo | 50 registradas (24 done · 25 ativas · 1 contenção) | 4 planos XL/L + ~25 S/M | 30-90 dias | 🔄 Em execução — Ondas 1/2 completas, Onda 3 com PRs A/B/C entregues, Onda 5 iniciada com CP-1 (XL) |
 | 🟢 Médio prazo | 21 | Sob demanda | indefinido (monitorar sinais) | ⏸️ Sem investimento até sinal concreto |
 
 **Princípios de execução:**
@@ -1384,6 +1384,59 @@ Rodados testes que cobrem as áreas a serem tocadas pelo bucket 🔴 para confir
 - Extensão `cy-idea-factory` — traz council de 6 agentes (security-advocate, architect-advisor, pragmatic-engineer, product-mind, devils-advocate, the-thinker) e skill `/cy-idea-factory`. Motivo: roadmap atual (bucket 🔴 + maior parte do 🟡) já tem escopo claro do audit; council é overkill para ações bem escopadas. Instalar apenas antes de CP-1/CP-2 (XL) ou qualquer item do bucket 🟢 (decisões com múltiplos trade-offs sem design pronto)
 
 **Estado:** pronto para iniciar Fase 3. Próxima ação — **RU-1 (hardening `env.ts`)** via fluxo simples (branch direta, sem Compozy).
+
+### 2026-04-22 — Onda 5 PR #1 entregue (CP-1): `src/plugins/` consolidado
+
+Primeira PR da Onda 5. Executada em worktree dedicado (`.worktrees/feat/cp-1-plugins-migration/`) a partir de `preview`, seguindo metodologia XL da seção 7.5.1 (plan formal local em `docs/plans/`, 10 commits atômicos, target `preview`).
+
+**Rubrica adotada (estrita, não ampla do CP original):**
+
+Só vai para `src/plugins/` o arquivo que exporta uma instância Elysia consumida via `app.use(X)`. Utilitários puros, side-effect inits e bootstrap helpers ficam em `src/lib/`. A rubrica foi validada contra as docs oficiais do Elysia (context7).
+
+**Migrações (commits 2-6):**
+
+| De | Para | Notas |
+|---|---|---|
+| `src/lib/health/` | `src/plugins/health/` | Plugin + model + tests |
+| `src/lib/logger/index.ts` | split em `src/lib/logger.ts` (Pino util) + `src/plugins/logger/logger-plugin.ts` (Elysia plugin) | 17 imports de `logger` ficam em `@/lib/logger`; 4 imports de `loggerPlugin` atualizados |
+| `src/lib/errors/error-plugin.ts` | `src/plugins/errors/error-plugin.ts` | Classes de erro em `lib/errors/` (CP-5 move domain-errors para módulos) |
+| `src/lib/cron-plugin.ts` | `src/plugins/cron/cron-plugin.ts` | Sem mudança estrutural; CP-32 refatora os 7 jobs via array declarativo |
+| `src/lib/auth-plugin.ts` | `src/plugins/auth/auth-plugin.ts` | 40 import sites atualizados; CP-4 quebra em sub-arquivos |
+
+**Ficam em `src/lib/`** (não são plugins Elysia): `cors.ts`, `sentry.ts`, `shutdown/`, `request-context.ts`, `zod-config.ts`, `auth.ts`, `permissions.ts`, `password-complexity.ts`, `email.tsx`, `responses/`, `schemas/`, `utils/`, `validation/`, `helpers/`, `crypto/`, `errors/` (classes).
+
+**Shallow alignment (commits 7-8):**
+
+- `CLAUDE.md` por plugin (`plugins/{health,logger,errors,cron,auth}/CLAUDE.md`) documentando `name`, hooks + scopes, context additions, macros, consumers, ordering, out-of-scope.
+- Export de types do `derive`/`macro resolve`: `LoggerContext = { requestId, requestStart }`, `AuthContext = { user, session }`. Zero mudança runtime — melhora DX.
+
+**Cleanups (commit 9):**
+
+- `src/lib/ratelimit/` (só tinha `__tests__/`) — teste movido para `src/plugins/errors/__tests__/rate-limit-integration.test.ts`.
+- `src/lib/request-context/` (só tinha `__tests__/`) — teste movido para `src/lib/__tests__/request-context.test.ts`. O arquivo real `src/lib/request-context.ts` fica onde está.
+
+**Validação:**
+
+- `bunx tsc --noEmit` exit 0
+- `npx ultracite check` clean
+- Tests afetados verdes (health, logger plugin, error plugin, rate-limit integration, auth plugins unauthorized-log + feature-guard, api-keys consumindo betterAuthPlugin, payments/jobs + vacations consumindo cronPlugin).
+
+**Nota sobre `.as()` — correção de entendimento:**
+
+Proposta inicial sugeria forçar `.as("global")` em vários plugins. Validação com context7 mostrou: `.as()` no nível da instância **só aceita `'scoped'` ou `'plugin'`**, nunca `'global'`. Scope levels são mecânicas distintas:
+- Per-hook `{ as: 'local' | 'scoped' | 'global' }` — granular
+- Instance `.as('scoped' | 'plugin')` — lifta hooks locais um nível acima
+
+Plugins atuais já usam per-hook modifiers corretamente. Não forçamos mudanças de scope — só documentamos o que já existe. Essa correção está registrada no plano local e nos CLAUDE.md.
+
+**Destrava:**
+
+- **CP-4** — quebrar `src/lib/auth.ts` (856 linhas) + `src/plugins/auth/auth-plugin.ts` (391 linhas) em sub-arquivos
+- **CP-26** — mover `extractErrorMessages` de `src/index.ts` para `src/plugins/openapi/` (ou `src/lib/openapi/`)
+- **CP-28** — cleanup residual de `lib/audit/` após RU-8 (checar se há sobras)
+- **CP-32** — declarative cron refactor (array ou helper `createCronJob`)
+
+**Contadores:** bucket 🟡 passou de 23 → **24 CPs concluídos** (25 ativas, 1 contenção). Onda 3 com 11 CPs done + CP-41 pendente (secrets Pagar.me). Onda 5 iniciada.
 
 ### 2026-04-22 — Ordem de execução revisada: Onda 5 eleita como próxima
 

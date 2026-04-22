@@ -6,9 +6,10 @@ O sistema de logging tem duas camadas com responsabilidades distintas:
 
 | Componente | Arquivo | Responsabilidade |
 |-----------|---------|-----------------|
-| `loggerPlugin` | `logger/index.ts` | Access log (todas as requests), `X-Request-ID` header, `requestId` no contexto |
-| `errorPlugin` | `errors/error-plugin.ts` | Error log (detalhes de 5xx e unhandled), formatação do envelope de erro |
-| `request-context` | `request-context.ts` | Propagação do `requestId` via `AsyncLocalStorage` para qualquer camada |
+| `loggerPlugin` | `src/plugins/logger/logger-plugin.ts` | Access log (todas as requests), `X-Request-ID` header, `requestId` no contexto |
+| `logger` (Pino util) | `src/lib/logger.ts` | Instância Pino + `shouldIgnore` + `generateRequestId` (utilitário puro, sem lifecycle Elysia) |
+| `errorPlugin` | `src/plugins/errors/error-plugin.ts` | Error log (detalhes de 5xx e unhandled), formatação do envelope de erro |
+| `request-context` | `src/lib/request-context.ts` | Propagação do `requestId` via `AsyncLocalStorage` para qualquer camada |
 
 ### Fluxo de uma request
 
@@ -75,7 +76,7 @@ logger.error({ method, path, message: error.message });  // ruim — message fic
 
 ## Paths ignorados
 
-Definidos em `logger/index.ts`:
+Definidos em `src/lib/logger.ts`:
 - **Exatos**: `/health`, `/health/live` — liveness/readiness probes (alto volume, sem valor)
 - **Prefixos**: `/api/auth` — rotas do Better Auth (sessão, callback OAuth — alto volume)
 

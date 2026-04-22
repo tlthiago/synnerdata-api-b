@@ -4,7 +4,7 @@ import Elysia from "elysia";
 import { db } from "@/db";
 import { schema } from "@/db/schema";
 import { env } from "@/env";
-import { betterAuthPlugin } from "@/lib/auth-plugin";
+import { betterAuthPlugin } from "@/plugins/auth/auth-plugin";
 import { OrganizationFactory } from "@/test/factories/organization.factory";
 import {
   type CreatePlanResult,

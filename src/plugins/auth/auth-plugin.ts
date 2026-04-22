@@ -1,14 +1,19 @@
 import { Elysia } from "elysia";
-import { LimitsService } from "@/modules/payments/limits/limits.service";
-import { SubscriptionService } from "@/modules/payments/subscription/subscription.service";
-import { type AuthSession, type AuthUser, auth } from "./auth";
-import { ForbiddenError, UnauthorizedError } from "./errors/http-errors";
+import { type AuthSession, type AuthUser, auth } from "@/lib/auth";
+import { ForbiddenError, UnauthorizedError } from "@/lib/errors/http-errors";
 import {
   FeatureNotAvailableError,
   SubscriptionRequiredError,
-} from "./errors/subscription-errors";
-import { logger } from "./logger";
-import type { OrgPermissions } from "./permissions";
+} from "@/lib/errors/subscription-errors";
+import { logger } from "@/lib/logger";
+import type { OrgPermissions } from "@/lib/permissions";
+import { LimitsService } from "@/modules/payments/limits/limits.service";
+import { SubscriptionService } from "@/modules/payments/subscription/subscription.service";
+
+export type AuthContext = {
+  user: AuthUser;
+  session: AuthSession;
+};
 
 export type AuthOptions =
   | true

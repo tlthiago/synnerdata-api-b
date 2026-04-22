@@ -1,6 +1,5 @@
 import { Elysia } from "elysia";
 import { isProduction } from "@/env";
-import { betterAuthPlugin } from "@/lib/auth-plugin";
 import { wrapSuccess } from "@/lib/responses/envelope";
 import {
   badRequestErrorSchema,
@@ -11,6 +10,7 @@ import {
 } from "@/lib/responses/response.types";
 import { capabilitiesResponseSchema } from "@/modules/payments/limits/limits.model";
 import { LimitsService } from "@/modules/payments/limits/limits.service";
+import { betterAuthPlugin } from "@/plugins/auth/auth-plugin";
 import {
   cancelSubscriptionBodySchema,
   cancelSubscriptionResponseSchema,
