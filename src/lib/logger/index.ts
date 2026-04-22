@@ -41,19 +41,15 @@ export const logger = pino({
 });
 
 export const loggerPlugin = new Elysia({ name: "logger" })
-  .derive({ as: "global" }, () => {
+  .onRequest(({ set }) => {
     const requestId = generateRequestId();
     enterRequestContext({ requestId });
-    return { requestId, requestStart: performance.now() };
-  })
-  .onAfterHandle({ as: "global" }, ({ set, requestId }) => {
     set.headers["X-Request-ID"] = requestId;
   })
-  .onError({ as: "global" }, ({ set, requestId }) => {
-    if (requestId) {
-      set.headers["X-Request-ID"] = requestId;
-    }
-  })
+  .derive({ as: "global" }, () => ({
+    requestId: getRequestId() as string,
+    requestStart: performance.now(),
+  }))
   .onAfterResponse({ as: "global" }, ({ request, requestStart, set }) => {
     const pathname = new URL(request.url).pathname;
     if (shouldIgnore(pathname)) {

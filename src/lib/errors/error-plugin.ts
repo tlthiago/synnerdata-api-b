@@ -1,5 +1,6 @@
 import { Elysia } from "elysia";
 import { logger } from "@/lib/logger";
+import { getRequestId } from "@/lib/request-context";
 import { captureException } from "@/lib/sentry";
 import { AppError } from "./base-error";
 
@@ -47,9 +48,9 @@ function formatErrorDetail(error: unknown): Record<string, unknown> {
 export const errorPlugin = new Elysia({ name: "error-handler" })
   .error({ AppError })
   .onError({ as: "global" }, ({ code, error, set, request }) => {
-    // Custom AppError instances
+    const requestId = getRequestId() as string;
+
     if (error instanceof AppError) {
-      // Report 5xx AppErrors to Sentry/GlitchTip
       if (error.status >= 500) {
         captureException(error);
         const pathname = new URL(request.url).pathname;
@@ -65,10 +66,9 @@ export const errorPlugin = new Elysia({ name: "error-handler" })
         );
       }
       set.status = error.status;
-      return error.toResponse();
+      return error.toResponse(requestId);
     }
 
-    // Elysia validation errors
     if (code === "VALIDATION") {
       set.status = 422;
       return {
@@ -76,12 +76,12 @@ export const errorPlugin = new Elysia({ name: "error-handler" })
         error: {
           code: "VALIDATION_ERROR",
           message: "Dados de requisição inválidos",
+          requestId,
           details: formatValidationErrors(error.all),
         },
       };
     }
 
-    // Route not found
     if (code === "NOT_FOUND") {
       set.status = 404;
       return {
@@ -89,11 +89,11 @@ export const errorPlugin = new Elysia({ name: "error-handler" })
         error: {
           code: "NOT_FOUND",
           message: "Rota não encontrada",
+          requestId,
         },
       };
     }
 
-    // Unhandled errors — report to Sentry/GlitchTip and log with full detail
     captureException(error);
 
     const errorDetail = formatErrorDetail(error);
@@ -113,7 +113,7 @@ export const errorPlugin = new Elysia({ name: "error-handler" })
       error: {
         code: "INTERNAL_ERROR",
         message: "Ocorreu um erro inesperado",
-        // In development, expose the real error to help debugging
+        requestId,
         ...(isDev && { cause: errorDetail }),
       },
     };
