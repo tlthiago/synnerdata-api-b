@@ -17,7 +17,7 @@ Configuração validada em 2026-04-22 via Coolify v4.0.0-beta.460 → `synnerdat
 | Timeout | 3600s (1h) | Dump + upload devem completar dentro disso |
 | Storage local | ✅ Habilitado | `/data/coolify/backups/databases/root-team-0/postgresql-production-<id>/` |
 | Storage S3 | ✅ Habilitado | Cloudflare R2 (credentials em Coolify → S3 Storages) |
-| Retention local | ⚠️ **ilimitada** | Veja [§ Atenção — local retention](#atenção--local-retention-ilimitada) |
+| Retention local | 7 backups / 7 dias / 2 GB | Ajustado em 2026-04-22 (CP-45 resolvido). Whichever limit hits first triggers cleanup |
 | Retention S3 (R2) | 30 backups / 30 dias / 8 GB | Whichever limit hits first triggers cleanup |
 | Formato do dump | `pg_dump` (.dmp) | Arquivo nome: `pg-dump-synnerdata-<timestamp>.dmp` |
 
@@ -132,21 +132,16 @@ Cadência recomendada: **a cada 3 meses**. Agendar no calendário do dono do pro
 |---|---|---|---|
 | _primeira execução pendente_ | — | — | — |
 
-## Atenção — local retention ilimitada
+## Retention policy
 
-A config atual de **Local Backup Retention** no Coolify está com todos os valores em 0 (Number=0, Days=0, Max storage=0), o que o próprio Coolify interpreta como "ilimitado":
+Política em vigor desde 2026-04-22 (CP-45 resolvido):
 
-> "Setting a value to 0 means unlimited retention."
+| Storage | Backups | Dias | Max GB | Papel |
+|---|---|---|---|---|
+| Local (`/data/coolify/backups/...`) | 7 | 7 | 2 | Restore rápido (sem egress do R2) nos últimos 7 dias |
+| S3 (Cloudflare R2) | 30 | 30 | 8 | Fonte de verdade off-site, long-term |
 
-Na prática, os dumps locais em `/data/coolify/backups/databases/.../` nunca são removidos. Com a base atual (~310 KB/dump, 1 dump/dia), são ~113 MB/ano — não há risco imediato. Mas conforme a base cresce e o tempo passa, o disco do Coolify vai encher.
-
-**Recomendação** (rastreada como CP-45 no bucket 🟡 do checklist de infra):
-
-- Ajustar Local Backup Retention para valores finitos: sugestão **7 backups / 7 dias / 2 GB**.
-- O storage off-site (R2) com 30 dias permanece como a fonte de verdade de longo prazo.
-- Local continua sendo útil para restore rápido (sem egress do R2) nos casos mais comuns (últimos 7 dias).
-
-**Onde ajustar**: Coolify → `postgresql-production` → `Backups` → `Backup Retention Settings` → `Local Backup Retention`.
+O Coolify aplica as três regras independentemente — o primeiro limite atingido dispara cleanup. Onde ajustar: Coolify → `postgresql-production` → `Backups` → `Backup Retention Settings`.
 
 ## Contatos e escalação
 

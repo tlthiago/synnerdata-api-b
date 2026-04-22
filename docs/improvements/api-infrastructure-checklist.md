@@ -264,7 +264,7 @@ Seção específica do projeto. Começa pelo **status atual** da iniciativa (7.0
 | **2. Roadmap priorizado** | ✅ Concluída | 2026-04-21 | Seção 7.5 com 69 ações organizadas em 3 buckets (🔴 10 urgentes / 🟡 38 curto prazo / 🟢 21 sob demanda) com IDs, dependências, tipo e esforço |
 | **3. Execução** | 🔄 Em execução | 2026-04-22 | **Bucket 🔴 concluído (10/10)**. RU-1..RU-10 entregues em PRs sequenciais em `preview`. Grupo 3 fechado. `src/plugins/` inaugurado. BOLA audit completo (0 gaps). Runbook de backup em `docs/runbooks/`. CP-39..CP-45 registrados como follow-ups. Débito #96 identificado. |
 
-**➡️ Próxima ação:** **Priorização do bucket 🟡** com o dono do projeto. 45 ações disponíveis; candidatos naturais para começar: (a) **CP-40** (triagem de dev deps highs → destrava subir audit threshold para `high`), (b) **CP-1/2** (XL refactors que destravam outros CPs), (c) **CP-42/CP-43** (convenção de `changes` + audit de reads sensíveis — LGPD). Ver seção 7.5 bucket 🟡 para a lista completa.
+**➡️ Próxima ação:** **Bucket 🟡 — Onda 1** (CI/segurança). Começar por **CP-40** (triagem de dev deps highs → destrava audit threshold `high` no CI), seguido dos CP-7..CP-9, CP-13, CP-20..CP-23 em PRs temáticas agrupadas. Ondas 2-5 mapeadas em 7.5 § Ordem de execução sugerida. CP-45 já concluída (2026-04-22).
 
 ### 7.1 Contexto do projeto
 
@@ -560,9 +560,27 @@ Organizado em **5 PRs dedicados** (refactors grandes) + ações pontuais.
 | **CP-42** | Convenção de `changes: { before, after }` em audit de mutations — documentar em `src/modules/audit/CLAUDE.md` (ou ADR) regras: (a) toda mutation em entidade versionada preenche diff dos campos alterados, não record inteiro; (b) campos PII sensíveis (CPF, salário, atestado médico, data nascimento) logam `"<redacted>"` ou hash — nunca plaintext; (c) resources obrigatórios: `employee`, `medical_certificate`, `labor_lawsuit`, `subscription`, `member`, `api_key`. Aplicar retroativamente nos 3 módulos críticos (employees, occurrences/medical-certificates, payments/subscription) | #96 (parcial), LGPD Art. 18/48 | refactor | M | — |
 | **CP-43** | Audit de reads em dados sensíveis (Art. 11 LGPD) — usar `auditPlugin` pós RU-7 (signature `audit(entry)` simples) em GET handlers de recursos sensíveis: `medical_certificate`, `labor_lawsuit`, `employee` (quando incluir CPF/salário), `cpf_analysis`. Granularidade: get individual + export sempre; listagem opcional (batch). Destrava reconstituição de acessos para Art. 48 LGPD | #96 (parcial), LGPD Art. 11 | new | M | RU-7 |
 | **CP-44** | Audit BOLA automatizado em CI — script que AST-scan `src/modules/**/*.service.ts` identificando queries `db.select/update/delete` em tabelas org-scoped sem filtro `organizationId`. Falha PR se gap novo introduzido. Preventivo contra regressão após RU-9 ter validado o estado limpo atual | Follow-up de RU-9 | new | M | — |
-| **CP-45** | Ajustar Local Backup Retention no Coolify — atual está com todos os valores em 0 (unlimited), significa que dumps locais nunca são limpos. Sugestão: 7 backups / 7 dias / 2 GB (R2 com 30 dias segue como fonte de verdade off-site). Ação operacional pura na UI do Coolify, sem código. Ver `docs/runbooks/database-backup.md` §Atenção | Follow-up de RU-10 | config | S | — |
+| **CP-45** | ✅ **2026-04-22** — Local Backup Retention ajustado para 7 backups / 7 dias / 2 GB no Coolify (R2 inalterado em 30/30/8). Ação operacional pura na UI, sem código. Runbook atualizado | Follow-up de RU-10 | config | S | — |
 
-**Total bucket 🟡: 45 ações. Execução sugerida em paralelo por tema (PRs dedicados CP-1…CP-5 podem rodar em paralelo com ações pontuais).**
+**Total bucket 🟡: 45 ações registradas · 44 ativas · 1 concluída (CP-45 em 2026-04-22).**
+
+##### Ordem de execução sugerida
+
+Sequência proposta para extrair valor rápido antes de atacar os refactors grandes. Decidida após fechamento do bucket 🔴 — critério: **ganho de compliance/CI por hora de trabalho**, com XL ficando para janela dedicada.
+
+| Onda | Foco | Itens | Racional |
+|---|---|---|---|
+| **Onda 1 — Ganhos rápidos de CI/segurança** | Fechar dívidas que destravam gates automatizados | CP-40 (M) → CP-7 (S), CP-8 (S), CP-9 (S), CP-22 (S), CP-21 (S), CP-23 (S), CP-13 (S), CP-20 (S) | CP-40 primeiro destrava threshold `--audit-level=high` no CI. Os S's seguintes são config pura no `.github/workflows/` — acumulam em 1-2 PRs agrupadas por tema (ex: "ci: cache + frozen-lockfile + smoke test") |
+| **Onda 2 — Compliance LGPD (débito #96)** | Atacar lacuna de rastreabilidade em dados sensíveis | CP-42 (M) → CP-43 (M) | CP-42 é a convenção (`changes: { before, after }` + PII redacted); CP-43 aplica em reads sensíveis. Ordem importa: regra primeiro, aplicação depois |
+| **Onda 3 — Qualidade pontual** | Resolver débitos S restantes enquanto XL ainda não começou | CP-24, CP-27, CP-29, CP-31, CP-34, CP-35, CP-36, CP-37, CP-39 (todos S); CP-25, CP-30, CP-41 (M) | Podem ser agrupados em 2-3 PRs temáticos (auth hardening, error handling, env centralization). CP-41 vale dedicar PR separada (workflow novo) |
+| **Onda 4 — Cloudflare + Observabilidade** | Depende de janela com o dono (CP-14 precisa alinhar DNS) | CP-14 → CP-15 → CP-16; CP-17, CP-18, CP-19 | Cloudflare é sequencial (CP-14 destrava CP-15 destrava CP-16). Observabilidade (CP-17/18/19) pode rodar em paralelo — CP-18 depende de CP-3 |
+| **Onda 5 — Refactors grandes** | PRs dedicados, worktree obrigatório, plan formal em `docs/plans/` | CP-1 (XL) → CP-4, CP-26, CP-28, CP-32 (dependem de CP-1); CP-2 (XL); CP-3 (L) → CP-18; CP-5 (L); CP-6 (M), CP-33, CP-38, CP-44 | CP-1 tem o maior raio de desbloqueio (4 CPs menores dependem dele). CP-2 e CP-3 independentes. CP-38 e CP-44 são documentação/tooling — podem intercalar |
+
+**Notas operacionais:**
+- **CP-45 já concluída** (2026-04-22) — ação operacional no Coolify, sem código.
+- **Onda 1 e Onda 2 não têm dependências cruzadas** — podem rodar em paralelo se houver bandwidth.
+- **XL (CP-1, CP-2) em worktree isolado** (ver 7.5.1 § Metodologia híbrida) — regra do projeto para features que bloqueiam outros trabalhos.
+- Reavaliar ordem a cada 5 CPs concluídos — aprendizado do bucket 🔴 mostrou que prioridades mudam ao descobrir o escopo real.
 
 #### 🟢 Bucket Médio Prazo / Sob Demanda (quando houver sinal real)
 
@@ -601,7 +619,7 @@ Não investir antes do sinal. Cada item lista o **sinal que justifica investir**
 | Bucket | Ações | Esforço consolidado | Prazo alvo | Estado |
 |---|---|---|---|---|
 | 🔴 Urgente | 10 | ~7 S/M + 1 L = 2-3 semanas com foco parcial | até 30 dias | ✅ Concluído em 2026-04-22 (1 dia de execução efetiva) |
-| 🟡 Curto prazo | 45 (5 plans dedicados + 40 pontuais) | 5 planos XL/L + ~37 S/M | 30-90 dias | 🔜 A priorizar com o dono |
+| 🟡 Curto prazo | 45 registradas (1 done · 44 ativas) | 5 planos XL/L + ~37 S/M | 30-90 dias | 🔄 Ordem de execução definida (ver 7.5 § Ordem de execução sugerida) |
 | 🟢 Médio prazo | 21 | Sob demanda | indefinido (monitorar sinais) | ⏸️ Sem investimento até sinal concreto |
 
 **Princípios de execução:**
@@ -1356,6 +1374,19 @@ Rodados testes que cobrem as áreas a serem tocadas pelo bucket 🔴 para confir
 - Extensão `cy-idea-factory` — traz council de 6 agentes (security-advocate, architect-advisor, pragmatic-engineer, product-mind, devils-advocate, the-thinker) e skill `/cy-idea-factory`. Motivo: roadmap atual (bucket 🔴 + maior parte do 🟡) já tem escopo claro do audit; council é overkill para ações bem escopadas. Instalar apenas antes de CP-1/CP-2 (XL) ou qualquer item do bucket 🟢 (decisões com múltiplos trade-offs sem design pronto)
 
 **Estado:** pronto para iniciar Fase 3. Próxima ação — **RU-1 (hardening `env.ts`)** via fluxo simples (branch direta, sem Compozy).
+
+### 2026-04-22 — CP-45 concluída + ordem de execução do bucket 🟡 definida
+
+Primeira ação do bucket 🟡 fechada. **CP-45** (Local Backup Retention no Coolify) aplicada via UI pelo dono — valores atuais: 7 backups / 7 dias / 2 GB (local) + 30 backups / 30 dias / 8 GB (R2, inalterado). Runbook em `docs/runbooks/database-backup.md` atualizado: seção "Atenção — local retention ilimitada" substituída por "Retention policy" com a tabela em vigor.
+
+**Ordem de execução do bucket 🟡 adicionada em 7.5** — 5 ondas organizadas por ganho de compliance/CI por hora de trabalho:
+1. **Onda 1 — Ganhos rápidos de CI/segurança**: CP-40 (M) → CP-7..CP-9, CP-13, CP-20..CP-23 (S's). CP-40 primeiro destrava threshold `--audit-level=high` no CI
+2. **Onda 2 — Compliance LGPD**: CP-42 (convenção `changes: before/after` + PII redacted) → CP-43 (audit de reads em dados sensíveis Art. 11). Endereçam débito #96
+3. **Onda 3 — Qualidade pontual**: 9 S's + CP-25, CP-30, CP-41 (M) — agrupáveis em 2-3 PRs temáticas
+4. **Onda 4 — Cloudflare + Observabilidade**: CP-14→15→16 sequencial; CP-17/18/19 paralelo (CP-18 depende de CP-3)
+5. **Onda 5 — Refactors XL**: CP-1 (destrava CP-4/26/28/32) → CP-2 → CP-3; CP-5, CP-6, CP-33, CP-38, CP-44
+
+**Racional da ordem:** Ondas 1-2 entregam valor compliance/CI em dias, enquanto os XL (CP-1, CP-2) ficam para janela dedicada com worktree isolado conforme 7.5.1. Reavaliar a cada 5 CPs concluídos — aprendizado do bucket 🔴 mostrou que escopo real difere do pessimismo do audit.
 
 ### 2026-04-22 — RU-10 concluída (runbook de backup) + **Bucket 🔴 fechado**
 
