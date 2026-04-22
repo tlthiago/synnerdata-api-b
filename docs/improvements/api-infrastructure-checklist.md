@@ -262,9 +262,9 @@ Seção específica do projeto. Começa pelo **status atual** da iniciativa (7.0
 | **0. Contexto aplicado** | ✅ Concluída | 2026-04-21 | Seções 7.1–7.3, 7.6, 7.7 preenchidas + convenção semântica + 10 débitos pré-audit |
 | **1. Audit item a item** | ✅ Concluída | 2026-04-21 | Status nas seções 4 e 5 preenchidos (~65 itens); 95 débitos totais em 7.7; relatório em [`docs/reports/2026-04-21-api-infrastructure-audit.md`](../reports/2026-04-21-api-infrastructure-audit.md) |
 | **2. Roadmap priorizado** | ✅ Concluída | 2026-04-21 | Seção 7.5 com 69 ações organizadas em 3 buckets (🔴 10 urgentes / 🟡 38 curto prazo / 🟢 21 sob demanda) com IDs, dependências, tipo e esforço |
-| **3. Execução** | 🔄 Em execução | 2026-04-22 | **Bucket 🔴 concluído (10/10)**. Bucket 🟡 **Onda 1 completa (10/10)** + **Onda 2 completa (2/2)** + **Onda 3 PR-C parcial (5/9 S's)**. Total concluídas no 🟡: **17 CPs** (CP-7, CP-8, CP-9, CP-13, CP-20, CP-21, CP-22, CP-23, CP-34, CP-35, CP-36, CP-37, CP-39, CP-40, CP-42, CP-43, CP-45). RU-1..RU-10 entregues em PRs sequenciais em `preview`. Grupo 3 fechado. `src/plugins/` inaugurado. BOLA audit completo (0 gaps). Runbook de backup em `docs/runbooks/`. Helper `buildAuditChanges` + `auditPlugin` em produção (4 módulos auditando reads sensíveis: employees, medical-certificates, cpf-analyses, labor-lawsuits). PR-C entregue: branded `EncryptedString`, wrapper `withApiKeyNotFoundFallback`, newsletter anti-enumeration, health `VERSION` de `package.json`, split `SMTP_FROM`/`SMTP_FROM_NAME`. **Débito #96 100% endereçado**. |
+| **3. Execução** | 🔄 Em execução | 2026-04-22 | **Bucket 🔴 concluído (10/10)**. Bucket 🟡 **Onda 1 completa (10/10)** + **Onda 2 completa (2/2)** + **Onda 3 PR-C + PR-B entregues (8/9 S's)**. Total concluídas no 🟡: **20 CPs** (CP-7, CP-8, CP-9, CP-13, CP-20, CP-21, CP-22, CP-23, CP-27, CP-29, CP-31, CP-34, CP-35, CP-36, CP-37, CP-39, CP-40, CP-42, CP-43, CP-45). RU-1..RU-10 entregues em PRs sequenciais em `preview`. Grupo 3 fechado. `src/plugins/` inaugurado. BOLA audit completo (0 gaps). Runbook de backup em `docs/runbooks/`. Helper `buildAuditChanges` + `auditPlugin` em produção. PR-C: branded `EncryptedString`, wrapper `withApiKeyNotFoundFallback`, newsletter anti-enumeration, health `VERSION` de `package.json`, split `SMTP_FROM`/`SMTP_FROM_NAME`. PR-B: listeners antes do `.listen()`, depth limit em `formatErrorDetail`, centralização `isProduction`/`isDev`/`isTest`. **Débito #96 100% endereçado**. |
 
-**➡️ Próxima ação:** **Bucket 🟡 — Onda 3** (Qualidade pontual) — PR-C entregue. Restam: **auth hardening** (CP-24, CP-25, CP-30), **error handling + env** (CP-27, CP-29, CP-31), **CP-41** (workflow Pagar.me standalone).
+**➡️ Próxima ação:** **Bucket 🟡 — Onda 3** (Qualidade pontual) — PR-C + PR-B entregues. Restam: **PR-A** (CP-24, CP-25, CP-30 — auth hardening), **PR-D** (CP-41 — workflow Pagar.me standalone).
 
 ### 7.1 Contexto do projeto
 
@@ -537,16 +537,16 @@ Organizado em **5 PRs dedicados** (refactors grandes) + ações pontuais.
 | **CP-24** | Log explícito em `UnauthorizedError` do macro auth com IP + path (não logar a chave/token) | #36 | new | S | — |
 | **CP-25** | `permissions.ts` — helper `inheritRole(base, overrides)` para reduzir duplicação entre owner/manager/supervisor/viewer | #50 | refactor | M | — |
 | **CP-26** | Mover `extractErrorMessages` de `src/index.ts` para `lib/openapi/error-messages.ts` (ou `src/plugins/openapi/` após CP-1) | #11 | refactor | S | CP-1 |
-| **CP-27** | Registrar listeners (`registerPaymentListeners`, `registerEmployeeListeners`) ANTES do `.listen()` no bootstrap | #12 | config | S | — |
+| **CP-27** | ✅ **2026-04-22** — `registerPaymentListeners()` e `registerEmployeeListeners()` movidos para antes de `app.listen()` em `src/index.ts`. Remove race window em que requests/jobs chegando durante o bootstrap podiam disparar domain events sem handlers montados. Callback do `.listen()` fica só com o startup log. | #12 | config | S | — |
 | **CP-28** | Mover `lib/audit/` totalmente — após RU-8 verificar se sobrou algo; remover pasta vazia | #5 resolução final | refactor | S | RU-8 |
-| **CP-29** | `formatErrorDetail` com limite de profundidade (max 5) para evitar stack overflow em `cause` cíclico | #44 | config | S | — |
+| **CP-29** | ✅ **2026-04-22** — `formatErrorDetail` em `src/lib/errors/error-plugin.ts` ganhou parâmetro `depth` com limite `MAX_ERROR_DETAIL_DEPTH = 5`. Quando atingido, emite `"[truncated: max depth 5 reached]"` em vez de recursar — evita stack overflow em `error.cause` cíclico (que crasharia o próprio handler de erro). Função exportada pra permitir 3 unit tests (deep chain, cyclic cause, non-Error input). | #44 | config | S | — |
 | **CP-30** | Investigar dynamic imports suspeitos — `cron-plugin.ts` + `lib/auth.ts` `afterCreateOrganization` (possível dep circular) | #28, #52 | refactor | M | — |
 
 ##### Qualidade geral
 
 | ID | Ação | Débitos cobertos | Tipo | Esforço | Depende de |
 |---|---|---|---|---|---|
-| **CP-31** | Centralizar uso de `isProduction`/`isDev` via `@/env` (hoje há `process.env.NODE_ENV` direto em vários arquivos) | #26, #41 | refactor | S | — |
+| **CP-31** | ✅ **2026-04-22** — `src/env.ts` passa a exportar `isDev` e `isTest` além do `isProduction` existente. 7 arquivos que liam `process.env.NODE_ENV` direto (`lib/errors/error-plugin.ts`, `lib/logger/index.ts`, `lib/auth.ts`, `payments/{checkout,admin-checkout,plan-change}/*.model.ts`) passam a importar de `@/env`. `error-plugin` usa `!isProduction` (semântica "dev+test") para preservar comportamento anterior de `!= "production"`. Zero usos diretos restantes fora de `env.ts`. | #26, #41 | refactor | S | — |
 | **CP-32** | `cron-plugin.ts` — refatorar 7 jobs duplicados via array declarativo ou helper `createCronJob({ name, pattern, handler })` | #46 | refactor | M | CP-1 |
 | **CP-33** | `auth.ts` helpers `auditXxx` duplicados — consolidar em `buildAuditEntry(...)` | #51 (parcial — resto em CP-4) | refactor | S | CP-4 |
 | **CP-34** | ✅ **2026-04-22** — Branded type `EncryptedString` aplicado em `lib/crypto/pii.ts`. `PII.encrypt` retorna `Promise<EncryptedString>`; `PII.decrypt` exige `EncryptedString`; `PII.isEncrypted` vira type guard. Sem mudança de runtime. | #47 | refactor | S | — |
@@ -567,7 +567,7 @@ Organizado em **5 PRs dedicados** (refactors grandes) + ações pontuais.
 | **CP-49** | Sync react/react-dom versions — descoberto em CP-40. `react-dom` não está nas devDeps diretas mas é pulled por `@react-email/components`, e fica desalinhado de `react` em patches (`bun update` bumpou react → 19.2.5 enquanto react-dom ficou em 19.2.4, causando runtime mismatch). Opções: (a) adicionar `react-dom` às devDeps pinado ao mesmo patch; (b) manter `react` pinado exato (feito em CP-40 como contenção); (c) override de `react-dom` matching `react`. Decidir quando for revisar deps novamente | Descoberto em CP-40 | config | S | — |
 | **CP-50** | Migração TypeScript 5.9 → 6.x — descoberto em CP-40 quando CI falhou ao puxar TS 6.0.3 ephemerally (TS não estava em devDeps). TS 6 transforma `moduleResolution=node` em erro deprecated (antes era warning). Requer: (a) alterar `tsconfig.json` de `"moduleResolution": "node"` para `"bundler"` (recomendado Elysia/Bun) ou `"node16"`; (b) auditar imports para compatibilidade com resolução nova (extensões obrigatórias em alguns casos); (c) remover o pin `~5.9.3` após migração validada. Contenção atual: TS pinado em devDeps `~5.9.3` | Descoberto em CP-40 | refactor | M | — |
 
-**Total bucket 🟡: 50 ações registradas · 32 ativas · 17 concluídas (CP-7, CP-8, CP-9, CP-13, CP-20, CP-21, CP-22, CP-23, CP-34, CP-35, CP-36, CP-37, CP-39, CP-40, CP-42, CP-43, CP-45 em 2026-04-22) · 1 contenção temporária (CP-50).**
+**Total bucket 🟡: 50 ações registradas · 29 ativas · 20 concluídas (CP-7, CP-8, CP-9, CP-13, CP-20, CP-21, CP-22, CP-23, CP-27, CP-29, CP-31, CP-34, CP-35, CP-36, CP-37, CP-39, CP-40, CP-42, CP-43, CP-45 em 2026-04-22) · 1 contenção temporária (CP-50).**
 
 ##### Ordem de execução sugerida
 
@@ -577,7 +577,7 @@ Sequência proposta para extrair valor rápido antes de atacar os refactors gran
 |---|---|---|---|
 | **Onda 1 — Ganhos rápidos de CI/segurança** | ✅ **Concluída em 2026-04-22** | CP-40 (M) → CP-7 (S), CP-8 (S), CP-9 (S), CP-22 (S), CP-21 (S), CP-23 (S), CP-13 (S), CP-20 (S) | CP-40 entregue em PR separada (escopo maior). Os 8 S's entregues numa PR agrupada com 8 commits atômicos |
 | **Onda 2 — Compliance LGPD (débito #96)** | ✅ **Concluída em 2026-04-22** | CP-42 (M) → CP-43 (M) | CP-42 entregou a convenção (`buildAuditChanges` + redação PII); CP-43 aplicou `auditPlugin` nos 4 GET handlers sensíveis. Débito #96 100% endereçado |
-| **Onda 3 — Qualidade pontual** | 🔄 Em progresso — **PR-C entregue 2026-04-22** (CP-34, CP-35, CP-36, CP-37, CP-39). Restam CP-24, CP-27, CP-29, CP-31 (S); CP-25, CP-30, CP-41 (M) | CP-24, CP-27, CP-29, CP-31, CP-34✅, CP-35✅, CP-36✅, CP-37✅, CP-39✅ (todos S); CP-25, CP-30, CP-41 (M) | PR-C agrupou os 5 S's de "Qualidade geral" em 5 commits atômicos. Próximas PRs temáticas: **PR-B** (CP-27, CP-29, CP-31 — error handling + env), **PR-A** (CP-24, CP-25, CP-30 — auth hardening). CP-41 vale PR separada (workflow novo, requer secrets sandbox Pagar.me) |
+| **Onda 3 — Qualidade pontual** | 🔄 Em progresso — **PR-C + PR-B entregues 2026-04-22** (CP-27, CP-29, CP-31, CP-34, CP-35, CP-36, CP-37, CP-39). Restam CP-24 (S); CP-25, CP-30, CP-41 (M) | CP-24, CP-27✅, CP-29✅, CP-31✅, CP-34✅, CP-35✅, CP-36✅, CP-37✅, CP-39✅ (todos S); CP-25, CP-30, CP-41 (M) | PR-C agrupou os 5 S's de "Qualidade geral" em 5 commits atômicos. PR-B agrupou os 3 S's de "Error handling + env" em 3 commits atômicos. Próxima: **PR-A** (CP-24, CP-25, CP-30 — auth hardening). CP-41 vale PR separada (workflow novo, requer secrets sandbox Pagar.me) |
 | **Onda 4 — Cloudflare + Observabilidade** | Depende de janela com o dono (CP-14 precisa alinhar DNS) | CP-14 → CP-15 → CP-16; CP-17, CP-18, CP-19 | Cloudflare é sequencial (CP-14 destrava CP-15 destrava CP-16). Observabilidade (CP-17/18/19) pode rodar em paralelo — CP-18 depende de CP-3 |
 | **Onda 5 — Refactors grandes** | PRs dedicados, worktree obrigatório, plan formal em `docs/plans/` | CP-1 (XL) → CP-4, CP-26, CP-28, CP-32 (dependem de CP-1); CP-2 (XL); CP-3 (L) → CP-18; CP-5 (L); CP-6 (M), CP-33, CP-38, CP-44 | CP-1 tem o maior raio de desbloqueio (4 CPs menores dependem dele). CP-2 e CP-3 independentes. CP-38 e CP-44 são documentação/tooling — podem intercalar |
 
@@ -624,7 +624,7 @@ Não investir antes do sinal. Cada item lista o **sinal que justifica investir**
 | Bucket | Ações | Esforço consolidado | Prazo alvo | Estado |
 |---|---|---|---|---|
 | 🔴 Urgente | 10 | ~7 S/M + 1 L = 2-3 semanas com foco parcial | até 30 dias | ✅ Concluído em 2026-04-22 (1 dia de execução efetiva) |
-| 🟡 Curto prazo | 50 registradas (17 done · 32 ativas · 1 contenção) | 5 planos XL/L + ~32 S/M | 30-90 dias | 🔄 Em execução — Ondas 1/2 completas, Onda 3 com PR-C entregue (5/9 S's) |
+| 🟡 Curto prazo | 50 registradas (20 done · 29 ativas · 1 contenção) | 5 planos XL/L + ~29 S/M | 30-90 dias | 🔄 Em execução — Ondas 1/2 completas, Onda 3 com PR-C + PR-B entregues (8/9 S's) |
 | 🟢 Médio prazo | 21 | Sob demanda | indefinido (monitorar sinais) | ⏸️ Sem investimento até sinal concreto |
 
 **Princípios de execução:**
@@ -1379,6 +1379,20 @@ Rodados testes que cobrem as áreas a serem tocadas pelo bucket 🔴 para confir
 - Extensão `cy-idea-factory` — traz council de 6 agentes (security-advocate, architect-advisor, pragmatic-engineer, product-mind, devils-advocate, the-thinker) e skill `/cy-idea-factory`. Motivo: roadmap atual (bucket 🔴 + maior parte do 🟡) já tem escopo claro do audit; council é overkill para ações bem escopadas. Instalar apenas antes de CP-1/CP-2 (XL) ou qualquer item do bucket 🟢 (decisões com múltiplos trade-offs sem design pronto)
 
 **Estado:** pronto para iniciar Fase 3. Próxima ação — **RU-1 (hardening `env.ts`)** via fluxo simples (branch direta, sem Compozy).
+
+### 2026-04-22 — Onda 3 PR-B entregue (CP-27, CP-29, CP-31)
+
+Segunda PR da Onda 3. Agrupa os 3 S's de "Error handling + env" em 3 commits atômicos em `chore/onda-3-pr-b-error-handling-env`, targeting `preview`.
+
+**Entregáveis:**
+
+- **CP-27** — `registerPaymentListeners()` e `registerEmployeeListeners()` movidos para antes de `app.listen()` em `src/index.ts`. Remove a race window em que domain events disparados durante o bootstrap podiam ser perdidos porque o callback do `.listen()` (onde os listeners eram registrados) ainda não havia executado.
+- **CP-29** — `formatErrorDetail` em `src/lib/errors/error-plugin.ts` ganhou `depth` param com limite 5. Ao atingir o limite, emite `"[truncated: max depth 5 reached]"` em vez de recursar — defende o próprio handler de erro contra stack overflow em `error.cause` cíclico. Função exportada; 3 unit tests novos (deep chain, cyclic cause, non-Error input).
+- **CP-31** — `src/env.ts` passa a exportar `isDev` e `isTest` além do `isProduction` existente. Refatoradas **7 leituras** de `process.env.NODE_ENV` em 6 arquivos (`lib/errors/error-plugin.ts`, `lib/logger/index.ts`, `lib/auth.ts`, `payments/{checkout,admin-checkout,plan-change}/*.model.ts`). `error-plugin` usa `!isProduction` para preservar semântica "dev+test" do código anterior. Zero ocorrências diretas fora de `env.ts` (validado por grep).
+
+**Validação:** 162 + 132 + 19 = **313 pass / 0 fail** nos módulos afetados (env, errors, auth, payments checkout/admin-checkout/plan-change). `bunx tsc --noEmit` exit 0; `npx ultracite check` clean.
+
+**Contadores atualizados:** bucket 🟡 passou de 17 → **20 CPs concluídos** (29 ativas, 1 contenção). Onda 3 com 8/9 S's entregues. Resta só **CP-24** (S) nas próximas PRs + **PR-A** (CP-24 + M's CP-25, CP-30) e **PR-D** (CP-41 standalone).
 
 ### 2026-04-22 — Onda 3 PR-C entregue (CP-34, CP-35, CP-36, CP-37, CP-39)
 

@@ -144,19 +144,19 @@ const app = new Elysia({
   .use(auditController)
   .use(adminController)
   .use(publicController)
-  .get("/", ({ redirect }) => redirect("/health"))
-  .listen(env.PORT, ({ hostname, port }) => {
-    // Application initialization
-    registerPaymentListeners();
-    registerEmployeeListeners();
+  .get("/", ({ redirect }) => redirect("/health"));
 
-    logger.info({
-      type: "app:start",
-      message: `🦊 Elysia is running at ${hostname}:${port}`,
-      host: hostname,
-      port,
-    });
+registerPaymentListeners();
+registerEmployeeListeners();
+
+app.listen(env.PORT, ({ hostname, port }) => {
+  logger.info({
+    type: "app:start",
+    message: `🦊 Elysia is running at ${hostname}:${port}`,
+    host: hostname,
+    port,
   });
+});
 
 setupGracefulShutdown({
   app,

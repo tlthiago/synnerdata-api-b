@@ -1,8 +1,7 @@
 import { z } from "zod";
+import { isProduction } from "@/env";
 import { successResponseSchema } from "@/lib/responses/response.types";
 import { isValidCNPJ } from "@/lib/validation/documents";
-
-const isProduction = process.env.NODE_ENV === "production";
 
 const billingDataSchema = z.object({
   legalName: z.string().min(1).describe("Razao social do pagador"),
