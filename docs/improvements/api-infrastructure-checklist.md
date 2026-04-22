@@ -554,8 +554,9 @@ Organizado em **5 PRs dedicados** (refactors grandes) + ações pontuais.
 | **CP-36** | Newsletter — não revelar existência de email (retornar mesma response em duplicado e novo) | #62 | refactor | S | — |
 | **CP-37** | Version fallback em `lib/health/index.ts` — trocar `"1.0.50"` hardcoded por `"unknown"` ou ler do `package.json` | #29 | config | S | — |
 | **CP-38** | Runbook de oncall em `docs/runbooks/` — DB down, webhook Pagar.me falhando, SMTP caído, Sentry recebendo 5xx em massa | #93 | docs | M | — |
+| **CP-39** | Separar `SMTP_FROM` em duas envs — `SMTP_FROM` (apenas endereço, `z.email()` puro) + `SMTP_FROM_NAME` (display name opcional); remover `smtpFromSchema` custom; montar `from: { name, address }` em `src/lib/email.tsx`; migrar value no Coolify | Revisão de design do #17 após RU-1 | refactor | S | — |
 
-**Total bucket 🟡: 38 ações. Execução sugerida em paralelo por tema (PRs dedicados CP-1…CP-5 podem rodar em paralelo com ações pontuais).**
+**Total bucket 🟡: 39 ações. Execução sugerida em paralelo por tema (PRs dedicados CP-1…CP-5 podem rodar em paralelo com ações pontuais).**
 
 #### 🟢 Bucket Médio Prazo / Sob Demanda (quando houver sinal real)
 
@@ -594,7 +595,7 @@ Não investir antes do sinal. Cada item lista o **sinal que justifica investir**
 | Bucket | Ações | Esforço consolidado | Prazo alvo |
 |---|---|---|---|
 | 🔴 Urgente | 10 | ~7 S/M + 1 L = 2-3 semanas com foco parcial | até 30 dias |
-| 🟡 Curto prazo | 38 (5 plans dedicados + 33 pontuais) | 5 planos XL/L + ~30 S/M | 30-90 dias |
+| 🟡 Curto prazo | 39 (5 plans dedicados + 34 pontuais) | 5 planos XL/L + ~31 S/M | 30-90 dias |
 | 🟢 Médio prazo | 21 | Sob demanda | indefinido (monitorar sinais) |
 
 **Princípios de execução:**
@@ -714,7 +715,7 @@ Aplicação a este roadmap:
 
 | Tipo | Ações no roadmap | Fluxo recomendado |
 |---|---|---|
-| **S** | RU-1, RU-2, RU-3, RU-4, RU-5, RU-10, CP pontuais (CP-7, CP-8, CP-9, CP-10, CP-11, CP-12, CP-13, CP-20, CP-21, CP-22, CP-23, CP-26, CP-27, CP-29, CP-31, CP-34, CP-35, CP-36, CP-37) | Branch simples a partir de `preview` → implementação + testes → PR → merge. Descrição do PR substitui plano formal |
+| **S** | RU-1, RU-2, RU-3, RU-4, RU-5, RU-10, CP pontuais (CP-7, CP-8, CP-9, CP-10, CP-11, CP-12, CP-13, CP-20, CP-21, CP-22, CP-23, CP-26, CP-27, CP-29, CP-31, CP-34, CP-35, CP-36, CP-37, CP-39) | Branch simples a partir de `preview` → implementação + testes → PR → merge. Descrição do PR substitui plano formal |
 | **M** | RU-6, RU-7, RU-8, CP-6, CP-15, CP-17, CP-18, CP-19, CP-25, CP-30, CP-32, CP-38 | Compozy completo: `/cy-create-prd` → `/cy-create-techspec` → `/cy-create-tasks` → `compozy start` → `/cy-final-verify` |
 | **L** | RU-9, CP-3, CP-4, CP-5 | Compozy completo + `/cy-review-round` para cobertura extensa |
 | **XL** | CP-1, CP-2 | Compozy completo + council (security-advocate + architect-advisor + devils-advocate) debatendo decisões + `cy-workflow-memory` para estado entre sub-PRs |
@@ -1348,6 +1349,14 @@ Rodados testes que cobrem as áreas a serem tocadas pelo bucket 🔴 para confir
 - Extensão `cy-idea-factory` — traz council de 6 agentes (security-advocate, architect-advisor, pragmatic-engineer, product-mind, devils-advocate, the-thinker) e skill `/cy-idea-factory`. Motivo: roadmap atual (bucket 🔴 + maior parte do 🟡) já tem escopo claro do audit; council é overkill para ações bem escopadas. Instalar apenas antes de CP-1/CP-2 (XL) ou qualquer item do bucket 🟢 (decisões com múltiplos trade-offs sem design pronto)
 
 **Estado:** pronto para iniciar Fase 3. Próxima ação — **RU-1 (hardening `env.ts`)** via fluxo simples (branch direta, sem Compozy).
+
+### 2026-04-22 — Hotfix SMTP_FROM (regressão de RU-1)
+
+Deploy em produção quebrou no boot do container: `SMTP_FROM="Synnerdata <contato@synnerdata.com.br>"` (formato RFC 5322 display name) não passa no `z.email()` apertado pela RU-1.
+
+**Hotfix em `preview`** (commit `a809a66`): novo `smtpFromSchema` via `.refine()` extrai o endereço do formato `Name <email>` e delega ao `z.email()`. Aceita os dois formatos suportados pelo Nodemailer. Baseline de testes mantido + 2 casos novos (aceita display name válido; rejeita display name com email inválido). 26/26 testes verdes, lint limpo.
+
+**CP-39 registrado** no bucket 🟡 (Qualidade geral): separar `SMTP_FROM` em `SMTP_FROM` (endereço puro) + `SMTP_FROM_NAME` (display name opcional). O hotfix acomoda a regressão; o design de longo prazo é separar concerns, permitindo `z.email()` sem refine. Esforço S, sem dependências.
 
 ### 2026-04-21 — RU-1 concluído (hardening `src/env.ts`)
 
