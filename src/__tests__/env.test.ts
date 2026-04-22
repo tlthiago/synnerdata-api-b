@@ -1,22 +1,6 @@
 import { describe, expect, test } from "bun:test";
 import { envSchema } from "@/env";
 
-/**
- * RU-1 — hardening do `src/env.ts`.
- *
- * Cobre débitos #14-19 da seção 7.7 de `docs/improvements/api-infrastructure-checklist.md`:
- *   #14 — BETTER_AUTH_SECRET sem .min(32)
- *   #15 — SMTP_USER / SMTP_PASSWORD opcional sem refine condicional em produção
- *   #16 — PII_ENCRYPTION_KEY.length(64) não valida hex
- *   #17 — SMTP_FROM: z.string() aceita não-email
- *   #18 — NODE_ENV não validado no schema
- *   #19 — CORS_ORIGIN formato comma-separated implícito (documentar via .describe())
- *
- * Política de teste: categoria (3) — teste mínimo focado. Cobre apenas as
- * regras novas, não toda a superfície do env.
- */
-
-// Valores mínimos válidos — reusados em cada teste com overrides pontuais.
 const VALID_ENV = {
   NODE_ENV: "test",
   PORT: "3333",
@@ -40,7 +24,7 @@ const VALID_ENV = {
   PII_ENCRYPTION_KEY: "f".repeat(64),
 } as const;
 
-describe("envSchema — BETTER_AUTH_SECRET minimum length (débito #14)", () => {
+describe("envSchema — BETTER_AUTH_SECRET minimum length", () => {
   test("rejects value shorter than 32 chars", () => {
     expect(() =>
       envSchema.parse({ ...VALID_ENV, BETTER_AUTH_SECRET: "a".repeat(31) })
@@ -60,7 +44,7 @@ describe("envSchema — BETTER_AUTH_SECRET minimum length (débito #14)", () => 
   });
 });
 
-describe("envSchema — PII_ENCRYPTION_KEY hex format (débito #16)", () => {
+describe("envSchema — PII_ENCRYPTION_KEY hex format", () => {
   test("rejects 64-char non-hex value", () => {
     expect(() =>
       envSchema.parse({ ...VALID_ENV, PII_ENCRYPTION_KEY: "z".repeat(64) })
@@ -105,7 +89,7 @@ describe("envSchema — PII_ENCRYPTION_KEY hex format (débito #16)", () => {
   });
 });
 
-describe("envSchema — SMTP_FROM email validation (débito #17)", () => {
+describe("envSchema — SMTP_FROM email validation", () => {
   test("rejects non-email string", () => {
     expect(() =>
       envSchema.parse({ ...VALID_ENV, SMTP_FROM: "not-an-email" })
@@ -125,7 +109,7 @@ describe("envSchema — SMTP_FROM email validation (débito #17)", () => {
   });
 });
 
-describe("envSchema — NODE_ENV enum (débito #18)", () => {
+describe("envSchema — NODE_ENV enum", () => {
   test("rejects invalid value (typo)", () => {
     expect(() =>
       envSchema.parse({ ...VALID_ENV, NODE_ENV: "prdoction" })
@@ -143,8 +127,6 @@ describe("envSchema — NODE_ENV enum (débito #18)", () => {
     "production",
     "test",
   ] as const)("accepts %s", (value) => {
-    // production precisa de SMTP_USER/SMTP_PASSWORD (db #15) — para este teste de enum,
-    // passamos valores válidos também
     expect(() =>
       envSchema.parse({
         ...VALID_ENV,
@@ -163,7 +145,7 @@ describe("envSchema — NODE_ENV enum (débito #18)", () => {
   });
 });
 
-describe("envSchema — SMTP credentials required in production (débito #15)", () => {
+describe("envSchema — SMTP credentials required in production", () => {
   test("rejects production without SMTP_USER", () => {
     expect(() =>
       envSchema.parse({

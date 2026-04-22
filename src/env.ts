@@ -1,20 +1,6 @@
 import "dotenv/config";
 import { z } from "zod";
 
-/**
- * Environment variables schema.
- *
- * Validated at application boot via `envSchema.parse(process.env)`.
- * Exported for testing purposes — see `src/__tests__/env.test.ts`.
- *
- * Hardening (RU-1):
- *   - NODE_ENV restricted to enum (development/production/test)
- *   - BETTER_AUTH_SECRET requires minimum 32 characters
- *   - PII_ENCRYPTION_KEY must be 64 hex characters (openssl rand -hex 32)
- *   - SMTP_FROM must be a valid email
- *   - In production, SMTP_USER and SMTP_PASSWORD are mandatory
- *   - CORS_ORIGIN format (comma-separated origins) documented via .describe()
- */
 export const envSchema = z
   .object({
     NODE_ENV: z
@@ -42,20 +28,15 @@ export const envSchema = z
     SMTP_USER: z.string().optional(),
     SMTP_PASSWORD: z.string().optional(),
     SMTP_FROM: z.email().default("noreply@synnerdata.com"),
-    // Admin emails - users with these emails will be assigned admin roles on signup
     SUPER_ADMIN_EMAILS: z.string().default(""),
     ADMIN_EMAILS: z.string().default(""),
-    // Internal API key for scheduled jobs endpoints
     INTERNAL_API_KEY: z.string().min(32),
-    // PII Encryption key - 32 bytes hex (64 hexadecimal characters)
-    // Generate with: openssl rand -hex 32
     PII_ENCRYPTION_KEY: z
       .string()
       .regex(
         /^[0-9a-fA-F]{64}$/,
         "PII_ENCRYPTION_KEY must be 64 hexadecimal characters (generate with: openssl rand -hex 32)"
       ),
-    // Sentry/GlitchTip DSN for error tracking (optional — disabled when absent)
     SENTRY_DSN: z.url().optional(),
   })
   .superRefine((val, ctx) => {
