@@ -6,6 +6,7 @@ import { calculateDaysBetween } from "@/lib/schemas/date-helpers";
 import { computePeriodsFromHireDate } from "@/modules/occurrences/vacations/period-calculation";
 import {
   VacationAlreadyDeletedError,
+  VacationAquisitivoExceededError,
   VacationDateBeforeHireError,
   VacationInvalidDateRangeError,
   VacationInvalidDaysError,
@@ -19,6 +20,8 @@ import type {
   UpdateVacationInput,
   VacationData,
 } from "./vacation.model";
+
+const MAX_VACATION_DAYS_PER_AQUISITIVO = 30;
 
 const SELECT_FIELDS = {
   id: schema.vacations.id,
@@ -42,6 +45,59 @@ const SELECT_FIELDS = {
 } as const;
 
 export abstract class VacationService {
+  private static async ensureAquisitivoLimit(args: {
+    employeeId: string;
+    organizationId: string;
+    acquisitionPeriodStart: string | null;
+    acquisitionPeriodEnd: string | null;
+    requestedDays: number;
+    excludeId?: string;
+  }): Promise<void> {
+    // Legacy records may have null aquisitivo snapshots. The sum is
+    // unanchored — skip the check. Per-record Zod .max(30) still
+    // protects against obviously-invalid payloads.
+    if (
+      args.acquisitionPeriodStart === null ||
+      args.acquisitionPeriodEnd === null
+    ) {
+      return;
+    }
+
+    const conditions = [
+      eq(schema.vacations.organizationId, args.organizationId),
+      eq(schema.vacations.employeeId, args.employeeId),
+      eq(schema.vacations.acquisitionPeriodStart, args.acquisitionPeriodStart),
+      sql`${schema.vacations.status} != 'canceled'`,
+      isNull(schema.vacations.deletedAt),
+    ];
+    if (args.excludeId) {
+      conditions.push(sql`${schema.vacations.id} != ${args.excludeId}`);
+    }
+
+    const [row] = await db
+      .select({
+        total: sql<number>`COALESCE(SUM(${schema.vacations.daysEntitled}), 0)::int`,
+      })
+      .from(schema.vacations)
+      .where(and(...conditions));
+
+    const currentTotal = row?.total ?? 0;
+    const projectedTotal = currentTotal + args.requestedDays;
+
+    if (projectedTotal > MAX_VACATION_DAYS_PER_AQUISITIVO) {
+      throw new VacationAquisitivoExceededError({
+        acquisitionPeriodStart: args.acquisitionPeriodStart,
+        acquisitionPeriodEnd: args.acquisitionPeriodEnd,
+        currentTotal,
+        requestedDays: args.requestedDays,
+        daysRemaining: Math.max(
+          0,
+          MAX_VACATION_DAYS_PER_AQUISITIVO - currentTotal
+        ),
+      });
+    }
+  }
+
   private static async findById(
     id: string,
     organizationId: string
@@ -258,6 +314,14 @@ export abstract class VacationService {
       data.daysEntitled,
       data.daysUsed
     );
+
+    await VacationService.ensureAquisitivoLimit({
+      employeeId: data.employeeId,
+      organizationId,
+      acquisitionPeriodStart: periods.acquisitionPeriodStart,
+      acquisitionPeriodEnd: periods.acquisitionPeriodEnd,
+      requestedDays: data.daysEntitled,
+    });
 
     await VacationService.ensureNoOverlap({
       organizationId,

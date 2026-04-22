@@ -710,4 +710,311 @@ describe("POST /v1/vacations", () => {
 
     expect(response.status).toBe(200);
   });
+
+  test("accepts 2nd vacation in same aquisitivo when sum <= 30", async () => {
+    const { headers, organizationId, user } =
+      await createTestUserWithOrganization({
+        emailVerified: true,
+        skipTrialCreation: true,
+      });
+    const { employee } = await createTestEmployee({
+      organizationId,
+      userId: user.id,
+      hireDate: "2024-06-10",
+      acquisitionPeriodStart: null,
+      acquisitionPeriodEnd: null,
+    });
+
+    const first = await app.handle(
+      new Request(`${BASE_URL}/v1/vacations`, {
+        method: "POST",
+        headers: { ...headers, "Content-Type": "application/json" },
+        body: JSON.stringify({
+          employeeId: employee.id,
+          startDate: "2026-07-01",
+          endDate: "2026-07-20", // 20 days
+          daysEntitled: 20,
+          daysUsed: 0,
+          status: "scheduled",
+        }),
+      })
+    );
+    expect(first.status).toBe(200);
+
+    const second = await app.handle(
+      new Request(`${BASE_URL}/v1/vacations`, {
+        method: "POST",
+        headers: { ...headers, "Content-Type": "application/json" },
+        body: JSON.stringify({
+          employeeId: employee.id,
+          startDate: "2026-08-01",
+          endDate: "2026-08-10", // 10 days, totals 30 in aquisitivo
+          daysEntitled: 10,
+          daysUsed: 0,
+          status: "scheduled",
+        }),
+      })
+    );
+    expect(second.status).toBe(200);
+  });
+
+  test("rejects 2nd vacation in same aquisitivo when sum > 30 (CLT art. 130)", async () => {
+    const { headers, organizationId, user } =
+      await createTestUserWithOrganization({
+        emailVerified: true,
+        skipTrialCreation: true,
+      });
+    const { employee } = await createTestEmployee({
+      organizationId,
+      userId: user.id,
+      hireDate: "2024-06-10",
+      acquisitionPeriodStart: null,
+      acquisitionPeriodEnd: null,
+    });
+
+    await app.handle(
+      new Request(`${BASE_URL}/v1/vacations`, {
+        method: "POST",
+        headers: { ...headers, "Content-Type": "application/json" },
+        body: JSON.stringify({
+          employeeId: employee.id,
+          startDate: "2026-07-01",
+          endDate: "2026-07-20", // 20 days
+          daysEntitled: 20,
+          daysUsed: 0,
+          status: "scheduled",
+        }),
+      })
+    );
+
+    const second = await app.handle(
+      new Request(`${BASE_URL}/v1/vacations`, {
+        method: "POST",
+        headers: { ...headers, "Content-Type": "application/json" },
+        body: JSON.stringify({
+          employeeId: employee.id,
+          startDate: "2026-08-01",
+          endDate: "2026-08-15", // 15 days, would total 35
+          daysEntitled: 15,
+          daysUsed: 0,
+          status: "scheduled",
+        }),
+      })
+    );
+
+    expect(second.status).toBe(422);
+    const body = await second.json();
+    expect(body.error.code).toBe("VACATION_AQUISITIVO_EXCEEDED");
+    expect(body.error.details.daysRemaining).toBe(10);
+    expect(body.error.details.currentTotal).toBe(20);
+    expect(body.error.details.requestedDays).toBe(15);
+  });
+
+  test("boundary: accepts 2nd vacation when sum equals exactly 30", async () => {
+    const { headers, organizationId, user } =
+      await createTestUserWithOrganization({
+        emailVerified: true,
+        skipTrialCreation: true,
+      });
+    const { employee } = await createTestEmployee({
+      organizationId,
+      userId: user.id,
+      hireDate: "2024-06-10",
+      acquisitionPeriodStart: null,
+      acquisitionPeriodEnd: null,
+    });
+
+    await app.handle(
+      new Request(`${BASE_URL}/v1/vacations`, {
+        method: "POST",
+        headers: { ...headers, "Content-Type": "application/json" },
+        body: JSON.stringify({
+          employeeId: employee.id,
+          startDate: "2026-07-01",
+          endDate: "2026-07-29", // 29 days
+          daysEntitled: 29,
+          daysUsed: 0,
+          status: "scheduled",
+        }),
+      })
+    );
+
+    const second = await app.handle(
+      new Request(`${BASE_URL}/v1/vacations`, {
+        method: "POST",
+        headers: { ...headers, "Content-Type": "application/json" },
+        body: JSON.stringify({
+          employeeId: employee.id,
+          startDate: "2026-08-05",
+          endDate: "2026-08-05", // 1 day, totals 30 exactly
+          daysEntitled: 1,
+          daysUsed: 0,
+          status: "scheduled",
+        }),
+      })
+    );
+    expect(second.status).toBe(200);
+  });
+
+  test("limit is scoped per aquisitivo — consecutive aquisitivos are independent", async () => {
+    const { headers, organizationId, user } =
+      await createTestUserWithOrganization({
+        emailVerified: true,
+        skipTrialCreation: true,
+      });
+    const { employee } = await createTestEmployee({
+      organizationId,
+      userId: user.id,
+      hireDate: "2024-06-10",
+      acquisitionPeriodStart: null,
+      acquisitionPeriodEnd: null,
+    });
+
+    // 1st aquisitivo: 2024-06-10 / 2025-06-09 (startDate 2026-05-01 → completed=1, index=0)
+    const firstAq = await app.handle(
+      new Request(`${BASE_URL}/v1/vacations`, {
+        method: "POST",
+        headers: { ...headers, "Content-Type": "application/json" },
+        body: JSON.stringify({
+          employeeId: employee.id,
+          startDate: "2026-05-01",
+          endDate: "2026-05-30", // 30 days
+          daysEntitled: 30,
+          daysUsed: 0,
+          status: "scheduled",
+        }),
+      })
+    );
+    expect(firstAq.status).toBe(200);
+
+    // 2nd aquisitivo: 2025-06-10 / 2026-06-09 (startDate 2027-02-01 → completed=2, index=1)
+    const secondAq = await app.handle(
+      new Request(`${BASE_URL}/v1/vacations`, {
+        method: "POST",
+        headers: { ...headers, "Content-Type": "application/json" },
+        body: JSON.stringify({
+          employeeId: employee.id,
+          startDate: "2027-02-01",
+          endDate: "2027-03-02", // 30 days in a different aquisitivo
+          daysEntitled: 30,
+          daysUsed: 0,
+          status: "scheduled",
+        }),
+      })
+    );
+    expect(secondAq.status).toBe(200);
+  });
+
+  test("canceled vacations do not count toward the aquisitivo sum", async () => {
+    const { headers, organizationId, user } =
+      await createTestUserWithOrganization({
+        emailVerified: true,
+        skipTrialCreation: true,
+      });
+    const { employee } = await createTestEmployee({
+      organizationId,
+      userId: user.id,
+      hireDate: "2024-06-10",
+      acquisitionPeriodStart: null,
+      acquisitionPeriodEnd: null,
+    });
+
+    const firstResponse = await app.handle(
+      new Request(`${BASE_URL}/v1/vacations`, {
+        method: "POST",
+        headers: { ...headers, "Content-Type": "application/json" },
+        body: JSON.stringify({
+          employeeId: employee.id,
+          startDate: "2026-07-01",
+          endDate: "2026-07-30",
+          daysEntitled: 30,
+          daysUsed: 0,
+          status: "scheduled",
+        }),
+      })
+    );
+    expect(firstResponse.status).toBe(200);
+    const { data: first } = await firstResponse.json();
+
+    const cancelResponse = await app.handle(
+      new Request(`${BASE_URL}/v1/vacations/${first.id}`, {
+        method: "PUT",
+        headers: { ...headers, "Content-Type": "application/json" },
+        body: JSON.stringify({ status: "canceled" }),
+      })
+    );
+    expect(cancelResponse.status).toBe(200);
+
+    const second = await app.handle(
+      new Request(`${BASE_URL}/v1/vacations`, {
+        method: "POST",
+        headers: { ...headers, "Content-Type": "application/json" },
+        body: JSON.stringify({
+          employeeId: employee.id,
+          startDate: "2026-09-01",
+          endDate: "2026-09-30",
+          daysEntitled: 30,
+          daysUsed: 0,
+          status: "scheduled",
+        }),
+      })
+    );
+    expect(second.status).toBe(200);
+  });
+
+  test("deleted vacations do not count toward the aquisitivo sum", async () => {
+    const { headers, organizationId, user } =
+      await createTestUserWithOrganization({
+        emailVerified: true,
+        skipTrialCreation: true,
+      });
+    const { employee } = await createTestEmployee({
+      organizationId,
+      userId: user.id,
+      hireDate: "2024-06-10",
+      acquisitionPeriodStart: null,
+      acquisitionPeriodEnd: null,
+    });
+
+    const firstResponse = await app.handle(
+      new Request(`${BASE_URL}/v1/vacations`, {
+        method: "POST",
+        headers: { ...headers, "Content-Type": "application/json" },
+        body: JSON.stringify({
+          employeeId: employee.id,
+          startDate: "2026-07-01",
+          endDate: "2026-07-30",
+          daysEntitled: 30,
+          daysUsed: 0,
+          status: "scheduled",
+        }),
+      })
+    );
+    expect(firstResponse.status).toBe(200);
+    const { data: first } = await firstResponse.json();
+
+    const deleteResponse = await app.handle(
+      new Request(`${BASE_URL}/v1/vacations/${first.id}`, {
+        method: "DELETE",
+        headers,
+      })
+    );
+    expect(deleteResponse.status).toBe(200);
+
+    const second = await app.handle(
+      new Request(`${BASE_URL}/v1/vacations`, {
+        method: "POST",
+        headers: { ...headers, "Content-Type": "application/json" },
+        body: JSON.stringify({
+          employeeId: employee.id,
+          startDate: "2026-09-01",
+          endDate: "2026-09-30",
+          daysEntitled: 30,
+          daysUsed: 0,
+          status: "scheduled",
+        }),
+      })
+    );
+    expect(second.status).toBe(200);
+  });
 });
