@@ -17,6 +17,7 @@ import { and, eq } from "drizzle-orm";
 import { db } from "@/db";
 import { fullSchema, type Role, roleValues, schema } from "@/db/schema";
 import { env, isTest } from "@/env";
+import { getAdminEmails, handleWelcomeEmail } from "@/lib/auth/admin-helpers";
 import { parseOrigins } from "@/lib/cors";
 import { logger } from "@/lib/logger";
 import { AuditService } from "@/modules/audit/audit.service";
@@ -28,7 +29,6 @@ import {
   sendProvisionActivationEmail,
   sendTwoFactorOTPEmail,
   sendVerificationEmail as sendVerificationEmailFn,
-  sendWelcomeEmail,
 } from "./email";
 import { validatePasswordComplexity } from "./password-complexity";
 import { orgAc, orgRoles, systemAc, systemRoles } from "./permissions";
@@ -43,30 +43,6 @@ export type AuthSession = Session & {
 export type AuthUser = User & {
   role: string;
 };
-
-function getAdminEmails(): { superAdmins: string[]; admins: string[] } {
-  const superAdmins = env.SUPER_ADMIN_EMAILS.split(",").filter(Boolean);
-  const admins = env.ADMIN_EMAILS.split(",").filter(Boolean);
-  return { superAdmins, admins };
-}
-
-async function handleWelcomeEmail(user: {
-  email: string;
-  name: string;
-}): Promise<void> {
-  try {
-    await sendWelcomeEmail({
-      to: user.email,
-      userName: user.name,
-    });
-  } catch (error) {
-    logger.error({
-      type: "email:welcome:failed",
-      email: user.email,
-      error: error instanceof Error ? error.message : String(error),
-    });
-  }
-}
 
 async function auditUserCreate(user: {
   id: string;
