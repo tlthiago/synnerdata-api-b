@@ -1,7 +1,7 @@
 import { beforeAll, describe, expect, test } from "bun:test";
 import { Elysia } from "elysia";
 import { rateLimit } from "elysia-rate-limit";
-import { errorPlugin } from "@/lib/errors/error-plugin";
+import { errorPlugin } from "@/plugins/errors/error-plugin";
 
 const RATE_LIMIT_SKIP_PATHS = ["/health", "/health/live", "/api/auth"];
 

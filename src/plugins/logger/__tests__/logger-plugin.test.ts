@@ -1,7 +1,7 @@
 import { describe, expect, test } from "bun:test";
 import { Elysia } from "elysia";
 import { AppError } from "@/lib/errors/base-error";
-import { errorPlugin } from "@/lib/errors/error-plugin";
+import { errorPlugin } from "@/plugins/errors/error-plugin";
 import { loggerPlugin } from "../logger-plugin";
 
 // UUIDv4: xxxxxxxx-xxxx-4xxx-yxxx-xxxxxxxxxxxx (version 4)
