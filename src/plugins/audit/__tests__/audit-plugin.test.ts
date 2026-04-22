@@ -3,8 +3,8 @@ import { desc, eq } from "drizzle-orm";
 import { Elysia } from "elysia";
 import { db } from "@/db";
 import { schema } from "@/db/schema";
-import { type AuditEntry, auditPlugin } from "@/lib/audit/audit-plugin";
 import type { AuthSession, AuthUser } from "@/lib/auth";
+import { type AuditEntry, auditPlugin } from "@/plugins/audit/audit-plugin";
 import { createTestOrganization } from "@/test/helpers/organization";
 
 type AuditContext = { audit: (entry: AuditEntry) => Promise<void> };
