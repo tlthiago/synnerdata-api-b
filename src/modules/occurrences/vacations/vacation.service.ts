@@ -500,6 +500,17 @@ export abstract class VacationService {
       );
     }
 
+    if (data.daysEntitled !== undefined) {
+      await VacationService.ensureAquisitivoLimit({
+        employeeId: existing.employee.id,
+        organizationId,
+        acquisitionPeriodStart: existing.acquisitionPeriodStart,
+        acquisitionPeriodEnd: existing.acquisitionPeriodEnd,
+        requestedDays: merged.daysEntitled,
+        excludeId: id,
+      });
+    }
+
     if (data.startDate !== undefined || data.endDate !== undefined) {
       await VacationService.ensureNoOverlap({
         organizationId,
