@@ -12,7 +12,7 @@ Log de ações para compliance. Registra quem fez o quê, quando e onde.
 ## Enums
 
 - action: `create` | `read` | `update` | `delete` | `export` | `login` | `logout` | `accept`
-- resource: `user` | `session` | `organization` | `member` | `employee` | `document` | `medical_certificate` | `labor_lawsuit` | `subscription` | `export` | `api_key` | `invitation`
+- resource: `user` | `session` | `organization` | `member` | `employee` | `document` | `medical_certificate` | `labor_lawsuit` | `cpf_analysis` | `subscription` | `export` | `api_key` | `invitation`
 
 ## Fields
 
@@ -72,6 +72,44 @@ Diff minimal + PII redacted = rastreabilidade de compliance (LGPD Art. 18/48) se
 - `admin/api-keys` (create/revoke/delete — adicionado em RU-6)
 
 Novos módulos que forem auditados devem seguir o mesmo padrão.
+
+## Read Audit (CP-43)
+
+GET handlers de recursos sensíveis (Art. 11/18 LGPD) logam acessos via `auditPlugin` em `src/plugins/audit/audit-plugin.ts`:
+
+```ts
+import { auditPlugin } from "@/plugins/audit/audit-plugin";
+
+export const controller = new Elysia({ ... })
+  .use(betterAuthPlugin)
+  .use(auditPlugin)   // ordem importa — auditPlugin lê user/session do ctx
+  .get("/:id", async ({ params, audit, session }) => {
+    const data = await Service.findByIdOrThrow(params.id, session.activeOrganizationId);
+    await audit({
+      action: "read",
+      resource: "medical_certificate",
+      resourceId: params.id,
+    });
+    return wrapSuccess(data);
+  }, { auth: { permissions: { ... }, requireOrganization: true } });
+```
+
+### Regras
+
+- Audit **só em sucesso** — chamada vem após o service resolver, então 404/403 não geram log (ficam no logger/Sentry)
+- **GET individual + export**: sempre auditar
+- **GET listagem** (`/`): não audita — cada request vira um log por request, sem `resourceId` específico; listagem já fica no log HTTP
+- **`changes: null`** em read — não há antes/depois; o tuplo `(userId, resourceId, ipAddress, userAgent, createdAt)` é suficiente para reconstituir acesso
+- **`auditPlugin` deve ser mountado APÓS `betterAuthPlugin`** no controller — o plugin lê `user`/`session` do ctx injetado pelo macro `auth`
+
+### Resources cobertos
+
+- `employee` — GET `/:id` (retorna PII: CPF, salário, email, phone, birthDate)
+- `medical_certificate` — GET `/:id` (Art. 11: dado de saúde; inclui CID)
+- `cpf_analysis` — GET `/:id` (score de risco atrelado ao CPF)
+- `labor_lawsuit` — GET `/:id` (processo trabalhista)
+
+Novos recursos sensíveis devem seguir o mesmo padrão: `.use(auditPlugin)` + chamada de `audit({ action: "read", ... })` no handler.
 
 ## Query & Filtering
 
