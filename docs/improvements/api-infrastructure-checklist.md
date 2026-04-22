@@ -262,9 +262,9 @@ Seção específica do projeto. Começa pelo **status atual** da iniciativa (7.0
 | **0. Contexto aplicado** | ✅ Concluída | 2026-04-21 | Seções 7.1–7.3, 7.6, 7.7 preenchidas + convenção semântica + 10 débitos pré-audit |
 | **1. Audit item a item** | ✅ Concluída | 2026-04-21 | Status nas seções 4 e 5 preenchidos (~65 itens); 95 débitos totais em 7.7; relatório em [`docs/reports/2026-04-21-api-infrastructure-audit.md`](../reports/2026-04-21-api-infrastructure-audit.md) |
 | **2. Roadmap priorizado** | ✅ Concluída | 2026-04-21 | Seção 7.5 com 69 ações organizadas em 3 buckets (🔴 10 urgentes / 🟡 38 curto prazo / 🟢 21 sob demanda) com IDs, dependências, tipo e esforço |
-| **3. Execução** | 🔄 Em execução | 2026-04-22 | RU-1 (env.ts), RU-2 (requestId no erro) concluídas e mergeadas em `preview`. Hotfix SMTP_FROM aplicado. CP-39 registrado como follow-up. 2/10 ações do bucket 🔴 concluídas. |
+| **3. Execução** | 🔄 Em execução | 2026-04-22 | RU-1 (env.ts), RU-2 (requestId no erro), RU-3 (idleTimeout explícito) concluídas e mergeadas em `preview`. Hotfix SMTP_FROM aplicado. CP-39 registrado como follow-up. 3/10 ações do bucket 🔴 concluídas. |
 
-**➡️ Próxima ação:** **RU-3 (request timeout global)** via branch simples a partir de `preview` — configurar `serve.idleTimeout` / equivalente Bun em `src/index.ts`, extrair `REQUEST_TIMEOUT_MS`. Ação S, sem dependências.
+**➡️ Próxima ação:** **RU-4 (`bun pm audit` no CI)** via branch simples a partir de `preview` — adicionar step em `.github/workflows/lint.yml` com `--audit-level=high`, atualizar README. Ação S, sem dependências.
 
 ### 7.1 Contexto do projeto
 
@@ -975,7 +975,7 @@ Pré-audit — itens de **organização semântica** detectados no `src/` atual.
 | 17 | ~~`env.ts` — `SMTP_FROM: z.string()`~~ | ✅ **Resolvido em RU-1 (2026-04-21)** — trocado por `z.email().default(...)` |
 | 18 | ~~`env.ts` — `NODE_ENV` não validado no schema~~ | ✅ **Resolvido em RU-1 (2026-04-21)** — `NODE_ENV: z.enum(["development","production","test"]).default("development")`; `isProduction` agora lê de `env.NODE_ENV` |
 | 19 | ~~`env.ts` — `CORS_ORIGIN` formato comma-separated implícito~~ | ✅ **Resolvido em RU-1 (2026-04-21)** — `.describe()` documenta formato comma-separated (parser delegado a `parseOrigins` em `lib/cors.ts`) |
-| 20 | **Falta request timeout global** | Elysia/Bun default é 255s (`idleTimeout`), mas sem controle explícito | Configurar `serve.idleTimeout` explícito em `src/index.ts` ou plugin dedicado |
+| 20 | **Falta request timeout global** | Bun.serve default atual é **10s** (`idleTimeout`; 255s era default antigo). O valor atual é razoável, mas depende de default implícito — sem controle explícito no código | Configurar `serve.idleTimeout` explícito em `src/index.ts` ou plugin dedicado |
 
 #### Débitos descobertos no Bloco 2 da Fase 1 (2026-04-21)
 
@@ -1181,7 +1181,7 @@ A consultar via `context7` e docs oficiais quando surgir gap específico — **n
 - **Débitos #1 (plugins mistos), #8 (emails duplicado) e #22 (audit bloqueante)** são os de maior impacto — merecem PRs dedicados
 - Demais débitos (#2–#7, #9–#21, #23–#30) são oportunistas: resolvem quando a Fase 3 tocar na área
 - Exceto #22, nenhum débito **bloqueia o MVP funcional** — são organização semântica + hardening leve
-- Débito **#20 (request timeout)** é hardening real — entra no bucket 🟡 early-stage (o default de 255s é tolerável em MVP)
+- Débito **#20 (request timeout)** é hardening real — entra no bucket 🟡 early-stage (o default atual do Bun de 10s é razoável mas implícito no código; tornar explícito reduz acoplamento com default do runtime)
 
 ---
 
@@ -1349,6 +1349,27 @@ Rodados testes que cobrem as áreas a serem tocadas pelo bucket 🔴 para confir
 - Extensão `cy-idea-factory` — traz council de 6 agentes (security-advocate, architect-advisor, pragmatic-engineer, product-mind, devils-advocate, the-thinker) e skill `/cy-idea-factory`. Motivo: roadmap atual (bucket 🔴 + maior parte do 🟡) já tem escopo claro do audit; council é overkill para ações bem escopadas. Instalar apenas antes de CP-1/CP-2 (XL) ou qualquer item do bucket 🟢 (decisões com múltiplos trade-offs sem design pronto)
 
 **Estado:** pronto para iniciar Fase 3. Próxima ação — **RU-1 (hardening `env.ts`)** via fluxo simples (branch direta, sem Compozy).
+
+### 2026-04-22 — RU-3 concluída (idleTimeout explícito)
+
+**Ação S** no bucket 🔴. Adiciona `idleTimeout: 30` ao `serve` config em `src/index.ts`, extraído como constante `REQUEST_IDLE_TIMEOUT_SECONDS`.
+
+**Descoberta durante a execução**: o débito #20 original afirmava que "Bun default é 255s" — está **errado**. A doc atual do Bun confirma default de **10 segundos** (255s é o valor *máximo* permitido). Correção aplicada no débito #20 em 7.7 e na nota logo abaixo da tabela de débitos. Isso rebaixou a urgência percebida de RU-3 — a API nunca esteve pendurada indefinidamente — mas mantém-se o valor de explicitar para reduzir acoplamento com default implícito.
+
+**Valor escolhido (30s)**: 3x o default atual do Bun, com margem pra queries de DP pesadas (relatórios via API key do Power BI do cliente), chamadas externas (Pagar.me, SMTP) e webhooks. Ainda bem abaixo do máximo (255s). Para endpoints long-running futuros (streaming/export), usar `server.timeout(req, N)` per-request.
+
+**Naming**: usa-se `REQUEST_IDLE_TIMEOUT_SECONDS` em vez do `REQUEST_TIMEOUT_MS` sugerido inicialmente no checklist — mantém a unidade da API do Bun, evita conversão mental. Não é env var: é runtime config que raramente muda entre ambientes.
+
+**Política de teste**: categoria (4) N/A conforme 7.5.2 — teste de timeout real é custoso. Validação:
+- ✅ `bun run lint:types` — clean
+- ✅ `npx ultracite check src/index.ts` — clean
+- Smoke test visual no boot: aplicação sobe sem erro com nova config de serve
+
+**Débito resolvido em 7.7:** #20 (request timeout global ausente).
+
+**Lições:**
+- **Validar premissas do checklist antes de implementar**: o débito #20 era baseado em um valor default errado (255s vs 10s real). A correção só saiu porque pesquisei a doc atual do Bun antes de codar. Próximas RUs de hardening de runtime: sempre validar defaults na doc atual da lib/runtime.
+- **Nome da constante ≠ nome no checklist**: o checklist sugeria `REQUEST_TIMEOUT_MS`. Não segui — a API do Bun é em segundos, e forçar `_MS` exigiria conversão. Discordar do texto do checklist é válido quando a razão técnica bate.
 
 ### 2026-04-22 — RU-2 concluída (requestId no body do erro)
 
