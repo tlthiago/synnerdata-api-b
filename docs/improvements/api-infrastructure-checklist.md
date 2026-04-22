@@ -262,9 +262,9 @@ Seção específica do projeto. Começa pelo **status atual** da iniciativa (7.0
 | **0. Contexto aplicado** | ✅ Concluída | 2026-04-21 | Seções 7.1–7.3, 7.6, 7.7 preenchidas + convenção semântica + 10 débitos pré-audit |
 | **1. Audit item a item** | ✅ Concluída | 2026-04-21 | Status nas seções 4 e 5 preenchidos (~65 itens); 95 débitos totais em 7.7; relatório em [`docs/reports/2026-04-21-api-infrastructure-audit.md`](../reports/2026-04-21-api-infrastructure-audit.md) |
 | **2. Roadmap priorizado** | ✅ Concluída | 2026-04-21 | Seção 7.5 com 69 ações organizadas em 3 buckets (🔴 10 urgentes / 🟡 38 curto prazo / 🟢 21 sob demanda) com IDs, dependências, tipo e esforço |
-| **3. Execução** | 🔄 Em execução | 2026-04-22 | RU-1..RU-7 concluídas. CP-39 + CP-40 + CP-41 + CP-42 + CP-43 registrados como follow-ups. Débito novo #96 (convenção `changes` + read audit LGPD) identificado durante RU-7. Hotfix SMTP_FROM aplicado. 7/10 ações do bucket 🔴 concluídas. |
+| **3. Execução** | 🔄 Em execução | 2026-04-22 | RU-1..RU-8 concluídas. Grupo 3 (Audit refactor: RU-6+7+8) fechado. `src/plugins/` inaugurado. CP-39..CP-43 registrados como follow-ups. Débito novo #96 identificado. Hotfix SMTP_FROM aplicado. 8/10 ações do bucket 🔴 concluídas. |
 
-**➡️ Próxima ação:** **RU-8 (mover auditPlugin para `src/plugins/audit/`)** — refactor de localização, sem mudança de comportamento. Depende de RU-7 (feito). Baseline de não-regressão: todos os 11 call-sites de `AuditService.log` + 6 tests do plugin.
+**➡️ Próxima ação:** **RU-9 (auditoria de BOLA em todos os services + testes cruzados entre orgs)** — Ação L, última do bucket 🔴 antes do runbook de backup (RU-10, S/docs). Usar pipeline Compozy conforme metodologia 7.5.1 dado o escopo amplo (varredura + testes em ≥3 módulos).
 
 ### 7.1 Contexto do projeto
 
@@ -1354,6 +1354,33 @@ Rodados testes que cobrem as áreas a serem tocadas pelo bucket 🔴 para confir
 - Extensão `cy-idea-factory` — traz council de 6 agentes (security-advocate, architect-advisor, pragmatic-engineer, product-mind, devils-advocate, the-thinker) e skill `/cy-idea-factory`. Motivo: roadmap atual (bucket 🔴 + maior parte do 🟡) já tem escopo claro do audit; council é overkill para ações bem escopadas. Instalar apenas antes de CP-1/CP-2 (XL) ou qualquer item do bucket 🟢 (decisões com múltiplos trade-offs sem design pronto)
 
 **Estado:** pronto para iniciar Fase 3. Próxima ação — **RU-1 (hardening `env.ts`)** via fluxo simples (branch direta, sem Compozy).
+
+### 2026-04-22 — RU-8 concluída (auditPlugin movido para src/plugins/)
+
+Move `src/lib/audit/audit-plugin.ts` e seus testes para `src/plugins/audit/`. Refactor de localização puro — sem mudança de comportamento.
+
+**Por que agora**: débito #5 (lib/audit convivendo com modules/audit) e #30 (plugin em lib/ quando devia estar em plugins/) são sobre organização semântica da seção 7.6: `lib/` é para utilitários puros; `plugins/` é para Elysia plugins (uso de `.derive`/`.as("scoped")`). auditPlugin pertence a plugins/.
+
+**Movimentos** (git recognized both as renames, 98% + 100% similarity):
+- `src/lib/audit/audit-plugin.ts` → `src/plugins/audit/audit-plugin.ts`
+- `src/lib/audit/__tests__/audit-plugin.test.ts` → `src/plugins/audit/__tests__/audit-plugin.test.ts`
+- `src/lib/audit/` deletado (vazio após)
+
+**Imports**: 1 import atualizado (do próprio test file). Nenhum outro importador em produção — cf. changelog de RU-7, plugin ainda sem consumidores ativos (CP-43 vai mudar isso quando adotar para read audit).
+
+**`src/plugins/` inaugurado**. É o primeiro inquilino. CP-1 (XL, bucket 🟡) vai migrar os demais (logger, health, cors, ratelimit, shutdown, auth, cron, sentry, request-context). RU-8 basicamente adiantou o primeiro caso do CP-1 porque fazia parte natural do Grupo 3 (Audit refactor).
+
+**Débitos resolvidos em 7.7**: #5 e #30.
+
+**Grupo 3 fechado** (per metodologia 7.5.1): RU-6 (audit em API keys) + RU-7 (auto-context + strict types) + RU-8 (relocation) entregues em 3 PRs sequenciais (#241, #242, próxima).
+
+**Validação**:
+- ✅ 289 testes verdes em `plugins/audit`, `modules/audit`, `api-keys`, `auth`, `subscription`.
+- ✅ `bun run lint:types` — clean.
+- ✅ `npx ultracite check src/plugins/` — clean.
+- ✅ Política (2) não-regressão: todos os 11 call-sites de `AuditService.log` direto (auth.ts, subscription-mutation, api-keys) continuam verdes. Nenhum importa de `@/lib/audit/` — grep confirmou.
+
+**Próximo grupo**: bucket 🔴 só resta RU-9 (L, BOLA audit) e RU-10 (S, runbook backup). RU-9 merece Compozy completo pela amplitude do escopo (varredura de N services + testes cruzados em ≥3 módulos).
 
 ### 2026-04-22 — RU-7 concluída (auditPlugin auto-context + strict types)
 
