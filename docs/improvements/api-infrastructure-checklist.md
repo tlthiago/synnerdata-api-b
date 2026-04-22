@@ -262,9 +262,9 @@ Seção específica do projeto. Começa pelo **status atual** da iniciativa (7.0
 | **0. Contexto aplicado** | ✅ Concluída | 2026-04-21 | Seções 7.1–7.3, 7.6, 7.7 preenchidas + convenção semântica + 10 débitos pré-audit |
 | **1. Audit item a item** | ✅ Concluída | 2026-04-21 | Status nas seções 4 e 5 preenchidos (~65 itens); 95 débitos totais em 7.7; relatório em [`docs/reports/2026-04-21-api-infrastructure-audit.md`](../reports/2026-04-21-api-infrastructure-audit.md) |
 | **2. Roadmap priorizado** | ✅ Concluída | 2026-04-21 | Seção 7.5 com 69 ações organizadas em 3 buckets (🔴 10 urgentes / 🟡 38 curto prazo / 🟢 21 sob demanda) com IDs, dependências, tipo e esforço |
-| **3. Execução** | 🔄 Em execução | 2026-04-22 | **Bucket 🔴 concluído (10/10)**. RU-1..RU-10 entregues em PRs sequenciais em `preview`. Grupo 3 fechado. `src/plugins/` inaugurado. BOLA audit completo (0 gaps). Runbook de backup em `docs/runbooks/`. CP-39..CP-45 registrados como follow-ups. Débito #96 identificado. |
+| **3. Execução** | 🔄 Em execução | 2026-04-22 | **Bucket 🔴 concluído (10/10)**. Bucket 🟡 iniciado: CP-45 e CP-40 concluídas (13 highs de deps fechados via upgrades + overrides + CI threshold subiu para `high`). RU-1..RU-10 entregues em PRs sequenciais em `preview`. Grupo 3 fechado. `src/plugins/` inaugurado. BOLA audit completo (0 gaps). Runbook de backup em `docs/runbooks/`. CP-39..CP-49 registrados como follow-ups. Débito #96 identificado. |
 
-**➡️ Próxima ação:** **Bucket 🟡 — Onda 1** (CI/segurança). Começar por **CP-40** (triagem de dev deps highs → destrava audit threshold `high` no CI), seguido dos CP-7..CP-9, CP-13, CP-20..CP-23 em PRs temáticas agrupadas. Ondas 2-5 mapeadas em 7.5 § Ordem de execução sugerida. CP-45 já concluída (2026-04-22).
+**➡️ Próxima ação:** **Bucket 🟡 — Onda 1 continua**. CP-40 e CP-45 concluídas. Próximos da Onda 1: **CP-7** (gitleaks/trufflehog), **CP-8** (SBOM Trivy), **CP-9** (Trivy fs scan), **CP-13** (secrets escopados), **CP-20** (coverage), **CP-21** (bun cache), **CP-22** (`--frozen-lockfile`), **CP-23** (build smoke test) — agrupáveis em 1-2 PRs temáticas em `.github/workflows/`. Ondas 2-5 mapeadas em 7.5 § Ordem de execução sugerida.
 
 ### 7.1 Contexto do projeto
 
@@ -555,14 +555,18 @@ Organizado em **5 PRs dedicados** (refactors grandes) + ações pontuais.
 | **CP-37** | Version fallback em `lib/health/index.ts` — trocar `"1.0.50"` hardcoded por `"unknown"` ou ler do `package.json` | #29 | config | S | — |
 | **CP-38** | Runbook de oncall em `docs/runbooks/` — DB down, webhook Pagar.me falhando, SMTP caído, Sentry recebendo 5xx em massa | #93 | docs | M | — |
 | **CP-39** | Separar `SMTP_FROM` em duas envs — `SMTP_FROM` (apenas endereço, `z.email()` puro) + `SMTP_FROM_NAME` (display name opcional); remover `smtpFromSchema` custom; montar `from: { name, address }` em `src/lib/email.tsx`; migrar value no Coolify | Revisão de design do #17 após RU-1 | refactor | S | — |
-| **CP-40** | Triagem dos 13 highs remanescentes em dev deps — upgrades de `ultracite`, `commitizen`, `secretlint`, `lint-staged` para resolver `minimatch`/`picomatch`/`lodash`/`@isaacs/brace-expansion`/`@trpc/server`; `--ignore=<CVE>` documentado quando upgrade breaking. Destrava threshold `--audit-level=high` no CI (RU-4b sobe de `critical` para `high` após CP-40) | Follow-up de RU-4a | refactor | M | RU-4b |
+| **CP-40** | ✅ **2026-04-22** — Triagem de 13 highs em dev + prod deps. Estratégia ajustada após auditoria: `bun update` → upgrade secretlint 11→12 → `overrides` para transitivas de deps já no latest (commitizen, drizzle-orm, exceljs) + transitivas dentro de ranges de parents não-latest (better-auth, ultracite 6). CI threshold subiu `critical` → `high`. Escopos não-CVE saíram como CP-46/47/48/49 | Follow-up de RU-4a | refactor | M | RU-4b |
 | **CP-41** | Workflow dedicado para integration tests externos (Pagar.me) — novo `.github/workflows/test-integration.yml` com `workflow_dispatch` + schedule semanal, secrets de sandbox Pagar.me configurados, rodando apenas testes gated por `skipIntegration`. Destrava cobertura real dos módulos `src/modules/payments/*` em CI (hoje só rodam em máquina de dev) | Follow-up de RU-5 | new | M | — |
 | **CP-42** | Convenção de `changes: { before, after }` em audit de mutations — documentar em `src/modules/audit/CLAUDE.md` (ou ADR) regras: (a) toda mutation em entidade versionada preenche diff dos campos alterados, não record inteiro; (b) campos PII sensíveis (CPF, salário, atestado médico, data nascimento) logam `"<redacted>"` ou hash — nunca plaintext; (c) resources obrigatórios: `employee`, `medical_certificate`, `labor_lawsuit`, `subscription`, `member`, `api_key`. Aplicar retroativamente nos 3 módulos críticos (employees, occurrences/medical-certificates, payments/subscription) | #96 (parcial), LGPD Art. 18/48 | refactor | M | — |
 | **CP-43** | Audit de reads em dados sensíveis (Art. 11 LGPD) — usar `auditPlugin` pós RU-7 (signature `audit(entry)` simples) em GET handlers de recursos sensíveis: `medical_certificate`, `labor_lawsuit`, `employee` (quando incluir CPF/salário), `cpf_analysis`. Granularidade: get individual + export sempre; listagem opcional (batch). Destrava reconstituição de acessos para Art. 48 LGPD | #96 (parcial), LGPD Art. 11 | new | M | RU-7 |
 | **CP-44** | Audit BOLA automatizado em CI — script que AST-scan `src/modules/**/*.service.ts` identificando queries `db.select/update/delete` em tabelas org-scoped sem filtro `organizationId`. Falha PR se gap novo introduzido. Preventivo contra regressão após RU-9 ter validado o estado limpo atual | Follow-up de RU-9 | new | M | — |
 | **CP-45** | ✅ **2026-04-22** — Local Backup Retention ajustado para 7 backups / 7 dias / 2 GB no Coolify (R2 inalterado em 30/30/8). Ação operacional pura na UI, sem código. Runbook atualizado | Follow-up de RU-10 | config | S | — |
+| **CP-46** | Migração ultracite 6 → 7 (Biome → Oxc) — descoberto em CP-40. Ultracite 7 trocou o engine subjacente de Biome para Oxc (`oxlint` + `oxfmt`). Requer: remover `@biomejs/biome` das devDeps, validar `biome.json`/`biome.jsonc` → config equivalente em Oxc, rodar `ultracite check` + `ultracite fix` em todo o codebase, validar que pre-commit via `lint-staged` continua funcionando. Não é tooling crítico para segurança — espera janela dedicada | Descoberto em CP-40 | refactor | L | — |
+| **CP-47** | Migração better-auth 1.4 → 1.6 — descoberto em CP-40. Envolve: (a) adicionar coluna `verified` na tabela `twoFactor` (schema migration, default `true`, sem backfill necessário — run `npx @better-auth/cli generate` + drizzle-kit generate + migrate); (b) validar mudança de semântica de `session.freshAge` (agora calculado de `createdAt` em vez de `updatedAt`); (c) rodar suíte completa de auth + 2FA para detectar regressões em hooks, permissions, api-keys; (d) revisar release notes 1.5/1.6 para features opcionais úteis (OTel instrumentation, WeChat provider, etc.). Não é CVE — CVEs de `defu`/`kysely` foram resolvidas via overrides em CP-40 | Descoberto em CP-40 | refactor | L | — |
+| **CP-48** | Migração Zod 4.1 → 4.3 — descoberto em CP-40. Zod 4.3 proíbe `.partial()` em schemas com `.refine()` (antes permitia com comportamento indefinido). Afeta ~16 `.model.ts` em `src/modules/` (employees, occurrences/*, organizations/*, payments/billing, etc.). Fix padrão: extrair objeto base (sem refine), fazer `.partial().extend()` nele, aplicar refine depois. Zod está pinado em `~4.1.13` em CP-40 como contenção | Descoberto em CP-40 | refactor | M | — |
+| **CP-49** | Sync react/react-dom versions — descoberto em CP-40. `react-dom` não está nas devDeps diretas mas é pulled por `@react-email/components`, e fica desalinhado de `react` em patches (`bun update` bumpou react → 19.2.5 enquanto react-dom ficou em 19.2.4, causando runtime mismatch). Opções: (a) adicionar `react-dom` às devDeps pinado ao mesmo patch; (b) manter `react` pinado exato (feito em CP-40 como contenção); (c) override de `react-dom` matching `react`. Decidir quando for revisar deps novamente | Descoberto em CP-40 | config | S | — |
 
-**Total bucket 🟡: 45 ações registradas · 44 ativas · 1 concluída (CP-45 em 2026-04-22).**
+**Total bucket 🟡: 49 ações registradas · 47 ativas · 2 concluídas (CP-40 e CP-45 em 2026-04-22).**
 
 ##### Ordem de execução sugerida
 
@@ -1374,6 +1378,52 @@ Rodados testes que cobrem as áreas a serem tocadas pelo bucket 🔴 para confir
 - Extensão `cy-idea-factory` — traz council de 6 agentes (security-advocate, architect-advisor, pragmatic-engineer, product-mind, devils-advocate, the-thinker) e skill `/cy-idea-factory`. Motivo: roadmap atual (bucket 🔴 + maior parte do 🟡) já tem escopo claro do audit; council é overkill para ações bem escopadas. Instalar apenas antes de CP-1/CP-2 (XL) ou qualquer item do bucket 🟢 (decisões com múltiplos trade-offs sem design pronto)
 
 **Estado:** pronto para iniciar Fase 3. Próxima ação — **RU-1 (hardening `env.ts`)** via fluxo simples (branch direta, sem Compozy).
+
+### 2026-04-22 — CP-40 concluída (13 highs zerados via upgrades + overrides + CI threshold `high`)
+
+Segundo item do bucket 🟡 fechado, primeiro da **Onda 1**. Resultado final: `bun audit --audit-level=high` passa localmente e agora também gateia PRs no CI.
+
+**Escopo real vs. escopo declarado** — O checklist dizia "triagem de 13 highs em dev deps" e apontava 4 deps de tooling (ultracite, commitizen, secretlint, lint-staged). Auditoria inicial revelou que 6 dos 13 highs também tocavam prod deps: `better-auth → defu`, `better-auth → @better-auth/core → kysely`, `drizzle-orm → kysely`, `@sentry/bun → @fastify/otel → minimatch`, `@sentry/bun → ... → @isaacs/brace-expansion`, `exceljs → archiver → ... → minimatch`. Escopo foi expandido para cobrir ambos, mas sem misturar com migrações de framework (reforma proposta e aceita pelo dono após challenge "cuidado com workarounds").
+
+**Estratégia aplicada:**
+
+1. **`bun update`** primeiro (semver-compatible): bumpou lint-staged 16.2→16.4, secretlint 11.2→11.7, @sentry/bun 10.42→10.49, elysia 1.4.27→1.4.28, pg 8.16→8.20, pino 10.1→10.3 e outros. Sozinho não resolveu nenhum high — os parents pinavam versões antigas das transitivas dentro de seus ranges.
+2. **Upgrade secretlint 11→12** — major bump do CLI de pre-commit. Passou sem breakage (`bun run secrets:check` OK).
+3. **Upgrades `rerouted`** (não eram sobre CVEs):
+   - `ultracite 6→7`: descoberta de que 7 migra Biome → Oxc (oxlint + oxfmt). **Não é CVE fix, é migração de engine.** Registrado como **CP-46** e mantido em 6.3.10.
+   - `better-auth 1.4→1.6`: exige schema migration (coluna `verified` em `twoFactor`) + mudança semântica de `freshAge`. **Não é CVE fix, é migração de framework.** Registrado como **CP-47** e mantido em ~1.4.22.
+4. **Overrides em `package.json`** para as transitivas vulneráveis:
+   - `@isaacs/brace-expansion: ^5.0.1`, `@trpc/server: ^11.16.0`, `defu: ^6.1.7`, `kysely: ^0.28.16`, `lodash: ^4.18.1`, `minimatch: >=3.1.3`, `picomatch: >=2.3.2`
+   - Resolveu todas as chains sem romper parent APIs (bun dedupou minimatch para 10.2.5 inclusive onde o parent declarava `^3.1.1`).
+5. **Contenção de side-effects de `bun update`** (não relacionados a CVE):
+   - `zod 4.1.13 → 4.3.6` quebrou ~16 models que usam `.partial()` sobre schemas com `.refine()` (Zod 4.3 proíbe essa combinação). Pinado a `~4.1.13`. **CP-48** registra a migração.
+   - `react 19.2.4 → 19.2.5` causou mismatch com `react-dom@19.2.4` (pinado transitivamente por `@react-email/components`). Pinado a `19.2.4` exato. **CP-49** registra a sync definitiva.
+6. **CI threshold**: `.github/workflows/lint.yml` subiu `--audit-level=critical` → `high`. README.md atualizado.
+
+**Débitos resolvidos** em 7.7: follow-up completo de RU-4a/RU-4b. Triagem dos 13 highs encerrada.
+
+**CPs novos criados** (bucket 🟡): CP-46, CP-47, CP-48, CP-49 — todos representam migrações legítimas com escopo próprio, não deveriam ter sido forçados dentro de CP-40.
+
+**Validação:**
+- ✅ `bun audit --audit-level=high` — 0 vulnerabilidades.
+- ✅ `bun run lint:types` — clean.
+- ✅ `bun run lint:check` — 566 arquivos, sem fixes.
+- ✅ `bun run secrets:check` — clean.
+- ✅ Suíte de testes afetada pelas deps de runtime (errors, logger, request-context, audit, api-keys, employees, medical-certificates, cost-centers, subscription + modules/payments + modules/occurrences + modules/organizations + modules/auth + lib/): 407+ pass / 0 fail. react/react-dom mismatch warning eliminado após pin.
+
+**Arquivos tocados:**
+- `package.json` — overrides block (novo), zod pin, react pin, deps bumps via `bun update`.
+- `bun.lock` — regenerado.
+- `.github/workflows/lint.yml` — threshold.
+- `README.md` — tabela CI/CD.
+- Seção 7.5 + 7.0 — CP-40 marcada done, 4 novos CPs, próxima ação atualizada.
+
+**Lições:**
+- **Auditar o escopo antes de aceitar o título**. CP-40 foi descrita como "dev deps" mas 6 chains passavam por prod deps. Prosseguir sem reler teria levado a merge incompleto.
+- **Distinguir CVE fix de framework upgrade**. Ultracite 6→7 e better-auth 1.4→1.6 foram apresentados inicialmente como "upgrade proper" — mas são migrações de engine/framework com escopo arquitetural, não CVE fixes. Contenção via overrides + CP separado preserva disciplina de escopo (reforma aceita após challenge do dono "cuidado com workarounds").
+- **`overrides` não é workaround**. É o mecanismo oficial do npm/bun para patching transitivo. O workaround seria `--ignore=<CVE>` sem contexto — removido do plano.
+- **`bun update` tem side-effects silenciosos**. Zod 4.1→4.3 e react 19.2.4→19.2.5 pegaram carona em uma ação de segurança e quebraram runtime. Pinning defensivo (~zod, react exato) contém o problema sem adiar a fix proper.
+- **CI threshold sobe em fases**. `critical` → `high` agora porque zeramos. Dependabot vai reportar novos highs eventualmente; backlog contínuo.
 
 ### 2026-04-22 — CP-45 concluída + ordem de execução do bucket 🟡 definida
 
