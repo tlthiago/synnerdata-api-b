@@ -98,6 +98,15 @@ describe("yearly_discount_percent column and unique trial constraint", () => {
 
   describe("unique trial constraint", () => {
     test("should prevent creating a second active trial plan", async () => {
+      await db.transaction(async (tx) => {
+        await tx.execute(
+          sql`UPDATE subscription_plans SET archived_at = now() WHERE is_trial = true AND organization_id IS NULL AND archived_at IS NULL AND id <> ${SEED_PLAN_IDS.trial}`
+        );
+        await tx.execute(
+          sql`UPDATE subscription_plans SET archived_at = NULL WHERE id = ${SEED_PLAN_IDS.trial}`
+        );
+      });
+
       const duplicateTrialId = `plan-dup-trial-${crypto.randomUUID()}`;
 
       await expect(async () => {
