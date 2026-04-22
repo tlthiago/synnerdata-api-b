@@ -262,9 +262,9 @@ Seção específica do projeto. Começa pelo **status atual** da iniciativa (7.0
 | **0. Contexto aplicado** | ✅ Concluída | 2026-04-21 | Seções 7.1–7.3, 7.6, 7.7 preenchidas + convenção semântica + 10 débitos pré-audit |
 | **1. Audit item a item** | ✅ Concluída | 2026-04-21 | Status nas seções 4 e 5 preenchidos (~65 itens); 95 débitos totais em 7.7; relatório em [`docs/reports/2026-04-21-api-infrastructure-audit.md`](../reports/2026-04-21-api-infrastructure-audit.md) |
 | **2. Roadmap priorizado** | ✅ Concluída | 2026-04-21 | Seção 7.5 com 69 ações organizadas em 3 buckets (🔴 10 urgentes / 🟡 38 curto prazo / 🟢 21 sob demanda) com IDs, dependências, tipo e esforço |
-| **3. Execução** | 🔄 Em execução | 2026-04-22 | RU-1..RU-6 concluídas. CP-39 + CP-40 + CP-41 registrados como follow-ups. Hotfix SMTP_FROM aplicado. 6/10 ações do bucket 🔴 concluídas. |
+| **3. Execução** | 🔄 Em execução | 2026-04-22 | RU-1..RU-7 concluídas. CP-39 + CP-40 + CP-41 + CP-42 + CP-43 registrados como follow-ups. Débito novo #96 (convenção `changes` + read audit LGPD) identificado durante RU-7. Hotfix SMTP_FROM aplicado. 7/10 ações do bucket 🔴 concluídas. |
 
-**➡️ Próxima ação:** **RU-7 (fix auditPlugin)** — injetar `user`/`session.activeOrganizationId` do contexto do macro `auth` (remover `context` manual); remover `| string` dos tipos de `action`/`resource`. Ação M — fluxo simples ou Compozy pipeline (decidir no início).
+**➡️ Próxima ação:** **RU-8 (mover auditPlugin para `src/plugins/audit/`)** — refactor de localização, sem mudança de comportamento. Depende de RU-7 (feito). Baseline de não-regressão: todos os 11 call-sites de `AuditService.log` + 6 tests do plugin.
 
 ### 7.1 Contexto do projeto
 
@@ -557,8 +557,10 @@ Organizado em **5 PRs dedicados** (refactors grandes) + ações pontuais.
 | **CP-39** | Separar `SMTP_FROM` em duas envs — `SMTP_FROM` (apenas endereço, `z.email()` puro) + `SMTP_FROM_NAME` (display name opcional); remover `smtpFromSchema` custom; montar `from: { name, address }` em `src/lib/email.tsx`; migrar value no Coolify | Revisão de design do #17 após RU-1 | refactor | S | — |
 | **CP-40** | Triagem dos 13 highs remanescentes em dev deps — upgrades de `ultracite`, `commitizen`, `secretlint`, `lint-staged` para resolver `minimatch`/`picomatch`/`lodash`/`@isaacs/brace-expansion`/`@trpc/server`; `--ignore=<CVE>` documentado quando upgrade breaking. Destrava threshold `--audit-level=high` no CI (RU-4b sobe de `critical` para `high` após CP-40) | Follow-up de RU-4a | refactor | M | RU-4b |
 | **CP-41** | Workflow dedicado para integration tests externos (Pagar.me) — novo `.github/workflows/test-integration.yml` com `workflow_dispatch` + schedule semanal, secrets de sandbox Pagar.me configurados, rodando apenas testes gated por `skipIntegration`. Destrava cobertura real dos módulos `src/modules/payments/*` em CI (hoje só rodam em máquina de dev) | Follow-up de RU-5 | new | M | — |
+| **CP-42** | Convenção de `changes: { before, after }` em audit de mutations — documentar em `src/modules/audit/CLAUDE.md` (ou ADR) regras: (a) toda mutation em entidade versionada preenche diff dos campos alterados, não record inteiro; (b) campos PII sensíveis (CPF, salário, atestado médico, data nascimento) logam `"<redacted>"` ou hash — nunca plaintext; (c) resources obrigatórios: `employee`, `medical_certificate`, `labor_lawsuit`, `subscription`, `member`, `api_key`. Aplicar retroativamente nos 3 módulos críticos (employees, occurrences/medical-certificates, payments/subscription) | #96 (parcial), LGPD Art. 18/48 | refactor | M | — |
+| **CP-43** | Audit de reads em dados sensíveis (Art. 11 LGPD) — usar `auditPlugin` pós RU-7 (signature `audit(entry)` simples) em GET handlers de recursos sensíveis: `medical_certificate`, `labor_lawsuit`, `employee` (quando incluir CPF/salário), `cpf_analysis`. Granularidade: get individual + export sempre; listagem opcional (batch). Destrava reconstituição de acessos para Art. 48 LGPD | #96 (parcial), LGPD Art. 11 | new | M | RU-7 |
 
-**Total bucket 🟡: 41 ações. Execução sugerida em paralelo por tema (PRs dedicados CP-1…CP-5 podem rodar em paralelo com ações pontuais).**
+**Total bucket 🟡: 43 ações. Execução sugerida em paralelo por tema (PRs dedicados CP-1…CP-5 podem rodar em paralelo com ações pontuais).**
 
 #### 🟢 Bucket Médio Prazo / Sob Demanda (quando houver sinal real)
 
@@ -597,7 +599,7 @@ Não investir antes do sinal. Cada item lista o **sinal que justifica investir**
 | Bucket | Ações | Esforço consolidado | Prazo alvo |
 |---|---|---|---|
 | 🔴 Urgente | 10 | ~7 S/M + 1 L = 2-3 semanas com foco parcial | até 30 dias |
-| 🟡 Curto prazo | 41 (5 plans dedicados + 36 pontuais) | 5 planos XL/L + ~33 S/M | 30-90 dias |
+| 🟡 Curto prazo | 43 (5 plans dedicados + 38 pontuais) | 5 planos XL/L + ~35 S/M | 30-90 dias |
 | 🟢 Médio prazo | 21 | Sob demanda | indefinido (monitorar sinais) |
 
 **Princípios de execução:**
@@ -1131,6 +1133,7 @@ Dimensão "Qualidade da implementação" adicionada à metodologia após o Bloco
 | 93 | **Sem runbook de oncall/incidente** | 🟢 maturidade | Onde procurar quando algo quebra 3h da manhã? Criar `docs/runbooks/` com: DB down, webhook Pagar.me falhando, SMTP caído, Sentry recebendo 5xx em massa |
 | 94 | **Version do projeto em `package.json:3` (`1.0.50`) é manual** | 🟢 qualidade DX | Sem semantic-release ou similar — dev precisa bumpar manualmente. Para lib/app com release frequente, considerar automation. Não crítico agora |
 | 95 | **Em `test.yml`, secrets Pagar.me/Auth expostos no `env` do job inteiro** | 🟡 segurança CI | Todos os steps enxergam `PAGARME_SECRET_KEY` etc. Deveria ser escopado só ao step de teste, ou usar `secrets` inherit em actions filhas. Baixo risco (GitHub já protege logs), mas princípio de menor privilégio |
+| 96 | **Convenção inconsistente de `changes` em audit logs + reads sensíveis sem audit** | 🔴 compliance LGPD | Schema suporta `{ before, after }` mas apenas parte dos call-sites de mutation preenchem. Reads em dados sensíveis (Art. 11 LGPD — atestados médicos, CPF, salário, processos trabalhistas) não geram audit entry. Endereçar via CP-42 (convenção before/after + tratamento de PII) e CP-43 (audit de reads em GET handlers de recursos sensíveis) |
 
 #### Features do Better Auth que já usamos (referência para não reinventar)
 
@@ -1351,6 +1354,38 @@ Rodados testes que cobrem as áreas a serem tocadas pelo bucket 🔴 para confir
 - Extensão `cy-idea-factory` — traz council de 6 agentes (security-advocate, architect-advisor, pragmatic-engineer, product-mind, devils-advocate, the-thinker) e skill `/cy-idea-factory`. Motivo: roadmap atual (bucket 🔴 + maior parte do 🟡) já tem escopo claro do audit; council é overkill para ações bem escopadas. Instalar apenas antes de CP-1/CP-2 (XL) ou qualquer item do bucket 🟢 (decisões com múltiplos trade-offs sem design pronto)
 
 **Estado:** pronto para iniciar Fase 3. Próxima ação — **RU-1 (hardening `env.ts`)** via fluxo simples (branch direta, sem Compozy).
+
+### 2026-04-22 — RU-7 concluída (auditPlugin auto-context + strict types)
+
+Refactor do `auditPlugin` em `src/lib/audit/audit-plugin.ts`. Fecha débitos #23 (context manual) e #24 (loose types) e corrige gaps reveladas durante o refactor.
+
+**Investigação revelou que o plugin estava dormente**: zero consumidores em produção. Apenas seu próprio arquivo de teste importava. Todos os 11 call-sites de audit no projeto usam `AuditService.log` direto (auth.ts, subscription, api-keys pós RU-6). Primeira recomendação foi **deletar o plugin** como código morto.
+
+**Feedback do dono do projeto mudou a direção**: o plugin não é código morto — é **infraestrutura dormente** cuja razão de não adoção é precisamente a fricção do context manual (débito #23). Refatorá-lo remove a fricção; deletá-lo removeria infra que LGPD vai exigir (audit de reads sensíveis — Art. 11). Lição registrada: "unused ≠ dead" quando o use case é compliance diferida.
+
+**Arquivos modificados:**
+- `src/lib/audit/audit-plugin.ts` — derive scoped agora lê `user`, `session` e `request` do contexto (tipo cast via `AuthContext`). Signature de `audit(entry)` simplifica (sem context param). Helper local `extractIpAddress` para lógica de IP. Plugin deve ser montado após `betterAuthPlugin` em rotas com `{ auth: {...} }`.
+- `src/modules/audit/audit.model.ts` — `AuditLogEntry.action`/`resource` perdem `| string` (enforce enums). Enums ganham `"accept"` (action) e `"invitation"` (resource) — valores legítimos já usados em `auth.ts:auditInvitationAccept`, antes tipados frouxos.
+- `src/lib/audit/__tests__/audit-plugin.test.ts` — rewrite completo com 6 testes refletindo a nova API (mock de `user`/`session` via `.derive()`, chamada `audit(entry)` sem context). Removido o 7º teste que documentava o débito #24.
+- `src/modules/audit/__tests__/get-audit-logs.test.ts` — fix de regressão consequente: `resource: "pagination-test"` (string ad-hoc) → `"user"` (valor válido do enum). Intenção do teste (pagination) preservada.
+
+**Débitos resolvidos em 7.7**: #23, #24. Débito novo **#96** registrado (convenção inconsistente de `changes` + reads sensíveis não auditados).
+
+**Novos CPs registrados no bucket 🟡** (descobertos durante a RU):
+- **CP-42 (M)**: convenção de `changes: { before, after }` em mutations + tratamento de PII (redacted/hash) + retro em 3 módulos críticos.
+- **CP-43 (M, depende de RU-7)**: audit de reads em dados sensíveis via `auditPlugin` — destrava reconstituição de acessos para LGPD Art. 48.
+
+**Validação:**
+- ✅ 289 testes verdes em `lib/audit`, `modules/audit`, `api-keys`, `auth`, `payments/subscription`.
+- ✅ `bun run lint:types` — clean (tightening expôs 2 enum gaps reais que foram adicionados).
+- ✅ `npx ultracite check src/lib/audit/ src/modules/audit/` — clean.
+
+**Decisão sobre integration test com auth macro real**: não adicionei. A invariante testada é "plugin lê user/session do contexto"; tests com `.derive()` mock exercitam isso. Integração com `betterAuthPlugin + auth: {}` é combinação de plugins (não contrato do plugin). Se um futuro adopter encontrar problema, adicionamos no contexto daquela adoção (CP-43).
+
+**Lições:**
+- **"Unused" não implica "dead"** quando o código é infraestrutura planejada para um caso de uso diferido. Validar o porquê da não-adoção antes de deletar.
+- **Compliance tem gravidade própria no juízo de escopo**: deletar código que endereça LGPD requer muito mais evidência do que "ninguém usa hoje". O audit de reads sensíveis é obrigação legal em 30-90 dias (janela LGPD), não aspiracional.
+- **Tightening de tipos revela débitos escondidos**: adicionar "accept"/"invitation" aos enums documenta valores que já eram usados em produção — o projeto tinha loose types e isso mascarava a semântica real dos audit entries.
 
 ### 2026-04-22 — RU-6 concluída (audit em operações de API keys)
 
