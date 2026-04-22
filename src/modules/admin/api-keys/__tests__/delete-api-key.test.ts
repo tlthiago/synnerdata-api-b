@@ -1,6 +1,7 @@
 import { beforeAll, describe, expect, test } from "bun:test";
 import { env } from "@/env";
 import { ApiKeyService } from "@/modules/admin/api-keys/api-key.service";
+import { AuditService } from "@/modules/audit/audit.service";
 import { createTestApp, type TestApp } from "@/test/helpers/app";
 import {
   createTestAdminUser,
@@ -71,5 +72,31 @@ describe("DELETE /v1/admin/api-keys/:id", () => {
     );
 
     expect(getResponse.status).toBe(404);
+  });
+
+  describe("audit trail (RU-6)", () => {
+    test("records delete action with userId and resourceId", async () => {
+      const { headers, user } = await createTestAdminUser();
+
+      const createResult = await ApiKeyService.create(user.id, {
+        name: "audit-delete-key",
+      });
+
+      const response = await app.handle(
+        new Request(`${BASE_URL}/v1/admin/api-keys/${createResult.id}`, {
+          method: "DELETE",
+          headers,
+        })
+      );
+
+      expect(response.status).toBe(200);
+
+      const logs = await AuditService.getByResource("api_key", createResult.id);
+      const deleteEntry = logs.find((log) => log.action === "delete");
+      expect(deleteEntry).toBeDefined();
+      expect(deleteEntry?.resource).toBe("api_key");
+      expect(deleteEntry?.resourceId).toBe(createResult.id);
+      expect(deleteEntry?.userId).toBe(user.id);
+    });
   });
 });
