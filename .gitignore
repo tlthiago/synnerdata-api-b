@@ -52,6 +52,8 @@ package-lock.json
 !/docs/improvements/**
 !/docs/reports/
 !/docs/reports/**
+!/docs/runbooks/
+!/docs/runbooks/**
 
 # worktrees
 .worktrees/

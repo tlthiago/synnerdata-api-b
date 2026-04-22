@@ -262,9 +262,9 @@ Seção específica do projeto. Começa pelo **status atual** da iniciativa (7.0
 | **0. Contexto aplicado** | ✅ Concluída | 2026-04-21 | Seções 7.1–7.3, 7.6, 7.7 preenchidas + convenção semântica + 10 débitos pré-audit |
 | **1. Audit item a item** | ✅ Concluída | 2026-04-21 | Status nas seções 4 e 5 preenchidos (~65 itens); 95 débitos totais em 7.7; relatório em [`docs/reports/2026-04-21-api-infrastructure-audit.md`](../reports/2026-04-21-api-infrastructure-audit.md) |
 | **2. Roadmap priorizado** | ✅ Concluída | 2026-04-21 | Seção 7.5 com 69 ações organizadas em 3 buckets (🔴 10 urgentes / 🟡 38 curto prazo / 🟢 21 sob demanda) com IDs, dependências, tipo e esforço |
-| **3. Execução** | 🔄 Em execução | 2026-04-22 | RU-1..RU-9 concluídas. Grupo 3 fechado. `src/plugins/` inaugurado. BOLA audit completo (0 gaps em 50 services). CP-39..CP-44 registrados como follow-ups. Débitos #96 identificados. 9/10 ações do bucket 🔴 concluídas. |
+| **3. Execução** | 🔄 Em execução | 2026-04-22 | **Bucket 🔴 concluído (10/10)**. RU-1..RU-10 entregues em PRs sequenciais em `preview`. Grupo 3 fechado. `src/plugins/` inaugurado. BOLA audit completo (0 gaps). Runbook de backup em `docs/runbooks/`. CP-39..CP-45 registrados como follow-ups. Débito #96 identificado. |
 
-**➡️ Próxima ação:** **RU-10 (runbook backup Coolify)** — única pendente do bucket 🔴, ação S/docs. Criar `docs/runbooks/database-backup.md` documentando frequência, retention, processo de restore e teste periódico. Sem dependências.
+**➡️ Próxima ação:** **Priorização do bucket 🟡** com o dono do projeto. 44 ações disponíveis; candidatos naturais para começar: (a) **CP-40** (triagem de dev deps highs → destrava subir audit threshold para `high`), (b) **CP-1/2** (XL refactors que destravam outros CPs), (c) **CP-42/CP-43** (convenção de `changes` + audit de reads sensíveis — LGPD). Ver seção 7.5 bucket 🟡 para a lista completa.
 
 ### 7.1 Contexto do projeto
 
@@ -560,8 +560,9 @@ Organizado em **5 PRs dedicados** (refactors grandes) + ações pontuais.
 | **CP-42** | Convenção de `changes: { before, after }` em audit de mutations — documentar em `src/modules/audit/CLAUDE.md` (ou ADR) regras: (a) toda mutation em entidade versionada preenche diff dos campos alterados, não record inteiro; (b) campos PII sensíveis (CPF, salário, atestado médico, data nascimento) logam `"<redacted>"` ou hash — nunca plaintext; (c) resources obrigatórios: `employee`, `medical_certificate`, `labor_lawsuit`, `subscription`, `member`, `api_key`. Aplicar retroativamente nos 3 módulos críticos (employees, occurrences/medical-certificates, payments/subscription) | #96 (parcial), LGPD Art. 18/48 | refactor | M | — |
 | **CP-43** | Audit de reads em dados sensíveis (Art. 11 LGPD) — usar `auditPlugin` pós RU-7 (signature `audit(entry)` simples) em GET handlers de recursos sensíveis: `medical_certificate`, `labor_lawsuit`, `employee` (quando incluir CPF/salário), `cpf_analysis`. Granularidade: get individual + export sempre; listagem opcional (batch). Destrava reconstituição de acessos para Art. 48 LGPD | #96 (parcial), LGPD Art. 11 | new | M | RU-7 |
 | **CP-44** | Audit BOLA automatizado em CI — script que AST-scan `src/modules/**/*.service.ts` identificando queries `db.select/update/delete` em tabelas org-scoped sem filtro `organizationId`. Falha PR se gap novo introduzido. Preventivo contra regressão após RU-9 ter validado o estado limpo atual | Follow-up de RU-9 | new | M | — |
+| **CP-45** | Ajustar Local Backup Retention no Coolify — atual está com todos os valores em 0 (unlimited), significa que dumps locais nunca são limpos. Sugestão: 7 backups / 7 dias / 2 GB (R2 com 30 dias segue como fonte de verdade off-site). Ação operacional pura na UI do Coolify, sem código. Ver `docs/runbooks/database-backup.md` §Atenção | Follow-up de RU-10 | config | S | — |
 
-**Total bucket 🟡: 44 ações. Execução sugerida em paralelo por tema (PRs dedicados CP-1…CP-5 podem rodar em paralelo com ações pontuais).**
+**Total bucket 🟡: 45 ações. Execução sugerida em paralelo por tema (PRs dedicados CP-1…CP-5 podem rodar em paralelo com ações pontuais).**
 
 #### 🟢 Bucket Médio Prazo / Sob Demanda (quando houver sinal real)
 
@@ -600,7 +601,7 @@ Não investir antes do sinal. Cada item lista o **sinal que justifica investir**
 | Bucket | Ações | Esforço consolidado | Prazo alvo |
 |---|---|---|---|
 | 🔴 Urgente | 10 | ~7 S/M + 1 L = 2-3 semanas com foco parcial | até 30 dias |
-| 🟡 Curto prazo | 44 (5 plans dedicados + 39 pontuais) | 5 planos XL/L + ~36 S/M | 30-90 dias |
+| 🟡 Curto prazo | 45 (5 plans dedicados + 40 pontuais) | 5 planos XL/L + ~37 S/M | 30-90 dias |
 | 🟢 Médio prazo | 21 | Sob demanda | indefinido (monitorar sinais) |
 
 **Princípios de execução:**
@@ -1355,6 +1356,53 @@ Rodados testes que cobrem as áreas a serem tocadas pelo bucket 🔴 para confir
 - Extensão `cy-idea-factory` — traz council de 6 agentes (security-advocate, architect-advisor, pragmatic-engineer, product-mind, devils-advocate, the-thinker) e skill `/cy-idea-factory`. Motivo: roadmap atual (bucket 🔴 + maior parte do 🟡) já tem escopo claro do audit; council é overkill para ações bem escopadas. Instalar apenas antes de CP-1/CP-2 (XL) ou qualquer item do bucket 🟢 (decisões com múltiplos trade-offs sem design pronto)
 
 **Estado:** pronto para iniciar Fase 3. Próxima ação — **RU-1 (hardening `env.ts`)** via fluxo simples (branch direta, sem Compozy).
+
+### 2026-04-22 — RU-10 concluída (runbook de backup) + **Bucket 🔴 fechado**
+
+Última ação pendente do bucket urgente. Cria `docs/runbooks/database-backup.md` documentando o processo de backup existente em Coolify + Cloudflare R2.
+
+**Configuração atual validada via UI do Coolify:**
+- Backup habilitado, database `synnerdata`, frequência diária 00:00 UTC, timeout 3600s.
+- Storage dual: local (`/data/coolify/backups/...`) + Cloudflare R2.
+- Retention R2: 30 backups / 30 dias / 8 GB (whichever first).
+- Formato: `pg_dump` .dmp; tamanho atual ~310 KB.
+
+**Conteúdo do runbook (6 seções):**
+1. Estado atual (tabela com valores concretos)
+2. Como verificar saúde dos backups (passos na UI)
+3. Procedimento de restore — caminho A (UI Coolify, recomendado) e caminho B (pg_restore direto, offline)
+4. Teste periódico trimestral — checklist preenchível + tabela histórica de execuções (primeira execução pendente)
+5. Atenção sobre local retention ilimitada (rastreado como CP-45)
+6. Contatos e escalação (template)
+
+**Finding operacional**: Local Backup Retention está configurado como 0/0/0 = unlimited. Com a base atual é inofensivo (~113 MB/ano), mas vai acumular indefinidamente. Registrado como **CP-45** (🟡, S) — ajuste operacional simples na UI do Coolify quando conveniente.
+
+**Débito resolvido em 7.7:** #92 (backup policy não documentada).
+
+**Validação:**
+- ✅ Arquivo renderiza (markdown); links internos corretos.
+- ✅ Pasta `docs/runbooks/` adicionada ao allowlist do `.gitignore` (seguindo padrão de `docs/improvements/` e `docs/reports/`).
+- ✅ Referências cruzadas: changelog → runbook → CP-45 no checklist formam circuito coerente.
+
+**Lições:**
+- **Operational knowledge > generic best practices**: escrever runbook com valores concretos extraídos da UI do Coolify (frequência, retention, caminhos de storage) vale muito mais que um template genérico com `<!-- TODO -->`. Custo marginal: 1 screenshot do dono + 5min lendo. Benefício: runbook imediatamente operacional.
+- **Runbook é vivo**: a tabela de histórico de testes trimestrais (primeira execução pendente) torna o documento autoatualizável — cada teste adiciona linha. Diferente de documentos estáticos que envelhecem sem sinal.
+
+## **Bucket 🔴 concluído (10/10) — 2026-04-22**
+
+Fechamento do bucket urgente. Cronograma original era "até 30 dias"; foi entregue em 1 dia (2026-04-21 audit → 2026-04-22 todas as 10 RUs mergeadas) — menos pelo ritmo, mais pelo fato de muitas ações revelaram-se menos complexas do que o pessimismo inicial do audit. Ações que surpreenderam:
+
+- **RU-1** virou urgente de verdade (hotfix SMTP_FROM pós-merge)
+- **RU-4** explodiu de S → L (2 criticals + 17 highs em deps, split em RU-4a/RU-4b/CP-40)
+- **RU-7** mudou de direção (recomendei deletar, usuário rejeitou, executei refactor) — lição "unused ≠ dead"
+- **RU-9** encolheu de L → M (padrão já estava limpo; audit virou confirmação)
+- **RU-10** foi S real (UI do Coolify tinha todos os valores prontos)
+
+**CPs gerados ao longo do bucket**: CP-39 (SMTP_FROM split), CP-40 (dev deps highs), CP-41 (integration tests workflow), CP-42 (changes convention LGPD), CP-43 (read audit LGPD), CP-44 (BOLA CI automation), CP-45 (Coolify local retention). 7 follow-ups úteis que saíram da execução.
+
+**Débitos resolvidos no bucket 🔴** (seção 7.7): #14-#20, #22, #23, #24, #30, #54, #76, #77, #92, #96 (parcial via CP-42/43). Total: ~15 débitos fechados.
+
+Próximo passo: priorização do bucket 🟡 com o dono — 45 ações disponíveis.
 
 ### 2026-04-22 — RU-9 concluída (BOLA audit + cross-org isolation tests)
 
