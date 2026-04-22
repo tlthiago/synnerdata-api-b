@@ -80,23 +80,18 @@ export abstract class SubscriptionMutationService {
       PaymentHooks.emit("subscription.cancelScheduled", {
         subscription: updatedSubscription,
       });
-    }
 
-    // Log cancellation reason to audit trail
-    if (reason || comment) {
       const { AuditService } = await import("@/modules/audit/audit.service");
+      const { buildAuditChanges } = await import(
+        "@/modules/audit/pii-redaction"
+      );
       await AuditService.log({
         action: "update",
         resource: "subscription",
         resourceId: subscription.id,
         userId,
         organizationId,
-        changes: {
-          after: {
-            cancelReason: reason,
-            cancelComment: comment,
-          },
-        },
+        changes: buildAuditChanges(subscription, updatedSubscription),
       });
     }
 
@@ -120,7 +115,7 @@ export abstract class SubscriptionMutationService {
   static async restore(
     input: RestoreSubscriptionInput
   ): Promise<RestoreSubscriptionData> {
-    const { organizationId } = input;
+    const { organizationId, userId } = input;
 
     const subscription = await findByOrganizationId(organizationId);
 
@@ -128,10 +123,6 @@ export abstract class SubscriptionMutationService {
       throw new SubscriptionNotFoundError(organizationId);
     }
 
-    // Cannot restore if:
-    // - Not scheduled for cancellation (cancelAtPeriodEnd = false)
-    // - Already fully canceled via Pagarme webhook (status = "canceled")
-    // - Already expired (status = "expired")
     const isNotScheduledForCancellation = !subscription.cancelAtPeriodEnd;
     const isAlreadyCanceled = subscription.status === "canceled";
     const isExpired = subscription.status === "expired";
@@ -148,6 +139,19 @@ export abstract class SubscriptionMutationService {
     if (updatedSubscription) {
       PaymentHooks.emit("subscription.restored", {
         subscription: updatedSubscription,
+      });
+
+      const { AuditService } = await import("@/modules/audit/audit.service");
+      const { buildAuditChanges } = await import(
+        "@/modules/audit/pii-redaction"
+      );
+      await AuditService.log({
+        action: "update",
+        resource: "subscription",
+        resourceId: subscription.id,
+        userId,
+        organizationId,
+        changes: buildAuditChanges(subscription, updatedSubscription),
       });
     }
 
