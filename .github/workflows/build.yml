@@ -32,5 +32,27 @@ jobs:
       - name: Bundle
         run: bun build src/index.ts --outdir ./dist --target bun
 
-      - name: Verify bundle
+      - name: Verify bundle exists
         run: test -f ./dist/index.js && echo "Bundle created successfully"
+
+      - name: Smoke test bundle startup
+        env:
+          NODE_ENV: test
+          DATABASE_URL: postgresql://smoke:smoke@127.0.0.1:5432/smoke
+          BETTER_AUTH_SECRET: smoke-test-secret-at-least-32-characters
+          PAGARME_BASE_URL: https://smoke.pagarme.test
+          PAGARME_SECRET_KEY: smoke
+          PAGARME_PUBLIC_KEY: smoke
+          PAGARME_WEBHOOK_USERNAME: smoke
+          PAGARME_WEBHOOK_PASSWORD: smoke
+          INTERNAL_API_KEY: smoke-internal-api-key-at-least-32-characters
+          PII_ENCRYPTION_KEY: "0000000000000000000000000000000000000000000000000000000000000000"
+        run: |
+          timeout 10 bun dist/index.js
+          code=$?
+          if [ $code -eq 0 ] || [ $code -eq 124 ] || [ $code -eq 143 ]; then
+            echo "Smoke test passed (exit $code)"
+            exit 0
+          fi
+          echo "Smoke test failed — bundle errored at startup (exit $code)"
+          exit 1
