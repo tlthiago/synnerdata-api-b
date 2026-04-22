@@ -107,6 +107,24 @@ describe("envSchema — SMTP_FROM email validation", () => {
       envSchema.parse({ ...VALID_ENV, SMTP_FROM: "noreply@synnerdata.com" })
     ).not.toThrow();
   });
+
+  test("accepts RFC 5322 display name format", () => {
+    expect(() =>
+      envSchema.parse({
+        ...VALID_ENV,
+        SMTP_FROM: "Synnerdata <contato@synnerdata.com.br>",
+      })
+    ).not.toThrow();
+  });
+
+  test("rejects display name wrapping an invalid email", () => {
+    expect(() =>
+      envSchema.parse({
+        ...VALID_ENV,
+        SMTP_FROM: "Synnerdata <not-an-email>",
+      })
+    ).toThrow();
+  });
 });
 
 describe("envSchema — NODE_ENV enum", () => {

@@ -1,6 +1,26 @@
 import "dotenv/config";
 import { z } from "zod";
 
+const SMTP_FROM_DISPLAY_NAME = /^.+\s<([^<>]+)>$/;
+
+const smtpFromSchema = z
+  .string()
+  .default("noreply@synnerdata.com")
+  .describe(
+    'Sender address accepted by Nodemailer. Either "user@domain" or "Display Name <user@domain>" (RFC 5322).'
+  )
+  .refine(
+    (value) => {
+      const match = value.match(SMTP_FROM_DISPLAY_NAME);
+      const candidate = match ? match[1] : value;
+      return z.email().safeParse(candidate).success;
+    },
+    {
+      message:
+        'SMTP_FROM must be "user@domain" or "Display Name <user@domain>"',
+    }
+  );
+
 export const envSchema = z
   .object({
     NODE_ENV: z
@@ -27,7 +47,7 @@ export const envSchema = z
     SMTP_PORT: z.coerce.number().default(1025),
     SMTP_USER: z.string().optional(),
     SMTP_PASSWORD: z.string().optional(),
-    SMTP_FROM: z.email().default("noreply@synnerdata.com"),
+    SMTP_FROM: smtpFromSchema,
     SUPER_ADMIN_EMAILS: z.string().default(""),
     ADMIN_EMAILS: z.string().default(""),
     INTERNAL_API_KEY: z.string().min(32),
