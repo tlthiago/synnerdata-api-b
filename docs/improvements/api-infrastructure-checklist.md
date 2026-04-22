@@ -262,9 +262,9 @@ Seção específica do projeto. Começa pelo **status atual** da iniciativa (7.0
 | **0. Contexto aplicado** | ✅ Concluída | 2026-04-21 | Seções 7.1–7.3, 7.6, 7.7 preenchidas + convenção semântica + 10 débitos pré-audit |
 | **1. Audit item a item** | ✅ Concluída | 2026-04-21 | Status nas seções 4 e 5 preenchidos (~65 itens); 95 débitos totais em 7.7; relatório em [`docs/reports/2026-04-21-api-infrastructure-audit.md`](../reports/2026-04-21-api-infrastructure-audit.md) |
 | **2. Roadmap priorizado** | ✅ Concluída | 2026-04-21 | Seção 7.5 com 69 ações organizadas em 3 buckets (🔴 10 urgentes / 🟡 38 curto prazo / 🟢 21 sob demanda) com IDs, dependências, tipo e esforço |
-| **3. Execução** | 🔄 Em execução | 2026-04-22 | RU-1 (env.ts), RU-2 (requestId no erro), RU-3 (idleTimeout explícito) concluídas e mergeadas em `preview`. Hotfix SMTP_FROM aplicado. CP-39 registrado como follow-up. 3/10 ações do bucket 🔴 concluídas. |
+| **3. Execução** | 🔄 Em execução | 2026-04-22 | RU-1, RU-2, RU-3 concluídas. RU-4 desdobrada em RU-4a (patch CVEs — em PR) + RU-4b (audit na CI, pendente) + CP-40 (triagem de highs em dev deps). Hotfix SMTP_FROM. CP-39 registrado. 3.5/10 ações do bucket 🔴 concluídas. |
 
-**➡️ Próxima ação:** **RU-4 (`bun pm audit` no CI)** via branch simples a partir de `preview` — adicionar step em `.github/workflows/lint.yml` com `--audit-level=high`, atualizar README. Ação S, sem dependências.
+**➡️ Próxima ação:** **RU-4b (reintroduzir `bun audit` no CI)** após merge de RU-4a — adicionar step em `.github/workflows/lint.yml` com `--audit-level=critical` (threshold conservador dado que ainda existem highs em dev deps), corrigir README linha 201 (`bun pm audit` → `bun audit`), documentar que Trivy container scan **não** substitui `bun audit` (vide lição de RU-4a).
 
 ### 7.1 Contexto do projeto
 
@@ -555,8 +555,9 @@ Organizado em **5 PRs dedicados** (refactors grandes) + ações pontuais.
 | **CP-37** | Version fallback em `lib/health/index.ts` — trocar `"1.0.50"` hardcoded por `"unknown"` ou ler do `package.json` | #29 | config | S | — |
 | **CP-38** | Runbook de oncall em `docs/runbooks/` — DB down, webhook Pagar.me falhando, SMTP caído, Sentry recebendo 5xx em massa | #93 | docs | M | — |
 | **CP-39** | Separar `SMTP_FROM` em duas envs — `SMTP_FROM` (apenas endereço, `z.email()` puro) + `SMTP_FROM_NAME` (display name opcional); remover `smtpFromSchema` custom; montar `from: { name, address }` em `src/lib/email.tsx`; migrar value no Coolify | Revisão de design do #17 após RU-1 | refactor | S | — |
+| **CP-40** | Triagem dos 13 highs remanescentes em dev deps — upgrades de `ultracite`, `commitizen`, `secretlint`, `lint-staged` para resolver `minimatch`/`picomatch`/`lodash`/`@isaacs/brace-expansion`/`@trpc/server`; `--ignore=<CVE>` documentado quando upgrade breaking. Destrava threshold `--audit-level=high` no CI (RU-4b sobe de `critical` para `high` após CP-40) | Follow-up de RU-4a | refactor | M | RU-4b |
 
-**Total bucket 🟡: 39 ações. Execução sugerida em paralelo por tema (PRs dedicados CP-1…CP-5 podem rodar em paralelo com ações pontuais).**
+**Total bucket 🟡: 40 ações. Execução sugerida em paralelo por tema (PRs dedicados CP-1…CP-5 podem rodar em paralelo com ações pontuais).**
 
 #### 🟢 Bucket Médio Prazo / Sob Demanda (quando houver sinal real)
 
@@ -595,7 +596,7 @@ Não investir antes do sinal. Cada item lista o **sinal que justifica investir**
 | Bucket | Ações | Esforço consolidado | Prazo alvo |
 |---|---|---|---|
 | 🔴 Urgente | 10 | ~7 S/M + 1 L = 2-3 semanas com foco parcial | até 30 dias |
-| 🟡 Curto prazo | 39 (5 plans dedicados + 34 pontuais) | 5 planos XL/L + ~31 S/M | 30-90 dias |
+| 🟡 Curto prazo | 40 (5 plans dedicados + 35 pontuais) | 5 planos XL/L + ~32 S/M | 30-90 dias |
 | 🟢 Médio prazo | 21 | Sob demanda | indefinido (monitorar sinais) |
 
 **Princípios de execução:**
@@ -1349,6 +1350,43 @@ Rodados testes que cobrem as áreas a serem tocadas pelo bucket 🔴 para confir
 - Extensão `cy-idea-factory` — traz council de 6 agentes (security-advocate, architect-advisor, pragmatic-engineer, product-mind, devils-advocate, the-thinker) e skill `/cy-idea-factory`. Motivo: roadmap atual (bucket 🔴 + maior parte do 🟡) já tem escopo claro do audit; council é overkill para ações bem escopadas. Instalar apenas antes de CP-1/CP-2 (XL) ou qualquer item do bucket 🟢 (decisões com múltiplos trade-offs sem design pronto)
 
 **Estado:** pronto para iniciar Fase 3. Próxima ação — **RU-1 (hardening `env.ts`)** via fluxo simples (branch direta, sem Compozy).
+
+### 2026-04-22 — RU-4a concluída (patch CVEs em auth + db deps)
+
+**Escopo original de RU-4** era "adicionar `bun pm audit` no CI — Ação S". Ao executar, descobertas em sequência rearranjaram completamente o escopo:
+
+1. **Comando renomeou duas vezes**: checklist dizia `bun pm audit`, commit `f5e8bc2` de 2026-03-09 mudou pra `bun pm scan`, e Bun 1.3.x reverteu pra `bun audit` direto. Histórico do projeto acompanhou a instabilidade mas o checklist ficou desatualizado.
+
+2. **Audit foi deliberadamente removido** do `lint.yml` em 2026-03-09 (commit `1958c52`) com justificativa "Trivy container scan covers this". **Justificativa errada**: Trivy scan do binário Bun não indexa advisories de npm da mesma forma. Evidência empírica: PR #237 passou com ✅ Trivy enquanto `bun audit` reporta simultaneamente 2 criticals em direct deps de produção. Janela silenciosa de ~6 semanas acumulando CVEs.
+
+3. **Contradição documental**: o mesmo commit `1958c52` que removeu o step adicionou ao README a seção CI/CD declarando que `bun pm audit` roda no Lint workflow. README mentiu por 6 semanas.
+
+4. **CVEs concretos encontrados hoje no projeto**: 2 critical + 17 high. Entre eles, 2 em **direct production deps**:
+   - `better-auth 1.4.5` → GHSA-xg6x-h9c9-2m83 (2FA bypass, critical)
+   - `drizzle-orm 0.45.0` → GHSA-gpj5-g38j-94v9 (SQL injection, high)
+   - Transitive: `fast-xml-parser` via `@types/nodemailer 7.0.4` → `@aws-sdk/client-sesv2` (critical, dev-only mas ainda assim no lockfile)
+
+**Decisão**: split da RU-4 em três ações sequenciais.
+
+**RU-4a (esta entrega)** — patch security em deps:
+- `better-auth 1.4.5 → ~1.4.22` (pin tilde; upgrade pra 1.6.x ficará em PR dedicado)
+- `drizzle-orm 0.45.0 → 0.45.2` (caret, patch puro)
+- `@types/nodemailer 7.0.4 → 7.0.11` (removeu dep direta de @aws-sdk, elimina fast-xml-parser do tree)
+
+Resultado: **criticals 2 → 0, highs 17 → 13**. Highs remanescentes são 100% em dev tooling (minimatch/picomatch/lodash via ultracite/commitizen/secretlint/lint-staged), zero em runtime.
+
+**Validação**: 348 testes verdes (auth, admin, employees, organizations, audit, logger, errors, request-context), type check + lint limpos. `better-auth-localization 2.3.1` continua compatível (peerDep `^1.4.19`).
+
+**RU-4b (pendente)** — reintroduzir `bun audit` no `lint.yml` com `--audit-level=critical` inicialmente (threshold sobe pra `high` depois do CP-40). Corrigir README linha 201. Documentar que Trivy ≠ bun audit.
+
+**CP-40 (novo, bucket 🟡, a registrar)** — triagem dos 13 highs em dev deps: upgrade de ultracite/commitizen/secretlint/lint-staged para versões que resolvem minimatch/picomatch/lodash. Alternativa: `--ignore=<CVE>` com justificativa documentada.
+
+**Débito coberto em 7.7:** parcialmente #76 (CI security audit) — fecha completamente após RU-4b.
+
+**Lições:**
+- **Histórico do código é fonte de verdade complementar ao checklist**: a decisão de remover o audit no commit `1958c52` não estava registrada no checklist da iniciativa (fase audit começou em 2026-04-21, depois da remoção). Varredura de `git log` antes de aceitar uma ação "nova" pode revelar que é uma ação de reversão — muda o enquadramento.
+- **Trivy container scan não é equivalente a dep audit**: devem coexistir. Trivy varre a imagem final; `bun audit` varre o dep tree completo (incluindo dev). CP-40 vai formalizar essa distinção na doc do security.yml.
+- **Ação "S" no checklist pode esconder uma ação "L"**: RU-4 era Ação S no papel; na prática virou pesquisa de histórico + análise de advisory + 3 upgrades + triagem + split em múltiplas entregas. Revisitar estimativas quando uma ação revelar complexidade oculta é parte da disciplina — não pressionar pra caber no esforço planejado originalmente.
 
 ### 2026-04-22 — RU-3 concluída (idleTimeout explícito)
 
