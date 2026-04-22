@@ -262,9 +262,9 @@ Seção específica do projeto. Começa pelo **status atual** da iniciativa (7.0
 | **0. Contexto aplicado** | ✅ Concluída | 2026-04-21 | Seções 7.1–7.3, 7.6, 7.7 preenchidas + convenção semântica + 10 débitos pré-audit |
 | **1. Audit item a item** | ✅ Concluída | 2026-04-21 | Status nas seções 4 e 5 preenchidos (~65 itens); 95 débitos totais em 7.7; relatório em [`docs/reports/2026-04-21-api-infrastructure-audit.md`](../reports/2026-04-21-api-infrastructure-audit.md) |
 | **2. Roadmap priorizado** | ✅ Concluída | 2026-04-21 | Seção 7.5 com 69 ações organizadas em 3 buckets (🔴 10 urgentes / 🟡 38 curto prazo / 🟢 21 sob demanda) com IDs, dependências, tipo e esforço |
-| **3. Execução** | 🔄 Em execução | 2026-04-22 | **Bucket 🔴 concluído (10/10)**. Bucket 🟡 iniciado: CP-45 e CP-40 concluídas (13 highs de deps fechados via upgrades + overrides + CI threshold subiu para `high`). RU-1..RU-10 entregues em PRs sequenciais em `preview`. Grupo 3 fechado. `src/plugins/` inaugurado. BOLA audit completo (0 gaps). Runbook de backup em `docs/runbooks/`. CP-39..CP-50 registrados como follow-ups. Débito #96 identificado. |
+| **3. Execução** | 🔄 Em execução | 2026-04-22 | **Bucket 🔴 concluído (10/10)**. Bucket 🟡 **Onda 1 completa (10/10)**: CP-40, CP-45, CP-7, CP-8, CP-9, CP-13, CP-20, CP-21, CP-22, CP-23. RU-1..RU-10 entregues em PRs sequenciais em `preview`. Grupo 3 fechado. `src/plugins/` inaugurado. BOLA audit completo (0 gaps). Runbook de backup em `docs/runbooks/`. CP-39..CP-50 registrados como follow-ups. Débito #96 identificado. |
 
-**➡️ Próxima ação:** **Bucket 🟡 — Onda 1 continua**. CP-40 e CP-45 concluídas. Próximos da Onda 1: **CP-7** (gitleaks/trufflehog), **CP-8** (SBOM Trivy), **CP-9** (Trivy fs scan), **CP-13** (secrets escopados), **CP-20** (coverage), **CP-21** (bun cache), **CP-22** (`--frozen-lockfile`), **CP-23** (build smoke test) — agrupáveis em 1-2 PRs temáticas em `.github/workflows/`. Ondas 2-5 mapeadas em 7.5 § Ordem de execução sugerida.
+**➡️ Próxima ação:** **Bucket 🟡 — Onda 2** (Compliance LGPD do débito #96). Iniciar por **CP-42** (convenção `changes: { before, after }` + PII redacted) seguido de **CP-43** (audit de reads em dados sensíveis, depende de RU-7 — já entregue). Ondas 3-5 mapeadas em 7.5 § Ordem de execução sugerida.
 
 ### 7.1 Contexto do projeto
 
@@ -502,13 +502,13 @@ Organizado em **5 PRs dedicados** (refactors grandes) + ações pontuais.
 | ID | Ação | Débitos cobertos | Tipo | Esforço | Depende de |
 |---|---|---|---|---|---|
 | **CP-6** | Validar suporte a HMAC no Pagar.me v5 e migrar webhook (se suportado); se não suportado, adicionar IP allowlist como defesa adicional | #56, #57 | new | M | — |
-| **CP-7** | Adicionar gitleaks ou trufflehog no `security.yml` para scan de histórico git | #84 | config | S | — |
-| **CP-8** | Gerar SBOM via `trivy sbom` como artifact no `security.yml` | #85 | config | S | — |
-| **CP-9** | Trivy filesystem scan (`trivy fs .`) no `security.yml` além do image scan | #82 | config | S | — |
+| **CP-7** | ✅ **2026-04-22** — TruffleHog `secrets-scan` job em `security.yml` (com `--only-verified`, diff por PR ou full scan em schedule) | #84 | config | S | — |
+| **CP-8** | ✅ **2026-04-22** — SBOM CycloneDX gerado via `trivy-action` format=cyclonedx no job trivy-image, upload como artifact (90d retention) | #85 | config | S | — |
+| **CP-9** | ✅ **2026-04-22** — Job `trivy-fs` em `security.yml` com `scan-type: fs`, SARIF upload categorizado separadamente do container scan | #82 | config | S | — |
 | **CP-10** | Pin SHA do `oven/bun:1-alpine` no Dockerfile + atualização via Dependabot | #87 | config | S | — |
 | **CP-11** | HEALTHCHECK deep no Dockerfile (trocar `/health/live` por `/health` com `--retries=10`) | #88 | config | S | — |
 | **CP-12** | `wait-for-db` no `scripts/entrypoint.sh` antes de rodar migrations | #89 | new | S | — |
-| **CP-13** | Escopar secrets no `test.yml` por step (não no job todo) | #95 | config | S | — |
+| **CP-13** | ✅ **2026-04-22** — 8 secrets (BETTER_AUTH_SECRET, PAGARME_*, INTERNAL_API_KEY, PII_ENCRYPTION_KEY) movidos para step-level apenas nos 3 steps que executam código do projeto (migrations, affected tests, full suite) | #95 | config | S | — |
 
 ##### Cloudflare Free Tier (decisão 7.3 #1 — etapa final do early-stage)
 
@@ -525,10 +525,10 @@ Organizado em **5 PRs dedicados** (refactors grandes) + ações pontuais.
 | **CP-17** | Métricas básicas — OTel Metrics ou Prometheus client: latência por rota, throughput, erro rate, pool de conexões DB | Early #2 | new | M | — |
 | **CP-18** | Política de deprecation com headers `Deprecation` / `Sunset` — documentar em `docs/api-versioning.md` + helper em `lib/responses/` para injetar headers | Early #9 | new | M | CP-3 |
 | **CP-19** | Playwright E2E em workflow CI — novo workflow ou step em `test.yml` (pelo menos no schedule diário) | #78 | config | M | — |
-| **CP-20** | Coverage reporting — ativar `--coverage` no `test.yml` e subir pro Codecov/coveralls | #86 | config | S | — |
-| **CP-21** | Cache de `bun install` em todos workflows | #80 | config | S | — |
-| **CP-22** | `--frozen-lockfile` no `bun install` do `lint.yml` | #81 | config | S | — |
-| **CP-23** | Build workflow smoke test — rodar bundle com timeout para validar startup | #79 | config | S | — |
+| **CP-20** | ✅ **2026-04-22** — `--coverage --coverage-reporter=lcov` ativado em affected + full suite. Upload via `codecov/codecov-action@v5`. Depende de `CODECOV_TOKEN` no repo secrets para publicação | #86 | config | S | — |
+| **CP-21** | ✅ **2026-04-22** — `actions/cache@v4` com chave `bun-${{ hashFiles('bun.lock') }}` em lint/test/build (security.yml N/A — roda docker build) | #80 | config | S | — |
+| **CP-22** | ✅ **2026-04-22** — `bun install --frozen-lockfile` em lint/test/build (alinhado com Dockerfile que já usava). Detecta drift de package.json vs bun.lock | #81 | config | S | — |
+| **CP-23** | ✅ **2026-04-22** — `timeout 10 bun dist/index.js` com env fake válido em `build.yml`. Aceita exit 0/124/143 como sucesso, qualquer outro código reprova o bundle | #79 | config | S | — |
 
 ##### Env.ts e auth hardening adicional
 
@@ -567,7 +567,7 @@ Organizado em **5 PRs dedicados** (refactors grandes) + ações pontuais.
 | **CP-49** | Sync react/react-dom versions — descoberto em CP-40. `react-dom` não está nas devDeps diretas mas é pulled por `@react-email/components`, e fica desalinhado de `react` em patches (`bun update` bumpou react → 19.2.5 enquanto react-dom ficou em 19.2.4, causando runtime mismatch). Opções: (a) adicionar `react-dom` às devDeps pinado ao mesmo patch; (b) manter `react` pinado exato (feito em CP-40 como contenção); (c) override de `react-dom` matching `react`. Decidir quando for revisar deps novamente | Descoberto em CP-40 | config | S | — |
 | **CP-50** | Migração TypeScript 5.9 → 6.x — descoberto em CP-40 quando CI falhou ao puxar TS 6.0.3 ephemerally (TS não estava em devDeps). TS 6 transforma `moduleResolution=node` em erro deprecated (antes era warning). Requer: (a) alterar `tsconfig.json` de `"moduleResolution": "node"` para `"bundler"` (recomendado Elysia/Bun) ou `"node16"`; (b) auditar imports para compatibilidade com resolução nova (extensões obrigatórias em alguns casos); (c) remover o pin `~5.9.3` após migração validada. Contenção atual: TS pinado em devDeps `~5.9.3` | Descoberto em CP-40 | refactor | M | — |
 
-**Total bucket 🟡: 50 ações registradas · 47 ativas · 2 concluídas (CP-40 e CP-45 em 2026-04-22) · 1 contenção temporária (CP-50).**
+**Total bucket 🟡: 50 ações registradas · 39 ativas · 10 concluídas (CP-40, CP-45, CP-7, CP-8, CP-9, CP-13, CP-20, CP-21, CP-22, CP-23 em 2026-04-22) · 1 contenção temporária (CP-50).**
 
 ##### Ordem de execução sugerida
 
@@ -575,7 +575,7 @@ Sequência proposta para extrair valor rápido antes de atacar os refactors gran
 
 | Onda | Foco | Itens | Racional |
 |---|---|---|---|
-| **Onda 1 — Ganhos rápidos de CI/segurança** | Fechar dívidas que destravam gates automatizados | CP-40 (M) → CP-7 (S), CP-8 (S), CP-9 (S), CP-22 (S), CP-21 (S), CP-23 (S), CP-13 (S), CP-20 (S) | CP-40 primeiro destrava threshold `--audit-level=high` no CI. Os S's seguintes são config pura no `.github/workflows/` — acumulam em 1-2 PRs agrupadas por tema (ex: "ci: cache + frozen-lockfile + smoke test") |
+| **Onda 1 — Ganhos rápidos de CI/segurança** | ✅ **Concluída em 2026-04-22** | CP-40 (M) → CP-7 (S), CP-8 (S), CP-9 (S), CP-22 (S), CP-21 (S), CP-23 (S), CP-13 (S), CP-20 (S) | CP-40 entregue em PR separada (escopo maior). Os 8 S's entregues numa PR agrupada com 8 commits atômicos |
 | **Onda 2 — Compliance LGPD (débito #96)** | Atacar lacuna de rastreabilidade em dados sensíveis | CP-42 (M) → CP-43 (M) | CP-42 é a convenção (`changes: { before, after }` + PII redacted); CP-43 aplica em reads sensíveis. Ordem importa: regra primeiro, aplicação depois |
 | **Onda 3 — Qualidade pontual** | Resolver débitos S restantes enquanto XL ainda não começou | CP-24, CP-27, CP-29, CP-31, CP-34, CP-35, CP-36, CP-37, CP-39 (todos S); CP-25, CP-30, CP-41 (M) | Podem ser agrupados em 2-3 PRs temáticos (auth hardening, error handling, env centralization). CP-41 vale dedicar PR separada (workflow novo) |
 | **Onda 4 — Cloudflare + Observabilidade** | Depende de janela com o dono (CP-14 precisa alinhar DNS) | CP-14 → CP-15 → CP-16; CP-17, CP-18, CP-19 | Cloudflare é sequencial (CP-14 destrava CP-15 destrava CP-16). Observabilidade (CP-17/18/19) pode rodar em paralelo — CP-18 depende de CP-3 |
@@ -1379,6 +1379,46 @@ Rodados testes que cobrem as áreas a serem tocadas pelo bucket 🔴 para confir
 - Extensão `cy-idea-factory` — traz council de 6 agentes (security-advocate, architect-advisor, pragmatic-engineer, product-mind, devils-advocate, the-thinker) e skill `/cy-idea-factory`. Motivo: roadmap atual (bucket 🔴 + maior parte do 🟡) já tem escopo claro do audit; council é overkill para ações bem escopadas. Instalar apenas antes de CP-1/CP-2 (XL) ou qualquer item do bucket 🟢 (decisões com múltiplos trade-offs sem design pronto)
 
 **Estado:** pronto para iniciar Fase 3. Próxima ação — **RU-1 (hardening `env.ts`)** via fluxo simples (branch direta, sem Compozy).
+
+### 2026-04-22 — Onda 1 fechada (CP-7, CP-8, CP-9, CP-13, CP-20, CP-21, CP-22, CP-23)
+
+Os 8 CPs "small" da Onda 1 entregues numa única PR com 8 commits atômicos (1 por CP). Todos tocam apenas `.github/workflows/` — zero código de produção.
+
+**Ganhos consolidados:**
+
+| Dimensão | Antes | Depois |
+|---|---|---|
+| Scan de histórico git | Só `secretlint` em árvore atual | TruffleHog em `--only-verified` + diff no PR ou full no schedule (CP-7) |
+| Coverage de Trivy | Container image apenas | Container + filesystem (CP-9) — SARIF categorizado separadamente |
+| SBOM | Inexistente | CycloneDX via `trivy format=cyclonedx`, artifact 90d retention (CP-8) |
+| Secrets em `test.yml` | Env do job inteiro | Apenas nos 3 steps que rodam código (CP-13) |
+| Coverage em CI | Desabilitado | `--coverage-reporter=lcov` + upload para Codecov (CP-20, requer `CODECOV_TOKEN`) |
+| Cache do `bun install` | Ausente (5s/run × 3 workflows) | `actions/cache@v4` por `hashFiles('bun.lock')` (CP-21) |
+| Drift de lockfile | Silencioso | `--frozen-lockfile` em lint/test/build detecta e falha (CP-22) |
+| Smoke test do bundle | `test -f ./dist/index.js` | Runtime 10s com exit codes 0/124/143 aceitos (CP-23) |
+
+**Decisões operacionais:**
+
+- **TruffleHog em vez de gitleaks** (CP-7): gitleaks-action v2 exige licença para orgs em algumas configurações; TruffleHog é free e tem flag `--only-verified` que minimiza false positives. Diff por PR (base/head SHAs) acelera PRs grandes.
+- **Trivy filesystem com `skip-dirs: node_modules`** (CP-9): bun audit já cobre dep tree com advisory context mais rico; Trivy fs agrega valor em configs (.env sample, Dockerfile, etc.), não em node_modules.
+- **SBOM no step do trivy-image** (CP-8): reaproveita a imagem já construída, evita rebuild. CycloneDX é o formato esperado por SOC2/supply-chain tooling moderno.
+- **Secrets escopados para 3 steps** (CP-13): migrations precisam porque `drizzle.config.ts` importa `@/env` (valida tudo no boot do drizzle-kit). Affected tests + full suite precisam para as libs reais. Checkout/Setup/Install/affected-detection ganham zero exposição.
+- **Codecov com `fail_ci_if_error: false`** (CP-20): até `CODECOV_TOKEN` ser configurado no repo secrets, o step só loga warning — não bloqueia PRs. Upload entrega valor imediato se o token for criado depois.
+- **Cache keyed por `bun.lock`** (CP-21): chave primária troca quando o lockfile muda; `restore-keys: bun-` permite warm start parcial em lock churn.
+- **`--frozen-lockfile` em todos workflows** (CP-22): alinha com Dockerfile que já usava. Agora uma PR que altera package.json sem regenerar bun.lock falha em lint/test/build — bom sinal pra review.
+- **Smoke test aceita 0/124/143** (CP-23): 0 = app exit clean, 124 = SIGTERM do timeout, 143 = graceful shutdown após SIGTERM. Qualquer outro código expõe erro de import/plugin/schema no boot.
+
+**Arquivos tocados** (só `.github/workflows/`): `security.yml` (CP-7, CP-8, CP-9), `test.yml` (CP-13, CP-20), `lint.yml` (CP-21, CP-22), `build.yml` (CP-21, CP-22, CP-23).
+
+**Validação (rodará no próprio PR via CI)**:
+- Lint & Security (threshold `high` herdado de CP-40)
+- Affected Tests (sem mudança de código → "No test files affected")
+- Build + Smoke test
+- Security workflow só roda em PR para `main`/`preview` — disparado quando esta PR mergear
+
+**Ondas seguintes**:
+- **Onda 2 — Compliance LGPD** (débito #96): CP-42 (convenção `changes: { before, after }` + PII redacted) → CP-43 (audit de reads em recursos sensíveis, depende de RU-7 já entregue).
+- **Onda 3 — Qualidade pontual** e ondas 4-5 conforme 7.5 § Ordem de execução sugerida.
 
 ### 2026-04-22 — CP-40 concluída (13 highs zerados via upgrades + overrides + CI threshold `high`)
 
