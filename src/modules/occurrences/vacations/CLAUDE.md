@@ -7,6 +7,7 @@ Gestao de ferias com periodos aquisitivo e concessivo inline e controle de dias.
 - `startDate` deve ser <= `endDate`
 - Nenhuma data das ferias pode ser anterior a data de admissao do funcionario (`hireDate`): `startDate`, `endDate`. (Os periodos aquisitivo/concessivo sao computados a partir do `hireDate`, portanto sempre posteriores por construcao.)
 - `daysEntitled` deve corresponder exatamente ao intervalo de datas (`endDate - startDate + 1`), validado via `calculateDaysBetween` no service
+- **Soma de `daysEntitled` por aquisitivo nao pode exceder 30 dias** (CLT art. 130). Validado no service via `ensureAquisitivoLimit` considerando todos os registros nao-cancelados e nao-deletados do mesmo employee no mesmo `acquisition_period_start`. Aplicado em create (usando periodos computados) e update (usando o snapshot armazenado, excluindo o proprio registro). Registros com `status = canceled` ou `deletedAt != null` nao contam.
 - `daysUsed` deve ser >= 0 e <= `daysEntitled`
 - Periodos aquisitivo e concessivo: campos inline na tabela `vacations` (nao entidade separada)
   - `acquisitionPeriodStart` / `acquisitionPeriodEnd` / `concessivePeriodStart` / `concessivePeriodEnd`
@@ -56,6 +57,7 @@ Prioridade: `in_progress` > `scheduled` > `ACTIVE`. O helper consulta todas as f
 - `VacationInvalidDateRangeError` (422)
 - `VacationInvalidDaysError` (422) -- daysEntitled != intervalo de datas, ou daysUsed > daysEntitled
 - `VacationDateBeforeHireError` (422) -- qualquer data anterior a hireDate do funcionario
+- `VacationAquisitivoExceededError` (422) -- soma de `daysEntitled` no aquisitivo excederia 30 dias. Details: `{ acquisitionPeriodStart, acquisitionPeriodEnd, currentTotal, requestedDays, daysRemaining, maxAllowed: 30 }`.
 - `VacationNoRightsError` (422) -- `startDate` anterior ao primeiro aniversario da admissao
 - `VacationOverlapError` (409) -- same employee + overlapping dates (excluding canceled)
 - `EmployeeTerminatedError` (422) -- shared, from `src/lib/errors/employee-status-errors.ts`
