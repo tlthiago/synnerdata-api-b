@@ -21,6 +21,7 @@ export const auditResourceSchema = z.enum([
   "medical_leave",
   "subscription",
   "export",
+  "api_key",
 ]);
 
 export const auditChangesSchema = z
