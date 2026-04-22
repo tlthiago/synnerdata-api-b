@@ -29,17 +29,16 @@ function extractIpAddress(headers: Headers): string | null {
 }
 
 export const auditPlugin = new Elysia({ name: "audit" })
-  .derive({ as: "scoped" }, (ctx) => {
-    const { user, session, request } = ctx as unknown as AuthContext;
-    return {
-      audit: (entry: AuditEntry): Promise<void> =>
-        AuditService.log({
-          ...entry,
-          userId: user.id,
-          organizationId: session.activeOrganizationId ?? null,
-          ipAddress: extractIpAddress(request.headers),
-          userAgent: request.headers.get("user-agent"),
-        }),
-    };
-  })
+  .derive({ as: "scoped" }, (ctx) => ({
+    audit: (entry: AuditEntry): Promise<void> => {
+      const { user, session, request } = ctx as unknown as AuthContext;
+      return AuditService.log({
+        ...entry,
+        userId: user.id,
+        organizationId: session.activeOrganizationId ?? null,
+        ipAddress: extractIpAddress(request.headers),
+        userAgent: request.headers.get("user-agent"),
+      });
+    },
+  }))
   .as("scoped");

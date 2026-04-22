@@ -9,6 +9,7 @@ import {
   unauthorizedErrorSchema,
   validationErrorSchema,
 } from "@/lib/responses/response.types";
+import { auditPlugin } from "@/plugins/audit/audit-plugin";
 import {
   createMedicalCertificateResponseSchema,
   createMedicalCertificateSchema,
@@ -27,6 +28,7 @@ export const medicalCertificatesController = new Elysia({
   detail: { tags: ["Occurrences - Medical Certificates"] },
 })
   .use(betterAuthPlugin)
+  .use(auditPlugin)
   .post(
     "/",
     async ({ session, body, user }) =>
@@ -88,13 +90,18 @@ export const medicalCertificatesController = new Elysia({
   )
   .get(
     "/:id",
-    async ({ session, params }) =>
-      wrapSuccess(
-        await MedicalCertificateService.findByIdOrThrow(
-          params.id,
-          session.activeOrganizationId as string
-        )
-      ),
+    async ({ session, params, audit }) => {
+      const data = await MedicalCertificateService.findByIdOrThrow(
+        params.id,
+        session.activeOrganizationId as string
+      );
+      await audit({
+        action: "read",
+        resource: "medical_certificate",
+        resourceId: params.id,
+      });
+      return wrapSuccess(data);
+    },
     {
       auth: {
         permissions: { medicalCertificate: ["read"] },

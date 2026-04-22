@@ -9,6 +9,7 @@ import {
   unauthorizedErrorSchema,
   validationErrorSchema,
 } from "@/lib/responses/response.types";
+import { auditPlugin } from "@/plugins/audit/audit-plugin";
 import {
   createLaborLawsuitResponseSchema,
   createLaborLawsuitSchema,
@@ -28,6 +29,7 @@ export const laborLawsuitController = new Elysia({
   detail: { tags: ["Occurrences - Labor Lawsuits"] },
 })
   .use(betterAuthPlugin)
+  .use(auditPlugin)
   .post(
     "/",
     async ({ session, body, user }) =>
@@ -89,13 +91,18 @@ export const laborLawsuitController = new Elysia({
   )
   .get(
     "/:id",
-    async ({ session, params }) =>
-      wrapSuccess(
-        await LaborLawsuitService.findByIdOrThrow(
-          params.id,
-          session.activeOrganizationId as string
-        )
-      ),
+    async ({ session, params, audit }) => {
+      const data = await LaborLawsuitService.findByIdOrThrow(
+        params.id,
+        session.activeOrganizationId as string
+      );
+      await audit({
+        action: "read",
+        resource: "labor_lawsuit",
+        resourceId: params.id,
+      });
+      return wrapSuccess(data);
+    },
     {
       auth: {
         permissions: { laborLawsuit: ["read"] },
