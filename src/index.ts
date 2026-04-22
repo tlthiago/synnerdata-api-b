@@ -11,7 +11,7 @@ import { betterAuthPlugin, OpenAPI } from "./lib/auth-plugin";
 import { parseOrigins } from "./lib/cors";
 import { cronPlugin } from "./lib/cron-plugin";
 import { errorPlugin } from "./lib/errors/error-plugin";
-import { logger, loggerPlugin } from "./lib/logger";
+import { logger } from "./lib/logger";
 import { setupGracefulShutdown } from "./lib/shutdown/shutdown";
 import { adminController } from "./modules/admin";
 import { auditController } from "./modules/audit";
@@ -23,6 +23,7 @@ import { paymentsController } from "./modules/payments";
 import { registerPaymentListeners } from "./modules/payments/hooks/listeners";
 import { publicController } from "./modules/public";
 import { healthPlugin } from "./plugins/health/health-plugin";
+import { loggerPlugin } from "./plugins/logger/logger-plugin";
 
 const corsOrigins = parseOrigins(env.CORS_ORIGIN);
 
