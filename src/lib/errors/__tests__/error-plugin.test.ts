@@ -2,7 +2,7 @@ import { beforeAll, describe, expect, test } from "bun:test";
 import { Elysia } from "elysia";
 import { z } from "zod";
 import { AppError } from "@/lib/errors/base-error";
-import { errorPlugin } from "@/lib/errors/error-plugin";
+import { errorPlugin, formatErrorDetail } from "@/lib/errors/error-plugin";
 import { loggerPlugin } from "@/lib/logger";
 
 const REQUEST_ID_PATTERN = /^req-[0-9a-f-]{36}$/;
@@ -271,5 +271,64 @@ describe("errorPlugin", () => {
       expect(body.error.requestId).toMatch(REQUEST_ID_PATTERN);
       expect(response.headers.get("X-Request-ID")).toBe(body.error.requestId);
     });
+  });
+});
+
+describe("formatErrorDetail — depth limit (CP-29)", () => {
+  test("truncates cause chain at max depth (5)", () => {
+    const leaf = new Error("leaf");
+    const level5 = new Error("level 5", { cause: leaf });
+    const level4 = new Error("level 4", { cause: level5 });
+    const level3 = new Error("level 3", { cause: level4 });
+    const level2 = new Error("level 2", { cause: level3 });
+    const level1 = new Error("level 1", { cause: level2 });
+    const root = new Error("root", { cause: level1 });
+
+    const detail = formatErrorDetail(root);
+    const getCauseAt = (depth: number): unknown => {
+      let current: unknown = detail;
+      for (let i = 0; i < depth; i++) {
+        current = (current as { cause?: unknown }).cause;
+      }
+      return current;
+    };
+
+    expect((getCauseAt(5) as { message: string }).message).toBe("level 5");
+    expect(getCauseAt(6)).toBe("[truncated: max depth 5 reached]");
+  });
+
+  test("does not overflow on cyclic cause", () => {
+    const a = new Error("a") as Error & { cause?: Error };
+    const b = new Error("b") as Error & { cause?: Error };
+    a.cause = b;
+    b.cause = a;
+
+    expect(() => formatErrorDetail(a)).not.toThrow();
+
+    const detail = formatErrorDetail(a);
+    let current: unknown = detail;
+    let depth = 0;
+    while (
+      current &&
+      typeof current === "object" &&
+      typeof (current as { cause?: unknown }).cause === "object"
+    ) {
+      current = (current as { cause: unknown }).cause;
+      depth += 1;
+      if (depth > 10) {
+        throw new Error("unexpected unbounded recursion");
+      }
+    }
+    expect((current as { cause: unknown }).cause).toBe(
+      "[truncated: max depth 5 reached]"
+    );
+  });
+
+  test("returns stringified value for non-Error input", () => {
+    expect(formatErrorDetail("plain string")).toEqual({
+      message: "plain string",
+    });
+    expect(formatErrorDetail(42)).toEqual({ message: "42" });
+    expect(formatErrorDetail(null)).toEqual({ message: "null" });
   });
 });

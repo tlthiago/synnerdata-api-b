@@ -27,7 +27,12 @@ function formatValidationErrors(errors: unknown[]): ValidationIssue[] {
   });
 }
 
-function formatErrorDetail(error: unknown): Record<string, unknown> {
+const MAX_ERROR_DETAIL_DEPTH = 5;
+
+export function formatErrorDetail(
+  error: unknown,
+  depth = 0
+): Record<string, unknown> {
   if (error instanceof Error) {
     const detail: Record<string, unknown> = {
       name: error.name,
@@ -35,9 +40,11 @@ function formatErrorDetail(error: unknown): Record<string, unknown> {
       stack: isDev ? error.stack : undefined,
     };
 
-    // Drizzle ORM and other libraries wrap the real error in .cause
     if (error.cause) {
-      detail.cause = formatErrorDetail(error.cause);
+      detail.cause =
+        depth >= MAX_ERROR_DETAIL_DEPTH
+          ? `[truncated: max depth ${MAX_ERROR_DETAIL_DEPTH} reached]`
+          : formatErrorDetail(error.cause, depth + 1);
     }
 
     return detail;
