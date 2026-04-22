@@ -15,7 +15,7 @@ import type { Session, User } from "better-auth/types";
 import { localization } from "better-auth-localization";
 import { and, eq } from "drizzle-orm";
 import { db } from "@/db";
-import { fullSchema, type Role, roleValues, schema } from "@/db/schema";
+import { fullSchema, roleValues, schema } from "@/db/schema";
 import { env, isTest } from "@/env";
 import { getAdminEmails, handleWelcomeEmail } from "@/lib/auth/admin-helpers";
 import {
@@ -30,6 +30,7 @@ import {
   auditUserCreate,
   auditUserDelete,
 } from "@/lib/auth/audit-helpers";
+import { validateUniqueRole } from "@/lib/auth/validators";
 import { parseOrigins } from "@/lib/cors";
 import { logger } from "@/lib/logger";
 import { OrganizationService } from "@/modules/organizations/profile/organization.service";
@@ -54,47 +55,6 @@ export type AuthSession = Session & {
 export type AuthUser = User & {
   role: string;
 };
-
-async function validateUniqueRole(
-  role: string,
-  organizationId: string
-): Promise<void> {
-  const validRoles: readonly string[] = roleValues;
-  if (!validRoles.includes(role)) {
-    return;
-  }
-
-  const typedRole = role as Role;
-
-  const existingMember = await db.query.members.findFirst({
-    where: and(
-      eq(schema.members.organizationId, organizationId),
-      eq(schema.members.role, typedRole)
-    ),
-  });
-
-  if (existingMember) {
-    throw new APIError("BAD_REQUEST", {
-      code: "ROLE_ALREADY_ASSIGNED",
-      message: `A role "${role}" já está atribuída a um membro desta organização.`,
-    });
-  }
-
-  const pendingInvitation = await db.query.invitations.findFirst({
-    where: and(
-      eq(schema.invitations.organizationId, organizationId),
-      eq(schema.invitations.role, typedRole),
-      eq(schema.invitations.status, "pending")
-    ),
-  });
-
-  if (pendingInvitation) {
-    throw new APIError("BAD_REQUEST", {
-      code: "ROLE_INVITATION_PENDING",
-      message: `Já existe um convite pendente para a role "${role}" nesta organização.`,
-    });
-  }
-}
 
 export const auth = betterAuth({
   appName: "Synnerdata",
