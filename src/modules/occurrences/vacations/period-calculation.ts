@@ -1,4 +1,4 @@
-import { VacationNoRightsError } from "./errors";
+import { VacationActiveCycleUnresolvableError } from "./errors";
 
 export function addDays(isoDate: string, days: number): string {
   const d = new Date(`${isoDate}T00:00:00Z`);
@@ -137,5 +137,5 @@ export function computeActiveCycle(input: ActiveCycleInput): ActiveCycle {
     cycleNumber += 1;
   }
 
-  throw new VacationNoRightsError(input.hireDate, referenceIso);
+  throw new VacationActiveCycleUnresolvableError(input.hireDate, referenceIso);
 }
