@@ -30,7 +30,7 @@ export async function createTestVacation(
     overrides.endDate ??
     (() => {
       const d = new Date(startDate);
-      d.setDate(d.getDate() + faker.number.int({ min: 5, max: 30 }));
+      d.setDate(d.getDate() + faker.number.int({ min: 5, max: 29 }));
       return d.toISOString().split("T")[0];
     })();
 
