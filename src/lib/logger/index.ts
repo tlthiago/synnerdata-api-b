@@ -1,10 +1,8 @@
 import { randomUUID } from "node:crypto";
 import { Elysia } from "elysia";
 import pino from "pino";
+import { isProduction, isTest } from "@/env";
 import { enterRequestContext, getRequestId } from "@/lib/request-context";
-
-const isTest = process.env.NODE_ENV === "test";
-const isProduction = process.env.NODE_ENV === "production";
 
 const ignoredPaths = new Set(["/health", "/health/live"]);
 const ignoredPrefixes = ["/api/auth"];

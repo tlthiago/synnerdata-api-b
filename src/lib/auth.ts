@@ -16,7 +16,7 @@ import { localization } from "better-auth-localization";
 import { and, eq } from "drizzle-orm";
 import { db } from "@/db";
 import { fullSchema, type Role, roleValues, schema } from "@/db/schema";
-import { env } from "@/env";
+import { env, isTest } from "@/env";
 import { parseOrigins } from "@/lib/cors";
 import { logger } from "@/lib/logger";
 import { AuditService } from "@/modules/audit/audit.service";
@@ -32,7 +32,6 @@ import {
 import { validatePasswordComplexity } from "./password-complexity";
 import { orgAc, orgRoles, systemAc, systemRoles } from "./permissions";
 
-const isTest = process.env.NODE_ENV === "test";
 const trustedOrigins = parseOrigins(env.CORS_ORIGIN);
 
 // Extended types with organization plugin fields

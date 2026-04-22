@@ -1,10 +1,11 @@
 import { Elysia } from "elysia";
+import { isProduction } from "@/env";
 import { logger } from "@/lib/logger";
 import { getRequestId } from "@/lib/request-context";
 import { captureException } from "@/lib/sentry";
 import { AppError } from "./base-error";
 
-const isDev = process.env.NODE_ENV !== "production";
+const isDev = !isProduction;
 
 type ValidationIssue = {
   path: string;

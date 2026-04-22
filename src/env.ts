@@ -62,3 +62,5 @@ export const envSchema = z
 export const env = envSchema.parse(process.env);
 
 export const isProduction = env.NODE_ENV === "production";
+export const isDev = env.NODE_ENV === "development";
+export const isTest = env.NODE_ENV === "test";
