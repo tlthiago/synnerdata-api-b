@@ -1,76 +1,22 @@
 import { Elysia } from "elysia";
 import { type AuthSession, type AuthUser, auth } from "@/lib/auth";
-import { ForbiddenError, UnauthorizedError } from "@/lib/errors/http-errors";
-import {
-  FeatureNotAvailableError,
-  SubscriptionRequiredError,
-} from "@/lib/errors/subscription-errors";
+import { UnauthorizedError } from "@/lib/errors/http-errors";
 import { logger } from "@/lib/logger";
-import { LimitsService } from "@/modules/payments/limits/limits.service";
-import { SubscriptionService } from "@/modules/payments/subscription/subscription.service";
+import { type AuthOptions, parseOptions } from "@/plugins/auth/options";
 import {
-  type AuthOptions,
-  needsSubscriptionValidation,
-  type ParsedAuthOptions,
-  parseOptions,
-} from "@/plugins/auth/options";
+  canBypassSubscriptionCheck,
+  extractClientIp,
+  isApiKeyRequest,
+  resolveApiKeyOrgContext,
+  validatePermissions,
+  validateRoleRequirements,
+  validateSubscriptionAndFeatures,
+} from "@/plugins/auth/validators";
 
 export type AuthContext = {
   user: AuthUser;
   session: AuthSession;
 };
-
-class NoActiveOrganizationError extends ForbiddenError {
-  code = "NO_ACTIVE_ORGANIZATION";
-
-  constructor() {
-    super("No active organization selected");
-  }
-}
-
-class AdminRequiredError extends ForbiddenError {
-  constructor() {
-    super("Admin access required");
-  }
-}
-
-class SuperAdminRequiredError extends ForbiddenError {
-  constructor() {
-    super("Super admin access required");
-  }
-}
-
-function isSystemAdmin(role: string | null | undefined): boolean {
-  return role === "admin" || role === "super_admin";
-}
-
-function isSuperAdmin(role: string | null | undefined): boolean {
-  return role === "super_admin";
-}
-
-function validateRoleRequirements(
-  userRole: string | undefined,
-  options: ParsedAuthOptions
-): void {
-  if (options.requireSuperAdmin && !isSuperAdmin(userRole)) {
-    throw new SuperAdminRequiredError();
-  }
-  if (options.requireAdmin && !isSystemAdmin(userRole)) {
-    throw new AdminRequiredError();
-  }
-}
-
-function isApiKeyRequest(headers: Headers): boolean {
-  return !!headers.get("x-api-key");
-}
-
-function extractClientIp(headers: Headers): string | null {
-  const forwarded = headers.get("x-forwarded-for");
-  if (forwarded) {
-    return forwarded.split(",")[0]?.trim() ?? null;
-  }
-  return headers.get("x-real-ip");
-}
 
 function logUnauthorizedAccess(request: Request): void {
   const { headers, method, url } = request;
@@ -82,116 +28,6 @@ function logUnauthorizedAccess(request: Request): void {
     userAgent: headers.get("user-agent"),
     hasApiKey: isApiKeyRequest(headers),
   });
-}
-
-function canBypassSubscriptionCheck(
-  user: AuthUser,
-  headers: Headers,
-  allowBypass: boolean
-): boolean {
-  if (!allowBypass) {
-    return false;
-  }
-  return isSystemAdmin(user.role) || isApiKeyRequest(headers);
-}
-
-async function resolveApiKeyOrgContext(
-  headers: Headers
-): Promise<string | null> {
-  const apiKey = headers.get("x-api-key");
-  if (!apiKey) {
-    return null;
-  }
-
-  const result = await auth.api.verifyApiKey({
-    body: { key: apiKey },
-  });
-
-  if (!(result.valid && result.key?.metadata)) {
-    return null;
-  }
-
-  const metadata = result.key.metadata as { organizationId?: string | null };
-  return metadata.organizationId ?? null;
-}
-
-async function validateActiveSubscription(
-  organizationId: string
-): Promise<void> {
-  const access = await SubscriptionService.checkAccess(organizationId);
-  if (!access.hasAccess) {
-    throw new SubscriptionRequiredError(access.status);
-  }
-}
-
-async function validateFeatureAccess(
-  organizationId: string,
-  featureName: string
-): Promise<void> {
-  const result = await LimitsService.checkFeature(organizationId, featureName);
-  if (!result.hasAccess) {
-    throw new FeatureNotAvailableError(
-      result.featureDisplayName,
-      result.requiredPlan ?? undefined
-    );
-  }
-}
-
-async function validateSubscriptionAndFeatures(
-  organizationId: string | null,
-  options: ParsedAuthOptions,
-  canBypass: boolean
-): Promise<void> {
-  if (canBypass) {
-    return;
-  }
-
-  if (!organizationId) {
-    if (needsSubscriptionValidation(options)) {
-      throw new NoActiveOrganizationError();
-    }
-    return;
-  }
-
-  if (options.requireActiveSubscription) {
-    await validateActiveSubscription(organizationId);
-  }
-
-  if (options.requireFeature) {
-    await validateFeatureAccess(organizationId, options.requireFeature);
-  }
-
-  if (options.requireFeatures) {
-    for (const feature of options.requireFeatures) {
-      await validateFeatureAccess(organizationId, feature);
-    }
-  }
-}
-
-async function validatePermissions(
-  headers: Headers,
-  session: AuthSession,
-  options: ParsedAuthOptions
-): Promise<void> {
-  if (options.requireOrganization && !session.activeOrganizationId) {
-    throw new NoActiveOrganizationError();
-  }
-
-  if (options.permissions) {
-    // API keys have their own read-only permission model — skip org role check
-    if (isApiKeyRequest(headers)) {
-      return;
-    }
-
-    // biome-ignore lint/suspicious/noExplicitAny: Better Auth API typing limitation
-    const { success } = await (auth.api as any).hasPermission({
-      headers,
-      body: { permissions: options.permissions },
-    });
-    if (!success) {
-      throw new ForbiddenError();
-    }
-  }
 }
 
 export const betterAuthPlugin = new Elysia({ name: "better-auth" })
