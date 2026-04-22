@@ -1,6 +1,7 @@
 import { and, eq, isNull, sql } from "drizzle-orm";
 import { db } from "@/db";
 import { schema } from "@/db/schema";
+import { mapAuditRelations } from "@/lib/responses/response.types";
 import type {
   CostCenterData,
   CreateCostCenterInput,
@@ -12,6 +13,12 @@ import {
   CostCenterAlreadyExistsError,
   CostCenterNotFoundError,
 } from "./errors";
+
+const AUDIT_USER_WITH = {
+  createdByUser: { columns: { id: true, name: true } },
+  updatedByUser: { columns: { id: true, name: true } },
+  deletedByUser: { columns: { id: true, name: true } },
+} as const;
 
 export abstract class CostCenterService {
   private static async ensureNameNotExists(
@@ -36,43 +43,6 @@ export abstract class CostCenterService {
     }
   }
 
-  private static async findById(
-    id: string,
-    organizationId: string
-  ): Promise<CostCenterData | null> {
-    const [costCenter] = await db
-      .select()
-      .from(schema.costCenters)
-      .where(
-        and(
-          eq(schema.costCenters.id, id),
-          eq(schema.costCenters.organizationId, organizationId),
-          isNull(schema.costCenters.deletedAt)
-        )
-      )
-      .limit(1);
-
-    return (costCenter as CostCenterData) ?? null;
-  }
-
-  private static async findByIdIncludingDeleted(
-    id: string,
-    organizationId: string
-  ): Promise<(CostCenterData & { deletedAt: Date | null }) | null> {
-    const [costCenter] = await db
-      .select()
-      .from(schema.costCenters)
-      .where(
-        and(
-          eq(schema.costCenters.id, id),
-          eq(schema.costCenters.organizationId, organizationId)
-        )
-      )
-      .limit(1);
-
-    return costCenter ?? null;
-  }
-
   static async create(input: CreateCostCenterInput): Promise<CostCenterData> {
     const { organizationId, userId, ...data } = input;
 
@@ -80,43 +50,58 @@ export abstract class CostCenterService {
 
     const costCenterId = `cost-center-${crypto.randomUUID()}`;
 
-    const [costCenter] = await db
-      .insert(schema.costCenters)
-      .values({
+    return db.transaction(async (tx) => {
+      await tx.insert(schema.costCenters).values({
         id: costCenterId,
         organizationId,
         name: data.name,
         createdBy: userId,
-      })
-      .returning();
+        updatedBy: userId,
+      });
 
-    return costCenter as CostCenterData;
+      const raw = await tx.query.costCenters.findFirst({
+        where: (t, { eq: _eq }) => _eq(t.id, costCenterId),
+        with: AUDIT_USER_WITH,
+      });
+
+      if (!raw) {
+        throw new Error("Cost center inconsistency after insert");
+      }
+
+      return mapAuditRelations(raw);
+    });
   }
 
   static async findAll(organizationId: string): Promise<CostCenterData[]> {
-    const costCenters = await db
-      .select()
-      .from(schema.costCenters)
-      .where(
-        and(
-          eq(schema.costCenters.organizationId, organizationId),
-          isNull(schema.costCenters.deletedAt)
-        )
-      )
-      .orderBy(schema.costCenters.name);
+    const rows = await db.query.costCenters.findMany({
+      where: (t, { eq: _eq, and: _and, isNull: _isNull }) =>
+        _and(_eq(t.organizationId, organizationId), _isNull(t.deletedAt)),
+      orderBy: (t, { asc }) => asc(t.name),
+      with: AUDIT_USER_WITH,
+    });
 
-    return costCenters as CostCenterData[];
+    return rows.map((row) => mapAuditRelations(row));
   }
 
   static async findByIdOrThrow(
     id: string,
     organizationId: string
   ): Promise<CostCenterData> {
-    const costCenter = await CostCenterService.findById(id, organizationId);
-    if (!costCenter) {
+    const raw = await db.query.costCenters.findFirst({
+      where: (t, { eq: _eq, and: _and, isNull: _isNull }) =>
+        _and(
+          _eq(t.id, id),
+          _eq(t.organizationId, organizationId),
+          _isNull(t.deletedAt)
+        ),
+      with: AUDIT_USER_WITH,
+    });
+
+    if (!raw) {
       throw new CostCenterNotFoundError(id);
     }
-    return costCenter;
+
+    return mapAuditRelations(raw);
   }
 
   static async update(
@@ -126,7 +111,15 @@ export abstract class CostCenterService {
   ): Promise<CostCenterData> {
     const { userId, ...data } = input;
 
-    const existing = await CostCenterService.findById(id, organizationId);
+    const existing = await db.query.costCenters.findFirst({
+      where: (t, { eq: _eq, and: _and, isNull: _isNull }) =>
+        _and(
+          _eq(t.id, id),
+          _eq(t.organizationId, organizationId),
+          _isNull(t.deletedAt)
+        ),
+      columns: { id: true },
+    });
     if (!existing) {
       throw new CostCenterNotFoundError(id);
     }
@@ -139,21 +132,31 @@ export abstract class CostCenterService {
       );
     }
 
-    const [updated] = await db
-      .update(schema.costCenters)
-      .set({
-        ...data,
-        updatedBy: userId,
-      })
-      .where(
-        and(
-          eq(schema.costCenters.id, id),
-          eq(schema.costCenters.organizationId, organizationId)
-        )
-      )
-      .returning();
+    return db.transaction(async (tx) => {
+      await tx
+        .update(schema.costCenters)
+        .set({
+          ...data,
+          updatedBy: userId,
+        })
+        .where(
+          and(
+            eq(schema.costCenters.id, id),
+            eq(schema.costCenters.organizationId, organizationId)
+          )
+        );
 
-    return updated as CostCenterData;
+      const raw = await tx.query.costCenters.findFirst({
+        where: (t, { eq: _eq }) => _eq(t.id, id),
+        with: AUDIT_USER_WITH,
+      });
+
+      if (!raw) {
+        throw new Error("Cost center inconsistency after update");
+      }
+
+      return mapAuditRelations(raw);
+    });
   }
 
   static async delete(
@@ -161,10 +164,19 @@ export abstract class CostCenterService {
     organizationId: string,
     userId: string
   ): Promise<DeletedCostCenterData> {
-    const existing = await CostCenterService.findByIdIncludingDeleted(
-      id,
-      organizationId
-    );
+    const [existing] = await db
+      .select({
+        id: schema.costCenters.id,
+        deletedAt: schema.costCenters.deletedAt,
+      })
+      .from(schema.costCenters)
+      .where(
+        and(
+          eq(schema.costCenters.id, id),
+          eq(schema.costCenters.organizationId, organizationId)
+        )
+      )
+      .limit(1);
 
     if (!existing) {
       throw new CostCenterNotFoundError(id);
@@ -174,20 +186,30 @@ export abstract class CostCenterService {
       throw new CostCenterAlreadyDeletedError(id);
     }
 
-    const [deleted] = await db
-      .update(schema.costCenters)
-      .set({
-        deletedAt: new Date(),
-        deletedBy: userId,
-      })
-      .where(
-        and(
-          eq(schema.costCenters.id, id),
-          eq(schema.costCenters.organizationId, organizationId)
-        )
-      )
-      .returning();
+    return db.transaction(async (tx) => {
+      await tx
+        .update(schema.costCenters)
+        .set({
+          deletedAt: new Date(),
+          deletedBy: userId,
+        })
+        .where(
+          and(
+            eq(schema.costCenters.id, id),
+            eq(schema.costCenters.organizationId, organizationId)
+          )
+        );
 
-    return deleted as DeletedCostCenterData;
+      const raw = await tx.query.costCenters.findFirst({
+        where: (t, { eq: _eq }) => _eq(t.id, id),
+        with: AUDIT_USER_WITH,
+      });
+
+      if (!raw) {
+        throw new Error("Cost center inconsistency after delete");
+      }
+
+      return mapAuditRelations(raw) as DeletedCostCenterData;
+    });
   }
 }

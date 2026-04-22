@@ -111,7 +111,9 @@ describe("DELETE /v1/cost-centers/:id", () => {
     expect(body.success).toBe(true);
     expect(body.data.id).toBe(costCenter.id);
     expect(body.data.deletedAt).toBeDefined();
-    expect(body.data.deletedBy).toBeDefined();
+    expect(body.data.createdBy).toEqual({ id: user.id, name: user.name });
+    expect(body.data.updatedBy).toEqual({ id: user.id, name: user.name });
+    expect(body.data.deletedBy).toEqual({ id: user.id, name: user.name });
   });
 
   test.each([

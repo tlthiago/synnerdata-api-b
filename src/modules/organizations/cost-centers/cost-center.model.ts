@@ -1,5 +1,8 @@
 import { z } from "zod";
-import { successResponseSchema } from "@/lib/responses/response.types";
+import {
+  auditUserSchema,
+  successResponseSchema,
+} from "@/lib/responses/response.types";
 
 export const createCostCenterSchema = z.object({
   name: z
@@ -21,11 +24,13 @@ const costCenterDataSchema = z.object({
   name: z.string().describe("Nome do centro de custo"),
   createdAt: z.coerce.date().describe("Data de criação"),
   updatedAt: z.coerce.date().describe("Data de atualização"),
+  createdBy: auditUserSchema,
+  updatedBy: auditUserSchema,
+  deletedBy: auditUserSchema,
 });
 
 const deletedCostCenterDataSchema = costCenterDataSchema.extend({
   deletedAt: z.coerce.date().describe("Data de exclusão"),
-  deletedBy: z.string().nullable().describe("ID do usuário que excluiu"),
 });
 
 const costCenterListDataSchema = z.array(costCenterDataSchema);

@@ -1,6 +1,10 @@
 import { beforeAll, describe, expect, test } from "bun:test";
+import { eq } from "drizzle-orm";
+import { db } from "@/db";
+import { schema } from "@/db/schema";
 import { env } from "@/env";
 import { createTestApp, type TestApp } from "@/test/helpers/app";
+import { addMemberToOrganization } from "@/test/helpers/organization";
 import {
   createTestUser,
   createTestUserWithOrganization,
@@ -138,5 +142,78 @@ describe("GET /v1/cost-centers/:id", () => {
     expect(body.data.id).toBe(costCenter.id);
     expect(body.data.organizationId).toBe(organizationId);
     expect(body.data.name).toBe("Centro de Custo Financeiro");
+    expect(body.data.createdBy).toEqual({ id: user.id, name: user.name });
+    expect(body.data.updatedBy).toEqual({ id: user.id, name: user.name });
+    expect(body.data.deletedBy).toBeNull();
+  });
+
+  test("should return createdBy: null for system-seeded record (direct insert)", async () => {
+    const { headers, organizationId } = await createTestUserWithOrganization({
+      emailVerified: true,
+    });
+
+    const costCenterId = `cost-center-${crypto.randomUUID()}`;
+    await db.insert(schema.costCenters).values({
+      id: costCenterId,
+      organizationId,
+      name: "Centro de Custo Sistema",
+      createdBy: null,
+      updatedBy: null,
+    });
+
+    const response = await app.handle(
+      new Request(`${BASE_URL}/v1/cost-centers/${costCenterId}`, {
+        method: "GET",
+        headers,
+      })
+    );
+
+    expect(response.status).toBe(200);
+    const body = await response.json();
+
+    expect(body.success).toBe(true);
+    expect(body.data.id).toBe(costCenterId);
+    expect(body.data.createdBy).toBeNull();
+    expect(body.data.updatedBy).toBeNull();
+    expect(body.data.deletedBy).toBeNull();
+  });
+
+  test("should return createdBy: null after creator user is hard-deleted (ON DELETE SET NULL)", async () => {
+    const { headers: ownerHeaders, organizationId } =
+      await createTestUserWithOrganization({
+        emailVerified: true,
+      });
+
+    const creatorResult = await createTestUser({ emailVerified: true });
+    await addMemberToOrganization(creatorResult, {
+      organizationId,
+      role: "manager",
+    });
+
+    const costCenter = await CostCenterService.create({
+      organizationId,
+      userId: creatorResult.user.id,
+      name: "Centro de Custo Autor Removido",
+    });
+
+    await db
+      .delete(schema.users)
+      .where(eq(schema.users.id, creatorResult.user.id));
+
+    const response = await app.handle(
+      new Request(`${BASE_URL}/v1/cost-centers/${costCenter.id}`, {
+        method: "GET",
+        headers: ownerHeaders,
+      })
+    );
+
+    expect(response.status).toBe(200);
+    const body = await response.json();
+
+    expect(body.success).toBe(true);
+    expect(body.data.id).toBe(costCenter.id);
+    expect(body.data.createdBy).toBeNull();
+    expect(body.data.updatedBy).toBeNull();
+    expect(body.data.deletedBy).toBeNull();
   });
 });
