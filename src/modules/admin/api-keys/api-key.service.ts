@@ -135,11 +135,8 @@ export abstract class ApiKeyService {
     });
   }
 
-  static async getById(
-    headers: AuthHeaders,
-    keyId: string
-  ): Promise<GetApiKeyData> {
-    try {
+  static getById(headers: AuthHeaders, keyId: string): Promise<GetApiKeyData> {
+    return withApiKeyNotFoundFallback(keyId, async () => {
       const result = await auth.api.getApiKey({
         query: { id: keyId },
         headers,
@@ -171,20 +168,15 @@ export abstract class ApiKeyService {
         lastUsedAt: result.lastRequest?.toISOString() ?? null,
         createdAt: result.createdAt.toISOString(),
       };
-    } catch (error) {
-      if (isBetterAuthNotFound(error)) {
-        throw new ApiKeyNotFoundError(keyId);
-      }
-      throw error;
-    }
+    });
   }
 
-  static async revoke(
+  static revoke(
     userId: string,
     headers: AuthHeaders,
     keyId: string
   ): Promise<RevokeApiKeyData> {
-    try {
+    return withApiKeyNotFoundFallback(keyId, async () => {
       await auth.api.updateApiKey({
         body: {
           keyId,
@@ -210,20 +202,15 @@ export abstract class ApiKeyService {
       return {
         revoked: true,
       };
-    } catch (error) {
-      if (isBetterAuthNotFound(error)) {
-        throw new ApiKeyNotFoundError(keyId);
-      }
-      throw error;
-    }
+    });
   }
 
-  static async delete(
+  static delete(
     userId: string,
     headers: AuthHeaders,
     keyId: string
   ): Promise<DeleteApiKeyData> {
-    try {
+    return withApiKeyNotFoundFallback(keyId, async () => {
       await auth.api.deleteApiKey({
         body: { keyId },
         headers,
@@ -242,12 +229,7 @@ export abstract class ApiKeyService {
       return {
         deleted: true,
       };
-    } catch (error) {
-      if (isBetterAuthNotFound(error)) {
-        throw new ApiKeyNotFoundError(keyId);
-      }
-      throw error;
-    }
+    });
   }
 }
 
@@ -257,4 +239,18 @@ function isBetterAuthNotFound(error: unknown): boolean {
     error.name === "APIError" &&
     (error as unknown as { statusCode: number }).statusCode === 404
   );
+}
+
+async function withApiKeyNotFoundFallback<T>(
+  keyId: string,
+  fn: () => Promise<T>
+): Promise<T> {
+  try {
+    return await fn();
+  } catch (error) {
+    if (isBetterAuthNotFound(error)) {
+      throw new ApiKeyNotFoundError(keyId);
+    }
+    throw error;
+  }
 }
