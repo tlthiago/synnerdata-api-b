@@ -3,6 +3,7 @@ export type ErrorResponse = {
   error: {
     code: string;
     message: string;
+    requestId?: string;
     details?: unknown;
   };
 };
@@ -18,7 +19,7 @@ export abstract class AppError extends Error {
     this.details = details;
   }
 
-  toResponse(): ErrorResponse {
+  toResponse(requestId?: string): ErrorResponse {
     const response: ErrorResponse = {
       success: false,
       error: {
@@ -26,6 +27,10 @@ export abstract class AppError extends Error {
         message: this.message,
       },
     };
+
+    if (requestId !== undefined) {
+      response.error.requestId = requestId;
+    }
 
     if (this.details !== undefined) {
       response.error.details = this.details;

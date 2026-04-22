@@ -28,8 +28,8 @@ export const apiKeysController = new Elysia({
   .use(betterAuthPlugin)
   .post(
     "/",
-    async ({ body, user }) =>
-      wrapSuccess(await ApiKeyService.create(user.id, body)),
+    async ({ body, user, request }) =>
+      wrapSuccess(await ApiKeyService.create(user.id, body, request.headers)),
     {
       auth: { requireAdmin: true },
       body: createApiKeySchema,
@@ -92,8 +92,10 @@ export const apiKeysController = new Elysia({
   )
   .post(
     "/:id/revoke",
-    async ({ params, request }) =>
-      wrapSuccess(await ApiKeyService.revoke(request.headers, params.id)),
+    async ({ params, request, user }) =>
+      wrapSuccess(
+        await ApiKeyService.revoke(user.id, request.headers, params.id)
+      ),
     {
       auth: { requireAdmin: true },
       params: idParamSchema,
@@ -113,8 +115,10 @@ export const apiKeysController = new Elysia({
   )
   .delete(
     "/:id",
-    async ({ params, request }) =>
-      wrapSuccess(await ApiKeyService.delete(request.headers, params.id)),
+    async ({ params, request, user }) =>
+      wrapSuccess(
+        await ApiKeyService.delete(user.id, request.headers, params.id)
+      ),
     {
       auth: { requireAdmin: true },
       params: idParamSchema,

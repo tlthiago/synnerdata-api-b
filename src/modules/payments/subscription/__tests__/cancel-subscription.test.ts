@@ -370,7 +370,7 @@ describe("POST /v1/payments/subscription/cancel", () => {
       "O plano ficou caro para o porte da empresa"
     );
 
-    // Verify audit log was also created
+    // Verify audit log was also created with before/after diff (CP-42)
     const auditLogs = await db
       .select()
       .from(schema.auditLogs)
@@ -381,15 +381,25 @@ describe("POST /v1/payments/subscription/cancel", () => {
     );
 
     expect(cancelAudit).toBeDefined();
-    expect(cancelAudit?.changes).toEqual({
-      after: {
-        cancelReason: "too_expensive",
-        cancelComment: "O plano ficou caro para o porte da empresa",
-      },
+    const changes = cancelAudit?.changes as {
+      before: Record<string, unknown>;
+      after: Record<string, unknown>;
+    };
+    expect(changes.before).toMatchObject({
+      cancelAtPeriodEnd: false,
+      canceledAt: null,
+      cancelReason: null,
+      cancelComment: null,
     });
+    expect(changes.after).toMatchObject({
+      cancelAtPeriodEnd: true,
+      cancelReason: "too_expensive",
+      cancelComment: "O plano ficou caro para o porte da empresa",
+    });
+    expect(changes.after.canceledAt).toEqual(expect.any(String));
   });
 
-  test("should cancel without reason/comment (backward compatible)", async () => {
+  test("should always audit cancel, even without reason/comment (CP-42)", async () => {
     const { headers, organizationId } =
       await UserFactory.createWithOrganization({
         emailVerified: true,
@@ -423,7 +433,8 @@ describe("POST /v1/payments/subscription/cancel", () => {
     expect(subscription.cancelReason).toBeNull();
     expect(subscription.cancelComment).toBeNull();
 
-    // No audit log should be created when reason/comment are not provided
+    // CP-42: every mutation is audited. Without reason/comment, only the
+    // scheduling fields change, so reason/comment do not appear in the diff.
     const auditLogs = await db
       .select()
       .from(schema.auditLogs)
@@ -433,7 +444,21 @@ describe("POST /v1/payments/subscription/cancel", () => {
       (log) => log.resource === "subscription" && log.action === "update"
     );
 
-    expect(cancelAudit).toBeUndefined();
+    expect(cancelAudit).toBeDefined();
+    const changes = cancelAudit?.changes as {
+      before: Record<string, unknown>;
+      after: Record<string, unknown>;
+    };
+    expect(changes.before).toMatchObject({
+      cancelAtPeriodEnd: false,
+      canceledAt: null,
+    });
+    expect(changes.after).toMatchObject({
+      cancelAtPeriodEnd: true,
+    });
+    expect(changes.after.canceledAt).toEqual(expect.any(String));
+    expect(changes.before.cancelReason).toBeUndefined();
+    expect(changes.after.cancelReason).toBeUndefined();
   });
 
   test.each([

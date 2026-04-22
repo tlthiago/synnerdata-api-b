@@ -262,9 +262,9 @@ Seção específica do projeto. Começa pelo **status atual** da iniciativa (7.0
 | **0. Contexto aplicado** | ✅ Concluída | 2026-04-21 | Seções 7.1–7.3, 7.6, 7.7 preenchidas + convenção semântica + 10 débitos pré-audit |
 | **1. Audit item a item** | ✅ Concluída | 2026-04-21 | Status nas seções 4 e 5 preenchidos (~65 itens); 95 débitos totais em 7.7; relatório em [`docs/reports/2026-04-21-api-infrastructure-audit.md`](../reports/2026-04-21-api-infrastructure-audit.md) |
 | **2. Roadmap priorizado** | ✅ Concluída | 2026-04-21 | Seção 7.5 com 69 ações organizadas em 3 buckets (🔴 10 urgentes / 🟡 38 curto prazo / 🟢 21 sob demanda) com IDs, dependências, tipo e esforço |
-| **3. Execução** | 🔄 Iniciando | 2026-04-21 | Opção B (Híbrido) adotada; RU-1 como primeira ação; Compozy setup em paralelo para ativar a partir de RU-6 |
+| **3. Execução** | 🔄 Em execução | 2026-04-22 | **Bucket 🔴 concluído (10/10)**. Bucket 🟡 **Onda 1 completa (10/10)** + **Onda 2 completa (2/2)**. Total concluídas no 🟡: **12 CPs** (CP-7, CP-8, CP-9, CP-13, CP-20, CP-21, CP-22, CP-23, CP-40, CP-42, CP-43, CP-45). RU-1..RU-10 entregues em PRs sequenciais em `preview`. Grupo 3 fechado. `src/plugins/` inaugurado. BOLA audit completo (0 gaps). Runbook de backup em `docs/runbooks/`. Helper `buildAuditChanges` + `auditPlugin` em produção (4 módulos auditando reads sensíveis: employees, medical-certificates, cpf-analyses, labor-lawsuits). CP-39..CP-50 registrados como follow-ups. **Débito #96 100% endereçado**. |
 
-**➡️ Próxima ação:** iniciar **Grupo 1 do bucket 🔴 — RU-1 (hardening de `env.ts`)** via branch `fix/urgent-foundation-hardening`, em paralelo com setup do Compozy (`compozy setup` + `.compozy/config.toml` + habilitar `cy-idea-factory`).
+**➡️ Próxima ação:** **Bucket 🟡 — Onda 3** (Qualidade pontual). Agrupáveis em 2-3 PRs temáticas: **auth hardening** (CP-24, CP-25, CP-30), **error handling** (CP-27, CP-29), **env centralization** (CP-31), **qualidade geral** (CP-34, CP-35, CP-36, CP-37, CP-39). CP-41 (workflow dedicado Pagar.me) vale PR separada. Total: 9 S's + 3 M's.
 
 ### 7.1 Contexto do projeto
 
@@ -502,13 +502,13 @@ Organizado em **5 PRs dedicados** (refactors grandes) + ações pontuais.
 | ID | Ação | Débitos cobertos | Tipo | Esforço | Depende de |
 |---|---|---|---|---|---|
 | **CP-6** | Validar suporte a HMAC no Pagar.me v5 e migrar webhook (se suportado); se não suportado, adicionar IP allowlist como defesa adicional | #56, #57 | new | M | — |
-| **CP-7** | Adicionar gitleaks ou trufflehog no `security.yml` para scan de histórico git | #84 | config | S | — |
-| **CP-8** | Gerar SBOM via `trivy sbom` como artifact no `security.yml` | #85 | config | S | — |
-| **CP-9** | Trivy filesystem scan (`trivy fs .`) no `security.yml` além do image scan | #82 | config | S | — |
+| **CP-7** | ✅ **2026-04-22** — TruffleHog `secrets-scan` job em `security.yml` (com `--only-verified`, diff por PR ou full scan em schedule) | #84 | config | S | — |
+| **CP-8** | ✅ **2026-04-22** — SBOM CycloneDX gerado via `trivy-action` format=cyclonedx no job trivy-image, upload como artifact (90d retention) | #85 | config | S | — |
+| **CP-9** | ✅ **2026-04-22** — Job `trivy-fs` em `security.yml` com `scan-type: fs`, SARIF upload categorizado separadamente do container scan | #82 | config | S | — |
 | **CP-10** | Pin SHA do `oven/bun:1-alpine` no Dockerfile + atualização via Dependabot | #87 | config | S | — |
 | **CP-11** | HEALTHCHECK deep no Dockerfile (trocar `/health/live` por `/health` com `--retries=10`) | #88 | config | S | — |
 | **CP-12** | `wait-for-db` no `scripts/entrypoint.sh` antes de rodar migrations | #89 | new | S | — |
-| **CP-13** | Escopar secrets no `test.yml` por step (não no job todo) | #95 | config | S | — |
+| **CP-13** | ✅ **2026-04-22** — 8 secrets (BETTER_AUTH_SECRET, PAGARME_*, INTERNAL_API_KEY, PII_ENCRYPTION_KEY) movidos para step-level apenas nos 3 steps que executam código do projeto (migrations, affected tests, full suite) | #95 | config | S | — |
 
 ##### Cloudflare Free Tier (decisão 7.3 #1 — etapa final do early-stage)
 
@@ -525,10 +525,10 @@ Organizado em **5 PRs dedicados** (refactors grandes) + ações pontuais.
 | **CP-17** | Métricas básicas — OTel Metrics ou Prometheus client: latência por rota, throughput, erro rate, pool de conexões DB | Early #2 | new | M | — |
 | **CP-18** | Política de deprecation com headers `Deprecation` / `Sunset` — documentar em `docs/api-versioning.md` + helper em `lib/responses/` para injetar headers | Early #9 | new | M | CP-3 |
 | **CP-19** | Playwright E2E em workflow CI — novo workflow ou step em `test.yml` (pelo menos no schedule diário) | #78 | config | M | — |
-| **CP-20** | Coverage reporting — ativar `--coverage` no `test.yml` e subir pro Codecov/coveralls | #86 | config | S | — |
-| **CP-21** | Cache de `bun install` em todos workflows | #80 | config | S | — |
-| **CP-22** | `--frozen-lockfile` no `bun install` do `lint.yml` | #81 | config | S | — |
-| **CP-23** | Build workflow smoke test — rodar bundle com timeout para validar startup | #79 | config | S | — |
+| **CP-20** | ✅ **2026-04-22** — `--coverage --coverage-reporter=lcov` ativado em affected + full suite. Upload via `codecov/codecov-action@v5`. Depende de `CODECOV_TOKEN` no repo secrets para publicação | #86 | config | S | — |
+| **CP-21** | ✅ **2026-04-22** — `actions/cache@v4` com chave `bun-${{ hashFiles('bun.lock') }}` em lint/test/build (security.yml N/A — roda docker build) | #80 | config | S | — |
+| **CP-22** | ✅ **2026-04-22** — `bun install --frozen-lockfile` em lint/test/build (alinhado com Dockerfile que já usava). Detecta drift de package.json vs bun.lock | #81 | config | S | — |
+| **CP-23** | ✅ **2026-04-22** — `timeout 10 bun dist/index.js` com env fake válido em `build.yml`. Aceita exit 0/124/143 como sucesso, qualquer outro código reprova o bundle | #79 | config | S | — |
 
 ##### Env.ts e auth hardening adicional
 
@@ -555,8 +555,37 @@ Organizado em **5 PRs dedicados** (refactors grandes) + ações pontuais.
 | **CP-37** | Version fallback em `lib/health/index.ts` — trocar `"1.0.50"` hardcoded por `"unknown"` ou ler do `package.json` | #29 | config | S | — |
 | **CP-38** | Runbook de oncall em `docs/runbooks/` — DB down, webhook Pagar.me falhando, SMTP caído, Sentry recebendo 5xx em massa | #93 | docs | M | — |
 | **CP-39** | Separar `SMTP_FROM` em duas envs — `SMTP_FROM` (apenas endereço, `z.email()` puro) + `SMTP_FROM_NAME` (display name opcional); remover `smtpFromSchema` custom; montar `from: { name, address }` em `src/lib/email.tsx`; migrar value no Coolify | Revisão de design do #17 após RU-1 | refactor | S | — |
+| **CP-40** | ✅ **2026-04-22** — Triagem de 13 highs em dev + prod deps. Estratégia ajustada após auditoria: `bun update` → upgrade secretlint 11→12 → `overrides` para transitivas de deps já no latest (commitizen, drizzle-orm, exceljs) + transitivas dentro de ranges de parents não-latest (better-auth, ultracite 6). CI threshold subiu `critical` → `high`. Escopos não-CVE saíram como CP-46/47/48/49 | Follow-up de RU-4a | refactor | M | RU-4b |
+| **CP-41** | Workflow dedicado para integration tests externos (Pagar.me) — novo `.github/workflows/test-integration.yml` com `workflow_dispatch` + schedule semanal, secrets de sandbox Pagar.me configurados, rodando apenas testes gated por `skipIntegration`. Destrava cobertura real dos módulos `src/modules/payments/*` em CI (hoje só rodam em máquina de dev) | Follow-up de RU-5 | new | M | — |
+| **CP-42** | ✅ **2026-04-22** — Helper `buildAuditChanges(before, after)` em `src/modules/audit/pii-redaction.ts` com 25 unit tests. Redação automática de 11 campos PII (CPF, RG, pisPasep, CTPS, email, phone, mobile, salary, hourlyRate, CID, birthDate) e exclusão de metadata (createdAt/updatedAt/createdBy/updatedBy/deletedAt/deletedBy). Convenção documentada em `src/modules/audit/CLAUDE.md`. Aplicado em employees (create/update/updateStatus/delete), medical-certificates (create/update/delete) e subscription (cancel/restore). Enum `auditResourceSchema` alinhado com a spec: renomeado `medical_leave` → `medical_certificate`, adicionado `labor_lawsuit` | #96 (parcial), LGPD Art. 18/48 | refactor | M | — |
+| **CP-43** | ✅ **2026-04-22** — `auditPlugin` mountado nos 4 controllers (`employee`, `medical_certificate`, `cpf_analysis`, `labor_lawsuit`). GET `/:id` emite `audit({ action: "read", resource, resourceId })` após resolve bem-sucedido. Listagens **não** auditam (ruído). Fix no plugin: destructure movido pra dentro do `audit()` (derive rodava antes do macro auth resolver user/session). Enum `auditResourceSchema` ganhou `cpf_analysis`. Integration test em `medical-certificates/__tests__/get-medical-certificate.test.ts`. Convenção documentada em `src/modules/audit/CLAUDE.md` seção "Read Audit (CP-43)" | #96 (complementa), LGPD Art. 11/48 | new | M | RU-7 |
+| **CP-44** | Audit BOLA automatizado em CI — script que AST-scan `src/modules/**/*.service.ts` identificando queries `db.select/update/delete` em tabelas org-scoped sem filtro `organizationId`. Falha PR se gap novo introduzido. Preventivo contra regressão após RU-9 ter validado o estado limpo atual | Follow-up de RU-9 | new | M | — |
+| **CP-45** | ✅ **2026-04-22** — Local Backup Retention ajustado para 7 backups / 7 dias / 2 GB no Coolify (R2 inalterado em 30/30/8). Ação operacional pura na UI, sem código. Runbook atualizado | Follow-up de RU-10 | config | S | — |
+| **CP-46** | Migração ultracite 6 → 7 (Biome → Oxc) — descoberto em CP-40. Ultracite 7 trocou o engine subjacente de Biome para Oxc (`oxlint` + `oxfmt`). Requer: remover `@biomejs/biome` das devDeps, validar `biome.json`/`biome.jsonc` → config equivalente em Oxc, rodar `ultracite check` + `ultracite fix` em todo o codebase, validar que pre-commit via `lint-staged` continua funcionando. Não é tooling crítico para segurança — espera janela dedicada | Descoberto em CP-40 | refactor | L | — |
+| **CP-47** | Migração better-auth 1.4 → 1.6 — descoberto em CP-40. Envolve: (a) adicionar coluna `verified` na tabela `twoFactor` (schema migration, default `true`, sem backfill necessário — run `npx @better-auth/cli generate` + drizzle-kit generate + migrate); (b) validar mudança de semântica de `session.freshAge` (agora calculado de `createdAt` em vez de `updatedAt`); (c) rodar suíte completa de auth + 2FA para detectar regressões em hooks, permissions, api-keys; (d) revisar release notes 1.5/1.6 para features opcionais úteis (OTel instrumentation, WeChat provider, etc.). Não é CVE — CVEs de `defu`/`kysely` foram resolvidas via overrides em CP-40 | Descoberto em CP-40 | refactor | L | — |
+| **CP-48** | Migração Zod 4.1 → 4.3 — descoberto em CP-40. Zod 4.3 proíbe `.partial()` em schemas com `.refine()` (antes permitia com comportamento indefinido). Afeta ~16 `.model.ts` em `src/modules/` (employees, occurrences/*, organizations/*, payments/billing, etc.). Fix padrão: extrair objeto base (sem refine), fazer `.partial().extend()` nele, aplicar refine depois. Zod está pinado em `~4.1.13` em CP-40 como contenção | Descoberto em CP-40 | refactor | M | — |
+| **CP-49** | Sync react/react-dom versions — descoberto em CP-40. `react-dom` não está nas devDeps diretas mas é pulled por `@react-email/components`, e fica desalinhado de `react` em patches (`bun update` bumpou react → 19.2.5 enquanto react-dom ficou em 19.2.4, causando runtime mismatch). Opções: (a) adicionar `react-dom` às devDeps pinado ao mesmo patch; (b) manter `react` pinado exato (feito em CP-40 como contenção); (c) override de `react-dom` matching `react`. Decidir quando for revisar deps novamente | Descoberto em CP-40 | config | S | — |
+| **CP-50** | Migração TypeScript 5.9 → 6.x — descoberto em CP-40 quando CI falhou ao puxar TS 6.0.3 ephemerally (TS não estava em devDeps). TS 6 transforma `moduleResolution=node` em erro deprecated (antes era warning). Requer: (a) alterar `tsconfig.json` de `"moduleResolution": "node"` para `"bundler"` (recomendado Elysia/Bun) ou `"node16"`; (b) auditar imports para compatibilidade com resolução nova (extensões obrigatórias em alguns casos); (c) remover o pin `~5.9.3` após migração validada. Contenção atual: TS pinado em devDeps `~5.9.3` | Descoberto em CP-40 | refactor | M | — |
 
-**Total bucket 🟡: 39 ações. Execução sugerida em paralelo por tema (PRs dedicados CP-1…CP-5 podem rodar em paralelo com ações pontuais).**
+**Total bucket 🟡: 50 ações registradas · 37 ativas · 12 concluídas (CP-7, CP-8, CP-9, CP-13, CP-20, CP-21, CP-22, CP-23, CP-40, CP-42, CP-43, CP-45 em 2026-04-22) · 1 contenção temporária (CP-50).**
+
+##### Ordem de execução sugerida
+
+Sequência proposta para extrair valor rápido antes de atacar os refactors grandes. Decidida após fechamento do bucket 🔴 — critério: **ganho de compliance/CI por hora de trabalho**, com XL ficando para janela dedicada.
+
+| Onda | Foco | Itens | Racional |
+|---|---|---|---|
+| **Onda 1 — Ganhos rápidos de CI/segurança** | ✅ **Concluída em 2026-04-22** | CP-40 (M) → CP-7 (S), CP-8 (S), CP-9 (S), CP-22 (S), CP-21 (S), CP-23 (S), CP-13 (S), CP-20 (S) | CP-40 entregue em PR separada (escopo maior). Os 8 S's entregues numa PR agrupada com 8 commits atômicos |
+| **Onda 2 — Compliance LGPD (débito #96)** | ✅ **Concluída em 2026-04-22** | CP-42 (M) → CP-43 (M) | CP-42 entregou a convenção (`buildAuditChanges` + redação PII); CP-43 aplicou `auditPlugin` nos 4 GET handlers sensíveis. Débito #96 100% endereçado |
+| **Onda 3 — Qualidade pontual** | Resolver débitos S restantes enquanto XL ainda não começou | CP-24, CP-27, CP-29, CP-31, CP-34, CP-35, CP-36, CP-37, CP-39 (todos S); CP-25, CP-30, CP-41 (M) | Podem ser agrupados em 2-3 PRs temáticos (auth hardening, error handling, env centralization). CP-41 vale dedicar PR separada (workflow novo) |
+| **Onda 4 — Cloudflare + Observabilidade** | Depende de janela com o dono (CP-14 precisa alinhar DNS) | CP-14 → CP-15 → CP-16; CP-17, CP-18, CP-19 | Cloudflare é sequencial (CP-14 destrava CP-15 destrava CP-16). Observabilidade (CP-17/18/19) pode rodar em paralelo — CP-18 depende de CP-3 |
+| **Onda 5 — Refactors grandes** | PRs dedicados, worktree obrigatório, plan formal em `docs/plans/` | CP-1 (XL) → CP-4, CP-26, CP-28, CP-32 (dependem de CP-1); CP-2 (XL); CP-3 (L) → CP-18; CP-5 (L); CP-6 (M), CP-33, CP-38, CP-44 | CP-1 tem o maior raio de desbloqueio (4 CPs menores dependem dele). CP-2 e CP-3 independentes. CP-38 e CP-44 são documentação/tooling — podem intercalar |
+
+**Notas operacionais:**
+- **CP-45 já concluída** (2026-04-22) — ação operacional no Coolify, sem código.
+- **Onda 1 e Onda 2 não têm dependências cruzadas** — podem rodar em paralelo se houver bandwidth.
+- **XL (CP-1, CP-2) em worktree isolado** (ver 7.5.1 § Metodologia híbrida) — regra do projeto para features que bloqueiam outros trabalhos.
+- Reavaliar ordem a cada 5 CPs concluídos — aprendizado do bucket 🔴 mostrou que prioridades mudam ao descobrir o escopo real.
 
 #### 🟢 Bucket Médio Prazo / Sob Demanda (quando houver sinal real)
 
@@ -592,11 +621,11 @@ Não investir antes do sinal. Cada item lista o **sinal que justifica investir**
 
 ### Resumo executivo do roadmap
 
-| Bucket | Ações | Esforço consolidado | Prazo alvo |
-|---|---|---|---|
-| 🔴 Urgente | 10 | ~7 S/M + 1 L = 2-3 semanas com foco parcial | até 30 dias |
-| 🟡 Curto prazo | 39 (5 plans dedicados + 34 pontuais) | 5 planos XL/L + ~31 S/M | 30-90 dias |
-| 🟢 Médio prazo | 21 | Sob demanda | indefinido (monitorar sinais) |
+| Bucket | Ações | Esforço consolidado | Prazo alvo | Estado |
+|---|---|---|---|---|
+| 🔴 Urgente | 10 | ~7 S/M + 1 L = 2-3 semanas com foco parcial | até 30 dias | ✅ Concluído em 2026-04-22 (1 dia de execução efetiva) |
+| 🟡 Curto prazo | 45 registradas (1 done · 44 ativas) | 5 planos XL/L + ~37 S/M | 30-90 dias | 🔄 Ordem de execução definida (ver 7.5 § Ordem de execução sugerida) |
+| 🟢 Médio prazo | 21 | Sob demanda | indefinido (monitorar sinais) | ⏸️ Sem investimento até sinal concreto |
 
 **Princípios de execução:**
 - Atacar 🔴 **primeiro e até o fim** antes de iniciar 🟡
@@ -975,7 +1004,7 @@ Pré-audit — itens de **organização semântica** detectados no `src/` atual.
 | 17 | ~~`env.ts` — `SMTP_FROM: z.string()`~~ | ✅ **Resolvido em RU-1 (2026-04-21)** — trocado por `z.email().default(...)` |
 | 18 | ~~`env.ts` — `NODE_ENV` não validado no schema~~ | ✅ **Resolvido em RU-1 (2026-04-21)** — `NODE_ENV: z.enum(["development","production","test"]).default("development")`; `isProduction` agora lê de `env.NODE_ENV` |
 | 19 | ~~`env.ts` — `CORS_ORIGIN` formato comma-separated implícito~~ | ✅ **Resolvido em RU-1 (2026-04-21)** — `.describe()` documenta formato comma-separated (parser delegado a `parseOrigins` em `lib/cors.ts`) |
-| 20 | **Falta request timeout global** | Elysia/Bun default é 255s (`idleTimeout`), mas sem controle explícito | Configurar `serve.idleTimeout` explícito em `src/index.ts` ou plugin dedicado |
+| 20 | **Falta request timeout global** | Bun.serve default atual é **10s** (`idleTimeout`; 255s era default antigo). O valor atual é razoável, mas depende de default implícito — sem controle explícito no código | Configurar `serve.idleTimeout` explícito em `src/index.ts` ou plugin dedicado |
 
 #### Débitos descobertos no Bloco 2 da Fase 1 (2026-04-21)
 
@@ -1129,6 +1158,7 @@ Dimensão "Qualidade da implementação" adicionada à metodologia após o Bloco
 | 93 | **Sem runbook de oncall/incidente** | 🟢 maturidade | Onde procurar quando algo quebra 3h da manhã? Criar `docs/runbooks/` com: DB down, webhook Pagar.me falhando, SMTP caído, Sentry recebendo 5xx em massa |
 | 94 | **Version do projeto em `package.json:3` (`1.0.50`) é manual** | 🟢 qualidade DX | Sem semantic-release ou similar — dev precisa bumpar manualmente. Para lib/app com release frequente, considerar automation. Não crítico agora |
 | 95 | **Em `test.yml`, secrets Pagar.me/Auth expostos no `env` do job inteiro** | 🟡 segurança CI | Todos os steps enxergam `PAGARME_SECRET_KEY` etc. Deveria ser escopado só ao step de teste, ou usar `secrets` inherit em actions filhas. Baixo risco (GitHub já protege logs), mas princípio de menor privilégio |
+| 96 | **Convenção inconsistente de `changes` em audit logs + reads sensíveis sem audit** | 🔴 compliance LGPD | Schema suporta `{ before, after }` mas apenas parte dos call-sites de mutation preenchem. Reads em dados sensíveis (Art. 11 LGPD — atestados médicos, CPF, salário, processos trabalhistas) não geram audit entry. Endereçar via CP-42 (convenção before/after + tratamento de PII) e CP-43 (audit de reads em GET handlers de recursos sensíveis) |
 
 #### Features do Better Auth que já usamos (referência para não reinventar)
 
@@ -1181,7 +1211,7 @@ A consultar via `context7` e docs oficiais quando surgir gap específico — **n
 - **Débitos #1 (plugins mistos), #8 (emails duplicado) e #22 (audit bloqueante)** são os de maior impacto — merecem PRs dedicados
 - Demais débitos (#2–#7, #9–#21, #23–#30) são oportunistas: resolvem quando a Fase 3 tocar na área
 - Exceto #22, nenhum débito **bloqueia o MVP funcional** — são organização semântica + hardening leve
-- Débito **#20 (request timeout)** é hardening real — entra no bucket 🟡 early-stage (o default de 255s é tolerável em MVP)
+- Débito **#20 (request timeout)** é hardening real — entra no bucket 🟡 early-stage (o default atual do Bun de 10s é razoável mas implícito no código; tornar explícito reduz acoplamento com default do runtime)
 
 ---
 
@@ -1349,6 +1379,494 @@ Rodados testes que cobrem as áreas a serem tocadas pelo bucket 🔴 para confir
 - Extensão `cy-idea-factory` — traz council de 6 agentes (security-advocate, architect-advisor, pragmatic-engineer, product-mind, devils-advocate, the-thinker) e skill `/cy-idea-factory`. Motivo: roadmap atual (bucket 🔴 + maior parte do 🟡) já tem escopo claro do audit; council é overkill para ações bem escopadas. Instalar apenas antes de CP-1/CP-2 (XL) ou qualquer item do bucket 🟢 (decisões com múltiplos trade-offs sem design pronto)
 
 **Estado:** pronto para iniciar Fase 3. Próxima ação — **RU-1 (hardening `env.ts`)** via fluxo simples (branch direta, sem Compozy).
+
+### 2026-04-22 — CP-43 concluída (audit de reads em recursos sensíveis) + **Onda 2 fechada**
+
+Última ação da Onda 2 entregue. **Débito #96 100% endereçado**: CP-42 cobriu mutations (diff + PII redaction) e CP-43 cobre reads (quem leu o quê e quando).
+
+**Entregáveis:**
+
+1. **Fix no `auditPlugin`** (`src/plugins/audit/audit-plugin.ts`): destructure de `user/session/request` movido de dentro do `.derive()` (execução ansiosa) para dentro da função `audit()` retornada (execução no call-time). Motivo: no lifecycle do Elysia, `.derive()` roda ANTES do macro `auth.resolve`, então user/session eram `undefined` no snapshot do derive. Bug mascarado nos testes do auditPlugin (usavam `.derive()` para mockar user/session, populando o ctx antes do plugin rodar). Unblock-aria desde RU-7 se alguém tivesse tentado adotar em controller real. **Tests do plugin continuam verdes** (6/6).
+
+2. **Adoção nos 4 controllers sensíveis**:
+   - `src/modules/employees/index.ts`
+   - `src/modules/occurrences/medical-certificates/index.ts`
+   - `src/modules/occurrences/cpf-analyses/index.ts`
+   - `src/modules/occurrences/labor-lawsuits/index.ts`
+
+   Padrão uniforme: `.use(betterAuthPlugin).use(auditPlugin)` + `audit({ action: "read", resource, resourceId })` após o service resolver com sucesso. Ordem importa — auditPlugin lê user/session do ctx injetado pelo `auth` macro.
+
+3. **Enum `auditResourceSchema` ganha `cpf_analysis`** — completa os 4 resources de reads sensíveis.
+
+4. **Integration test** em `medical-certificates/__tests__/get-medical-certificate.test.ts` valida: GET `/:id` com sucesso → audit_log row com `action: "read"`, `resource: "medical_certificate"`, `resourceId: <certificate.id>`, `userId: <session user>`, `changes: null`. Canonical test do pattern — os outros 3 módulos seguem o mesmo wiring.
+
+5. **Documentação** em `src/modules/audit/CLAUDE.md` seção "Read Audit (CP-43)" com padrão de uso, regras (só sucesso, só individual, changes null), motivos (por que não listagem) e lista de resources cobertos.
+
+**Decisões operacionais:**
+
+- **Listagem NÃO audita** — cada request de lista geraria um log por request sem `resourceId` específico. O log HTTP já cobre "endpoint X foi acessado"; audit é para reconstituir acesso a registros individuais.
+- **Audit só em sucesso** — a call vem depois do service resolver, então 404/403 não geram log. Erros ficam no logger/Sentry. Audit é rastreabilidade de acesso efetivo a dado.
+- **`changes: null` em read** — reads não têm before/after. O tuplo `(userId, resourceId, ipAddress, userAgent, createdAt)` é o que LGPD Art. 48 precisa.
+- **Plugin fix urgente, não refactor** — bug era real e bloqueava adoção. Ficou num commit separado com explicação detalhada para audit trail.
+
+**Arquivos tocados:**
+
+- Fix: `src/plugins/audit/audit-plugin.ts`
+- Modificados: `src/modules/audit/audit.model.ts` (enum), `src/modules/audit/CLAUDE.md` (seção nova), 4 controllers
+- Novo teste: `src/modules/occurrences/medical-certificates/__tests__/get-medical-certificate.test.ts` (+1 caso)
+
+**Validação:**
+- ✅ `bun run lint:types` clean
+- ✅ 6 tests do auditPlugin passando (regression clean)
+- ✅ 199 tests em audit + subscription + api-keys + plugin audit passando
+- ✅ 223/224 tests nos 4 módulos tocados (1 falha pré-existente em preview — FK constraint em factory de sectors, unrelated to CP-43)
+- ✅ `npx ultracite check` clean nos arquivos tocados
+
+**Lições:**
+
+- **Testes mockados podem mascarar bugs de lifecycle**: o `.derive()` no test mockou user/session de forma síncrona, simulando um estado que nunca existe em produção (onde macro.resolve roda DEPOIS do .derive). Integration test em controller real pegou o bug. Lição: quando um plugin é infra dormente, integration test com auth real antes de declarar "done" salva retrabalho.
+- **Ordem de plugins importa quando há dependência de contexto**: `auditPlugin` lê `user/session` que vêm do `betterAuthPlugin`. Mountado antes ou independente, breaks. Documentar a ordem no CLAUDE.md do plugin.
+- **Escopo "1 módulo, 1 teste focado" é suficiente quando o pattern é uniforme**: os 4 controllers têm wiring idêntico. 1 test canônico em medical-certificates cobre a prova do helper; replicar em 3 módulos seria duplicação.
+
+### 2026-04-22 — CP-42 concluída (convenção de audit diff + PII redaction)
+
+Primeira ação da Onda 2 (Compliance LGPD) fechada. Endereça o débito #96 parcialmente; CP-43 (reads sensíveis) completa o endereçamento.
+
+**Entregáveis:**
+
+1. **Helper `src/modules/audit/pii-redaction.ts`** com 4 exports:
+   - `PII_FIELDS`: set imutável com 11 campos sensíveis do domínio DP brasileiro (CPF, RG, pisPasep, CTPS, email, phone, mobile, salary, hourlyRate, CID, birthDate)
+   - `IGNORED_AUDIT_FIELDS`: set com 6 colunas de metadata excluídas de diffs (createdAt/updatedAt/deletedAt/createdBy/updatedBy/deletedBy)
+   - `redactPII(record, piiFields?)`: shallow copy com keys PII substituídas por `"<redacted>"`
+   - `buildAuditChanges(before, after, options?)`: diff minimal com PII redacted em ambos os lados, Dates e objetos comparados por valor, campos ignorados filtrados
+   - `hasAuditChanges(diff)`: true se houver mudança em qualquer lado
+   - Signatures aceitam `object` (não `Record<string, unknown>`) — domain types entram direto sem double-cast
+   - 25 unit tests cobrem empty input, cada campo PII, Date equality, nested objects por JSON, null transitions, custom PII sets, non-mutation do input
+2. **Convenção documentada** em `src/modules/audit/CLAUDE.md`: forma do diff (minimal, só campos alterados), regra de redação, lista default de PII, como estender via `options.piiFields`. Módulos que aplicam indexados.
+3. **Enum `auditResourceSchema` alinhado com a spec** — renomeado `medical_leave` → `medical_certificate` (só existia na definição, sem call-sites); adicionado `labor_lawsuit` preemptivamente para quando o módulo ganhar audit. Enum do CLAUDE.md também atualizado.
+4. **Retrofit em 3 módulos críticos**:
+   - **employees**: audit em create/update/updateStatus/delete. CPF, email, phone, mobile, birthDate, salary redacted automaticamente no diff. `updateStatus` diffa apenas o campo `status` (mais limpo que o record completo)
+   - **medical-certificates**: audit em create/update/delete. `cid` redacted; datas, daysOff, notes em plaintext
+   - **subscription**: `cancel` agora sempre audita (removido gate `if (reason || comment)`), `restore` ganha audit novo. Diff mostra `cancelAtPeriodEnd`, `canceledAt`, `cancelReason`, `cancelComment` mudando
+
+**Decisões operacionais:**
+
+- **`"<redacted>"` literal em vez de hash** (confirmado pelo dono): simples, LGPD-compliant, indica que campo existia sem revelar valor. Hash-based correlation pode virar feature só se surgir necessidade.
+- **Metadata excluído do diff**: evita ruído ("updatedAt mudou, updatedBy mudou") que não agrega compliance — valores são reconstituíveis do próprio audit log entry.
+- **Signature `object` vs `Record<string, unknown>`**: v1 usava `Record<string, unknown>`, exigia `as unknown as Record<string, unknown>` nos call-sites. Refatorado para `object` (supertype que aceita domain types direto). Feedback crítico do dono ("parece um workaround") levou à correção.
+- **Forward-only**: logs existentes antes do CP-42 ficam como estão. LGPD Art. 48 não exige backfill retroativo de rastreabilidade.
+- **Create/delete via `buildAuditChanges({}, record)` / `(record, {})`**: o mesmo helper cobre os 3 tipos de mutation. API consistente.
+
+**Arquivos tocados:**
+
+- Novos: `src/modules/audit/pii-redaction.ts` + teste
+- Modificados: `src/modules/audit/audit.model.ts` (enum), `src/modules/audit/CLAUDE.md` (convenção), `src/modules/employees/employee.service.ts`, `src/modules/occurrences/medical-certificates/medical-certificates.service.ts`, `src/modules/payments/subscription/subscription-mutation.service.ts`, `src/modules/payments/subscription/__tests__/cancel-subscription.test.ts` (asserções atualizadas)
+
+**Validação**:
+- ✅ 25 unit tests do helper passando
+- ✅ 113 tests de subscription passando (inclui 2 atualizados pra nova forma do diff)
+- ✅ 49 tests de medical-certificates passando
+- ✅ 82 tests de employees passando
+- ✅ `bun run lint:types` clean
+- ✅ `npx ultracite check` clean
+
+**Lições:**
+
+- **Double-cast (`as unknown as X`) é cheiro de API mal tipada**: a correção não foi aceitar o cast, foi mudar a assinatura do helper. Input do dono ("cuidado com workarounds") pegou isso na hora certa, antes do merge
+- **Formatter interage mal com edições sequenciais**: ultracite removeu imports "não usados" entre edições que adicionavam import primeiro e usage depois. Solução: adicionar import e primeira ocorrência do uso na mesma edição. Se você separar, o formatter strip e você refaz.
+- **Separação de concerns em commits atômicos paga dividendos**: helper + subscription + medical-certs + employees + CLAUDE.md viram 5 commits logicamente independentes. Review fica tratável; rollback granular se necessário.
+
+### 2026-04-22 — Onda 1 fechada (CP-7, CP-8, CP-9, CP-13, CP-20, CP-21, CP-22, CP-23)
+
+Os 8 CPs "small" da Onda 1 entregues numa única PR com 8 commits atômicos (1 por CP). Todos tocam apenas `.github/workflows/` — zero código de produção.
+
+**Ganhos consolidados:**
+
+| Dimensão | Antes | Depois |
+|---|---|---|
+| Scan de histórico git | Só `secretlint` em árvore atual | TruffleHog em `--only-verified` + diff no PR ou full no schedule (CP-7) |
+| Coverage de Trivy | Container image apenas | Container + filesystem (CP-9) — SARIF categorizado separadamente |
+| SBOM | Inexistente | CycloneDX via `trivy format=cyclonedx`, artifact 90d retention (CP-8) |
+| Secrets em `test.yml` | Env do job inteiro | Apenas nos 3 steps que rodam código (CP-13) |
+| Coverage em CI | Desabilitado | `--coverage-reporter=lcov` + upload para Codecov (CP-20, requer `CODECOV_TOKEN`) |
+| Cache do `bun install` | Ausente (5s/run × 3 workflows) | `actions/cache@v4` por `hashFiles('bun.lock')` (CP-21) |
+| Drift de lockfile | Silencioso | `--frozen-lockfile` em lint/test/build detecta e falha (CP-22) |
+| Smoke test do bundle | `test -f ./dist/index.js` | Runtime 10s com exit codes 0/124/143 aceitos (CP-23) |
+
+**Decisões operacionais:**
+
+- **TruffleHog em vez de gitleaks** (CP-7): gitleaks-action v2 exige licença para orgs em algumas configurações; TruffleHog é free e tem flag `--only-verified` que minimiza false positives. Diff por PR (base/head SHAs) acelera PRs grandes.
+- **Trivy filesystem com `skip-dirs: node_modules`** (CP-9): bun audit já cobre dep tree com advisory context mais rico; Trivy fs agrega valor em configs (.env sample, Dockerfile, etc.), não em node_modules.
+- **SBOM no step do trivy-image** (CP-8): reaproveita a imagem já construída, evita rebuild. CycloneDX é o formato esperado por SOC2/supply-chain tooling moderno.
+- **Secrets escopados para 3 steps** (CP-13): migrations precisam porque `drizzle.config.ts` importa `@/env` (valida tudo no boot do drizzle-kit). Affected tests + full suite precisam para as libs reais. Checkout/Setup/Install/affected-detection ganham zero exposição.
+- **Codecov com `fail_ci_if_error: false`** (CP-20): até `CODECOV_TOKEN` ser configurado no repo secrets, o step só loga warning — não bloqueia PRs. Upload entrega valor imediato se o token for criado depois.
+- **Cache keyed por `bun.lock`** (CP-21): chave primária troca quando o lockfile muda; `restore-keys: bun-` permite warm start parcial em lock churn.
+- **`--frozen-lockfile` em todos workflows** (CP-22): alinha com Dockerfile que já usava. Agora uma PR que altera package.json sem regenerar bun.lock falha em lint/test/build — bom sinal pra review.
+- **Smoke test aceita 0/124/143** (CP-23): 0 = app exit clean, 124 = SIGTERM do timeout, 143 = graceful shutdown após SIGTERM. Qualquer outro código expõe erro de import/plugin/schema no boot.
+
+**Arquivos tocados** (só `.github/workflows/`): `security.yml` (CP-7, CP-8, CP-9), `test.yml` (CP-13, CP-20), `lint.yml` (CP-21, CP-22), `build.yml` (CP-21, CP-22, CP-23).
+
+**Validação (rodará no próprio PR via CI)**:
+- Lint & Security (threshold `high` herdado de CP-40)
+- Affected Tests (sem mudança de código → "No test files affected")
+- Build + Smoke test
+- Security workflow só roda em PR para `main`/`preview` — disparado quando esta PR mergear
+
+**Ondas seguintes**:
+- **Onda 2 — Compliance LGPD** (débito #96): CP-42 (convenção `changes: { before, after }` + PII redacted) → CP-43 (audit de reads em recursos sensíveis, depende de RU-7 já entregue).
+- **Onda 3 — Qualidade pontual** e ondas 4-5 conforme 7.5 § Ordem de execução sugerida.
+
+### 2026-04-22 — CP-40 concluída (13 highs zerados via upgrades + overrides + CI threshold `high`)
+
+Segundo item do bucket 🟡 fechado, primeiro da **Onda 1**. Resultado final: `bun audit --audit-level=high` passa localmente e agora também gateia PRs no CI.
+
+**Escopo real vs. escopo declarado** — O checklist dizia "triagem de 13 highs em dev deps" e apontava 4 deps de tooling (ultracite, commitizen, secretlint, lint-staged). Auditoria inicial revelou que 6 dos 13 highs também tocavam prod deps: `better-auth → defu`, `better-auth → @better-auth/core → kysely`, `drizzle-orm → kysely`, `@sentry/bun → @fastify/otel → minimatch`, `@sentry/bun → ... → @isaacs/brace-expansion`, `exceljs → archiver → ... → minimatch`. Escopo foi expandido para cobrir ambos, mas sem misturar com migrações de framework (reforma proposta e aceita pelo dono após challenge "cuidado com workarounds").
+
+**Estratégia aplicada:**
+
+1. **`bun update`** primeiro (semver-compatible): bumpou lint-staged 16.2→16.4, secretlint 11.2→11.7, @sentry/bun 10.42→10.49, elysia 1.4.27→1.4.28, pg 8.16→8.20, pino 10.1→10.3 e outros. Sozinho não resolveu nenhum high — os parents pinavam versões antigas das transitivas dentro de seus ranges.
+2. **Upgrade secretlint 11→12** — major bump do CLI de pre-commit. Passou sem breakage (`bun run secrets:check` OK).
+3. **Upgrades `rerouted`** (não eram sobre CVEs):
+   - `ultracite 6→7`: descoberta de que 7 migra Biome → Oxc (oxlint + oxfmt). **Não é CVE fix, é migração de engine.** Registrado como **CP-46** e mantido em 6.3.10.
+   - `better-auth 1.4→1.6`: exige schema migration (coluna `verified` em `twoFactor`) + mudança semântica de `freshAge`. **Não é CVE fix, é migração de framework.** Registrado como **CP-47** e mantido em ~1.4.22.
+4. **Overrides em `package.json`** para as transitivas vulneráveis:
+   - `@isaacs/brace-expansion: ^5.0.1`, `@trpc/server: ^11.16.0`, `defu: ^6.1.7`, `kysely: ^0.28.16`, `lodash: ^4.18.1`, `minimatch: >=3.1.3`, `picomatch: >=2.3.2`
+   - Resolveu todas as chains sem romper parent APIs (bun dedupou minimatch para 10.2.5 inclusive onde o parent declarava `^3.1.1`).
+5. **Contenção de side-effects de `bun update`** (não relacionados a CVE):
+   - `zod 4.1.13 → 4.3.6` quebrou ~16 models que usam `.partial()` sobre schemas com `.refine()` (Zod 4.3 proíbe essa combinação). Pinado a `~4.1.13`. **CP-48** registra a migração.
+   - `react 19.2.4 → 19.2.5` causou mismatch com `react-dom@19.2.4` (pinado transitivamente por `@react-email/components`). Pinado a `19.2.4` exato. **CP-49** registra a sync definitiva.
+6. **CI threshold**: `.github/workflows/lint.yml` subiu `--audit-level=critical` → `high`. README.md atualizado.
+
+**Débitos resolvidos** em 7.7: follow-up completo de RU-4a/RU-4b. Triagem dos 13 highs encerrada.
+
+**CPs novos criados** (bucket 🟡): CP-46, CP-47, CP-48, CP-49, CP-50 — todos representam migrações legítimas com escopo próprio, não deveriam ter sido forçados dentro de CP-40. CP-50 foi descoberto quando o CI falhou no type check pós-commit da PR #248: `bun x tsc` no CI puxou TS 6.0.3 ephemerally (TS não estava em devDeps), e TS 6 transformou a deprecation de `moduleResolution=node` em erro. Contenção aplicada na mesma branch: `typescript: "~5.9.3"` adicionado ao `devDependencies` — fecha o gap de reprodutibilidade (TS nunca foi dep explícita) e destrava o lint CI.
+
+**Validação:**
+- ✅ `bun audit --audit-level=high` — 0 vulnerabilidades.
+- ✅ `bun run lint:types` — clean.
+- ✅ `bun run lint:check` — 566 arquivos, sem fixes.
+- ✅ `bun run secrets:check` — clean.
+- ✅ Suíte de testes afetada pelas deps de runtime (errors, logger, request-context, audit, api-keys, employees, medical-certificates, cost-centers, subscription + modules/payments + modules/occurrences + modules/organizations + modules/auth + lib/): 407+ pass / 0 fail. react/react-dom mismatch warning eliminado após pin.
+
+**Arquivos tocados:**
+- `package.json` — overrides block (novo), zod pin, react pin, deps bumps via `bun update`.
+- `bun.lock` — regenerado.
+- `.github/workflows/lint.yml` — threshold.
+- `README.md` — tabela CI/CD.
+- Seção 7.5 + 7.0 — CP-40 marcada done, 4 novos CPs, próxima ação atualizada.
+
+**Lições:**
+- **Auditar o escopo antes de aceitar o título**. CP-40 foi descrita como "dev deps" mas 6 chains passavam por prod deps. Prosseguir sem reler teria levado a merge incompleto.
+- **Distinguir CVE fix de framework upgrade**. Ultracite 6→7 e better-auth 1.4→1.6 foram apresentados inicialmente como "upgrade proper" — mas são migrações de engine/framework com escopo arquitetural, não CVE fixes. Contenção via overrides + CP separado preserva disciplina de escopo (reforma aceita após challenge do dono "cuidado com workarounds").
+- **`overrides` não é workaround**. É o mecanismo oficial do npm/bun para patching transitivo. O workaround seria `--ignore=<CVE>` sem contexto — removido do plano.
+- **`bun update` tem side-effects silenciosos**. Zod 4.1→4.3 e react 19.2.4→19.2.5 pegaram carona em uma ação de segurança e quebraram runtime. Pinning defensivo (~zod, react exato) contém o problema sem adiar a fix proper.
+- **CI threshold sobe em fases**. `critical` → `high` agora porque zeramos. Dependabot vai reportar novos highs eventualmente; backlog contínuo.
+
+### 2026-04-22 — CP-45 concluída + ordem de execução do bucket 🟡 definida
+
+Primeira ação do bucket 🟡 fechada. **CP-45** (Local Backup Retention no Coolify) aplicada via UI pelo dono — valores atuais: 7 backups / 7 dias / 2 GB (local) + 30 backups / 30 dias / 8 GB (R2, inalterado). Runbook em `docs/runbooks/database-backup.md` atualizado: seção "Atenção — local retention ilimitada" substituída por "Retention policy" com a tabela em vigor.
+
+**Ordem de execução do bucket 🟡 adicionada em 7.5** — 5 ondas organizadas por ganho de compliance/CI por hora de trabalho:
+1. **Onda 1 — Ganhos rápidos de CI/segurança**: CP-40 (M) → CP-7..CP-9, CP-13, CP-20..CP-23 (S's). CP-40 primeiro destrava threshold `--audit-level=high` no CI
+2. **Onda 2 — Compliance LGPD**: CP-42 (convenção `changes: before/after` + PII redacted) → CP-43 (audit de reads em dados sensíveis Art. 11). Endereçam débito #96
+3. **Onda 3 — Qualidade pontual**: 9 S's + CP-25, CP-30, CP-41 (M) — agrupáveis em 2-3 PRs temáticas
+4. **Onda 4 — Cloudflare + Observabilidade**: CP-14→15→16 sequencial; CP-17/18/19 paralelo (CP-18 depende de CP-3)
+5. **Onda 5 — Refactors XL**: CP-1 (destrava CP-4/26/28/32) → CP-2 → CP-3; CP-5, CP-6, CP-33, CP-38, CP-44
+
+**Racional da ordem:** Ondas 1-2 entregam valor compliance/CI em dias, enquanto os XL (CP-1, CP-2) ficam para janela dedicada com worktree isolado conforme 7.5.1. Reavaliar a cada 5 CPs concluídos — aprendizado do bucket 🔴 mostrou que escopo real difere do pessimismo do audit.
+
+### 2026-04-22 — RU-10 concluída (runbook de backup) + **Bucket 🔴 fechado**
+
+Última ação pendente do bucket urgente. Cria `docs/runbooks/database-backup.md` documentando o processo de backup existente em Coolify + Cloudflare R2.
+
+**Configuração atual validada via UI do Coolify:**
+- Backup habilitado, database `synnerdata`, frequência diária 00:00 UTC, timeout 3600s.
+- Storage dual: local (`/data/coolify/backups/...`) + Cloudflare R2.
+- Retention R2: 30 backups / 30 dias / 8 GB (whichever first).
+- Formato: `pg_dump` .dmp; tamanho atual ~310 KB.
+
+**Conteúdo do runbook (6 seções):**
+1. Estado atual (tabela com valores concretos)
+2. Como verificar saúde dos backups (passos na UI)
+3. Procedimento de restore — caminho A (UI Coolify, recomendado) e caminho B (pg_restore direto, offline)
+4. Teste periódico trimestral — checklist preenchível + tabela histórica de execuções (primeira execução pendente)
+5. Atenção sobre local retention ilimitada (rastreado como CP-45)
+6. Contatos e escalação (template)
+
+**Finding operacional**: Local Backup Retention está configurado como 0/0/0 = unlimited. Com a base atual é inofensivo (~113 MB/ano), mas vai acumular indefinidamente. Registrado como **CP-45** (🟡, S) — ajuste operacional simples na UI do Coolify quando conveniente.
+
+**Débito resolvido em 7.7:** #92 (backup policy não documentada).
+
+**Validação:**
+- ✅ Arquivo renderiza (markdown); links internos corretos.
+- ✅ Pasta `docs/runbooks/` adicionada ao allowlist do `.gitignore` (seguindo padrão de `docs/improvements/` e `docs/reports/`).
+- ✅ Referências cruzadas: changelog → runbook → CP-45 no checklist formam circuito coerente.
+
+**Lições:**
+- **Operational knowledge > generic best practices**: escrever runbook com valores concretos extraídos da UI do Coolify (frequência, retention, caminhos de storage) vale muito mais que um template genérico com `<!-- TODO -->`. Custo marginal: 1 screenshot do dono + 5min lendo. Benefício: runbook imediatamente operacional.
+- **Runbook é vivo**: a tabela de histórico de testes trimestrais (primeira execução pendente) torna o documento autoatualizável — cada teste adiciona linha. Diferente de documentos estáticos que envelhecem sem sinal.
+
+## **Bucket 🔴 concluído (10/10) — 2026-04-22**
+
+Fechamento do bucket urgente. Cronograma original era "até 30 dias"; foi entregue em 1 dia (2026-04-21 audit → 2026-04-22 todas as 10 RUs mergeadas) — menos pelo ritmo, mais pelo fato de muitas ações revelaram-se menos complexas do que o pessimismo inicial do audit. Ações que surpreenderam:
+
+- **RU-1** virou urgente de verdade (hotfix SMTP_FROM pós-merge)
+- **RU-4** explodiu de S → L (2 criticals + 17 highs em deps, split em RU-4a/RU-4b/CP-40)
+- **RU-7** mudou de direção (recomendei deletar, usuário rejeitou, executei refactor) — lição "unused ≠ dead"
+- **RU-9** encolheu de L → M (padrão já estava limpo; audit virou confirmação)
+- **RU-10** foi S real (UI do Coolify tinha todos os valores prontos)
+
+**CPs gerados ao longo do bucket**: CP-39 (SMTP_FROM split), CP-40 (dev deps highs), CP-41 (integration tests workflow), CP-42 (changes convention LGPD), CP-43 (read audit LGPD), CP-44 (BOLA CI automation), CP-45 (Coolify local retention). 7 follow-ups úteis que saíram da execução.
+
+**Débitos resolvidos no bucket 🔴** (seção 7.7): #14-#20, #22, #23, #24, #30, #54, #76, #77, #92, #96 (parcial via CP-42/43). Total: ~15 débitos fechados.
+
+Próximo passo: priorização do bucket 🟡 com o dono — 45 ações disponíveis.
+
+### 2026-04-22 — RU-9 concluída (BOLA audit + cross-org isolation tests)
+
+Auditoria estática de multi-tenant em todos os 50 services + testes dinâmicos em 3 módulos representativos.
+
+**Decisão sobre Compozy**: não utilizado. Escopo declarado L, mas na prática o padrão do projeto (filter por `organizationId` em toda query) é tão consistente que varredura foi mecânica. Compozy adicionaria PRD/TechSpec/Tasks para algo sem decisão arquitetural. **Substituí por "PRD-lite"**: o próprio relatório de audit (`docs/reports/2026-04-22-bola-audit.md`) serve como artifact de rastreabilidade com matriz explícita dos 50 services. Disciplina preservada, overhead reduzido.
+
+**Artifacts entregues:**
+- `docs/reports/2026-04-22-bola-audit.md` — matriz completa (29 ✅ + 21 N/A + 0 ⚠️), padrões arquiteturais documentados, spot-check de 7 services representativos, classificação por módulo.
+- 3 novos test files (4 testes cada = 12 testes totais):
+  - `modules/employees/__tests__/employee-org-access.test.ts`
+  - `modules/occurrences/medical-certificates/__tests__/medical-certificate-org-access.test.ts`
+  - `modules/organizations/cost-centers/__tests__/cost-center-org-access.test.ts`
+
+**Cada teste verifica**: user da org B recebe 404 em GET/PUT/DELETE de recurso da org A, e LIST da org B não inclui recursos da org A.
+
+**Veredicto**: nenhum gap de BOLA encontrado. Padrão multi-tenant está bem aplicado em 100% dos services que manipulam entidades org-scoped. Os 21 services classificados N/A têm justificativa explícita (catálogos globais, Pagar.me wrappers, admin cross-org deliberado, public endpoints).
+
+**Débitos parcialmente resolvidos em 7.7**: OWASP API1:2023 (BOLA) validado como coberto no código atual. Testes novos previnem regressão nos 3 módulos representativos.
+
+**CP-44 registrado** (🟡, M): script de audit BOLA automatizado em CI — AST-scan de queries sem filtro `organizationId`. Preventivo para não perder o estado limpo atual em PRs futuras.
+
+**Validação:**
+- ✅ 12/12 novos testes verdes (4 por módulo × 3 módulos).
+- ✅ `bun run lint:types` — clean.
+- ✅ `npx ultracite check` nos 3 test files — clean.
+
+**Lições:**
+- **Padrão consistente é seu próprio audit**: quando o codebase aplica uma convenção de forma disciplinada, auditar é spot-check + grep, não re-verificação exaustiva. O esforço L assumido no checklist era pessimista em relação ao estado real do código.
+- **Tests como defesa contra regressão > snapshot**: os 12 testes novos valem mais que um report dateado — viram parte da suite de CI e pegam regressões automaticamente. Relatório complementa, não substitui.
+- **"PRD-lite" como alternativa ao Compozy**: para ações L sem trade-off arquitetural, um artifact markdown no PR fornece mesma disciplina com fração do overhead. Compozy continua sendo a escolha certa para XL com decisões de design.
+
+### 2026-04-22 — RU-8 concluída (auditPlugin movido para src/plugins/)
+
+Move `src/lib/audit/audit-plugin.ts` e seus testes para `src/plugins/audit/`. Refactor de localização puro — sem mudança de comportamento.
+
+**Por que agora**: débito #5 (lib/audit convivendo com modules/audit) e #30 (plugin em lib/ quando devia estar em plugins/) são sobre organização semântica da seção 7.6: `lib/` é para utilitários puros; `plugins/` é para Elysia plugins (uso de `.derive`/`.as("scoped")`). auditPlugin pertence a plugins/.
+
+**Movimentos** (git recognized both as renames, 98% + 100% similarity):
+- `src/lib/audit/audit-plugin.ts` → `src/plugins/audit/audit-plugin.ts`
+- `src/lib/audit/__tests__/audit-plugin.test.ts` → `src/plugins/audit/__tests__/audit-plugin.test.ts`
+- `src/lib/audit/` deletado (vazio após)
+
+**Imports**: 1 import atualizado (do próprio test file). Nenhum outro importador em produção — cf. changelog de RU-7, plugin ainda sem consumidores ativos (CP-43 vai mudar isso quando adotar para read audit).
+
+**`src/plugins/` inaugurado**. É o primeiro inquilino. CP-1 (XL, bucket 🟡) vai migrar os demais (logger, health, cors, ratelimit, shutdown, auth, cron, sentry, request-context). RU-8 basicamente adiantou o primeiro caso do CP-1 porque fazia parte natural do Grupo 3 (Audit refactor).
+
+**Débitos resolvidos em 7.7**: #5 e #30.
+
+**Grupo 3 fechado** (per metodologia 7.5.1): RU-6 (audit em API keys) + RU-7 (auto-context + strict types) + RU-8 (relocation) entregues em 3 PRs sequenciais (#241, #242, próxima).
+
+**Validação**:
+- ✅ 289 testes verdes em `plugins/audit`, `modules/audit`, `api-keys`, `auth`, `subscription`.
+- ✅ `bun run lint:types` — clean.
+- ✅ `npx ultracite check src/plugins/` — clean.
+- ✅ Política (2) não-regressão: todos os 11 call-sites de `AuditService.log` direto (auth.ts, subscription-mutation, api-keys) continuam verdes. Nenhum importa de `@/lib/audit/` — grep confirmou.
+
+**Próximo grupo**: bucket 🔴 só resta RU-9 (L, BOLA audit) e RU-10 (S, runbook backup). RU-9 merece Compozy completo pela amplitude do escopo (varredura de N services + testes cruzados em ≥3 módulos).
+
+### 2026-04-22 — RU-7 concluída (auditPlugin auto-context + strict types)
+
+Refactor do `auditPlugin` em `src/lib/audit/audit-plugin.ts`. Fecha débitos #23 (context manual) e #24 (loose types) e corrige gaps reveladas durante o refactor.
+
+**Investigação revelou que o plugin estava dormente**: zero consumidores em produção. Apenas seu próprio arquivo de teste importava. Todos os 11 call-sites de audit no projeto usam `AuditService.log` direto (auth.ts, subscription, api-keys pós RU-6). Primeira recomendação foi **deletar o plugin** como código morto.
+
+**Feedback do dono do projeto mudou a direção**: o plugin não é código morto — é **infraestrutura dormente** cuja razão de não adoção é precisamente a fricção do context manual (débito #23). Refatorá-lo remove a fricção; deletá-lo removeria infra que LGPD vai exigir (audit de reads sensíveis — Art. 11). Lição registrada: "unused ≠ dead" quando o use case é compliance diferida.
+
+**Arquivos modificados:**
+- `src/lib/audit/audit-plugin.ts` — derive scoped agora lê `user`, `session` e `request` do contexto (tipo cast via `AuthContext`). Signature de `audit(entry)` simplifica (sem context param). Helper local `extractIpAddress` para lógica de IP. Plugin deve ser montado após `betterAuthPlugin` em rotas com `{ auth: {...} }`.
+- `src/modules/audit/audit.model.ts` — `AuditLogEntry.action`/`resource` perdem `| string` (enforce enums). Enums ganham `"accept"` (action) e `"invitation"` (resource) — valores legítimos já usados em `auth.ts:auditInvitationAccept`, antes tipados frouxos.
+- `src/lib/audit/__tests__/audit-plugin.test.ts` — rewrite completo com 6 testes refletindo a nova API (mock de `user`/`session` via `.derive()`, chamada `audit(entry)` sem context). Removido o 7º teste que documentava o débito #24.
+- `src/modules/audit/__tests__/get-audit-logs.test.ts` — fix de regressão consequente: `resource: "pagination-test"` (string ad-hoc) → `"user"` (valor válido do enum). Intenção do teste (pagination) preservada.
+
+**Débitos resolvidos em 7.7**: #23, #24. Débito novo **#96** registrado (convenção inconsistente de `changes` + reads sensíveis não auditados).
+
+**Novos CPs registrados no bucket 🟡** (descobertos durante a RU):
+- **CP-42 (M)**: convenção de `changes: { before, after }` em mutations + tratamento de PII (redacted/hash) + retro em 3 módulos críticos.
+- **CP-43 (M, depende de RU-7)**: audit de reads em dados sensíveis via `auditPlugin` — destrava reconstituição de acessos para LGPD Art. 48.
+
+**Validação:**
+- ✅ 289 testes verdes em `lib/audit`, `modules/audit`, `api-keys`, `auth`, `payments/subscription`.
+- ✅ `bun run lint:types` — clean (tightening expôs 2 enum gaps reais que foram adicionados).
+- ✅ `npx ultracite check src/lib/audit/ src/modules/audit/` — clean.
+
+**Decisão sobre integration test com auth macro real**: não adicionei. A invariante testada é "plugin lê user/session do contexto"; tests com `.derive()` mock exercitam isso. Integração com `betterAuthPlugin + auth: {}` é combinação de plugins (não contrato do plugin). Se um futuro adopter encontrar problema, adicionamos no contexto daquela adoção (CP-43).
+
+**Lições:**
+- **"Unused" não implica "dead"** quando o código é infraestrutura planejada para um caso de uso diferido. Validar o porquê da não-adoção antes de deletar.
+- **Compliance tem gravidade própria no juízo de escopo**: deletar código que endereça LGPD requer muito mais evidência do que "ninguém usa hoje". O audit de reads sensíveis é obrigação legal em 30-90 dias (janela LGPD), não aspiracional.
+- **Tightening de tipos revela débitos escondidos**: adicionar "accept"/"invitation" aos enums documenta valores que já eram usados em produção — o projeto tinha loose types e isso mascarava a semântica real dos audit entries.
+
+### 2026-04-22 — RU-6 concluída (audit em operações de API keys)
+
+Primeira ação M do bucket 🔴. Adiciona `AuditService.log()` em `ApiKeyService.create/revoke/delete` para garantir rastreabilidade de compliance (LGPD, auditoria de operações admin-only).
+
+**Decisão sobre Compozy**: a metodologia 7.5.1 prevê Compozy a partir da primeira M. Descumprido deliberadamente nesta RU — o escopo era mecânico (3 chamadas de log, 1 enum, mudança de signature), sem trade-offs arquiteturais. Compozy (PRD → TechSpec → Tasks → exec) agrega rigor onde há decisão; aqui o design é óbvio. Reservamos Compozy para CP-1/CP-2 (XL) e futuras M que envolvam design.
+
+**Arquivos modificados:**
+- `src/modules/audit/audit.model.ts` — adiciona `"api_key"` ao `auditResourceSchema` enum.
+- `src/modules/admin/api-keys/api-key.service.ts` — importa `AuditService`, extrai IP/UA dos headers via helper local `extractAuditMetadata`. Signatures de revoke/delete mudam de `(headers, keyId)` para `(userId, headers, keyId)`. Payload de create inclui prefix mas **nunca a key completa** — preserva invariante do módulo.
+- `src/modules/admin/api-keys/index.ts` — controller passa `user.id` nos 3 endpoints.
+- `src/modules/admin/api-keys/CLAUDE.md` — nova seção "Audit trail" com tabela de operação → action → changes.
+- 3 arquivos de teste — 4 novos casos TDD verificando o audit trail e a invariante "key completa NÃO aparece no entry".
+
+**Formato do audit:**
+
+| Operação | `action` | `changes` |
+|---|---|---|
+| create | `create` | `after: { prefix, name, organizationId, isGlobal }` |
+| revoke | `update` | `before: { enabled: true }`, `after: { enabled: false }` |
+| delete | `delete` | — |
+
+**Débito resolvido em 7.7:** #54 (API keys não auditam operações admin).
+
+**Validação:**
+- ✅ 35 testes verdes em `src/modules/admin/api-keys/__tests__/` (31 baseline + 4 novos).
+- ✅ 177 testes verdes em áreas afetadas (api-keys, audit, lib/audit, auth).
+- ✅ `bun run lint:types` — clean.
+- ✅ `npx ultracite check` nos arquivos tocados — clean.
+
+**Lição:** a metodologia "Compozy a partir da primeira M" do 7.5.1 é **guideline, não lei**. Avaliar a complexidade real da ação (trade-offs arquiteturais × implementação mecânica) antes de invocar o pipeline. Registrar discordância no changelog quando fizer sentido — como aqui.
+
+### 2026-04-22 — RU-5 concluída (SKIP_INTEGRATION_TESTS documentado)
+
+Débito #77 era "validar semântica da flag". Análise revelou **duas verdades**:
+
+**Verdade 1 — a semântica é legítima**: a flag gateia só 16 casos em 6 arquivos de `src/modules/payments/*`, todos fazendo chamadas HTTP reais a Pagar.me. DB-level integration tests (Postgres + `app.handle(Request)`) **não** usam a flag e rodam sempre em CI. Skipar API externa é pattern defensável (flakiness, credentials, sandbox pollution).
+
+**Verdade 2 — há um gap real**: o env var `SKIP_INTEGRATION_TESTS=true` está no `env:` do **job inteiro** em `test.yml`, então afeta tanto o step de PR quanto o step de full suite no cron (linhas 85-87). Resultado: **esses 16 casos não rodam em NENHUM workflow** — nem PR, nem schedule diário, nem manual dispatch. Só em máquina de dev quando alguém explicitamente desativa. Para cliente em produção processando pagamentos, rot de integração Pagar.me significa risco real quando a API deles mudar contrato.
+
+**RU-5 (esta entrega)** — documentação:
+- `src/test/support/skip-integration.ts`: docstring expandido com semântica, uso, motivos do skip em CI, como rodar local, e aviso do gap (CP-41).
+- `.claude/CLAUDE.md`: nova subseção em "Execução de Testes" explicando a flag + tabela de contextos + disciplina local até CP-41.
+- `README.md`: tabela CI/CD atualizada com nota que externos são skipados em PR e cron.
+
+**Decisão de escopo**: não implementar o workflow dedicado (CP-41). RU-5 era Ação S; criar workflow + configurar secrets Pagar.me sandbox é Ação M com decisão operacional (é dono quem gerencia credenciais de pagamento). Esse tipo de escopo não deve subir dentro de RU numerada.
+
+**CP-41 registrado (🟡, M)**: workflow `test-integration.yml` dedicado com `workflow_dispatch` + schedule semanal + secrets sandbox. Destrava cobertura real de `src/modules/payments/*` em CI.
+
+**Débito resolvido em 7.7:** #77 (parcial — a semântica foi validada e documentada; a execução em CI pendente é agora CP-41).
+
+**Lição**: um débito de checklist pode ser **mais profundo do que o título sugere**. "Validar semântica" soava simples — mas a validação revelou que a flag, aplicada no job todo, também exclui os testes do cron que supostamente dava cobertura completa. Ler o texto da ação não basta — é preciso investigar a configuração real do CI.
+
+### 2026-04-22 — RU-4b concluída (bun audit reintroduzido no CI)
+
+Fecha o segundo terço da RU-4 originalmente escrita no checklist. Adiciona step `bun audit --audit-level=critical` em `.github/workflows/lint.yml` após o `secrets:check`.
+
+**Threshold inicial = `critical`** (não `high` como o checklist original previa):
+- RU-4a zerou as 2 criticals em direct deps, mas restam 13 highs em dev tooling.
+- Adotar `--audit-level=high` bloquearia PRs por CVEs em `ultracite`/`commitizen`/`secretlint`/`lint-staged` que não têm runtime impact.
+- Upgrade pra `high` acontece após CP-40 (triagem dos dev deps).
+
+**Correções no README**:
+- Linha 201: `bun pm audit` → `bun audit --audit-level=critical` (o comando foi renomeado pelo Bun; o README ficou mentindo por ~6 semanas desde o commit `1958c52`).
+- Linha 205: "Trivy scan (imagem Docker + filesystem)" → "Trivy container scan (imagem Docker de produção)" — o filesystem scan foi removido em 2026-03-09 (commit `f5e8bc2`), README nunca foi sincronizado.
+
+**Débito 100% resolvido em 7.7**: #76 (CI security audit).
+
+**Validação:**
+- ✅ `bun audit --audit-level=critical` local — exit code 0 (0 criticals).
+- ✅ CI do próprio PR valida a integração (se a step não funcionasse, o próprio PR falharia no lint job).
+
+**Lição extra**: documentação no README sobre CI/CD deu duas mentiras simultâneas no commit `1958c52` (anunciou audit que estava sendo removido + declarou filesystem scan que também foi removido no mesmo dia). É sinal de **ausência de review cruzado entre mudança de código e documentação**. Considerar como prática: sempre que um workflow for alterado, abrir README.md no mesmo PR e auditar a seção CI/CD.
+
+### 2026-04-22 — RU-4a concluída (patch CVEs em auth + db deps)
+
+**Escopo original de RU-4** era "adicionar `bun pm audit` no CI — Ação S". Ao executar, descobertas em sequência rearranjaram completamente o escopo:
+
+1. **Comando renomeou duas vezes**: checklist dizia `bun pm audit`, commit `f5e8bc2` de 2026-03-09 mudou pra `bun pm scan`, e Bun 1.3.x reverteu pra `bun audit` direto. Histórico do projeto acompanhou a instabilidade mas o checklist ficou desatualizado.
+
+2. **Audit foi deliberadamente removido** do `lint.yml` em 2026-03-09 (commit `1958c52`) com justificativa "Trivy container scan covers this". **Justificativa errada**: Trivy scan do binário Bun não indexa advisories de npm da mesma forma. Evidência empírica: PR #237 passou com ✅ Trivy enquanto `bun audit` reporta simultaneamente 2 criticals em direct deps de produção. Janela silenciosa de ~6 semanas acumulando CVEs.
+
+3. **Contradição documental**: o mesmo commit `1958c52` que removeu o step adicionou ao README a seção CI/CD declarando que `bun pm audit` roda no Lint workflow. README mentiu por 6 semanas.
+
+4. **CVEs concretos encontrados hoje no projeto**: 2 critical + 17 high. Entre eles, 2 em **direct production deps**:
+   - `better-auth 1.4.5` → GHSA-xg6x-h9c9-2m83 (2FA bypass, critical)
+   - `drizzle-orm 0.45.0` → GHSA-gpj5-g38j-94v9 (SQL injection, high)
+   - Transitive: `fast-xml-parser` via `@types/nodemailer 7.0.4` → `@aws-sdk/client-sesv2` (critical, dev-only mas ainda assim no lockfile)
+
+**Decisão**: split da RU-4 em três ações sequenciais.
+
+**RU-4a (esta entrega)** — patch security em deps:
+- `better-auth 1.4.5 → ~1.4.22` (pin tilde; upgrade pra 1.6.x ficará em PR dedicado)
+- `drizzle-orm 0.45.0 → 0.45.2` (caret, patch puro)
+- `@types/nodemailer 7.0.4 → 7.0.11` (removeu dep direta de @aws-sdk, elimina fast-xml-parser do tree)
+
+Resultado: **criticals 2 → 0, highs 17 → 13**. Highs remanescentes são 100% em dev tooling (minimatch/picomatch/lodash via ultracite/commitizen/secretlint/lint-staged), zero em runtime.
+
+**Validação**: 348 testes verdes (auth, admin, employees, organizations, audit, logger, errors, request-context), type check + lint limpos. `better-auth-localization 2.3.1` continua compatível (peerDep `^1.4.19`).
+
+**RU-4b (pendente)** — reintroduzir `bun audit` no `lint.yml` com `--audit-level=critical` inicialmente (threshold sobe pra `high` depois do CP-40). Corrigir README linha 201. Documentar que Trivy ≠ bun audit.
+
+**CP-40 (novo, bucket 🟡, a registrar)** — triagem dos 13 highs em dev deps: upgrade de ultracite/commitizen/secretlint/lint-staged para versões que resolvem minimatch/picomatch/lodash. Alternativa: `--ignore=<CVE>` com justificativa documentada.
+
+**Débito coberto em 7.7:** parcialmente #76 (CI security audit) — fecha completamente após RU-4b.
+
+**Lições:**
+- **Histórico do código é fonte de verdade complementar ao checklist**: a decisão de remover o audit no commit `1958c52` não estava registrada no checklist da iniciativa (fase audit começou em 2026-04-21, depois da remoção). Varredura de `git log` antes de aceitar uma ação "nova" pode revelar que é uma ação de reversão — muda o enquadramento.
+- **Trivy container scan não é equivalente a dep audit**: devem coexistir. Trivy varre a imagem final; `bun audit` varre o dep tree completo (incluindo dev). CP-40 vai formalizar essa distinção na doc do security.yml.
+- **Ação "S" no checklist pode esconder uma ação "L"**: RU-4 era Ação S no papel; na prática virou pesquisa de histórico + análise de advisory + 3 upgrades + triagem + split em múltiplas entregas. Revisitar estimativas quando uma ação revelar complexidade oculta é parte da disciplina — não pressionar pra caber no esforço planejado originalmente.
+
+### 2026-04-22 — RU-3 concluída (idleTimeout explícito)
+
+**Ação S** no bucket 🔴. Adiciona `idleTimeout: 30` ao `serve` config em `src/index.ts`, extraído como constante `REQUEST_IDLE_TIMEOUT_SECONDS`.
+
+**Descoberta durante a execução**: o débito #20 original afirmava que "Bun default é 255s" — está **errado**. A doc atual do Bun confirma default de **10 segundos** (255s é o valor *máximo* permitido). Correção aplicada no débito #20 em 7.7 e na nota logo abaixo da tabela de débitos. Isso rebaixou a urgência percebida de RU-3 — a API nunca esteve pendurada indefinidamente — mas mantém-se o valor de explicitar para reduzir acoplamento com default implícito.
+
+**Valor escolhido (30s)**: 3x o default atual do Bun, com margem pra queries de DP pesadas (relatórios via API key do Power BI do cliente), chamadas externas (Pagar.me, SMTP) e webhooks. Ainda bem abaixo do máximo (255s). Para endpoints long-running futuros (streaming/export), usar `server.timeout(req, N)` per-request.
+
+**Naming**: usa-se `REQUEST_IDLE_TIMEOUT_SECONDS` em vez do `REQUEST_TIMEOUT_MS` sugerido inicialmente no checklist — mantém a unidade da API do Bun, evita conversão mental. Não é env var: é runtime config que raramente muda entre ambientes.
+
+**Política de teste**: categoria (4) N/A conforme 7.5.2 — teste de timeout real é custoso. Validação:
+- ✅ `bun run lint:types` — clean
+- ✅ `npx ultracite check src/index.ts` — clean
+- Smoke test visual no boot: aplicação sobe sem erro com nova config de serve
+
+**Débito resolvido em 7.7:** #20 (request timeout global ausente).
+
+**Lições:**
+- **Validar premissas do checklist antes de implementar**: o débito #20 era baseado em um valor default errado (255s vs 10s real). A correção só saiu porque pesquisei a doc atual do Bun antes de codar. Próximas RUs de hardening de runtime: sempre validar defaults na doc atual da lib/runtime.
+- **Nome da constante ≠ nome no checklist**: o checklist sugeria `REQUEST_TIMEOUT_MS`. Não segui — a API do Bun é em segundos, e forçar `_MS` exigiria conversão. Discordar do texto do checklist é válido quando a razão técnica bate.
+
+### 2026-04-22 — RU-2 concluída (requestId no body do erro)
+
+**PR:** [#236](https://github.com/tlthiago/synnerdata-api-b/pull/236) — mergeada em `preview`.
+
+**Escopo expandido**: a PR original previa tocar apenas `src/lib/errors/`, mas durante a TDD descobrimos que o `derive` do Elysia não dispara para rotas 404 não-matched nem parse errors (issue [elysiajs/elysia#1467](https://github.com/elysiajs/elysia/issues/1467)). Sem o fix do lifecycle, RU-2 deixaria ~30% dos erros 404 reais em produção (scanners/bots) sem `requestId`. Decisão registrada: expandir o escopo para incluir a correção arquitetural no `loggerPlugin`.
+
+**Arquivos modificados:**
+- `src/lib/logger/index.ts` — geração do `requestId` movida de `derive` para `onRequest` (primeiro hook do lifecycle, dispara antes do route matching). `derive` passa a apenas ler do `AsyncLocalStorage` para expor no context tipado. Hooks `onAfterHandle` e `onError` de header removidos (redundantes — header agora setado universalmente em `onRequest`).
+- `src/lib/logger/CLAUDE.md` — novo ADR "onRequest e não derive"; diagrama de fluxo atualizado; seção obsoleta "onError para X-Request-ID" removida.
+- `src/lib/errors/base-error.ts` — `ErrorResponse.error.requestId?` + `toResponse(requestId?)` opcional.
+- `src/lib/errors/error-plugin.ts` — injeta `requestId` nos 4 branches (AppError, VALIDATION, NOT_FOUND, unhandled). Comentários descritivos removidos (regra de código autoexplicativo).
+- `src/lib/errors/__tests__/error-plugin.test.ts` — 5 testes TDD novos, um por branch de erro.
+
+**Débito resolvido em 7.7:** #16 (MVP — `requestId` ausente no body do erro).
+
+**Validação executada:**
+- ✅ `bun test src/lib/logger/__tests__/ src/lib/errors/__tests__/ src/lib/request-context/__tests__/ src/lib/audit/__tests__/audit-plugin.test.ts` — 37 pass / 0 fail
+- ✅ `bun run lint:types` — clean
+- ✅ `npx ultracite check src/lib/logger/ src/lib/errors/` — clean
+
+**Lições operacionais:**
+- **Validação empírica antes de compromisso arquitetural**: a decisão de mover para `onRequest` foi precedida por um probe isolado confirmando que `set.headers` setados em `onRequest` persistem em 200/500/404 unmatched. Evitou retrabalho.
+- **Escopo vs disciplina**: expandir o escopo de uma RU "S" (errorPlugin) para incluir um fix em outro plugin (loggerPlugin) só foi aceitável porque o fix era (a) pequeno e cirúrgico, (b) revelava que a implementação parcial era inferior, (c) resolvia bug latente além da RU. Não é padrão.
+- **Commits intermediários red**: aceitável quando o split `test → fix` segue o histórico do projeto e o merge final deixa a árvore verde.
 
 ### 2026-04-22 — Hotfix SMTP_FROM (regressão de RU-1)
 

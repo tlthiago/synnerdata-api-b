@@ -3,6 +3,8 @@ import { db } from "@/db";
 import { schema } from "@/db/schema";
 import { ensureEmployeeActive } from "@/lib/helpers/employee-status";
 import { calculateDaysBetween } from "@/lib/schemas/date-helpers";
+import { AuditService } from "@/modules/audit/audit.service";
+import { buildAuditChanges } from "@/modules/audit/pii-redaction";
 import {
   MedicalCertificateAlreadyDeletedError,
   MedicalCertificateInvalidDaysOffError,
@@ -213,6 +215,15 @@ export abstract class MedicalCertificateService {
       })
       .returning();
 
+    await AuditService.log({
+      action: "create",
+      resource: "medical_certificate",
+      resourceId: medicalCertificate.id,
+      userId,
+      organizationId,
+      changes: buildAuditChanges({}, medicalCertificate),
+    });
+
     return {
       id: medicalCertificate.id,
       organizationId: medicalCertificate.organizationId,
@@ -344,7 +355,21 @@ export abstract class MedicalCertificateService {
         )
       );
 
-    return MedicalCertificateService.findByIdOrThrow(id, organizationId);
+    const updated = await MedicalCertificateService.findByIdOrThrow(
+      id,
+      organizationId
+    );
+
+    await AuditService.log({
+      action: "update",
+      resource: "medical_certificate",
+      resourceId: id,
+      userId,
+      organizationId,
+      changes: buildAuditChanges(existing, updated),
+    });
+
+    return updated;
   }
 
   static async delete(
@@ -378,6 +403,15 @@ export abstract class MedicalCertificateService {
         )
       )
       .returning();
+
+    await AuditService.log({
+      action: "delete",
+      resource: "medical_certificate",
+      resourceId: id,
+      userId,
+      organizationId,
+      changes: buildAuditChanges(existing, {}),
+    });
 
     return {
       ...existing,

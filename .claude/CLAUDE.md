@@ -54,6 +54,17 @@ NODE_ENV=test bun test --env-file .env.test \
 
 A suite completa é responsabilidade do CI na PR.
 
+### Flag `SKIP_INTEGRATION_TESTS`
+
+`src/test/support/skip-integration.ts` expõe `skipIntegration` lido de `process.env.SKIP_INTEGRATION_TESTS`. Gateia **apenas** testes que fazem chamadas HTTP reais a APIs de terceiros (hoje só Pagar.me — usado em `src/modules/payments/**/__tests__`). DB-level integration tests (Postgres via `app.handle(new Request(...))`) **não** usam essa flag e rodam sempre.
+
+| Contexto | Valor | Comportamento |
+|---|---|---|
+| `test.yml` (CI na PR + cron diário) | `SKIP_INTEGRATION_TESTS=true` | Pagar.me tests skipados |
+| Dev local (default) | não setado | Pagar.me tests rodam — exige credentials reais em `.env.test` |
+
+**Gap conhecido** (rastreado como CP-41 no checklist de infra): esses testes hoje **não rodam em nenhum workflow** — nem PR, nem schedule. Correr só em máquina de dev é fonte de rot. Até CP-41 ser resolvido (workflow dedicado com secrets de sandbox Pagar.me), a disciplina é: **desenvolvedor que tocar em código de payments deve rodar os testes gated localmente antes da PR**, removendo `SKIP_INTEGRATION_TESTS` ou via `bun test` explícito nos arquivos afetados.
+
 ## Maintaining CLAUDE.md Files
 
 When modifying business rules, enums, status lifecycles, relationships, or module patterns, update the corresponding CLAUDE.md file in the affected module directory. If a change impacts architectural decisions, update this file as well.

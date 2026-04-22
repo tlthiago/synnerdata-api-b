@@ -3,6 +3,9 @@ import { Elysia } from "elysia";
 import { z } from "zod";
 import { AppError } from "@/lib/errors/base-error";
 import { errorPlugin } from "@/lib/errors/error-plugin";
+import { loggerPlugin } from "@/lib/logger";
+
+const REQUEST_ID_PATTERN = /^req-[0-9a-f-]{36}$/;
 
 const testBodySchema = z.object({
   email: z.string().email(),
@@ -28,6 +31,7 @@ class TestNotFoundError extends AppError {
 
 function createTestApp() {
   return new Elysia()
+    .use(loggerPlugin)
     .use(errorPlugin)
     .post("/validate", ({ body }) => ({ success: true, data: body }), {
       body: testBodySchema,
@@ -210,6 +214,62 @@ describe("errorPlugin", () => {
       const body = await response.json();
       expect(body.success).toBe(true);
       expect(body.data).toBe("ok");
+    });
+  });
+
+  describe("requestId in error envelope (RU-2)", () => {
+    test("AppError response body carries requestId matching X-Request-ID header", async () => {
+      const response = await app.handle(
+        new Request("http://localhost/domain-error")
+      );
+
+      const body = await response.json();
+      expect(body.error.requestId).toMatch(REQUEST_ID_PATTERN);
+      expect(response.headers.get("X-Request-ID")).toBe(body.error.requestId);
+    });
+
+    test("AppError 404 response body carries requestId matching X-Request-ID header", async () => {
+      const response = await app.handle(
+        new Request("http://localhost/not-found-error")
+      );
+
+      const body = await response.json();
+      expect(body.error.requestId).toMatch(REQUEST_ID_PATTERN);
+      expect(response.headers.get("X-Request-ID")).toBe(body.error.requestId);
+    });
+
+    test("VALIDATION response body carries requestId matching X-Request-ID header", async () => {
+      const response = await app.handle(
+        new Request("http://localhost/validate", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ email: "invalid", name: "Test" }),
+        })
+      );
+
+      const body = await response.json();
+      expect(body.error.requestId).toMatch(REQUEST_ID_PATTERN);
+      expect(response.headers.get("X-Request-ID")).toBe(body.error.requestId);
+    });
+
+    test("NOT_FOUND (unknown route) response body carries requestId matching X-Request-ID header", async () => {
+      const response = await app.handle(
+        new Request("http://localhost/non-existent-route")
+      );
+
+      const body = await response.json();
+      expect(body.error.requestId).toMatch(REQUEST_ID_PATTERN);
+      expect(response.headers.get("X-Request-ID")).toBe(body.error.requestId);
+    });
+
+    test("unhandled 500 response body carries requestId matching X-Request-ID header", async () => {
+      const response = await app.handle(
+        new Request("http://localhost/unhandled-error")
+      );
+
+      const body = await response.json();
+      expect(body.error.requestId).toMatch(REQUEST_ID_PATTERN);
+      expect(response.headers.get("X-Request-ID")).toBe(body.error.requestId);
     });
   });
 });

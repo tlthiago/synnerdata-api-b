@@ -13,21 +13,26 @@ O sistema de logging tem duas camadas com responsabilidades distintas:
 ### Fluxo de uma request
 
 ```
-derive → handler → onAfterHandle (header) → onAfterResponse (access log)
-                ↘ onError (header + error log) → onAfterResponse (access log)
+onRequest (requestId + header) → derive (context) → handler → onAfterResponse (access log)
+                                                           ↘ onError (errorPlugin) → onAfterResponse
 ```
 
-- `derive`: gera `requestId`, entra no `AsyncLocalStorage`, retorna `requestId` + `requestStart`
-- `onAfterHandle`: injeta `X-Request-ID` no header (só sucesso)
-- `onError` (logger): injeta `X-Request-ID` no header (só erros — `onAfterHandle` não executa quando há erro)
-- `onError` (errorPlugin): formata resposta, seta `set.status`, loga detalhes de 5xx/unhandled
+- `onRequest`: gera `requestId`, entra no `AsyncLocalStorage` via `enterRequestContext`, injeta `X-Request-ID` no header. Dispara em **toda** request — incluindo 404 unmatched e parse errors, que ocorrem antes do route matching
+- `derive`: retorna `{ requestId, requestStart }` no context tipado do Elysia, lendo o `requestId` já gravado no `AsyncLocalStorage`
+- `onError` (errorPlugin): formata resposta, seta `set.status`, loga detalhes de 5xx/unhandled. O header já foi setado em `onRequest`, não precisa reinjetar
 - `onAfterResponse`: access log com status real via `set.status` — executa **sempre** (sucesso e erro)
 
 ## Decisões Técnicas
 
+### `onRequest` e não `derive` para gerar o `requestId`
+
+`derive` executa **após** o route matching do Elysia, então não dispara para rotas 404 unmatched nem para parse errors — cenários em que `onError` é chamado com context vazio (ver [elysiajs/elysia#1467](https://github.com/elysiajs/elysia/issues/1467)). Gerar o `requestId` em `onRequest` (primeiro hook do lifecycle, executa antes do route matching) garante que 100% das responses — incluindo 404 de scanners/bots e payloads malformados — tenham `X-Request-ID` no header e `error.requestId` no body para correlacionar com logs.
+
+O `derive` permanece, mas agora apenas **lê** o `requestId` do `AsyncLocalStorage` pra expô-lo no context tipado do Elysia (mantém compatibilidade com hooks que fazem `({ requestId }) => …`).
+
 ### `enterWith` e não `run` no AsyncLocalStorage
 
-Elysia's `derive` retorna um valor — não aceita callback wrapper. `enterWith` é a API correta para o modelo de hooks do Elysia: define o store para o restante da execução síncrona e persiste nas chamadas assíncronas seguintes. Não é workaround.
+`enterWith` é a API correta para o modelo de hooks do Elysia: define o store para o restante da execução síncrona e persiste nas chamadas assíncronas seguintes. Usado em `onRequest` logo que a request entra no servidor.
 
 ### `mixin()` do Pino para injetar `requestId`
 
@@ -42,10 +47,6 @@ O access log (`onAfterResponse`) é sempre `logger.info()`, mesmo para 4xx/5xx. 
 ### `set.status` para capturar status real
 
 O Elysia tem bugs conhecidos com `status()` que não atualiza `set.status` no lifecycle ([#1501](https://github.com/elysiajs/elysia/issues/1501)). Porém, atribuição direta (`set.status = error.status`) funciona corretamente. O projeto proíbe `status()` (ver CLAUDE.md raiz), então `set.status` é confiável. O fallback `typeof set.status === "number" ? set.status : 200` protege contra edge cases.
-
-### `onError` no loggerPlugin para `X-Request-ID`
-
-`onAfterHandle` só executa em sucesso. Quando há erro, o lifecycle pula para `onError`. Por isso o `loggerPlugin` registra um `onError` próprio **apenas para injetar o header** — sem tocar na response. O `errorPlugin` cuida da formatação.
 
 ## Convenção dos campos de log
 
