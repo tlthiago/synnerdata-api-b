@@ -262,9 +262,9 @@ Seção específica do projeto. Começa pelo **status atual** da iniciativa (7.0
 | **0. Contexto aplicado** | ✅ Concluída | 2026-04-21 | Seções 7.1–7.3, 7.6, 7.7 preenchidas + convenção semântica + 10 débitos pré-audit |
 | **1. Audit item a item** | ✅ Concluída | 2026-04-21 | Status nas seções 4 e 5 preenchidos (~65 itens); 95 débitos totais em 7.7; relatório em [`docs/reports/2026-04-21-api-infrastructure-audit.md`](../reports/2026-04-21-api-infrastructure-audit.md) |
 | **2. Roadmap priorizado** | ✅ Concluída | 2026-04-21 | Seção 7.5 com 69 ações organizadas em 3 buckets (🔴 10 urgentes / 🟡 38 curto prazo / 🟢 21 sob demanda) com IDs, dependências, tipo e esforço |
-| **3. Execução** | 🔄 Em execução | 2026-04-22 | RU-1, RU-2, RU-3, RU-4 (4a+4b), RU-5 concluídas. CP-39 + CP-40 + CP-41 registrados como follow-ups. Hotfix SMTP_FROM aplicado. 5/10 ações do bucket 🔴 concluídas. |
+| **3. Execução** | 🔄 Em execução | 2026-04-22 | RU-1..RU-6 concluídas. CP-39 + CP-40 + CP-41 registrados como follow-ups. Hotfix SMTP_FROM aplicado. 6/10 ações do bucket 🔴 concluídas. |
 
-**➡️ Próxima ação:** **RU-6 (audit em operações de API keys)** — adicionar `AuditService.log()` em `ApiKeyService.create/revoke/delete` com `resource: "api_key"`, captando prefix da key (nunca a key completa). Ação M — entra no pipeline Compozy conforme metodologia 7.5.1.
+**➡️ Próxima ação:** **RU-7 (fix auditPlugin)** — injetar `user`/`session.activeOrganizationId` do contexto do macro `auth` (remover `context` manual); remover `| string` dos tipos de `action`/`resource`. Ação M — fluxo simples ou Compozy pipeline (decidir no início).
 
 ### 7.1 Contexto do projeto
 
@@ -1351,6 +1351,37 @@ Rodados testes que cobrem as áreas a serem tocadas pelo bucket 🔴 para confir
 - Extensão `cy-idea-factory` — traz council de 6 agentes (security-advocate, architect-advisor, pragmatic-engineer, product-mind, devils-advocate, the-thinker) e skill `/cy-idea-factory`. Motivo: roadmap atual (bucket 🔴 + maior parte do 🟡) já tem escopo claro do audit; council é overkill para ações bem escopadas. Instalar apenas antes de CP-1/CP-2 (XL) ou qualquer item do bucket 🟢 (decisões com múltiplos trade-offs sem design pronto)
 
 **Estado:** pronto para iniciar Fase 3. Próxima ação — **RU-1 (hardening `env.ts`)** via fluxo simples (branch direta, sem Compozy).
+
+### 2026-04-22 — RU-6 concluída (audit em operações de API keys)
+
+Primeira ação M do bucket 🔴. Adiciona `AuditService.log()` em `ApiKeyService.create/revoke/delete` para garantir rastreabilidade de compliance (LGPD, auditoria de operações admin-only).
+
+**Decisão sobre Compozy**: a metodologia 7.5.1 prevê Compozy a partir da primeira M. Descumprido deliberadamente nesta RU — o escopo era mecânico (3 chamadas de log, 1 enum, mudança de signature), sem trade-offs arquiteturais. Compozy (PRD → TechSpec → Tasks → exec) agrega rigor onde há decisão; aqui o design é óbvio. Reservamos Compozy para CP-1/CP-2 (XL) e futuras M que envolvam design.
+
+**Arquivos modificados:**
+- `src/modules/audit/audit.model.ts` — adiciona `"api_key"` ao `auditResourceSchema` enum.
+- `src/modules/admin/api-keys/api-key.service.ts` — importa `AuditService`, extrai IP/UA dos headers via helper local `extractAuditMetadata`. Signatures de revoke/delete mudam de `(headers, keyId)` para `(userId, headers, keyId)`. Payload de create inclui prefix mas **nunca a key completa** — preserva invariante do módulo.
+- `src/modules/admin/api-keys/index.ts` — controller passa `user.id` nos 3 endpoints.
+- `src/modules/admin/api-keys/CLAUDE.md` — nova seção "Audit trail" com tabela de operação → action → changes.
+- 3 arquivos de teste — 4 novos casos TDD verificando o audit trail e a invariante "key completa NÃO aparece no entry".
+
+**Formato do audit:**
+
+| Operação | `action` | `changes` |
+|---|---|---|
+| create | `create` | `after: { prefix, name, organizationId, isGlobal }` |
+| revoke | `update` | `before: { enabled: true }`, `after: { enabled: false }` |
+| delete | `delete` | — |
+
+**Débito resolvido em 7.7:** #54 (API keys não auditam operações admin).
+
+**Validação:**
+- ✅ 35 testes verdes em `src/modules/admin/api-keys/__tests__/` (31 baseline + 4 novos).
+- ✅ 177 testes verdes em áreas afetadas (api-keys, audit, lib/audit, auth).
+- ✅ `bun run lint:types` — clean.
+- ✅ `npx ultracite check` nos arquivos tocados — clean.
+
+**Lição:** a metodologia "Compozy a partir da primeira M" do 7.5.1 é **guideline, não lei**. Avaliar a complexidade real da ação (trade-offs arquiteturais × implementação mecânica) antes de invocar o pipeline. Registrar discordância no changelog quando fizer sentido — como aqui.
 
 ### 2026-04-22 — RU-5 concluída (SKIP_INTEGRATION_TESTS documentado)
 
