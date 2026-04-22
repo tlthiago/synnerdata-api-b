@@ -30,6 +30,8 @@ With the FK constraints now active from task_03, systematically audit every dire
 - MUST NOT introduce new test helpers unless the existing surface is insufficient; prefer extending existing helpers
 </requirements>
 
+> **Exception to CLAUDE.md's "never run the full suite during development" rule**: the root CLAUDE.md (section "Execução de Testes") instructs contributors to only run tests related to the changed module and leave the full suite for CI. This task is an explicit, one-off exception justified by the blast radius of activating FK constraints across 26 tables: a silent fixture regression in any unrelated module would only surface in CI after PR 1 is already open, wasting a deploy cycle. Running `bun run test` locally here is a **gate before merge**, not a development-loop habit — it applies only to this task.
+
 ## Subtasks
 
 - [ ] 04.1 Catalog every fixture-writing site via grep across `src/**/__tests__/` and `src/test/helpers/**`

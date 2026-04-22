@@ -28,6 +28,8 @@ Introduce the shared Zod schema `auditUserSchema` (`{ id, name } | null`) and th
 - MUST include `.describe()` metadata on the Zod schema for OpenAPI generation consistency with other schemas in the file
 </requirements>
 
+> **Scope note (Phase 1+2 only)**: the helper's generic signature in this task assumes the full triple (`createdBy` + `updatedBy` + `deletedBy` — same shape as cost-centers). Five tables in the schema carry only a subset (`ppe_delivery_logs`: only `created_by`; `ppe_delivery_items`, `ppe_job_positions`, `project_employees`: no `updated_by`; `features` in `payments.ts`: no `deleted_by`). None of them has a user-facing CRUD endpoint today and none is in scope for Phase 1+2. If a Phase 3 PR ever targets one of them, a partial-column variant of `mapAuditRelations` (or a relaxed generic) will be introduced in that PR — intentionally deferred so this helper ships simple.
+
 ## Subtasks
 
 - [ ] 01.1 Add `auditUserSchema` Zod export at a logical position among existing schemas in `response.types.ts`

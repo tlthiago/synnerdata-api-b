@@ -99,13 +99,13 @@ export const costCenterRelations = relations(costCenters, ({ one }) => ({
 
 **Relation naming convention**: relations to `users` use the `*User` suffix (`createdByUser`, `updatedByUser`, `deletedByUser`) to avoid key collision with the underlying `text` columns `createdBy`, `updatedBy`, `deletedBy` that remain on the table. Drizzle's `db.query` result includes both the columns and the expanded relations in the same object; the suffix disambiguates. Services map from the relation keys to the payload keys before returning (see below).
 
-**Canonical service read method**:
+**Canonical service read method** (example uses `findByIdOrThrow`, the real method in `CostCenterService` — pilot refactors it in place instead of introducing a new method):
 
 ```ts
-static async findByIdWithAudit(
+static async findByIdOrThrow(
   id: string,
   organizationId: string
-): Promise<CostCenterData | null> {
+): Promise<CostCenterData> {
   const raw = await db.query.costCenters.findFirst({
     where: (t, { eq, and, isNull }) =>
       and(eq(t.id, id), eq(t.organizationId, organizationId), isNull(t.deletedAt)),
@@ -115,7 +115,8 @@ static async findByIdWithAudit(
       deletedByUser: { columns: { id: true, name: true } },
     },
   });
-  return raw ? mapAuditRelations(raw) : null;
+  if (!raw) throw new NotFoundError("Cost center not found");
+  return mapAuditRelations(raw);
 }
 ```
 
