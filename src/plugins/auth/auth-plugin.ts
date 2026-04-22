@@ -6,37 +6,18 @@ import {
   SubscriptionRequiredError,
 } from "@/lib/errors/subscription-errors";
 import { logger } from "@/lib/logger";
-import type { OrgPermissions } from "@/lib/permissions";
 import { LimitsService } from "@/modules/payments/limits/limits.service";
 import { SubscriptionService } from "@/modules/payments/subscription/subscription.service";
+import {
+  type AuthOptions,
+  needsSubscriptionValidation,
+  type ParsedAuthOptions,
+  parseOptions,
+} from "@/plugins/auth/options";
 
 export type AuthContext = {
   user: AuthUser;
   session: AuthSession;
-};
-
-export type AuthOptions =
-  | true
-  | {
-      permissions?: OrgPermissions;
-      requireOrganization?: boolean;
-      requireAdmin?: boolean;
-      requireSuperAdmin?: boolean;
-      requireActiveSubscription?: boolean;
-      requireFeature?: string;
-      requireFeatures?: string[];
-      allowAdminBypass?: boolean;
-    };
-
-type ParsedAuthOptions = {
-  permissions?: OrgPermissions;
-  requireOrganization: boolean;
-  requireAdmin: boolean;
-  requireSuperAdmin: boolean;
-  requireActiveSubscription: boolean;
-  requireFeature?: string;
-  requireFeatures?: string[];
-  allowAdminBypass: boolean;
 };
 
 class NoActiveOrganizationError extends ForbiddenError {
@@ -57,22 +38,6 @@ class SuperAdminRequiredError extends ForbiddenError {
   constructor() {
     super("Super admin access required");
   }
-}
-
-function parseOptions(options: AuthOptions): ParsedAuthOptions | null {
-  if (typeof options !== "object") {
-    return null;
-  }
-  return {
-    permissions: options.permissions,
-    requireOrganization: options.requireOrganization ?? false,
-    requireAdmin: options.requireAdmin ?? false,
-    requireSuperAdmin: options.requireSuperAdmin ?? false,
-    requireActiveSubscription: options.requireActiveSubscription ?? false,
-    requireFeature: options.requireFeature,
-    requireFeatures: options.requireFeatures,
-    allowAdminBypass: options.allowAdminBypass ?? true,
-  };
 }
 
 function isSystemAdmin(role: string | null | undefined): boolean {
@@ -170,15 +135,6 @@ async function validateFeatureAccess(
       result.requiredPlan ?? undefined
     );
   }
-}
-
-function needsSubscriptionValidation(options: ParsedAuthOptions): boolean {
-  return (
-    options.requireActiveSubscription ||
-    !!options.requireFeature ||
-    (options.requireFeatures !== undefined &&
-      options.requireFeatures.length > 0)
-  );
 }
 
 async function validateSubscriptionAndFeatures(
