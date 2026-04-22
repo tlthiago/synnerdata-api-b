@@ -47,7 +47,7 @@ describe("POST /v1/public/newsletter/subscribe", () => {
     expect(record.id).toStartWith("newsletter-");
   });
 
-  it("should reject duplicate active email", async () => {
+  it("should return same response for duplicate active email (no enumeration)", async () => {
     const email = "duplicate@example.com";
 
     const firstResponse = await app.handle(
@@ -58,6 +58,7 @@ describe("POST /v1/public/newsletter/subscribe", () => {
       })
     );
     expect(firstResponse.status).toBe(200);
+    const firstBody = await firstResponse.json();
 
     const secondResponse = await app.handle(
       new Request(ENDPOINT, {
@@ -66,11 +67,20 @@ describe("POST /v1/public/newsletter/subscribe", () => {
         body: JSON.stringify({ email }),
       })
     );
-    expect(secondResponse.status).toBe(409);
+    expect(secondResponse.status).toBe(200);
+    const secondBody = await secondResponse.json();
 
-    const body = await secondResponse.json();
-    expect(body.success).toBe(false);
-    expect(body.error.code).toBe("CONFLICT");
+    expect(secondBody).toEqual(firstBody);
+    expect(secondBody.success).toBe(true);
+    expect(secondBody.message).toBe("Inscrição realizada com sucesso");
+
+    const records = await db
+      .select()
+      .from(schema.newsletterSubscribers)
+      .where(eq(schema.newsletterSubscribers.email, email));
+
+    expect(records.length).toBe(1);
+    expect(records[0].status).toBe("active");
   });
 
   it("should reactivate unsubscribed email", async () => {
