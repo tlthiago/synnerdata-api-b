@@ -29,6 +29,31 @@ jobs:
           head: ${{ github.event.pull_request.head.sha || github.sha }}
           extra_args: --only-verified
 
+  trivy-fs:
+    name: Trivy Filesystem Scan
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Run Trivy filesystem scanner
+        uses: aquasecurity/trivy-action@0.35.0
+        with:
+          scan-type: "fs"
+          scan-ref: "."
+          format: "sarif"
+          output: "trivy-fs-results.sarif"
+          severity: "CRITICAL,HIGH"
+          ignore-unfixed: true
+          skip-dirs: "node_modules"
+
+      - name: Upload Trivy filesystem scan results to GitHub Security tab
+        uses: github/codeql-action/upload-sarif@v4
+        if: always()
+        with:
+          sarif_file: "trivy-fs-results.sarif"
+          category: "trivy-fs"
+
   trivy-image:
     name: Trivy Container Scan
     runs-on: ubuntu-latest
@@ -53,3 +78,4 @@ jobs:
         if: always()
         with:
           sarif_file: "trivy-results.sarif"
+          category: "trivy-image"
