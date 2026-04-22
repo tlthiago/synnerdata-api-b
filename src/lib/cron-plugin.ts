@@ -1,6 +1,7 @@
 import { cron } from "@elysiajs/cron";
 import { Elysia } from "elysia";
 import { logger } from "@/lib/logger";
+import { VacationJobsService } from "@/modules/occurrences/vacations/vacation-jobs.service";
 import { JobsService } from "@/modules/payments/jobs/jobs.service";
 
 export const cronPlugin = new Elysia({ name: "cron-jobs" })
@@ -75,9 +76,6 @@ export const cronPlugin = new Elysia({ name: "cron-jobs" })
       name: "activate-scheduled-vacations",
       pattern: "0 3 * * *", // 03:00 UTC = 00:00 BRT
       async run() {
-        const { VacationJobsService } = await import(
-          "@/modules/occurrences/vacations/vacation-jobs.service"
-        );
         const result = await VacationJobsService.activateScheduledVacations();
         logger.info({
           type: "cron:activate-scheduled-vacations",
@@ -91,9 +89,6 @@ export const cronPlugin = new Elysia({ name: "cron-jobs" })
       name: "complete-expired-vacations",
       pattern: "0 3 * * *", // 03:00 UTC = 00:00 BRT
       async run() {
-        const { VacationJobsService } = await import(
-          "@/modules/occurrences/vacations/vacation-jobs.service"
-        );
         const result = await VacationJobsService.completeExpiredVacations();
         logger.info({
           type: "cron:complete-expired-vacations",

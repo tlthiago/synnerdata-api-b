@@ -20,6 +20,7 @@ import { env, isTest } from "@/env";
 import { parseOrigins } from "@/lib/cors";
 import { logger } from "@/lib/logger";
 import { AuditService } from "@/modules/audit/audit.service";
+import { OrganizationService } from "@/modules/organizations/profile/organization.service";
 import { SubscriptionService } from "@/modules/payments/subscription/subscription.service";
 import {
   sendOrganizationInvitationEmail,
@@ -647,10 +648,6 @@ export const auth = betterAuth({
           organization: Organization;
           member: { userId: string };
         }) => {
-          const { OrganizationService } = await import(
-            "@/modules/organizations/profile/organization.service"
-          );
-
           try {
             await SubscriptionService.createTrial(org.id);
           } catch (error) {
