@@ -1,6 +1,6 @@
 import { relations } from "drizzle-orm";
 import { index, pgTable, text, timestamp } from "drizzle-orm/pg-core";
-import { organizations } from "./auth";
+import { organizations, users } from "./auth";
 import { cboOccupations } from "./cbo-occupations";
 
 export const jobClassifications = pgTable(
@@ -21,10 +21,16 @@ export const jobClassifications = pgTable(
       .defaultNow()
       .$onUpdate(() => new Date())
       .notNull(),
-    createdBy: text("created_by"),
-    updatedBy: text("updated_by"),
+    createdBy: text("created_by").references(() => users.id, {
+      onDelete: "set null",
+    }),
+    updatedBy: text("updated_by").references(() => users.id, {
+      onDelete: "set null",
+    }),
     deletedAt: timestamp("deleted_at", { withTimezone: true }),
-    deletedBy: text("deleted_by"),
+    deletedBy: text("deleted_by").references(() => users.id, {
+      onDelete: "set null",
+    }),
   },
   (table) => [
     index("job_classifications_organization_id_idx").on(table.organizationId),
@@ -42,6 +48,21 @@ export const jobClassificationRelations = relations(
     cboOccupation: one(cboOccupations, {
       fields: [jobClassifications.cboOccupationId],
       references: [cboOccupations.id],
+    }),
+    createdByUser: one(users, {
+      fields: [jobClassifications.createdBy],
+      references: [users.id],
+      relationName: "jobClassificationCreator",
+    }),
+    updatedByUser: one(users, {
+      fields: [jobClassifications.updatedBy],
+      references: [users.id],
+      relationName: "jobClassificationUpdater",
+    }),
+    deletedByUser: one(users, {
+      fields: [jobClassifications.deletedBy],
+      references: [users.id],
+      relationName: "jobClassificationDeleter",
     }),
   })
 );

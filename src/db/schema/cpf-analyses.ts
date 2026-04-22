@@ -8,7 +8,7 @@ import {
   text,
   timestamp,
 } from "drizzle-orm/pg-core";
-import { organizations } from "./auth";
+import { organizations, users } from "./auth";
 import { employees } from "./employees";
 
 export const cpfAnalysisStatusEnum = pgEnum("cpf_analysis_status", [
@@ -45,11 +45,17 @@ export const cpfAnalyses = pgTable(
       .defaultNow()
       .$onUpdate(() => new Date())
       .notNull(),
-    createdBy: text("created_by"),
-    updatedBy: text("updated_by"),
+    createdBy: text("created_by").references(() => users.id, {
+      onDelete: "set null",
+    }),
+    updatedBy: text("updated_by").references(() => users.id, {
+      onDelete: "set null",
+    }),
 
     deletedAt: timestamp("deleted_at", { withTimezone: true }),
-    deletedBy: text("deleted_by"),
+    deletedBy: text("deleted_by").references(() => users.id, {
+      onDelete: "set null",
+    }),
   },
   (table) => [
     index("cpf_analyses_organization_id_idx").on(table.organizationId),
@@ -67,6 +73,21 @@ export const cpfAnalysisRelations = relations(cpfAnalyses, ({ one }) => ({
   employee: one(employees, {
     fields: [cpfAnalyses.employeeId],
     references: [employees.id],
+  }),
+  createdByUser: one(users, {
+    fields: [cpfAnalyses.createdBy],
+    references: [users.id],
+    relationName: "cpfAnalysisCreator",
+  }),
+  updatedByUser: one(users, {
+    fields: [cpfAnalyses.updatedBy],
+    references: [users.id],
+    relationName: "cpfAnalysisUpdater",
+  }),
+  deletedByUser: one(users, {
+    fields: [cpfAnalyses.deletedBy],
+    references: [users.id],
+    relationName: "cpfAnalysisDeleter",
   }),
 }));
 

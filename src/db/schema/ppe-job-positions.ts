@@ -6,7 +6,7 @@ import {
   timestamp,
   uniqueIndex,
 } from "drizzle-orm/pg-core";
-import { organizations } from "./auth";
+import { organizations, users } from "./auth";
 import { jobPositions } from "./job-positions";
 import { ppeItems } from "./ppe-items";
 
@@ -28,11 +28,15 @@ export const ppeJobPositions = pgTable(
     createdAt: timestamp("created_at", { withTimezone: true })
       .defaultNow()
       .notNull(),
-    createdBy: text("created_by"),
+    createdBy: text("created_by").references(() => users.id, {
+      onDelete: "set null",
+    }),
 
     // Soft delete
     deletedAt: timestamp("deleted_at", { withTimezone: true }),
-    deletedBy: text("deleted_by"),
+    deletedBy: text("deleted_by").references(() => users.id, {
+      onDelete: "set null",
+    }),
   },
   (table) => [
     index("ppe_job_positions_organization_id_idx").on(table.organizationId),
@@ -59,6 +63,16 @@ export const ppeJobPositionRelations = relations(
     jobPosition: one(jobPositions, {
       fields: [ppeJobPositions.jobPositionId],
       references: [jobPositions.id],
+    }),
+    createdByUser: one(users, {
+      fields: [ppeJobPositions.createdBy],
+      references: [users.id],
+      relationName: "ppeJobPositionCreator",
+    }),
+    deletedByUser: one(users, {
+      fields: [ppeJobPositions.deletedBy],
+      references: [users.id],
+      relationName: "ppeJobPositionDeleter",
     }),
   })
 );

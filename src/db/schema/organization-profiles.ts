@@ -9,7 +9,7 @@ import {
   text,
   timestamp,
 } from "drizzle-orm/pg-core";
-import { organizations } from "./auth";
+import { organizations, users } from "./auth";
 
 export const organizationStatusEnum = pgEnum("organization_status", [
   "ACTIVE",
@@ -58,10 +58,16 @@ export const organizationProfiles = pgTable(
       .defaultNow()
       .$onUpdate(() => new Date())
       .notNull(),
-    createdBy: text("created_by"),
-    updatedBy: text("updated_by"),
+    createdBy: text("created_by").references(() => users.id, {
+      onDelete: "set null",
+    }),
+    updatedBy: text("updated_by").references(() => users.id, {
+      onDelete: "set null",
+    }),
     deletedAt: timestamp("deleted_at", { withTimezone: true }),
-    deletedBy: text("deleted_by"),
+    deletedBy: text("deleted_by").references(() => users.id, {
+      onDelete: "set null",
+    }),
   },
   (table) => [
     index("organization_profiles_organization_id_idx").on(table.organizationId),
@@ -80,6 +86,21 @@ export const organizationProfileRelations = relations(
     organization: one(organizations, {
       fields: [organizationProfiles.organizationId],
       references: [organizations.id],
+    }),
+    createdByUser: one(users, {
+      fields: [organizationProfiles.createdBy],
+      references: [users.id],
+      relationName: "organizationProfileCreator",
+    }),
+    updatedByUser: one(users, {
+      fields: [organizationProfiles.updatedBy],
+      references: [users.id],
+      relationName: "organizationProfileUpdater",
+    }),
+    deletedByUser: one(users, {
+      fields: [organizationProfiles.deletedBy],
+      references: [users.id],
+      relationName: "organizationProfileDeleter",
     }),
   })
 );

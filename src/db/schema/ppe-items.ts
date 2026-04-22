@@ -1,6 +1,6 @@
 import { relations } from "drizzle-orm";
 import { index, pgTable, text, timestamp } from "drizzle-orm/pg-core";
-import { organizations } from "./auth";
+import { organizations, users } from "./auth";
 import { ppeJobPositions } from "./ppe-job-positions";
 
 export const ppeItems = pgTable(
@@ -24,12 +24,18 @@ export const ppeItems = pgTable(
       .defaultNow()
       .$onUpdate(() => new Date())
       .notNull(),
-    createdBy: text("created_by"),
-    updatedBy: text("updated_by"),
+    createdBy: text("created_by").references(() => users.id, {
+      onDelete: "set null",
+    }),
+    updatedBy: text("updated_by").references(() => users.id, {
+      onDelete: "set null",
+    }),
 
     // Soft delete
     deletedAt: timestamp("deleted_at", { withTimezone: true }),
-    deletedBy: text("deleted_by"),
+    deletedBy: text("deleted_by").references(() => users.id, {
+      onDelete: "set null",
+    }),
   },
   (table) => [
     index("ppe_items_organization_id_idx").on(table.organizationId),
@@ -43,6 +49,21 @@ export const ppeItemRelations = relations(ppeItems, ({ one, many }) => ({
     references: [organizations.id],
   }),
   jobPositions: many(ppeJobPositions),
+  createdByUser: one(users, {
+    fields: [ppeItems.createdBy],
+    references: [users.id],
+    relationName: "ppeItemCreator",
+  }),
+  updatedByUser: one(users, {
+    fields: [ppeItems.updatedBy],
+    references: [users.id],
+    relationName: "ppeItemUpdater",
+  }),
+  deletedByUser: one(users, {
+    fields: [ppeItems.deletedBy],
+    references: [users.id],
+    relationName: "ppeItemDeleter",
+  }),
 }));
 
 export type PpeItem = typeof ppeItems.$inferSelect;

@@ -9,7 +9,7 @@ import {
   text,
   timestamp,
 } from "drizzle-orm/pg-core";
-import { organizations } from "./auth";
+import { organizations, users } from "./auth";
 import { employees } from "./employees";
 
 export const terminationTypeEnum = pgEnum("termination_type", [
@@ -50,10 +50,16 @@ export const terminations = pgTable(
       .defaultNow()
       .$onUpdate(() => new Date())
       .notNull(),
-    createdBy: text("created_by"),
-    updatedBy: text("updated_by"),
+    createdBy: text("created_by").references(() => users.id, {
+      onDelete: "set null",
+    }),
+    updatedBy: text("updated_by").references(() => users.id, {
+      onDelete: "set null",
+    }),
     deletedAt: timestamp("deleted_at", { withTimezone: true }),
-    deletedBy: text("deleted_by"),
+    deletedBy: text("deleted_by").references(() => users.id, {
+      onDelete: "set null",
+    }),
   },
   (table) => [
     index("terminations_organization_id_idx").on(table.organizationId),
@@ -71,6 +77,21 @@ export const terminationRelations = relations(terminations, ({ one }) => ({
   employee: one(employees, {
     fields: [terminations.employeeId],
     references: [employees.id],
+  }),
+  createdByUser: one(users, {
+    fields: [terminations.createdBy],
+    references: [users.id],
+    relationName: "terminationCreator",
+  }),
+  updatedByUser: one(users, {
+    fields: [terminations.updatedBy],
+    references: [users.id],
+    relationName: "terminationUpdater",
+  }),
+  deletedByUser: one(users, {
+    fields: [terminations.deletedBy],
+    references: [users.id],
+    relationName: "terminationDeleter",
   }),
 }));
 

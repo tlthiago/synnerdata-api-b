@@ -12,7 +12,7 @@ import {
   timestamp,
   uniqueIndex,
 } from "drizzle-orm/pg-core";
-import { organizations } from "./auth";
+import { organizations, users } from "./auth";
 
 export const subscriptionStatusEnum = pgEnum("subscription_status", [
   "active",
@@ -404,8 +404,12 @@ export const features = pgTable("features", {
     .defaultNow()
     .$onUpdate(() => new Date())
     .notNull(),
-  createdBy: text("created_by"),
-  updatedBy: text("updated_by"),
+  createdBy: text("created_by").references(() => users.id, {
+    onDelete: "set null",
+  }),
+  updatedBy: text("updated_by").references(() => users.id, {
+    onDelete: "set null",
+  }),
 });
 
 export const planFeatures = pgTable(
@@ -443,8 +447,18 @@ export const planLimitRelations = relations(planLimits, ({ one }) => ({
   }),
 }));
 
-export const featureRelations = relations(features, ({ many }) => ({
+export const featureRelations = relations(features, ({ one, many }) => ({
   planFeatures: many(planFeatures),
+  createdByUser: one(users, {
+    fields: [features.createdBy],
+    references: [users.id],
+    relationName: "featureCreator",
+  }),
+  updatedByUser: one(users, {
+    fields: [features.updatedBy],
+    references: [users.id],
+    relationName: "featureUpdater",
+  }),
 }));
 
 export const planFeatureRelations = relations(planFeatures, ({ one }) => ({

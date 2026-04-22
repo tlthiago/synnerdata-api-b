@@ -1,6 +1,6 @@
 {
-  "id": "d14fd0d3-b3ee-4b78-9469-d2914e09ea66",
-  "prevId": "d6edf304-34d6-4105-907b-d8f4d5026b10",
+  "id": "1829eb7e-bc45-403c-b7aa-119881dcfeb6",
+  "prevId": "5f94aca2-98f5-44fb-b91e-601585ced7d8",
   "version": "7",
   "dialect": "postgresql",
   "tables": {
@@ -5652,7 +5652,7 @@
             }
           ],
           "isUnique": true,
-          "where": "\"subscription_plans\".\"is_trial\" = true AND \"subscription_plans\".\"archived_at\" IS NULL",
+          "where": "\"subscription_plans\".\"is_trial\" = true AND \"subscription_plans\".\"archived_at\" IS NULL AND \"subscription_plans\".\"organization_id\" IS NULL",
           "concurrently": false,
           "method": "btree",
           "with": {}

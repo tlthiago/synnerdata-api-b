@@ -7,7 +7,7 @@ import {
   timestamp,
   uniqueIndex,
 } from "drizzle-orm/pg-core";
-import { organizations } from "./auth";
+import { organizations, users } from "./auth";
 
 export const branches = pgTable(
   "branches",
@@ -35,10 +35,16 @@ export const branches = pgTable(
       .defaultNow()
       .$onUpdate(() => new Date())
       .notNull(),
-    createdBy: text("created_by"),
-    updatedBy: text("updated_by"),
+    createdBy: text("created_by").references(() => users.id, {
+      onDelete: "set null",
+    }),
+    updatedBy: text("updated_by").references(() => users.id, {
+      onDelete: "set null",
+    }),
     deletedAt: timestamp("deleted_at", { withTimezone: true }),
-    deletedBy: text("deleted_by"),
+    deletedBy: text("deleted_by").references(() => users.id, {
+      onDelete: "set null",
+    }),
   },
   (table) => [
     index("branches_organization_id_idx").on(table.organizationId),
@@ -53,6 +59,21 @@ export const branchRelations = relations(branches, ({ one }) => ({
   organization: one(organizations, {
     fields: [branches.organizationId],
     references: [organizations.id],
+  }),
+  createdByUser: one(users, {
+    fields: [branches.createdBy],
+    references: [users.id],
+    relationName: "branchCreator",
+  }),
+  updatedByUser: one(users, {
+    fields: [branches.updatedBy],
+    references: [users.id],
+    relationName: "branchUpdater",
+  }),
+  deletedByUser: one(users, {
+    fields: [branches.deletedBy],
+    references: [users.id],
+    relationName: "branchDeleter",
   }),
 }));
 

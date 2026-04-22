@@ -8,7 +8,7 @@ import {
   text,
   timestamp,
 } from "drizzle-orm/pg-core";
-import { organizations } from "./auth";
+import { organizations, users } from "./auth";
 import { employees } from "./employees";
 
 export const vacationStatusEnum = pgEnum("vacation_status", [
@@ -49,11 +49,17 @@ export const vacations = pgTable(
       .defaultNow()
       .$onUpdate(() => new Date())
       .notNull(),
-    createdBy: text("created_by"),
-    updatedBy: text("updated_by"),
+    createdBy: text("created_by").references(() => users.id, {
+      onDelete: "set null",
+    }),
+    updatedBy: text("updated_by").references(() => users.id, {
+      onDelete: "set null",
+    }),
 
     deletedAt: timestamp("deleted_at", { withTimezone: true }),
-    deletedBy: text("deleted_by"),
+    deletedBy: text("deleted_by").references(() => users.id, {
+      onDelete: "set null",
+    }),
   },
   (table) => [
     index("vacations_organization_id_idx").on(table.organizationId),
@@ -71,6 +77,21 @@ export const vacationRelations = relations(vacations, ({ one }) => ({
   employee: one(employees, {
     fields: [vacations.employeeId],
     references: [employees.id],
+  }),
+  createdByUser: one(users, {
+    fields: [vacations.createdBy],
+    references: [users.id],
+    relationName: "vacationCreator",
+  }),
+  updatedByUser: one(users, {
+    fields: [vacations.updatedBy],
+    references: [users.id],
+    relationName: "vacationUpdater",
+  }),
+  deletedByUser: one(users, {
+    fields: [vacations.deletedBy],
+    references: [users.id],
+    relationName: "vacationDeleter",
   }),
 }));
 

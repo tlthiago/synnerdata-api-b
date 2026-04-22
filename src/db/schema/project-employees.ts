@@ -6,7 +6,7 @@ import {
   timestamp,
   uniqueIndex,
 } from "drizzle-orm/pg-core";
-import { organizations } from "./auth";
+import { organizations, users } from "./auth";
 import { employees } from "./employees";
 import { projects } from "./projects";
 
@@ -28,11 +28,15 @@ export const projectEmployees = pgTable(
     createdAt: timestamp("created_at", { withTimezone: true })
       .defaultNow()
       .notNull(),
-    createdBy: text("created_by"),
+    createdBy: text("created_by").references(() => users.id, {
+      onDelete: "set null",
+    }),
 
     // Soft delete
     deletedAt: timestamp("deleted_at", { withTimezone: true }),
-    deletedBy: text("deleted_by"),
+    deletedBy: text("deleted_by").references(() => users.id, {
+      onDelete: "set null",
+    }),
   },
   (table) => [
     index("project_employees_organization_id_idx").on(table.organizationId),
@@ -59,6 +63,16 @@ export const projectEmployeeRelations = relations(
     employee: one(employees, {
       fields: [projectEmployees.employeeId],
       references: [employees.id],
+    }),
+    createdByUser: one(users, {
+      fields: [projectEmployees.createdBy],
+      references: [users.id],
+      relationName: "projectEmployeeCreator",
+    }),
+    deletedByUser: one(users, {
+      fields: [projectEmployees.deletedBy],
+      references: [users.id],
+      relationName: "projectEmployeeDeleter",
     }),
   })
 );

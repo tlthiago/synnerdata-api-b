@@ -9,7 +9,7 @@ import {
   uniqueIndex,
   varchar,
 } from "drizzle-orm/pg-core";
-import { organizations } from "./auth";
+import { organizations, users } from "./auth";
 import { employees } from "./employees";
 
 export const laborLawsuits = pgTable(
@@ -52,12 +52,18 @@ export const laborLawsuits = pgTable(
       .defaultNow()
       .$onUpdate(() => new Date())
       .notNull(),
-    createdBy: text("created_by"),
-    updatedBy: text("updated_by"),
+    createdBy: text("created_by").references(() => users.id, {
+      onDelete: "set null",
+    }),
+    updatedBy: text("updated_by").references(() => users.id, {
+      onDelete: "set null",
+    }),
 
     // Soft delete
     deletedAt: timestamp("deleted_at", { withTimezone: true }),
-    deletedBy: text("deleted_by"),
+    deletedBy: text("deleted_by").references(() => users.id, {
+      onDelete: "set null",
+    }),
   },
   (table) => [
     index("labor_lawsuits_organization_id_idx").on(table.organizationId),
@@ -77,6 +83,21 @@ export const laborLawsuitRelations = relations(laborLawsuits, ({ one }) => ({
   employee: one(employees, {
     fields: [laborLawsuits.employeeId],
     references: [employees.id],
+  }),
+  createdByUser: one(users, {
+    fields: [laborLawsuits.createdBy],
+    references: [users.id],
+    relationName: "laborLawsuitCreator",
+  }),
+  updatedByUser: one(users, {
+    fields: [laborLawsuits.updatedBy],
+    references: [users.id],
+    relationName: "laborLawsuitUpdater",
+  }),
+  deletedByUser: one(users, {
+    fields: [laborLawsuits.deletedBy],
+    references: [users.id],
+    relationName: "laborLawsuitDeleter",
   }),
 }));
 

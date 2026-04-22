@@ -8,7 +8,7 @@ import {
   text,
   timestamp,
 } from "drizzle-orm/pg-core";
-import { organizations } from "./auth";
+import { organizations, users } from "./auth";
 import { employees } from "./employees";
 
 export const warningTypeEnum = pgEnum("warning_type", [
@@ -45,12 +45,18 @@ export const warnings = pgTable(
       .defaultNow()
       .$onUpdate(() => new Date())
       .notNull(),
-    createdBy: text("created_by"),
-    updatedBy: text("updated_by"),
+    createdBy: text("created_by").references(() => users.id, {
+      onDelete: "set null",
+    }),
+    updatedBy: text("updated_by").references(() => users.id, {
+      onDelete: "set null",
+    }),
 
     // Soft delete
     deletedAt: timestamp("deleted_at", { withTimezone: true }),
-    deletedBy: text("deleted_by"),
+    deletedBy: text("deleted_by").references(() => users.id, {
+      onDelete: "set null",
+    }),
   },
   (table) => [
     index("warnings_organization_id_idx").on(table.organizationId),
@@ -67,6 +73,21 @@ export const warningRelations = relations(warnings, ({ one }) => ({
   employee: one(employees, {
     fields: [warnings.employeeId],
     references: [employees.id],
+  }),
+  createdByUser: one(users, {
+    fields: [warnings.createdBy],
+    references: [users.id],
+    relationName: "warningCreator",
+  }),
+  updatedByUser: one(users, {
+    fields: [warnings.updatedBy],
+    references: [users.id],
+    relationName: "warningUpdater",
+  }),
+  deletedByUser: one(users, {
+    fields: [warnings.deletedBy],
+    references: [users.id],
+    relationName: "warningDeleter",
   }),
 }));
 

@@ -11,7 +11,7 @@ import {
   timestamp,
   uniqueIndex,
 } from "drizzle-orm/pg-core";
-import { organizations } from "./auth";
+import { organizations, users } from "./auth";
 import { branches } from "./branches";
 import { costCenters } from "./cost-centers";
 import { jobClassifications } from "./job-classifications";
@@ -175,10 +175,16 @@ export const employees = pgTable(
       .defaultNow()
       .$onUpdate(() => new Date())
       .notNull(),
-    createdBy: text("created_by"),
-    updatedBy: text("updated_by"),
+    createdBy: text("created_by").references(() => users.id, {
+      onDelete: "set null",
+    }),
+    updatedBy: text("updated_by").references(() => users.id, {
+      onDelete: "set null",
+    }),
     deletedAt: timestamp("deleted_at", { withTimezone: true }),
-    deletedBy: text("deleted_by"),
+    deletedBy: text("deleted_by").references(() => users.id, {
+      onDelete: "set null",
+    }),
   },
   (table) => [
     index("employees_organization_id_idx").on(table.organizationId),
@@ -218,6 +224,21 @@ export const employeeRelations = relations(employees, ({ one }) => ({
   jobClassification: one(jobClassifications, {
     fields: [employees.jobClassificationId],
     references: [jobClassifications.id],
+  }),
+  createdByUser: one(users, {
+    fields: [employees.createdBy],
+    references: [users.id],
+    relationName: "employeeCreator",
+  }),
+  updatedByUser: one(users, {
+    fields: [employees.updatedBy],
+    references: [users.id],
+    relationName: "employeeUpdater",
+  }),
+  deletedByUser: one(users, {
+    fields: [employees.deletedBy],
+    references: [users.id],
+    relationName: "employeeDeleter",
   }),
 }));
 

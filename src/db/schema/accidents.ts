@@ -1,6 +1,6 @@
 import { relations } from "drizzle-orm";
 import { date, index, pgTable, text, timestamp } from "drizzle-orm/pg-core";
-import { organizations } from "./auth";
+import { organizations, users } from "./auth";
 import { employees } from "./employees";
 
 export const accidents = pgTable(
@@ -29,12 +29,18 @@ export const accidents = pgTable(
       .defaultNow()
       .$onUpdate(() => new Date())
       .notNull(),
-    createdBy: text("created_by"),
-    updatedBy: text("updated_by"),
+    createdBy: text("created_by").references(() => users.id, {
+      onDelete: "set null",
+    }),
+    updatedBy: text("updated_by").references(() => users.id, {
+      onDelete: "set null",
+    }),
 
     // Soft delete
     deletedAt: timestamp("deleted_at", { withTimezone: true }),
-    deletedBy: text("deleted_by"),
+    deletedBy: text("deleted_by").references(() => users.id, {
+      onDelete: "set null",
+    }),
   },
   (table) => [
     index("accidents_organization_id_idx").on(table.organizationId),
@@ -51,6 +57,21 @@ export const accidentRelations = relations(accidents, ({ one }) => ({
   employee: one(employees, {
     fields: [accidents.employeeId],
     references: [employees.id],
+  }),
+  createdByUser: one(users, {
+    fields: [accidents.createdBy],
+    references: [users.id],
+    relationName: "accidentCreator",
+  }),
+  updatedByUser: one(users, {
+    fields: [accidents.updatedBy],
+    references: [users.id],
+    relationName: "accidentUpdater",
+  }),
+  deletedByUser: one(users, {
+    fields: [accidents.deletedBy],
+    references: [users.id],
+    relationName: "accidentDeleter",
   }),
 }));
 

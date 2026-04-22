@@ -1,6 +1,6 @@
 import { relations } from "drizzle-orm";
 import { index, pgTable, text, timestamp } from "drizzle-orm/pg-core";
-import { organizations } from "./auth";
+import { organizations, users } from "./auth";
 
 export const billingProfiles = pgTable(
   "billing_profiles",
@@ -30,10 +30,16 @@ export const billingProfiles = pgTable(
       .defaultNow()
       .$onUpdate(() => new Date())
       .notNull(),
-    createdBy: text("created_by"),
-    updatedBy: text("updated_by"),
+    createdBy: text("created_by").references(() => users.id, {
+      onDelete: "set null",
+    }),
+    updatedBy: text("updated_by").references(() => users.id, {
+      onDelete: "set null",
+    }),
     deletedAt: timestamp("deleted_at", { withTimezone: true }),
-    deletedBy: text("deleted_by"),
+    deletedBy: text("deleted_by").references(() => users.id, {
+      onDelete: "set null",
+    }),
   },
   (table) => [
     index("billing_profiles_organization_id_idx").on(table.organizationId),
@@ -50,6 +56,21 @@ export const billingProfileRelations = relations(
     organization: one(organizations, {
       fields: [billingProfiles.organizationId],
       references: [organizations.id],
+    }),
+    createdByUser: one(users, {
+      fields: [billingProfiles.createdBy],
+      references: [users.id],
+      relationName: "billingProfileCreator",
+    }),
+    updatedByUser: one(users, {
+      fields: [billingProfiles.updatedBy],
+      references: [users.id],
+      relationName: "billingProfileUpdater",
+    }),
+    deletedByUser: one(users, {
+      fields: [billingProfiles.deletedBy],
+      references: [users.id],
+      relationName: "billingProfileDeleter",
     }),
   })
 );

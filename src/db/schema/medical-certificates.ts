@@ -7,7 +7,7 @@ import {
   text,
   timestamp,
 } from "drizzle-orm/pg-core";
-import { organizations } from "./auth";
+import { organizations, users } from "./auth";
 import { employees } from "./employees";
 
 export const medicalCertificates = pgTable(
@@ -38,12 +38,18 @@ export const medicalCertificates = pgTable(
       .defaultNow()
       .$onUpdate(() => new Date())
       .notNull(),
-    createdBy: text("created_by"),
-    updatedBy: text("updated_by"),
+    createdBy: text("created_by").references(() => users.id, {
+      onDelete: "set null",
+    }),
+    updatedBy: text("updated_by").references(() => users.id, {
+      onDelete: "set null",
+    }),
 
     // Soft delete
     deletedAt: timestamp("deleted_at", { withTimezone: true }),
-    deletedBy: text("deleted_by"),
+    deletedBy: text("deleted_by").references(() => users.id, {
+      onDelete: "set null",
+    }),
   },
   (table) => [
     index("medical_certificates_organization_id_idx").on(table.organizationId),
@@ -61,6 +67,21 @@ export const medicalCertificateRelations = relations(
     employee: one(employees, {
       fields: [medicalCertificates.employeeId],
       references: [employees.id],
+    }),
+    createdByUser: one(users, {
+      fields: [medicalCertificates.createdBy],
+      references: [users.id],
+      relationName: "medicalCertificateCreator",
+    }),
+    updatedByUser: one(users, {
+      fields: [medicalCertificates.updatedBy],
+      references: [users.id],
+      relationName: "medicalCertificateUpdater",
+    }),
+    deletedByUser: one(users, {
+      fields: [medicalCertificates.deletedBy],
+      references: [users.id],
+      relationName: "medicalCertificateDeleter",
     }),
   })
 );

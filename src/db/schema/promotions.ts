@@ -7,7 +7,7 @@ import {
   text,
   timestamp,
 } from "drizzle-orm/pg-core";
-import { organizations } from "./auth";
+import { organizations, users } from "./auth";
 import { employees } from "./employees";
 import { jobPositions } from "./job-positions";
 
@@ -46,12 +46,18 @@ export const promotions = pgTable(
       .defaultNow()
       .$onUpdate(() => new Date())
       .notNull(),
-    createdBy: text("created_by"),
-    updatedBy: text("updated_by"),
+    createdBy: text("created_by").references(() => users.id, {
+      onDelete: "set null",
+    }),
+    updatedBy: text("updated_by").references(() => users.id, {
+      onDelete: "set null",
+    }),
 
     // Soft delete
     deletedAt: timestamp("deleted_at", { withTimezone: true }),
-    deletedBy: text("deleted_by"),
+    deletedBy: text("deleted_by").references(() => users.id, {
+      onDelete: "set null",
+    }),
   },
   (table) => [
     index("promotions_organization_id_idx").on(table.organizationId),
@@ -77,6 +83,21 @@ export const promotionRelations = relations(promotions, ({ one }) => ({
     fields: [promotions.newJobPositionId],
     references: [jobPositions.id],
     relationName: "newPosition",
+  }),
+  createdByUser: one(users, {
+    fields: [promotions.createdBy],
+    references: [users.id],
+    relationName: "promotionCreator",
+  }),
+  updatedByUser: one(users, {
+    fields: [promotions.updatedBy],
+    references: [users.id],
+    relationName: "promotionUpdater",
+  }),
+  deletedByUser: one(users, {
+    fields: [promotions.deletedBy],
+    references: [users.id],
+    relationName: "promotionDeleter",
   }),
 }));
 

@@ -38,10 +38,16 @@ export const adminOrgProvisions = pgTable(
       .defaultNow()
       .$onUpdate(() => new Date())
       .notNull(),
-    createdBy: text("created_by"),
-    updatedBy: text("updated_by"),
+    createdBy: text("created_by").references(() => users.id, {
+      onDelete: "set null",
+    }),
+    updatedBy: text("updated_by").references(() => users.id, {
+      onDelete: "set null",
+    }),
     deletedAt: timestamp("deleted_at", { withTimezone: true }),
-    deletedBy: text("deleted_by"),
+    deletedBy: text("deleted_by").references(() => users.id, {
+      onDelete: "set null",
+    }),
   },
   (table) => [
     index("admin_org_provisions_user_id_idx").on(table.userId),
@@ -61,6 +67,21 @@ export const adminOrgProvisionRelations = relations(
     organization: one(organizations, {
       fields: [adminOrgProvisions.organizationId],
       references: [organizations.id],
+    }),
+    createdByUser: one(users, {
+      fields: [adminOrgProvisions.createdBy],
+      references: [users.id],
+      relationName: "adminOrgProvisionCreator",
+    }),
+    updatedByUser: one(users, {
+      fields: [adminOrgProvisions.updatedBy],
+      references: [users.id],
+      relationName: "adminOrgProvisionUpdater",
+    }),
+    deletedByUser: one(users, {
+      fields: [adminOrgProvisions.deletedBy],
+      references: [users.id],
+      relationName: "adminOrgProvisionDeleter",
     }),
   })
 );

@@ -7,7 +7,7 @@ import {
   timestamp,
   varchar,
 } from "drizzle-orm/pg-core";
-import { organizations } from "./auth";
+import { organizations, users } from "./auth";
 
 export const projects = pgTable(
   "projects",
@@ -31,12 +31,18 @@ export const projects = pgTable(
       .defaultNow()
       .$onUpdate(() => new Date())
       .notNull(),
-    createdBy: text("created_by"),
-    updatedBy: text("updated_by"),
+    createdBy: text("created_by").references(() => users.id, {
+      onDelete: "set null",
+    }),
+    updatedBy: text("updated_by").references(() => users.id, {
+      onDelete: "set null",
+    }),
 
     // Soft delete
     deletedAt: timestamp("deleted_at", { withTimezone: true }),
-    deletedBy: text("deleted_by"),
+    deletedBy: text("deleted_by").references(() => users.id, {
+      onDelete: "set null",
+    }),
   },
   (table) => [
     index("projects_organization_id_idx").on(table.organizationId),
@@ -49,6 +55,21 @@ export const projectRelations = relations(projects, ({ one }) => ({
   organization: one(organizations, {
     fields: [projects.organizationId],
     references: [organizations.id],
+  }),
+  createdByUser: one(users, {
+    fields: [projects.createdBy],
+    references: [users.id],
+    relationName: "projectCreator",
+  }),
+  updatedByUser: one(users, {
+    fields: [projects.updatedBy],
+    references: [users.id],
+    relationName: "projectUpdater",
+  }),
+  deletedByUser: one(users, {
+    fields: [projects.deletedBy],
+    references: [users.id],
+    relationName: "projectDeleter",
   }),
 }));
 

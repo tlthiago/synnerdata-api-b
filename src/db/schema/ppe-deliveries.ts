@@ -1,6 +1,6 @@
 import { relations } from "drizzle-orm";
 import { date, index, pgTable, text, timestamp } from "drizzle-orm/pg-core";
-import { organizations } from "./auth";
+import { organizations, users } from "./auth";
 import { employees } from "./employees";
 
 export const ppeDeliveries = pgTable(
@@ -27,12 +27,18 @@ export const ppeDeliveries = pgTable(
       .defaultNow()
       .$onUpdate(() => new Date())
       .notNull(),
-    createdBy: text("created_by"),
-    updatedBy: text("updated_by"),
+    createdBy: text("created_by").references(() => users.id, {
+      onDelete: "set null",
+    }),
+    updatedBy: text("updated_by").references(() => users.id, {
+      onDelete: "set null",
+    }),
 
     // Soft delete
     deletedAt: timestamp("deleted_at", { withTimezone: true }),
-    deletedBy: text("deleted_by"),
+    deletedBy: text("deleted_by").references(() => users.id, {
+      onDelete: "set null",
+    }),
   },
   (table) => [
     index("ppe_deliveries_organization_id_idx").on(table.organizationId),
@@ -49,6 +55,21 @@ export const ppeDeliveryRelations = relations(ppeDeliveries, ({ one }) => ({
   employee: one(employees, {
     fields: [ppeDeliveries.employeeId],
     references: [employees.id],
+  }),
+  createdByUser: one(users, {
+    fields: [ppeDeliveries.createdBy],
+    references: [users.id],
+    relationName: "ppeDeliveryCreator",
+  }),
+  updatedByUser: one(users, {
+    fields: [ppeDeliveries.updatedBy],
+    references: [users.id],
+    relationName: "ppeDeliveryUpdater",
+  }),
+  deletedByUser: one(users, {
+    fields: [ppeDeliveries.deletedBy],
+    references: [users.id],
+    relationName: "ppeDeliveryDeleter",
   }),
 }));
 
