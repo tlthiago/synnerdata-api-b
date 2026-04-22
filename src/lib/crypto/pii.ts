@@ -11,10 +11,11 @@ const IV_LENGTH = 16;
 const TAG_LENGTH = 16;
 const SALT_LENGTH = 32;
 
-/**
- * Derives a 32-byte key from the PII_ENCRYPTION_KEY using scrypt.
- * This provides additional security by using a key derivation function.
- */
+declare const encryptedStringBrand: unique symbol;
+export type EncryptedString = string & {
+  readonly [encryptedStringBrand]: true;
+};
+
 function deriveKey(salt: Buffer): Promise<Buffer> {
   return new Promise((resolve, reject) => {
     scrypt(env.PII_ENCRYPTION_KEY, salt, 32, (err, derivedKey) => {
@@ -27,20 +28,8 @@ function deriveKey(salt: Buffer): Promise<Buffer> {
   });
 }
 
-/**
- * PII (Personally Identifiable Information) encryption utility.
- * Uses AES-256-GCM for authenticated encryption.
- *
- * Format: salt:iv:tag:encrypted (all hex-encoded)
- */
 export const PII = {
-  /**
-   * Encrypts a plaintext string using AES-256-GCM.
-   *
-   * @param plaintext - The sensitive data to encrypt
-   * @returns Encrypted string in format: salt:iv:tag:encrypted (hex)
-   */
-  async encrypt(plaintext: string): Promise<string> {
+  async encrypt(plaintext: string): Promise<EncryptedString> {
     const salt = randomBytes(SALT_LENGTH);
     const key = await deriveKey(salt);
     const iv = randomBytes(IV_LENGTH);
@@ -57,17 +46,10 @@ export const PII = {
       iv.toString("hex"),
       tag.toString("hex"),
       encrypted.toString("hex"),
-    ].join(":");
+    ].join(":") as EncryptedString;
   },
 
-  /**
-   * Decrypts a ciphertext string encrypted with PII.encrypt().
-   *
-   * @param ciphertext - The encrypted string in format: salt:iv:tag:encrypted
-   * @returns Decrypted plaintext string
-   * @throws Error if decryption fails (invalid key, tampered data, etc.)
-   */
-  async decrypt(ciphertext: string): Promise<string> {
+  async decrypt(ciphertext: EncryptedString): Promise<string> {
     const parts = ciphertext.split(":");
     if (parts.length !== 4) {
       throw new Error("Invalid ciphertext format");
@@ -91,10 +73,7 @@ export const PII = {
     return decrypted.toString("utf8");
   },
 
-  /**
-   * Checks if a string is already encrypted (has the correct format).
-   */
-  isEncrypted(value: string): boolean {
+  isEncrypted(value: string): value is EncryptedString {
     const parts = value.split(":");
     if (parts.length !== 4) {
       return false;
