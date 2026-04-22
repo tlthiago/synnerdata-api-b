@@ -661,4 +661,222 @@ describe("PUT /v1/vacations/:id", () => {
 
     expect(updateResponse.status).toBe(422);
   });
+
+  test("rejects update of daysEntitled when new total exceeds 30 in aquisitivo", async () => {
+    const { headers, organizationId, user } =
+      await createTestUserWithOrganization({
+        emailVerified: true,
+        skipTrialCreation: true,
+      });
+    const { employee } = await createTestEmployee({
+      organizationId,
+      userId: user.id,
+      hireDate: "2024-06-10",
+      acquisitionPeriodStart: null,
+      acquisitionPeriodEnd: null,
+    });
+
+    // First vacation: 20 days
+    await app.handle(
+      new Request(`${BASE_URL}/v1/vacations`, {
+        method: "POST",
+        headers: { ...headers, "Content-Type": "application/json" },
+        body: JSON.stringify({
+          employeeId: employee.id,
+          startDate: "2026-07-01",
+          endDate: "2026-07-20",
+          daysEntitled: 20,
+          daysUsed: 0,
+          status: "scheduled",
+        }),
+      })
+    );
+
+    // Second vacation: 5 days (total 25)
+    const secondResponse = await app.handle(
+      new Request(`${BASE_URL}/v1/vacations`, {
+        method: "POST",
+        headers: { ...headers, "Content-Type": "application/json" },
+        body: JSON.stringify({
+          employeeId: employee.id,
+          startDate: "2026-08-01",
+          endDate: "2026-08-05",
+          daysEntitled: 5,
+          daysUsed: 0,
+          status: "scheduled",
+        }),
+      })
+    );
+    const { data: second } = await secondResponse.json();
+
+    // Update second to 15 days → would total 35 in aquisitivo
+    const updateResponse = await app.handle(
+      new Request(`${BASE_URL}/v1/vacations/${second.id}`, {
+        method: "PUT",
+        headers: { ...headers, "Content-Type": "application/json" },
+        body: JSON.stringify({
+          startDate: "2026-08-01",
+          endDate: "2026-08-15",
+          daysEntitled: 15,
+        }),
+      })
+    );
+
+    expect(updateResponse.status).toBe(422);
+    const body = await updateResponse.json();
+    expect(body.error.code).toBe("VACATION_AQUISITIVO_EXCEEDED");
+    expect(body.error.details.currentTotal).toBe(20);
+    expect(body.error.details.requestedDays).toBe(15);
+    expect(body.error.details.daysRemaining).toBe(10);
+  });
+
+  test("accepts update of daysEntitled when own record is excluded from sum", async () => {
+    const { headers, organizationId, user } =
+      await createTestUserWithOrganization({
+        emailVerified: true,
+        skipTrialCreation: true,
+      });
+    const { employee } = await createTestEmployee({
+      organizationId,
+      userId: user.id,
+      hireDate: "2024-06-10",
+      acquisitionPeriodStart: null,
+      acquisitionPeriodEnd: null,
+    });
+
+    // Only vacation in aquisitivo: 20 days
+    const createResponse = await app.handle(
+      new Request(`${BASE_URL}/v1/vacations`, {
+        method: "POST",
+        headers: { ...headers, "Content-Type": "application/json" },
+        body: JSON.stringify({
+          employeeId: employee.id,
+          startDate: "2026-07-01",
+          endDate: "2026-07-20",
+          daysEntitled: 20,
+          daysUsed: 0,
+          status: "scheduled",
+        }),
+      })
+    );
+    const { data: created } = await createResponse.json();
+
+    // Update to 25 days — self-excluded so sum = 25 (not 45)
+    const updateResponse = await app.handle(
+      new Request(`${BASE_URL}/v1/vacations/${created.id}`, {
+        method: "PUT",
+        headers: { ...headers, "Content-Type": "application/json" },
+        body: JSON.stringify({
+          startDate: "2026-07-01",
+          endDate: "2026-07-25",
+          daysEntitled: 25,
+        }),
+      })
+    );
+    expect(updateResponse.status).toBe(200);
+  });
+
+  test("accepts update of daysEntitled within aquisitivo limit (sum still <= 30)", async () => {
+    const { headers, organizationId, user } =
+      await createTestUserWithOrganization({
+        emailVerified: true,
+        skipTrialCreation: true,
+      });
+    const { employee } = await createTestEmployee({
+      organizationId,
+      userId: user.id,
+      hireDate: "2024-06-10",
+      acquisitionPeriodStart: null,
+      acquisitionPeriodEnd: null,
+    });
+
+    // 10 + 10 in same aquisitivo
+    await app.handle(
+      new Request(`${BASE_URL}/v1/vacations`, {
+        method: "POST",
+        headers: { ...headers, "Content-Type": "application/json" },
+        body: JSON.stringify({
+          employeeId: employee.id,
+          startDate: "2026-07-01",
+          endDate: "2026-07-10",
+          daysEntitled: 10,
+          daysUsed: 0,
+          status: "scheduled",
+        }),
+      })
+    );
+
+    const secondResponse = await app.handle(
+      new Request(`${BASE_URL}/v1/vacations`, {
+        method: "POST",
+        headers: { ...headers, "Content-Type": "application/json" },
+        body: JSON.stringify({
+          employeeId: employee.id,
+          startDate: "2026-08-01",
+          endDate: "2026-08-10",
+          daysEntitled: 10,
+          daysUsed: 0,
+          status: "scheduled",
+        }),
+      })
+    );
+    const { data: second } = await secondResponse.json();
+
+    // Update second to 15 days → total 25, under limit
+    const updateResponse = await app.handle(
+      new Request(`${BASE_URL}/v1/vacations/${second.id}`, {
+        method: "PUT",
+        headers: { ...headers, "Content-Type": "application/json" },
+        body: JSON.stringify({
+          startDate: "2026-08-01",
+          endDate: "2026-08-15",
+          daysEntitled: 15,
+        }),
+      })
+    );
+    expect(updateResponse.status).toBe(200);
+  });
+
+  test("update without daysEntitled change does not trigger the aquisitivo check", async () => {
+    // Regression guard: legacy records already over-limit must still be editable
+    // for non-day fields (status, notes) without being blocked by the new check.
+    const { headers, organizationId, user } =
+      await createTestUserWithOrganization({
+        emailVerified: true,
+        skipTrialCreation: true,
+      });
+    const { employee } = await createTestEmployee({
+      organizationId,
+      userId: user.id,
+      hireDate: "2024-06-10",
+      acquisitionPeriodStart: null,
+      acquisitionPeriodEnd: null,
+    });
+
+    const createResponse = await app.handle(
+      new Request(`${BASE_URL}/v1/vacations`, {
+        method: "POST",
+        headers: { ...headers, "Content-Type": "application/json" },
+        body: JSON.stringify({
+          employeeId: employee.id,
+          startDate: "2026-07-01",
+          endDate: "2026-07-15",
+          daysEntitled: 15,
+          daysUsed: 0,
+          status: "scheduled",
+        }),
+      })
+    );
+    const { data: created } = await createResponse.json();
+
+    // Update only notes — aquisitivo check must be skipped
+    const updateResponse = await app.handle(
+      new Request(`${BASE_URL}/v1/vacations/${created.id}`, {
+        method: "PUT",
+        headers: { ...headers, "Content-Type": "application/json" },
+        body: JSON.stringify({ notes: "Observação atualizada" }),
+      })
+    );
+    expect(updateResponse.status).toBe(200);
+  });
 });

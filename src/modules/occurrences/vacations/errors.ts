@@ -97,3 +97,21 @@ export class VacationNoRightsError extends VacationError {
     );
   }
 }
+
+export class VacationAquisitivoExceededError extends VacationError {
+  status = 422;
+
+  constructor(args: {
+    acquisitionPeriodStart: string;
+    acquisitionPeriodEnd: string;
+    currentTotal: number;
+    requestedDays: number;
+    daysRemaining: number;
+  }) {
+    super(
+      `Soma de dias no aquisitivo (${args.acquisitionPeriodStart} a ${args.acquisitionPeriodEnd}) excede o limite de 30 (CLT art. 130). Saldo disponível: ${args.daysRemaining} dias.`,
+      "VACATION_AQUISITIVO_EXCEEDED",
+      { ...args, maxAllowed: 30 }
+    );
+  }
+}
