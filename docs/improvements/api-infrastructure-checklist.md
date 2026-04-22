@@ -264,7 +264,7 @@ Seção específica do projeto. Começa pelo **status atual** da iniciativa (7.0
 | **2. Roadmap priorizado** | ✅ Concluída | 2026-04-21 | Seção 7.5 com 69 ações organizadas em 3 buckets (🔴 10 urgentes / 🟡 38 curto prazo / 🟢 21 sob demanda) com IDs, dependências, tipo e esforço |
 | **3. Execução** | 🔄 Em execução | 2026-04-22 | **Bucket 🔴 concluído (10/10)**. Bucket 🟡 **Onda 1 completa (10/10)**: CP-40, CP-45, CP-7, CP-8, CP-9, CP-13, CP-20, CP-21, CP-22, CP-23. RU-1..RU-10 entregues em PRs sequenciais em `preview`. Grupo 3 fechado. `src/plugins/` inaugurado. BOLA audit completo (0 gaps). Runbook de backup em `docs/runbooks/`. CP-39..CP-50 registrados como follow-ups. Débito #96 identificado. |
 
-**➡️ Próxima ação:** **Bucket 🟡 — Onda 2** (Compliance LGPD do débito #96). Iniciar por **CP-42** (convenção `changes: { before, after }` + PII redacted) seguido de **CP-43** (audit de reads em dados sensíveis, depende de RU-7 — já entregue). Ondas 3-5 mapeadas em 7.5 § Ordem de execução sugerida.
+**➡️ Próxima ação:** **Bucket 🟡 — Onda 2 continua**. CP-42 concluída. Próximo: **CP-43** (audit de reads em dados sensíveis — depende de RU-7 já entregue + convenção CP-42 agora disponível). Ondas 3-5 mapeadas em 7.5 § Ordem de execução sugerida.
 
 ### 7.1 Contexto do projeto
 
@@ -557,7 +557,7 @@ Organizado em **5 PRs dedicados** (refactors grandes) + ações pontuais.
 | **CP-39** | Separar `SMTP_FROM` em duas envs — `SMTP_FROM` (apenas endereço, `z.email()` puro) + `SMTP_FROM_NAME` (display name opcional); remover `smtpFromSchema` custom; montar `from: { name, address }` em `src/lib/email.tsx`; migrar value no Coolify | Revisão de design do #17 após RU-1 | refactor | S | — |
 | **CP-40** | ✅ **2026-04-22** — Triagem de 13 highs em dev + prod deps. Estratégia ajustada após auditoria: `bun update` → upgrade secretlint 11→12 → `overrides` para transitivas de deps já no latest (commitizen, drizzle-orm, exceljs) + transitivas dentro de ranges de parents não-latest (better-auth, ultracite 6). CI threshold subiu `critical` → `high`. Escopos não-CVE saíram como CP-46/47/48/49 | Follow-up de RU-4a | refactor | M | RU-4b |
 | **CP-41** | Workflow dedicado para integration tests externos (Pagar.me) — novo `.github/workflows/test-integration.yml` com `workflow_dispatch` + schedule semanal, secrets de sandbox Pagar.me configurados, rodando apenas testes gated por `skipIntegration`. Destrava cobertura real dos módulos `src/modules/payments/*` em CI (hoje só rodam em máquina de dev) | Follow-up de RU-5 | new | M | — |
-| **CP-42** | Convenção de `changes: { before, after }` em audit de mutations — documentar em `src/modules/audit/CLAUDE.md` (ou ADR) regras: (a) toda mutation em entidade versionada preenche diff dos campos alterados, não record inteiro; (b) campos PII sensíveis (CPF, salário, atestado médico, data nascimento) logam `"<redacted>"` ou hash — nunca plaintext; (c) resources obrigatórios: `employee`, `medical_certificate`, `labor_lawsuit`, `subscription`, `member`, `api_key`. Aplicar retroativamente nos 3 módulos críticos (employees, occurrences/medical-certificates, payments/subscription) | #96 (parcial), LGPD Art. 18/48 | refactor | M | — |
+| **CP-42** | ✅ **2026-04-22** — Helper `buildAuditChanges(before, after)` em `src/modules/audit/pii-redaction.ts` com 25 unit tests. Redação automática de 11 campos PII (CPF, RG, pisPasep, CTPS, email, phone, mobile, salary, hourlyRate, CID, birthDate) e exclusão de metadata (createdAt/updatedAt/createdBy/updatedBy/deletedAt/deletedBy). Convenção documentada em `src/modules/audit/CLAUDE.md`. Aplicado em employees (create/update/updateStatus/delete), medical-certificates (create/update/delete) e subscription (cancel/restore). Enum `auditResourceSchema` alinhado com a spec: renomeado `medical_leave` → `medical_certificate`, adicionado `labor_lawsuit` | #96 (parcial), LGPD Art. 18/48 | refactor | M | — |
 | **CP-43** | Audit de reads em dados sensíveis (Art. 11 LGPD) — usar `auditPlugin` pós RU-7 (signature `audit(entry)` simples) em GET handlers de recursos sensíveis: `medical_certificate`, `labor_lawsuit`, `employee` (quando incluir CPF/salário), `cpf_analysis`. Granularidade: get individual + export sempre; listagem opcional (batch). Destrava reconstituição de acessos para Art. 48 LGPD | #96 (parcial), LGPD Art. 11 | new | M | RU-7 |
 | **CP-44** | Audit BOLA automatizado em CI — script que AST-scan `src/modules/**/*.service.ts` identificando queries `db.select/update/delete` em tabelas org-scoped sem filtro `organizationId`. Falha PR se gap novo introduzido. Preventivo contra regressão após RU-9 ter validado o estado limpo atual | Follow-up de RU-9 | new | M | — |
 | **CP-45** | ✅ **2026-04-22** — Local Backup Retention ajustado para 7 backups / 7 dias / 2 GB no Coolify (R2 inalterado em 30/30/8). Ação operacional pura na UI, sem código. Runbook atualizado | Follow-up de RU-10 | config | S | — |
@@ -567,7 +567,7 @@ Organizado em **5 PRs dedicados** (refactors grandes) + ações pontuais.
 | **CP-49** | Sync react/react-dom versions — descoberto em CP-40. `react-dom` não está nas devDeps diretas mas é pulled por `@react-email/components`, e fica desalinhado de `react` em patches (`bun update` bumpou react → 19.2.5 enquanto react-dom ficou em 19.2.4, causando runtime mismatch). Opções: (a) adicionar `react-dom` às devDeps pinado ao mesmo patch; (b) manter `react` pinado exato (feito em CP-40 como contenção); (c) override de `react-dom` matching `react`. Decidir quando for revisar deps novamente | Descoberto em CP-40 | config | S | — |
 | **CP-50** | Migração TypeScript 5.9 → 6.x — descoberto em CP-40 quando CI falhou ao puxar TS 6.0.3 ephemerally (TS não estava em devDeps). TS 6 transforma `moduleResolution=node` em erro deprecated (antes era warning). Requer: (a) alterar `tsconfig.json` de `"moduleResolution": "node"` para `"bundler"` (recomendado Elysia/Bun) ou `"node16"`; (b) auditar imports para compatibilidade com resolução nova (extensões obrigatórias em alguns casos); (c) remover o pin `~5.9.3` após migração validada. Contenção atual: TS pinado em devDeps `~5.9.3` | Descoberto em CP-40 | refactor | M | — |
 
-**Total bucket 🟡: 50 ações registradas · 39 ativas · 10 concluídas (CP-40, CP-45, CP-7, CP-8, CP-9, CP-13, CP-20, CP-21, CP-22, CP-23 em 2026-04-22) · 1 contenção temporária (CP-50).**
+**Total bucket 🟡: 50 ações registradas · 38 ativas · 11 concluídas (CP-7, CP-8, CP-9, CP-13, CP-20, CP-21, CP-22, CP-23, CP-40, CP-42, CP-45 em 2026-04-22) · 1 contenção temporária (CP-50).**
 
 ##### Ordem de execução sugerida
 
@@ -1379,6 +1379,54 @@ Rodados testes que cobrem as áreas a serem tocadas pelo bucket 🔴 para confir
 - Extensão `cy-idea-factory` — traz council de 6 agentes (security-advocate, architect-advisor, pragmatic-engineer, product-mind, devils-advocate, the-thinker) e skill `/cy-idea-factory`. Motivo: roadmap atual (bucket 🔴 + maior parte do 🟡) já tem escopo claro do audit; council é overkill para ações bem escopadas. Instalar apenas antes de CP-1/CP-2 (XL) ou qualquer item do bucket 🟢 (decisões com múltiplos trade-offs sem design pronto)
 
 **Estado:** pronto para iniciar Fase 3. Próxima ação — **RU-1 (hardening `env.ts`)** via fluxo simples (branch direta, sem Compozy).
+
+### 2026-04-22 — CP-42 concluída (convenção de audit diff + PII redaction)
+
+Primeira ação da Onda 2 (Compliance LGPD) fechada. Endereça o débito #96 parcialmente; CP-43 (reads sensíveis) completa o endereçamento.
+
+**Entregáveis:**
+
+1. **Helper `src/modules/audit/pii-redaction.ts`** com 4 exports:
+   - `PII_FIELDS`: set imutável com 11 campos sensíveis do domínio DP brasileiro (CPF, RG, pisPasep, CTPS, email, phone, mobile, salary, hourlyRate, CID, birthDate)
+   - `IGNORED_AUDIT_FIELDS`: set com 6 colunas de metadata excluídas de diffs (createdAt/updatedAt/deletedAt/createdBy/updatedBy/deletedBy)
+   - `redactPII(record, piiFields?)`: shallow copy com keys PII substituídas por `"<redacted>"`
+   - `buildAuditChanges(before, after, options?)`: diff minimal com PII redacted em ambos os lados, Dates e objetos comparados por valor, campos ignorados filtrados
+   - `hasAuditChanges(diff)`: true se houver mudança em qualquer lado
+   - Signatures aceitam `object` (não `Record<string, unknown>`) — domain types entram direto sem double-cast
+   - 25 unit tests cobrem empty input, cada campo PII, Date equality, nested objects por JSON, null transitions, custom PII sets, non-mutation do input
+2. **Convenção documentada** em `src/modules/audit/CLAUDE.md`: forma do diff (minimal, só campos alterados), regra de redação, lista default de PII, como estender via `options.piiFields`. Módulos que aplicam indexados.
+3. **Enum `auditResourceSchema` alinhado com a spec** — renomeado `medical_leave` → `medical_certificate` (só existia na definição, sem call-sites); adicionado `labor_lawsuit` preemptivamente para quando o módulo ganhar audit. Enum do CLAUDE.md também atualizado.
+4. **Retrofit em 3 módulos críticos**:
+   - **employees**: audit em create/update/updateStatus/delete. CPF, email, phone, mobile, birthDate, salary redacted automaticamente no diff. `updateStatus` diffa apenas o campo `status` (mais limpo que o record completo)
+   - **medical-certificates**: audit em create/update/delete. `cid` redacted; datas, daysOff, notes em plaintext
+   - **subscription**: `cancel` agora sempre audita (removido gate `if (reason || comment)`), `restore` ganha audit novo. Diff mostra `cancelAtPeriodEnd`, `canceledAt`, `cancelReason`, `cancelComment` mudando
+
+**Decisões operacionais:**
+
+- **`"<redacted>"` literal em vez de hash** (confirmado pelo dono): simples, LGPD-compliant, indica que campo existia sem revelar valor. Hash-based correlation pode virar feature só se surgir necessidade.
+- **Metadata excluído do diff**: evita ruído ("updatedAt mudou, updatedBy mudou") que não agrega compliance — valores são reconstituíveis do próprio audit log entry.
+- **Signature `object` vs `Record<string, unknown>`**: v1 usava `Record<string, unknown>`, exigia `as unknown as Record<string, unknown>` nos call-sites. Refatorado para `object` (supertype que aceita domain types direto). Feedback crítico do dono ("parece um workaround") levou à correção.
+- **Forward-only**: logs existentes antes do CP-42 ficam como estão. LGPD Art. 48 não exige backfill retroativo de rastreabilidade.
+- **Create/delete via `buildAuditChanges({}, record)` / `(record, {})`**: o mesmo helper cobre os 3 tipos de mutation. API consistente.
+
+**Arquivos tocados:**
+
+- Novos: `src/modules/audit/pii-redaction.ts` + teste
+- Modificados: `src/modules/audit/audit.model.ts` (enum), `src/modules/audit/CLAUDE.md` (convenção), `src/modules/employees/employee.service.ts`, `src/modules/occurrences/medical-certificates/medical-certificates.service.ts`, `src/modules/payments/subscription/subscription-mutation.service.ts`, `src/modules/payments/subscription/__tests__/cancel-subscription.test.ts` (asserções atualizadas)
+
+**Validação**:
+- ✅ 25 unit tests do helper passando
+- ✅ 113 tests de subscription passando (inclui 2 atualizados pra nova forma do diff)
+- ✅ 49 tests de medical-certificates passando
+- ✅ 82 tests de employees passando
+- ✅ `bun run lint:types` clean
+- ✅ `npx ultracite check` clean
+
+**Lições:**
+
+- **Double-cast (`as unknown as X`) é cheiro de API mal tipada**: a correção não foi aceitar o cast, foi mudar a assinatura do helper. Input do dono ("cuidado com workarounds") pegou isso na hora certa, antes do merge
+- **Formatter interage mal com edições sequenciais**: ultracite removeu imports "não usados" entre edições que adicionavam import primeiro e usage depois. Solução: adicionar import e primeira ocorrência do uso na mesma edição. Se você separar, o formatter strip e você refaz.
+- **Separação de concerns em commits atômicos paga dividendos**: helper + subscription + medical-certs + employees + CLAUDE.md viram 5 commits logicamente independentes. Review fica tratável; rollback granular se necessário.
 
 ### 2026-04-22 — Onda 1 fechada (CP-7, CP-8, CP-9, CP-13, CP-20, CP-21, CP-22, CP-23)
 
