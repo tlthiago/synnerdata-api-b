@@ -74,6 +74,15 @@ describe("computePeriodsFromHireDate", () => {
     ).toThrow(VACATION_NO_RIGHTS_PATTERN);
   });
 
+  test("throws exactly 1 day before first anniversary (boundary)", () => {
+    // hire 2026-06-10, referenceDate 2027-06-09 (1 day before anniversary)
+    // completed = 0 → throws. Guards against off-by-one regressions
+    // where inclusive/exclusive anniversary comparison could shift.
+    expect(() =>
+      computePeriodsFromHireDate("2026-06-10", new Date("2027-06-09T00:00:00Z"))
+    ).toThrow(VACATION_NO_RIGHTS_PATTERN);
+  });
+
   test("Google AI example: hire 2024-01-01 + referenceDate 2025-07-01 → 1st cycle", () => {
     expect(
       computePeriodsFromHireDate("2024-01-01", new Date("2025-07-01T00:00:00Z"))

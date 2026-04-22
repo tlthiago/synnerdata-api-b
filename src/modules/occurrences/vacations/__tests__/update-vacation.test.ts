@@ -837,6 +837,59 @@ describe("PUT /v1/vacations/:id", () => {
     expect(updateResponse.status).toBe(200);
   });
 
+  test("allows editing legacy record with aquisitivo already over 30 days (notes-only update)", async () => {
+    // Regression guard for ensureAquisitivoLimit's skip-when-daysEntitled-absent
+    // branch. The skip exists specifically so legacy records (pre-CLT-sum-check
+    // or Zod-bypassed seeds) whose aquisitivo is already >30 days stay editable
+    // for non-day fields (notes, status). We insert directly into the DB to
+    // bypass Zod's .max(30) and the service's ensureAquisitivoLimit — mirroring
+    // the homologação state where such records exist (e.g., Raquel: 35+45+7=87
+    // in a single aquisitivo).
+    const { headers, organizationId, user } =
+      await createTestUserWithOrganization({
+        emailVerified: true,
+        skipTrialCreation: true,
+      });
+    const { employee } = await createTestEmployee({
+      organizationId,
+      userId: user.id,
+      hireDate: "2020-01-01",
+      acquisitionPeriodStart: null,
+      acquisitionPeriodEnd: null,
+    });
+
+    const legacyVacationId = `vacation-${crypto.randomUUID()}`;
+    await db.insert(schema.vacations).values({
+      id: legacyVacationId,
+      organizationId,
+      employeeId: employee.id,
+      startDate: "2025-03-01",
+      endDate: "2025-04-04", // 35-day range, matches daysEntitled
+      acquisitionPeriodStart: "2024-01-01",
+      acquisitionPeriodEnd: "2024-12-31",
+      concessivePeriodStart: "2025-01-01",
+      concessivePeriodEnd: "2025-12-31",
+      daysEntitled: 35, // over CLT art. 130 limit — direct insert bypasses validation
+      daysUsed: 0,
+      status: "scheduled",
+      notes: null,
+      createdBy: user.id,
+    });
+
+    const updateResponse = await app.handle(
+      new Request(`${BASE_URL}/v1/vacations/${legacyVacationId}`, {
+        method: "PUT",
+        headers: { ...headers, "Content-Type": "application/json" },
+        body: JSON.stringify({ notes: "Observação em registro legado" }),
+      })
+    );
+
+    expect(updateResponse.status).toBe(200);
+    const body = await updateResponse.json();
+    expect(body.data.notes).toBe("Observação em registro legado");
+    expect(body.data.daysEntitled).toBe(35); // untouched
+  });
+
   test("update without daysEntitled change does not trigger the aquisitivo check", async () => {
     // Regression guard: legacy records already over-limit must still be editable
     // for non-day fields (status, notes) without being blocked by the new check.
