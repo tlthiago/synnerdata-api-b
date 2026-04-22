@@ -28,6 +28,8 @@ const corsOrigins = parseOrigins(env.CORS_ORIGIN);
 
 const RATE_LIMIT_SKIP_PATHS = ["/health", "/health/live", "/api/auth"];
 
+const REQUEST_IDLE_TIMEOUT_SECONDS = 30;
+
 // biome-ignore lint/suspicious/noExplicitAny: Zod v4 internal API for extracting check error messages
 function extractErrorMessages(zodDef: any): Record<string, string> | null {
   const { checks } = zodDef;
@@ -60,6 +62,7 @@ function extractErrorMessages(zodDef: any): Record<string, string> | null {
 const app = new Elysia({
   serve: {
     maxRequestBodySize: 1024 * 1024 * 10,
+    idleTimeout: REQUEST_IDLE_TIMEOUT_SECONDS,
   },
 })
   .headers({
