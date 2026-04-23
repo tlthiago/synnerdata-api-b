@@ -88,13 +88,12 @@ Praticamente todos os controllers do projeto (ver `grep betterAuthPlugin src/mod
 
 Sem `.as()` na instância. Cada controller faz seu próprio `.use(betterAuthPlugin)`, e o Elysia deduplica via `name: "better-auth"` — o plugin só é efetivamente instalado uma vez na árvore de instâncias, mesmo com múltiplos `.use()`.
 
-## Out of scope (CP-4)
+## Estrutura interna (CP-4)
 
-Hoje `auth-plugin.ts` tem 391 linhas com helpers inline (`extractClientIp`, `parseOptions`, `validateRoleRequirements`, `validatePermissions`, `validateSubscriptionAndFeatures`, `extractClientMetadata`, etc.). **CP-4** vai quebrar em:
+`auth-plugin.ts` (~80 linhas) contém apenas o plugin Elysia + macro + `logUnauthorizedAccess` inline (security log). Lógica auxiliar vive em sub-arquivos:
 
-- `plugins/auth/auth-plugin.ts` (só o plugin + macro)
-- `plugins/auth/options.ts` (parse de opções)
-- `plugins/auth/validators.ts` (role/permission/subscription/feature checks)
-- `plugins/auth/openapi-enhance.ts` (OpenAPI helper)
+- **`options.ts`** — tipos `AuthOptions`, `ParsedAuthOptions`; funções `parseOptions(options)` e `needsSubscriptionValidation(options)`.
+- **`validators.ts`** — error classes (`NoActiveOrganizationError`, `AdminRequiredError`, `SuperAdminRequiredError`); role helpers (`isSystemAdmin`, `isSuperAdmin`, `validateRoleRequirements`); request helpers (`isApiKeyRequest`, `extractClientIp`); subscription/feature (`canBypassSubscriptionCheck`, `resolveApiKeyOrgContext`, `validateActiveSubscription`, `validateFeatureAccess`, `validateSubscriptionAndFeatures`); permissions (`validatePermissions`).
+- **`openapi-enhance.ts`** — `OpenAPI` (getPaths/components). Consumido diretamente por `src/index.ts`.
 
-Também vai quebrar `src/lib/auth.ts` (856 linhas) em sub-arquivos (`config.ts`, `hooks.ts`, etc.).
+Consumers externos devem importar de cada sub-arquivo (não há re-export em `auth-plugin.ts`).
