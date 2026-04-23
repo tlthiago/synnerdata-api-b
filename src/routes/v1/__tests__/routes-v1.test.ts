@@ -57,11 +57,11 @@ describe("routesV1 composer", () => {
       expect(response.status).toBe(200);
     });
 
-    test("cbo-occupations: GET /v1/cbo-occupations reaches the controller (not 404)", async () => {
+    test("cbo-occupations: GET /v1/cbo-occupations?search=xx reaches auth (401)", async () => {
       const response = await app.handle(
-        new Request(`${BASE_URL}/v1/cbo-occupations`)
+        new Request(`${BASE_URL}/v1/cbo-occupations?search=xx`)
       );
-      expect(response.status).not.toBe(404);
+      expect(response.status).toBe(401);
     });
   });
 
