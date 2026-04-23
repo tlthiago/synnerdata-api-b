@@ -100,12 +100,8 @@ export function resolveNextCycle(input: NextCycleInput): VacationPeriods {
     return buildCycleFromStart(input.hireDate);
   }
 
-  let lastStart = "";
-  for (const key of sumDaysByAquisitivo.keys()) {
-    if (key > lastStart) {
-      lastStart = key;
-    }
-  }
+  const starts = Array.from(sumDaysByAquisitivo.keys());
+  const lastStart = starts.reduce((a, b) => (b > a ? b : a));
 
   const total = sumDaysByAquisitivo.get(lastStart) ?? 0;
   if (total < 30) {

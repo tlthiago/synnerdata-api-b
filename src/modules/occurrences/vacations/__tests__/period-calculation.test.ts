@@ -244,4 +244,36 @@ describe("resolveNextCycle", () => {
       concessivePeriodEnd: "2026-12-31",
     });
   });
+
+  test("leap-year hire (Feb 29) with 30 days in cycle 1 advances to next cycle", () => {
+    const result = resolveNextCycle({
+      hireDate: "2024-02-29",
+      vacationsInCycles: [
+        { acquisitionPeriodStart: "2024-02-29", daysEntitled: 30 },
+      ],
+    });
+    expect(result.acquisitionPeriodStart).toMatch(ISO_DATE_PATTERN);
+    expect(result.acquisitionPeriodEnd).toMatch(ISO_DATE_PATTERN);
+    expect(result.concessivePeriodStart).toMatch(ISO_DATE_PATTERN);
+    expect(result.concessivePeriodEnd).toMatch(ISO_DATE_PATTERN);
+    expect(result).toEqual({
+      acquisitionPeriodStart: "2025-03-01",
+      acquisitionPeriodEnd: "2026-02-28",
+      concessivePeriodStart: "2026-03-01",
+      concessivePeriodEnd: "2027-02-28",
+    });
+  });
+
+  test("day-31 hire with no history returns cycle 1 with normalized month-end", () => {
+    const result = resolveNextCycle({
+      hireDate: "2025-01-31",
+      vacationsInCycles: [],
+    });
+    expect(result).toEqual({
+      acquisitionPeriodStart: "2025-01-31",
+      acquisitionPeriodEnd: "2026-01-30",
+      concessivePeriodStart: "2026-01-31",
+      concessivePeriodEnd: "2027-01-30",
+    });
+  });
 });
