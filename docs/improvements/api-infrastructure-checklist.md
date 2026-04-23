@@ -262,7 +262,7 @@ Seção específica do projeto. Começa pelo **status atual** da iniciativa (7.0
 | **0. Contexto aplicado** | ✅ Concluída | 2026-04-21 | Seções 7.1–7.3, 7.6, 7.7 preenchidas + convenção semântica + 10 débitos pré-audit |
 | **1. Audit item a item** | ✅ Concluída | 2026-04-21 | Status nas seções 4 e 5 preenchidos (~65 itens); 95 débitos totais em 7.7; relatório em [`docs/reports/2026-04-21-api-infrastructure-audit.md`](../reports/2026-04-21-api-infrastructure-audit.md) |
 | **2. Roadmap priorizado** | ✅ Concluída | 2026-04-21 | Seção 7.5 com 69 ações organizadas em 3 buckets (🔴 10 urgentes / 🟡 38 curto prazo / 🟢 21 sob demanda) com IDs, dependências, tipo e esforço |
-| **3. Execução** | 🔄 Em execução | 2026-04-22 | **Bucket 🔴 concluído (10/10)**. Bucket 🟡 **Ondas 1/2/3 quase completas + Onda 5 em andamento** (CP-1 XL + CP-4 L entregues). Total concluídas no 🟡: **25 CPs** (CP-1, CP-4, CP-7, CP-8, CP-9, CP-13, CP-20, CP-21, CP-22, CP-23, CP-24, CP-25, CP-27, CP-29, CP-30, CP-31, CP-34, CP-35, CP-36, CP-37, CP-39, CP-40, CP-42, CP-43, CP-45). Resta **CP-41** (Onda 3 PR-D). CP-4 quebra `lib/auth.ts` (856→339) + `plugins/auth/auth-plugin.ts` (396→79) em sub-arquivos focados. Remaining next-up: CP-26/28/32 (destravados por CP-1), CP-33 (destravado por CP-4), CP-5. Débito #96 100% endereçado. |
+| **3. Execução** | 🔄 Em execução | 2026-04-22 | **Bucket 🔴 concluído (10/10)**. Bucket 🟡 **Ondas 1/2/3 quase completas + Onda 5 em andamento** (CP-1 XL + CP-4 L + CP-33 S entregues). Total concluídas no 🟡: **26 CPs** (CP-1, CP-4, CP-7, CP-8, CP-9, CP-13, CP-20, CP-21, CP-22, CP-23, CP-24, CP-25, CP-27, CP-29, CP-30, CP-31, CP-33, CP-34, CP-35, CP-36, CP-37, CP-39, CP-40, CP-42, CP-43, CP-45). Resta **CP-41** (Onda 3 PR-D). CP-33 consolida 10 auditXxx em `buildAuditEntry(...)`. Remaining next-up: CP-26/28/32 (destravados por CP-1), CP-5. Débito #96 100% endereçado. |
 
 **➡️ Próxima ação:** **Bucket 🟡 — Onda 5** (Refactors XL/L) — decisão do dono em 2026-04-22 priorizar Onda 5 antes de fechar Onda 3. **Ordem revisada:**
 
@@ -553,7 +553,7 @@ Organizado em **5 PRs dedicados** (refactors grandes) + ações pontuais.
 |---|---|---|---|---|---|
 | **CP-31** | ✅ **2026-04-22** — `src/env.ts` passa a exportar `isDev` e `isTest` além do `isProduction` existente. 7 arquivos que liam `process.env.NODE_ENV` direto (`lib/errors/error-plugin.ts`, `lib/logger/index.ts`, `lib/auth.ts`, `payments/{checkout,admin-checkout,plan-change}/*.model.ts`) passam a importar de `@/env`. `error-plugin` usa `!isProduction` (semântica "dev+test") para preservar comportamento anterior de `!= "production"`. Zero usos diretos restantes fora de `env.ts`. | #26, #41 | refactor | S | — |
 | **CP-32** | `cron-plugin.ts` — refatorar 7 jobs duplicados via array declarativo ou helper `createCronJob({ name, pattern, handler })` | #46 | refactor | M | CP-1 |
-| **CP-33** | `auth.ts` helpers `auditXxx` duplicados — consolidar em `buildAuditEntry(...)` | #51 (parcial — resto em CP-4) | refactor | S | CP-4 |
+| **CP-33** | ✅ **2026-04-22** — `src/lib/auth/audit-helpers.ts` agora exporta `buildAuditEntry(params): AuditLogEntry` com shape tipado (`AuditAction`/`AuditResource` enums de `audit.model`) e conversão flat→nested (`before`/`after` params → `changes: { before, after }` no output). 10 wrappers `auditXxx` chamam `AuditService.log(buildAuditEntry({...}))` — shape centralizado, types apertados. Zero mudança de comportamento. | #51 | refactor | S | CP-4 |
 | **CP-34** | ✅ **2026-04-22** — Branded type `EncryptedString` aplicado em `lib/crypto/pii.ts`. `PII.encrypt` retorna `Promise<EncryptedString>`; `PII.decrypt` exige `EncryptedString`; `PII.isEncrypted` vira type guard. Sem mudança de runtime. | #47 | refactor | S | — |
 | **CP-35** | ✅ **2026-04-22** — Wrapper `withApiKeyNotFoundFallback(keyId, fn)` em `api-key.service.ts`. Elimina try/catch duplicado em `getById`, `revoke` e `delete`. Métodos perdem `async` (retornam a promise do wrapper direto). | #61 | refactor | S | — |
 | **CP-36** | ✅ **2026-04-22** — `POST /v1/public/newsletter/subscribe` não revela mais existência de email: duplicado ativo agora retorna 200 silencioso (no-op). Removido `ConflictError` + schema 409 do controller. Teste atualizado para verificar body idêntico em 1ª e 2ª subscribe. CLAUDE.md do módulo documenta anti-enumeration. | #62 | refactor | S | — |
@@ -1223,6 +1223,15 @@ A consultar via `context7` e docs oficiais quando surgir gap específico — **n
 ## 8. Changelog
 
 Registro temporal das decisões e entregas desta iniciativa. **Toda atualização do documento deve adicionar uma entrada aqui** (data ISO + resumo).
+
+### 2026-04-22 — Onda 5 PR #3 entregue (CP-33): `buildAuditEntry` builder
+
+- **CP-33 (S) — consolidar 10 `auditXxx` em `buildAuditEntry(...)`** no `src/lib/auth/audit-helpers.ts`. Refactor puro, zero mudança de comportamento. Destravado por CP-4 (que colocou `audit-helpers.ts` no lugar).
+- **Builder tipado**: `buildAuditEntry(params): AuditLogEntry` aceita `{ action, resource, resourceId, userId, organizationId?, before?, after? }` flat e retorna entry no shape do `AuditService.log`. Conversão `before`/`after` → `changes: { before, after }` é condicional (só cria `changes` se algum dos dois presente — preserva comportamento do `auditLogin` sem `changes`).
+- **Types apertados**: params usa `AuditAction` / `AuditResource` enums importados de `@/modules/audit/audit.model` (eram strings soltas antes). Typo em action/resource agora pega na compilação.
+- **10 wrappers refatorados**: cada um chama `AuditService.log(buildAuditEntry({...}))`. Shape central single-source.
+- **Tests**: 164/164 afetados (`src/modules/auth/__tests__/`, `member-hooks`, `audit/__tests__/`) — paridade com baseline. Lint limpo.
+- **PR #3** da Onda 5 — branch `refactor/cp-33-build-audit-entry` (sem worktree, é S).
 
 ### 2026-04-22 — Onda 5 PR #2 entregue (CP-4): auth split
 
