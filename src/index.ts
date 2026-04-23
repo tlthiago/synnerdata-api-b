@@ -43,9 +43,11 @@ const app = new Elysia({
       "Strict-Transport-Security": "max-age=31536000; includeSubDomains",
     }),
   })
+  // --- Core infra: error handling, logs, health ---
   .use(errorPlugin)
   .use(loggerPlugin)
   .use(healthPlugin)
+  // --- HTTP middleware: CORS, rate limit ---
   .use(
     cors({
       origin: corsOrigins,
@@ -74,6 +76,7 @@ const app = new Elysia({
       },
     })
   )
+  // --- Auth + API docs ---
   .use(betterAuthPlugin)
   .use(
     openapi({
@@ -104,7 +107,9 @@ const app = new Elysia({
       },
     })
   )
+  // --- Background jobs ---
   .use(cronPlugin)
+  // --- Versioned API routes ---
   .use(routesV1)
   .get("/", ({ redirect }) => redirect("/health"));
 
