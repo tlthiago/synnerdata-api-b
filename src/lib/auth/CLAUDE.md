@@ -5,7 +5,7 @@ Sub-arquivos internos usados por `src/lib/auth.ts` (entry-point do Better Auth).
 ## Estrutura
 
 - **`admin-helpers.ts`** — `getAdminEmails()` lê `env.SUPER_ADMIN_EMAILS` / `env.ADMIN_EMAILS`; `handleWelcomeEmail(user)` envia welcome com error-handling local. Chamadas por `databaseHooks.user.create.before` (via `applyAdminRolesBeforeUserCreate`) e por `emailVerification.afterEmailVerification`.
-- **`audit-helpers.ts`** — 10 funções `auditXxx` disparando `AuditService.log` com shape padronizado: `auditUserCreate`, `auditUserDelete`, `auditLogin`, `auditOrganizationCreate`/`Update`/`Delete`, `auditMemberAdd`/`Remove`/`RoleUpdate`, `auditInvitationAccept`. **CP-33** (S, próximo) vai consolidar em `buildAuditEntry(...)`.
+- **`audit-helpers.ts`** — `buildAuditEntry(params)` constrói `AuditLogEntry` tipado (enums `AuditAction`/`AuditResource`) a partir de params flat (`before`/`after` em vez de `changes: {...}`). 10 wrappers `auditXxx` chamam `AuditService.log(buildAuditEntry({...}))` — shape single-source: `auditUserCreate`, `auditUserDelete`, `auditLogin`, `auditOrganizationCreate`/`Update`/`Delete`, `auditMemberAdd`/`Remove`/`RoleUpdate`, `auditInvitationAccept`.
 - **`validators.ts`** — `validateUniqueRole(role, organizationId)` garante role única por org (checa `members` + invitations `pending`). Lança `APIError("BAD_REQUEST", ...)`.
 - **`hooks.ts`** — callbacks maiores dos hooks do Better Auth extraídos como funções nomeadas:
   - `sendPasswordResetForProvisionOrDefault({ user, url })` — roteia para fluxo de admin-provision ou reset padrão.

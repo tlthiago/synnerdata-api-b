@@ -1,29 +1,62 @@
+import type {
+  AuditAction,
+  AuditLogEntry,
+  AuditResource,
+} from "@/modules/audit/audit.model";
 import { AuditService } from "@/modules/audit/audit.service";
+
+type AuditEntryParams = {
+  action: AuditAction;
+  resource: AuditResource;
+  resourceId: string;
+  userId: string;
+  organizationId?: string | null;
+  before?: Record<string, unknown>;
+  after?: Record<string, unknown>;
+};
+
+export function buildAuditEntry(params: AuditEntryParams): AuditLogEntry {
+  const hasChanges = params.before !== undefined || params.after !== undefined;
+  return {
+    action: params.action,
+    resource: params.resource,
+    resourceId: params.resourceId,
+    userId: params.userId,
+    organizationId: params.organizationId,
+    changes: hasChanges
+      ? { before: params.before, after: params.after }
+      : undefined,
+  };
+}
 
 export async function auditUserCreate(user: {
   id: string;
   email: string;
 }): Promise<void> {
-  await AuditService.log({
-    action: "create",
-    resource: "user",
-    resourceId: user.id,
-    userId: user.id,
-    changes: { after: { id: user.id, email: user.email } },
-  });
+  await AuditService.log(
+    buildAuditEntry({
+      action: "create",
+      resource: "user",
+      resourceId: user.id,
+      userId: user.id,
+      after: { id: user.id, email: user.email },
+    })
+  );
 }
 
 export async function auditUserDelete(user: {
   id: string;
   email: string;
 }): Promise<void> {
-  await AuditService.log({
-    action: "delete",
-    resource: "user",
-    resourceId: user.id,
-    userId: user.id,
-    changes: { before: { id: user.id, email: user.email } },
-  });
+  await AuditService.log(
+    buildAuditEntry({
+      action: "delete",
+      resource: "user",
+      resourceId: user.id,
+      userId: user.id,
+      before: { id: user.id, email: user.email },
+    })
+  );
 }
 
 export async function auditLogin(session: {
@@ -31,55 +64,63 @@ export async function auditLogin(session: {
   userId: string;
   activeOrganizationId?: string | null;
 }): Promise<void> {
-  await AuditService.log({
-    action: "login",
-    resource: "session",
-    resourceId: session.id,
-    userId: session.userId,
-    organizationId: session.activeOrganizationId ?? null,
-  });
+  await AuditService.log(
+    buildAuditEntry({
+      action: "login",
+      resource: "session",
+      resourceId: session.id,
+      userId: session.userId,
+      organizationId: session.activeOrganizationId ?? null,
+    })
+  );
 }
 
 export async function auditOrganizationCreate(
   org: { id: string; name: string },
   userId: string
 ): Promise<void> {
-  await AuditService.log({
-    action: "create",
-    resource: "organization",
-    resourceId: org.id,
-    userId,
-    organizationId: org.id,
-    changes: { after: { id: org.id, name: org.name } },
-  });
+  await AuditService.log(
+    buildAuditEntry({
+      action: "create",
+      resource: "organization",
+      resourceId: org.id,
+      userId,
+      organizationId: org.id,
+      after: { id: org.id, name: org.name },
+    })
+  );
 }
 
 export async function auditOrganizationUpdate(
   org: { id: string; name: string },
   userId: string
 ): Promise<void> {
-  await AuditService.log({
-    action: "update",
-    resource: "organization",
-    resourceId: org.id,
-    userId,
-    organizationId: org.id,
-    changes: { after: { id: org.id, name: org.name } },
-  });
+  await AuditService.log(
+    buildAuditEntry({
+      action: "update",
+      resource: "organization",
+      resourceId: org.id,
+      userId,
+      organizationId: org.id,
+      after: { id: org.id, name: org.name },
+    })
+  );
 }
 
 export async function auditOrganizationDelete(
   org: { id: string; name: string },
   userId: string
 ): Promise<void> {
-  await AuditService.log({
-    action: "delete",
-    resource: "organization",
-    resourceId: org.id,
-    userId,
-    organizationId: org.id,
-    changes: { before: { id: org.id, name: org.name } },
-  });
+  await AuditService.log(
+    buildAuditEntry({
+      action: "delete",
+      resource: "organization",
+      resourceId: org.id,
+      userId,
+      organizationId: org.id,
+      before: { id: org.id, name: org.name },
+    })
+  );
 }
 
 export async function auditMemberAdd(
@@ -87,20 +128,16 @@ export async function auditMemberAdd(
   organizationId: string,
   addedByUserId: string
 ): Promise<void> {
-  await AuditService.log({
-    action: "create",
-    resource: "member",
-    resourceId: member.id,
-    userId: addedByUserId,
-    organizationId,
-    changes: {
-      after: {
-        id: member.id,
-        userId: member.userId,
-        role: member.role,
-      },
-    },
-  });
+  await AuditService.log(
+    buildAuditEntry({
+      action: "create",
+      resource: "member",
+      resourceId: member.id,
+      userId: addedByUserId,
+      organizationId,
+      after: { id: member.id, userId: member.userId, role: member.role },
+    })
+  );
 }
 
 export async function auditMemberRemove(
@@ -108,20 +145,16 @@ export async function auditMemberRemove(
   organizationId: string,
   removedByUserId: string
 ): Promise<void> {
-  await AuditService.log({
-    action: "delete",
-    resource: "member",
-    resourceId: member.id,
-    userId: removedByUserId,
-    organizationId,
-    changes: {
-      before: {
-        id: member.id,
-        userId: member.userId,
-        role: member.role,
-      },
-    },
-  });
+  await AuditService.log(
+    buildAuditEntry({
+      action: "delete",
+      resource: "member",
+      resourceId: member.id,
+      userId: removedByUserId,
+      organizationId,
+      before: { id: member.id, userId: member.userId, role: member.role },
+    })
+  );
 }
 
 export async function auditMemberRoleUpdate(params: {
@@ -131,17 +164,17 @@ export async function auditMemberRoleUpdate(params: {
   organizationId: string;
   updatedByUserId: string;
 }): Promise<void> {
-  await AuditService.log({
-    action: "update",
-    resource: "member",
-    resourceId: params.member.id,
-    userId: params.updatedByUserId,
-    organizationId: params.organizationId,
-    changes: {
+  await AuditService.log(
+    buildAuditEntry({
+      action: "update",
+      resource: "member",
+      resourceId: params.member.id,
+      userId: params.updatedByUserId,
+      organizationId: params.organizationId,
       before: { role: params.previousRole },
       after: { role: params.newRole },
-    },
-  });
+    })
+  );
 }
 
 export async function auditInvitationAccept(
@@ -149,19 +182,19 @@ export async function auditInvitationAccept(
   member: { id: string; userId: string },
   organizationId: string
 ): Promise<void> {
-  await AuditService.log({
-    action: "accept",
-    resource: "invitation",
-    resourceId: invitation.id,
-    userId: member.userId,
-    organizationId,
-    changes: {
+  await AuditService.log(
+    buildAuditEntry({
+      action: "accept",
+      resource: "invitation",
+      resourceId: invitation.id,
+      userId: member.userId,
+      organizationId,
       after: {
         invitationId: invitation.id,
         email: invitation.email,
         role: invitation.role,
         memberId: member.id,
       },
-    },
-  });
+    })
+  );
 }
