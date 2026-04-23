@@ -29,5 +29,5 @@ Registro de entregas de Equipamentos de Proteção Individual com controle item-
 - `PpeDeliveryItemAlreadyExistsError` (409)
 - `PpeDeliveryEmployeeNotFoundError` (404)
 - `PpeDeliveryPpeItemNotFoundError` (404)
-- `EmployeeTerminatedError` (422) — shared, from `src/lib/errors/employee-status-errors.ts`
-- `EmployeeOnVacationError` (422) — shared, from `src/lib/errors/employee-status-errors.ts`
+- `EmployeeTerminatedError` (422) — shared, from `src/modules/employees/errors.ts`
+- `EmployeeOnVacationError` (422) — shared, from `src/modules/employees/errors.ts`

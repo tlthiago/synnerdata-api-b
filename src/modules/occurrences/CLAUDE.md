@@ -20,7 +20,7 @@ Vacations armazena periodos aquisitivo e concessivo inline (campos na propria ta
 
 ## Employee Status Validation on Create
 
-Shared helpers at `src/lib/helpers/employee-status.ts` and errors at `src/lib/errors/employee-status-errors.ts`.
+Shared helpers at `src/lib/helpers/employee-status.ts` and errors at `src/modules/employees/errors.ts`.
 
 - `ensureEmployeeActive` (rejects TERMINATED + ON_VACATION): absences, accidents, cpf-analyses, medical-certificates, promotions, warnings, ppe-deliveries
 - `ensureEmployeeNotTerminated` (rejects only TERMINATED, ON_VACATION allowed): vacations, labor-lawsuits

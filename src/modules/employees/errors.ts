@@ -101,3 +101,27 @@ export class EmployeeInvalidAcquisitionPeriodError extends EmployeeError {
     super(message, "EMPLOYEE_INVALID_ACQUISITION_PERIOD");
   }
 }
+
+export class EmployeeTerminatedError extends EmployeeError {
+  status = 422;
+
+  constructor(employeeId: string) {
+    super(
+      `Não é possível criar ocorrência para funcionário desligado: ${employeeId}`,
+      "EMPLOYEE_TERMINATED",
+      { employeeId }
+    );
+  }
+}
+
+export class EmployeeOnVacationError extends EmployeeError {
+  status = 422;
+
+  constructor(employeeId: string) {
+    super(
+      `Não é possível criar ocorrência para funcionário em férias: ${employeeId}`,
+      "EMPLOYEE_ON_VACATION",
+      { employeeId }
+    );
+  }
+}

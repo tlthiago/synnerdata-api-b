@@ -29,5 +29,5 @@ Registro de análises de CPF com scoring de risco.
 - `CpfAnalysisAlreadyDeletedError` (404)
 - `CpfAnalysisInvalidEmployeeError` (422)
 - `CpfAnalysisDuplicateDateError` (409) — same employee + same date
-- `EmployeeTerminatedError` (422) — shared, from `src/lib/errors/employee-status-errors.ts`
-- `EmployeeOnVacationError` (422) — shared, from `src/lib/errors/employee-status-errors.ts`
+- `EmployeeTerminatedError` (422) — shared, from `src/modules/employees/errors.ts`
+- `EmployeeOnVacationError` (422) — shared, from `src/modules/employees/errors.ts`

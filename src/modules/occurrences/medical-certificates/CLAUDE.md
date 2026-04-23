@@ -27,5 +27,5 @@ Registro de atestados médicos vinculados a ausências.
 - `MedicalCertificateInvalidDaysOffError` (422)
 - `MedicalCertificateInvalidEmployeeError` (422)
 - `MedicalCertificateOverlapError` (409) — same employee + overlapping dates
-- `EmployeeTerminatedError` (422) — shared, from `src/lib/errors/employee-status-errors.ts`
-- `EmployeeOnVacationError` (422) — shared, from `src/lib/errors/employee-status-errors.ts`
+- `EmployeeTerminatedError` (422) — shared, from `src/modules/employees/errors.ts`
+- `EmployeeOnVacationError` (422) — shared, from `src/modules/employees/errors.ts`
