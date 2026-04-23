@@ -1,6 +1,6 @@
 import { z } from "zod";
+import { isValidCNPJ } from "@/lib/document-validators";
 import { successResponseSchema } from "@/lib/responses/response.types";
-import { isValidCNPJ } from "@/lib/validation/documents";
 
 const isFutureDate = (dateStr: string) => {
   const date = new Date(dateStr);

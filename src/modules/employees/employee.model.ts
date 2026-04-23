@@ -1,14 +1,8 @@
 import { z } from "zod";
+import { isValidCPF } from "@/lib/document-validators";
 import { successResponseSchema } from "@/lib/responses/response.types";
+import { isFutureDate } from "@/lib/schemas/date-helpers";
 import { entityReferenceSchema } from "@/lib/schemas/relationships";
-import { isValidCPF } from "@/lib/validation/documents";
-
-const isFutureDate = (dateStr: string) => {
-  const date = new Date(dateStr);
-  const today = new Date();
-  today.setHours(0, 0, 0, 0);
-  return date > today;
-};
 
 // Enum values for validation
 const contractTypeValues = ["CLT", "PJ"] as const;

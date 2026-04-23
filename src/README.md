@@ -28,16 +28,17 @@ src/
 │   ├── error-reporter.ts     #   ErrorReporter.capture wrapper (Sentry, testable)
 │   ├── errors/               #   AppError hierarchy — lançada por services (base-error, http-errors)
 │   ├── logger.ts             #   Pino instance bruto (consumido por request-logger E por services)
-│   ├── openapi/              #   error-messages util (consumido pelo openapi() config)
-│   ├── password-complexity.ts
-│   ├── permissions.ts        #   inheritRole + orgRoles (Better Auth)
+│   ├── openapi-helpers.ts    #   extractErrorMessages util (consumido pelo openapi() config)
+│   ├── permissions.ts        #   inheritRole + orgRoles (Better Auth)  — move pra lib/auth/ em commit 2
+│   ├── password-complexity.ts #  validatePasswordComplexity — move pra lib/auth/ em commit 2
+│   ├── pii.ts                #   encrypt/decrypt/mask PII (scrypt KDF + AES-256-GCM)
 │   ├── request-context.ts    #   AsyncLocalStorage + getRequestId
 │   ├── responses/            #   envelope wrappers + response schemas
-│   ├── schemas/              #   Zod helpers compartilhados
+│   ├── schemas/              #   Zod helpers compartilhados (date, relationships)
 │   ├── sentry.ts             #   Sentry init (side-effect only; consumers usam error-reporter)
-│   ├── shutdown/             #   setupGracefulShutdown
+│   ├── shutdown.ts           #   setupGracefulShutdown
+│   ├── document-validators.ts #  CPF/CNPJ check digits
 │   ├── utils/                #   retry, timeout
-│   ├── validation/           #   CPF/CNPJ check digits
 │   └── zod-config.ts         #   z.config(z.locales.pt()) side-effect
 │
 ├── routes/

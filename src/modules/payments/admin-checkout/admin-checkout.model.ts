@@ -1,7 +1,7 @@
 import { z } from "zod";
 import { isProduction } from "@/env";
+import { isValidCNPJ } from "@/lib/document-validators";
 import { successResponseSchema } from "@/lib/responses/response.types";
-import { isValidCNPJ } from "@/lib/validation/documents";
 
 const billingDataSchema = z.object({
   legalName: z.string().min(1).describe("Razao social do pagador"),
