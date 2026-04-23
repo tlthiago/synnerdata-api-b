@@ -264,7 +264,7 @@ Seção específica do projeto. Começa pelo **status atual** da iniciativa (7.0
 | **2. Roadmap priorizado** | ✅ Concluída | 2026-04-21 | Seção 7.5 com 69 ações organizadas em 3 buckets (🔴 10 urgentes / 🟡 38 curto prazo / 🟢 21 sob demanda) com IDs, dependências, tipo e esforço |
 | **3. Execução** | 🔄 Em execução | 2026-04-23 | **Bucket 🔴 concluído (10/10)**. Bucket 🟡 **Ondas 1/2/3 quase completas + Onda 5 em andamento** (CP-1 XL + CP-4 L + CP-33 S + CP-26 S + CP-28 S + CP-32 M + CP-5 L + CP-6 M + CP-3 L entregues). Total concluídas no 🟡: **32 CPs** (CP-1, CP-3, CP-4, CP-5, CP-6, CP-7, CP-8, CP-9, CP-13, CP-20, CP-21, CP-22, CP-23, CP-24, CP-25, CP-26, CP-27, CP-28, CP-29, CP-30, CP-31, CP-32, CP-33, CP-34, CP-35, CP-36, CP-37, CP-39, CP-40, CP-42, CP-43, CP-45). Resta **CP-41** (Onda 3 PR-D). CP-6 reframado: HMAC não é oferecido pelo Pagar.me v5 (research via context7 + SDK), então o escopo virou hardening do Basic Auth existente (Zod validation + auth/skip logs + Sentry capture + unhandled event log). Rate limit skip diferido como **MP-22** (volume atual não justifica). CP-3 destravou **CP-18** (deprecation headers por versão). Remaining next-up: CP-2 (XL emails) + CP-38 (M runbook) + CP-44 (M BOLA CI audit). Débito #96 100% endereçado. |
 
-**➡️ Próxima ação:** **Bucket 🟡 — Onda 5** (Refactors XL/L) — decisão do dono em 2026-04-22 priorizar Onda 5 antes de fechar Onda 3. **Ordem revisada:**
+**➡️ Próxima ação:** **Concluir Onda 5** (9/12 entregues) — restam **CP-38 (M)** runbook oncall, **CP-44 (M)** BOLA audit em CI, **CP-2 (XL)** consolidar emails (último por design, toca auth crítico). Em paralelo, **CP-18** agora destravado (CP-3 entregou routes/v1) pode rodar com Onda 4 Observabilidade. **Ordem revisada:**
 
 1. **Onda 5 — Refactors grandes** (em execução) — entregues: **CP-1 (XL)** `src/plugins/` consolidado, **CP-4 (L)** auth split, **CP-33 (S)** `buildAuditEntry`, **CP-26 (S) + CP-28 (S) + CP-32 (M)** cleanup pós-plugins, **CP-5 (L)** `lib/errors/` cleanup + factory `errorSchema`, **CP-6 (M)** webhook hardening (Basic Auth audit + Zod validation + observability), **CP-3 (L)** `src/routes/v1/` composer centralizando `/v1` (destravou CP-18). Próximos candidatos: **CP-38 (M)** runbook oncall, **CP-44 (M)** BOLA audit em CI, **CP-2 (XL)** consolidar emails (último).
 2. **Onda 4 — Observabilidade** (pós Onda 5) — CP-17 (métricas OTel/Prometheus), CP-18 (deprecation headers, depende de CP-3), CP-19 (Playwright E2E em CI). Requer brainstorm de estratégia antes de tocar código.
@@ -528,7 +528,7 @@ Organizado em **5 PRs dedicados** (refactors grandes) + ações pontuais.
 | ID | Ação | Débitos cobertos | Tipo | Esforço | Depende de |
 |---|---|---|---|---|---|
 | **CP-17** | Métricas básicas — OTel Metrics ou Prometheus client: latência por rota, throughput, erro rate, pool de conexões DB | Early #2 | new | M | — |
-| **CP-18** | Política de deprecation com headers `Deprecation` / `Sunset` — documentar em `docs/api-versioning.md` + helper em `lib/responses/` para injetar headers | Early #9 | new | M | CP-3 |
+| **CP-18** | Política de deprecation com headers `Deprecation` / `Sunset` — documentar em `docs/api-versioning.md` + helper em `lib/responses/` para injetar headers. ✨ **Destravado em 2026-04-23** (CP-3 entregou `src/routes/v1/` composer) | Early #9 | new | M | CP-3 ✅ |
 | **CP-19** | Playwright E2E em workflow CI — novo workflow ou step em `test.yml` (pelo menos no schedule diário) | #78 | config | M | — |
 | **CP-20** | ✅ **2026-04-22** — `--coverage --coverage-reporter=lcov` ativado em affected + full suite. Upload via `codecov/codecov-action@v5`. Depende de `CODECOV_TOKEN` no repo secrets para publicação | #86 | config | S | — |
 | **CP-21** | ✅ **2026-04-22** — `actions/cache@v4` com chave `bun-${{ hashFiles('bun.lock') }}` em lint/test/build (security.yml N/A — roda docker build) | #80 | config | S | — |
@@ -948,13 +948,13 @@ Pré-audit — itens de **organização semântica** detectados no `src/` atual.
 
 | # | Débito | Ação sugerida |
 |---|---|---|
-| 1 | **Plugins Elysia e utilitários puros misturados** em `src/lib/` | Criar `src/plugins/` e migrar: `logger/`, `health/`, `ratelimit/`, `shutdown/`, `cors.ts`, `auth-plugin.ts`, `cron-plugin.ts`, `sentry.ts`, `request-context/` |
-| 2 | `src/lib/helpers/employee-status.ts` tem **lógica de domínio**, não utilitário | Mover para `src/modules/employees/` (helper específico do domínio não pertence a `lib/`) |
-| 3 | `src/lib/utils/` com genuínos utilitários (`retry.ts`, `timeout.ts`) | Manter. Após remoção de `helpers/` (débito #2), resolve a duplicação `helpers/` vs `utils/` |
+| 1 | ~~**Plugins Elysia e utilitários puros misturados** em `src/lib/`~~ | ✅ **Resolvido em CP-1 (2026-04-22)** — `src/plugins/` inaugurado com rubrica estrita: só Elysia instances mountadas via `.use()` vão para `plugins/`; utils puros permanecem em `src/lib/`. 5 plugins migrados (health, logger, errors/error-plugin, cron, auth) |
+| 2 | ~~`src/lib/helpers/employee-status.ts` tem **lógica de domínio**, não utilitário~~ | ✅ **Resolvido em CP-5 (2026-04-22)** — movido para `src/modules/employees/status.ts`; 9 occurrence services atualizados; diretório `lib/helpers/` removido |
+| 3 | ~~`src/lib/utils/` com genuínos utilitários (`retry.ts`, `timeout.ts`)~~ | ✅ **Resolvido em CP-5 (2026-04-22)** — duplicação `helpers/` vs `utils/` resolvida: `helpers/` foi removido, `utils/` mantido como era |
 | 4 | `src/lib/request-context.ts` **e** `src/lib/request-context/` convivendo | Investigar migração incompleta; manter só a forma atual e remover a duplicata. Mover o resultado final para `src/plugins/` |
-| 5 | `src/lib/audit/` convivendo com `src/modules/audit/` já existente | **Módulo `audit/` já existe em `modules/`** (controller + service + model). Investigar o que `lib/audit/` contém: provavelmente é plugin Elysia que deve ir para `src/plugins/audit/`, ou código duplicado/morto a remover |
+| 5 | ~~`src/lib/audit/` convivendo com `src/modules/audit/` já existente~~ | ✅ **Resolvido em RU-8 + CP-1 + CP-28 (2026-04-22)** — `auditPlugin` movido para `src/plugins/audit/`; `src/lib/audit/` removido. CP-28 confirmou zero referências remanescentes |
 | 6 | `src/lib/__tests__/` dentro de `lib/` | Padrão do projeto é `__tests__/` ao lado do código — revisar se cabe migrar para junto de cada artefato |
-| 7 | `src/lib/auth.ts` com 24KB | Arquivo grande pode esconder concerns misturados — revisar se cabe dividir em `auth.ts` (config) + `auth-permissions.ts` + `auth-hooks.ts` |
+| 7 | ~~`src/lib/auth.ts` com 24KB~~ | ✅ **Resolvido em CP-4 (2026-04-22)** — `lib/auth.ts` 856→339 linhas, split em `lib/auth/{admin-helpers, audit-helpers, validators, hooks}.ts`. Plugin `auth-plugin.ts` 396→79 linhas |
 
 #### Em `src/emails/` vs `src/lib/email.tsx` — duplicação de responsabilidade
 
@@ -995,37 +995,37 @@ Pré-audit — itens de **organização semântica** detectados no `src/` atual.
 
 | # | Débito | Ação sugerida |
 |---|---|---|
-| 10 | Sem `src/routes/` — composição de controllers provavelmente espalhada entre `src/index.ts` e os próprios módulos | Investigar na Fase 1. Se `src/index.ts` registra controllers diretamente, extrair para `src/routes/v1/index.ts` — isolando bootstrap (plugins globais + listen) do catálogo de rotas |
+| 10 | ~~Sem `src/routes/` — composição de controllers provavelmente espalhada entre `src/index.ts` e os próprios módulos~~ | ✅ **Resolvido em CP-3 (2026-04-23)** — `src/routes/v1/index.ts` criado como composer com `prefix: "/v1"`; `src/index.ts` trocou 7 `.use(xController)` por 1 `.use(routesV1)` |
 
 #### Débitos descobertos no Bloco 1 da Fase 1 (2026-04-21)
 
 | # | Débito | Origem | Ação sugerida |
 |---|---|---|---|
-| 11 | **`extractErrorMessages` (28 linhas de Zod v4 internals) dentro de `src/index.ts`** | Bootstrap está acoplado à lógica de extração de error messages para OpenAPI | Extrair para `src/lib/openapi/error-messages.ts` (ou em futuro `src/plugins/openapi/`) |
-| 12 | **Registro de listeners (`registerPaymentListeners`, `registerEmployeeListeners`) dentro do `.listen()` callback** | `src/index.ts:147-148` — se listen falhar, listeners não registram | Registrar antes do `.listen()` ou mover para plugins dedicados |
-| 13 | **Versionamento na URL inconsistente** | Bootstrap registra controllers sem prefix global `/api/v1`. `admin` usa `/v1/admin`, mas outros módulos precisam auditar | Padronizar: extrair para `src/routes/v1/index.ts` compondo todos os controllers com prefix único (alinhado com débito #10) |
+| 11 | ~~**`extractErrorMessages` (28 linhas de Zod v4 internals) dentro de `src/index.ts`**~~ | ✅ **Resolvido em CP-26 (2026-04-22)** — extraído para `src/lib/openapi/error-messages.ts`; `index.ts` importa a função |
+| 12 | ~~**Registro de listeners (`registerPaymentListeners`, `registerEmployeeListeners`) dentro do `.listen()` callback**~~ | ✅ **Resolvido em CP-27 (2026-04-22)** — listeners movidos para antes de `app.listen()`; callback do `.listen()` ficou só com startup log |
+| 13 | ~~**Versionamento na URL inconsistente**~~ | ✅ **Resolvido em CP-3 (2026-04-23)** — 25 controllers normalizados (perdem `/v1/` do próprio `prefix:`); `/v1/` declarado uma vez no composer `src/routes/v1/`. Audit normalizado: `/audit-logs` → `/v1/audit-logs` |
 | 14 | ~~`env.ts` — `BETTER_AUTH_SECRET` sem `.min(32)`~~ | ✅ **Resolvido em RU-1 (2026-04-21)** — adicionado `.min(32)` ao schema |
 | 15 | ~~`env.ts` — `SMTP_USER`/`SMTP_PASSWORD` `.optional()` sem refine condicional em prod~~ | ✅ **Resolvido em RU-1 (2026-04-21)** — `superRefine` exige ambos quando `NODE_ENV=production` |
 | 16 | ~~`env.ts` — `PII_ENCRYPTION_KEY.length(64)` não valida hex~~ | ✅ **Resolvido em RU-1 (2026-04-21)** — `.regex(/^[0-9a-fA-F]{64}$/)` com mensagem explicativa |
 | 17 | ~~`env.ts` — `SMTP_FROM: z.string()`~~ | ✅ **Resolvido em RU-1 (2026-04-21)** — trocado por `z.email().default(...)` |
 | 18 | ~~`env.ts` — `NODE_ENV` não validado no schema~~ | ✅ **Resolvido em RU-1 (2026-04-21)** — `NODE_ENV: z.enum(["development","production","test"]).default("development")`; `isProduction` agora lê de `env.NODE_ENV` |
 | 19 | ~~`env.ts` — `CORS_ORIGIN` formato comma-separated implícito~~ | ✅ **Resolvido em RU-1 (2026-04-21)** — `.describe()` documenta formato comma-separated (parser delegado a `parseOrigins` em `lib/cors.ts`) |
-| 20 | **Falta request timeout global** | Bun.serve default atual é **10s** (`idleTimeout`; 255s era default antigo). O valor atual é razoável, mas depende de default implícito — sem controle explícito no código | Configurar `serve.idleTimeout` explícito em `src/index.ts` ou plugin dedicado |
+| 20 | ~~**Falta request timeout global**~~ | ✅ **Resolvido em RU-3 (2026-04-22)** — `serve.idleTimeout` explícito em `src/index.ts` via constante `REQUEST_IDLE_TIMEOUT_SECONDS = 30` |
 
 #### Débitos descobertos no Bloco 2 da Fase 1 (2026-04-21)
 
 | # | Débito | Severidade | Ação sugerida |
 |---|---|---|---|
-| 21 | **Erros de domínio em `src/lib/errors/`** (`employee-status-errors.ts`, `subscription-errors.ts`) | 🟡 organização | Mover para `src/modules/employees/errors.ts` e `src/modules/payments/subscription/errors.ts`. `lib/errors/` fica só com `base-error.ts`, `error-plugin.ts`, `http-errors.ts` |
+| 21 | ~~**Erros de domínio em `src/lib/errors/`** (`employee-status-errors.ts`, `subscription-errors.ts`)~~ | ✅ **Resolvido em CP-5 (2026-04-22)** — errors de domínio relocados para `src/modules/employees/errors.ts` e `src/modules/payments/errors.ts`. `lib/errors/` ficou com `base-error.ts` + `http-errors.ts` |
 | 22 | ~~`auditPlugin` sem try/catch em `AuditService.log()`~~ | — | **Reavaliado — não é débito.** `AuditService.log()` (`modules/audit/audit.service.ts:9-29`) **já tem try/catch interno** com silent catch via logger. Design intencional documentado no CLAUDE.md do módulo audit: "Logging é assíncrono e silencioso — falhas não propagam erro". `auditPlugin` chama `AuditService.log()` via `await` mas é seguro porque o método nunca propaga erro |
-| 23 | **`auditPlugin` exige contexto manual** | 🟡 hardening | Hoje cada controller passa `context: { userId, organizationId }` ao chamar `audit()`. Propenso a esquecer. Melhor: injetar via macro auth (padrão avocado-hp) — deriva `user`/`session` e o plugin de audit pega automaticamente |
-| 24 | **`auditPlugin` — `action`/`resource` aceitam `string`** | 🟡 hardening | Tipo `AuditAction \| string` permite valores ad-hoc e perde type safety. Remover `\| string` força enum estrito |
+| 23 | ~~**`auditPlugin` exige contexto manual**~~ | ✅ **Resolvido em RU-7 (2026-04-22)** — `user`/`session.activeOrganizationId` auto-injetados do ctx do macro `auth`; controllers não passam mais `context: { userId, organizationId }` |
+| 24 | ~~**`auditPlugin` — `action`/`resource` aceitam `string`**~~ | ✅ **Resolvido em RU-7 (2026-04-22)** — tipos apertados para enums `AuditAction`/`AuditResource` estritos; `\| string` removido |
 | 25 | **`errorPlugin` não trata `code === "PARSE"`** | 🟡 qualidade | Parse errors (JSON inválido) caem no "unhandled" com 500. Avocado-hp tratava como 400 `PARSE_ERROR`. Adicionar branch explícito |
-| 26 | **`errorPlugin` usa `process.env.NODE_ENV` direto** em vez de importar `isProduction` de `env.ts` | 🟢 leve | Inconsistência — `env.ts` já exporta `isProduction`. Padronizar |
-| 27 | **`lib/cron-plugin.ts` é plugin Elysia em `lib/`** | 🟡 organização | Confirma débito #1 geral — mover para `src/plugins/cron/` |
-| 28 | **`cron-plugin.ts` usa dynamic import para `VacationJobsService`** | 🟡 investigar | Padrão suspeito — pode indicar dependência circular entre `lib/cron-plugin.ts` e `modules/occurrences/vacations/`. Investigar causa e remover dynamic import se não houver motivo real |
-| 29 | **`lib/health/index.ts` — version fallback hardcoded `"1.0.50"`** | 🟢 leve | Se `npm_package_version` não vier, usa valor fixo que fica desatualizado. Trocar por `"unknown"` ou importar do `package.json` |
-| 30 | **Configuração do `auditPlugin` em `lib/audit/audit-plugin.ts` conflita com `modules/audit/`** | 🟡 organização | O plugin importa `AuditService` + tipos de `modules/audit/`. Inverter dependência: plugin Elysia em `src/plugins/audit/` pode importar do módulo, mas não existir dentro de `lib/` |
+| 26 | ~~**`errorPlugin` usa `process.env.NODE_ENV` direto** em vez de importar `isProduction` de `env.ts`~~ | ✅ **Resolvido em CP-31 (2026-04-22)** — `error-plugin.ts` passou a importar `isProduction` de `@/env`; zero usos de `process.env.NODE_ENV` direto remanescentes |
+| 27 | ~~**`lib/cron-plugin.ts` é plugin Elysia em `lib/`**~~ | ✅ **Resolvido em CP-1 (2026-04-22)** — `cron-plugin.ts` migrado para `src/plugins/cron/cron-plugin.ts` |
+| 28 | ~~**`cron-plugin.ts` usa dynamic import para `VacationJobsService`**~~ | ✅ **Resolvido em CP-30 (2026-04-22)** — graph trace confirmou que fronteira dinâmica era defensiva/cargo-cult; converted para static import sem runtime cycle |
+| 29 | ~~**`lib/health/index.ts` — version fallback hardcoded `"1.0.50"`**~~ | ✅ **Resolvido em CP-37 (2026-04-22)** — `lib/health/index.ts` lê `version` de `package.json` via `readFileSync` no module-init; fallback `"unknown"` só em erro de leitura |
+| 30 | ~~**Configuração do `auditPlugin` em `lib/audit/audit-plugin.ts` conflita com `modules/audit/`**~~ | ✅ **Resolvido em RU-8 + CP-1 (2026-04-22)** — `auditPlugin` movido para `src/plugins/audit/`; importa `AuditService` de `modules/audit/` sem residir em `lib/` |
 
 #### Débitos descobertos no Bloco 3 da Fase 1 (2026-04-21) — Auth
 
@@ -1036,12 +1036,12 @@ Pré-audit — itens de **organização semântica** detectados no `src/` atual.
 | 33 | **Macro `auth.resolve` chama `auth.api.getSession` em toda request autenticada** | 🟡 performance | Cookie cache de 5min já ajuda (`session.cookieCache`). Validar se está funcionando. Para API keys, `auth.api.verifyApiKey` é chamado todo request — validar cache |
 | 34 | **`auth-plugin.ts` define `NoActiveOrganizationError`, `AdminRequiredError`, `SuperAdminRequiredError` inline** | 🟢 organização | Mover para `lib/errors/auth-errors.ts` para consistência com hierarquia AppError |
 | 35 | **`validatePasswordComplexity` usa `APIError` do Better Auth, não `AppError` do projeto** | 🟢 organização | Better Auth prefere `APIError` dele nos hooks (correto). Mas manter `AppError` consistente fora desse contexto. Documentar a convenção |
-| 36 | **API key sem log explícito de falha de auth** (UnauthorizedError thrown silently) | 🟡 segurança | Brute-force / credential stuffing difícil de detectar sem log. Adicionar log explícito em `UnauthorizedError` no macro `auth` (auth-plugin.ts:224) com IP + path — NÃO logar a chave |
+| 36 | ~~**API key sem log explícito de falha de auth** (UnauthorizedError thrown silently)~~ | ✅ **Resolvido em CP-24 (2026-04-22)** — `auth-plugin.ts` emite `logger.warn({ type: "security:unauthorized_access", method, path, ip, userAgent, hasApiKey })` antes de lançar `UnauthorizedError`. Raw token nunca logado |
 | 37 | **Password complexity sem check contra common passwords** | 🟢 nice-to-have | Better Auth não tem plugin pronto para isso. `haveibeenpwned` API ou lista k-anonymity em `validatePasswordComplexity` — baixa prioridade |
-| 38 | **`lib/auth.ts` com 24KB** concentra: config Better Auth + 9 helpers de audit + `getAdminEmails` + `validateUniqueRole` + tipos + hooks de DB + plugins | 🟡 qualidade/organização | Arquivo grande com múltiplos concerns dificulta manutenção. Quebrar em: `lib/auth/config.ts` (instância Better Auth), `lib/auth/audit-helpers.ts` (helpers de audit), `lib/auth/validators.ts` (validateUniqueRole, getAdminEmails), `lib/auth/hooks.ts` (databaseHooks + organizationHooks). Manter `lib/auth.ts` como re-export |
+| 38 | ~~**`lib/auth.ts` com 24KB** concentra: config Better Auth + 9 helpers de audit + `getAdminEmails` + `validateUniqueRole` + tipos + hooks de DB + plugins~~ | ✅ **Resolvido em CP-4 (2026-04-22)** — `lib/auth.ts` 856→339 linhas; `lib/auth/{admin-helpers, audit-helpers, validators, hooks}.ts` criados; 11 callbacks extraídos |
 | 39 | **Inconsistência de estilo em hooks de audit** | 🟢 qualidade | `afterCreateOrganization` usa `.catch()` defensivo (redundante mas explícito); demais hooks usam `await` direto. Padronizar um estilo. Como `AuditService.log()` já tem silent catch, **remover os `.catch()` redundantes** é mais limpo |
 | 40 | **Uso de `as any` em `auth-plugin.ts`** 3x e em vários arquivos | 🟡 qualidade | `auth.api as any` para acessar `hasPermission` e `verifyApiKey` (typing limitation do Better Auth). Documentar com comentário do motivo (já feito) mas avaliar extension de tipo (ambient .d.ts) |
-| 41 | **Audit de qualidade geral**: vários arquivos usam `process.env.NODE_ENV` direto em vez de importar de `@/env` | 🟢 consistência | Centralizar via `env.ts` (ver débitos #14-19 sobre env.ts em si) |
+| 41 | ~~**Audit de qualidade geral**: vários arquivos usam `process.env.NODE_ENV` direto em vez de importar de `@/env`~~ | ✅ **Resolvido em CP-31 (2026-04-22)** — 7 arquivos migrados para importar `isProduction`/`isDev`/`isTest` de `@/env`. Zero usos diretos fora de `env.ts` |
 
 #### Débitos de qualidade — revisão retroativa dos Blocos 1-3 (2026-04-21)
 
@@ -1051,27 +1051,27 @@ Dimensão "Qualidade da implementação" adicionada à metodologia após o Bloco
 
 | # | Débito | Severidade | Ação |
 |---|---|---|---|
-| 42 | **`src/index.ts` encadeia 16 `.use()`** linearmente sem agrupamento semântico | 🟢 legibilidade | Comentários de bloco separando: plugins globais de infra (errorPlugin, loggerPlugin, healthPlugin), middleware HTTP (cors, rateLimit), auth (betterAuth), docs (openapi), jobs (cronPlugin), controllers. Ou extrair para função `registerControllers(app)` quando houver `src/routes/v1/` |
+| 42 | ~~**`src/index.ts` encadeia 16 `.use()`** linearmente sem agrupamento semântico~~ | ✅ **Resolvido em CP-3 (2026-04-23)** — `routesV1` absorveu 7 controllers em 1 `.use()`; 5 comentários `// ---` agrupando por concern (Core infra, HTTP middleware, Auth + docs, Background jobs, Versioned API routes) |
 | 43 | **`src/index.ts:60-64`** — config `serve.maxRequestBodySize` hardcoded | 🟢 qualidade | Extrair constante nomeada (ex: `const MAX_BODY_SIZE_MB = 10`) ou puxar de env para configurabilidade |
 
 **Bloco 2 (lib/):**
 
 | # | Débito | Severidade | Ação |
 |---|---|---|---|
-| 44 | **`lib/errors/error-plugin.ts::formatErrorDetail`** é recursivo sem limite de profundidade | 🟡 robustez | Se `error.cause` for cíclico ou muito profundo, causa stack overflow ou logs enormes. Adicionar contador de profundidade com max (ex: 5) |
-| 45 | **`lib/responses/response.types.ts`** tem 7 schemas de erro quase idênticos (unauthorized, forbidden, notFound, conflict, internal, badRequest, validation) | 🟢 qualidade/duplicação | Avocado-hp usa factory `errorSchema(code: string)` que elimina a duplicação. Migrar para factory pattern |
-| 46 | **`lib/cron-plugin.ts`** hardcoda 7 jobs com `.use(cron({...}))` encadeado, cada um repetindo mesma estrutura (`async run() { ... logger.info(...) }`) | 🟢 duplicação | Array declarativo de configs + loop `.use(cron(config))` ou helper `createCronJob({ name, pattern, handler })` que já inclui logger pattern |
-| 47 | **`lib/crypto/pii.ts`** — `encrypt` retorna `string` e `decrypt` espera `string` — tipo não diferencia plaintext de ciphertext | 🟢 type safety | Branded type `type EncryptedString = string & { __brand: 'encrypted' }` para forçar que apenas retorno de `encrypt` seja aceito em `decrypt`. Nice-to-have |
+| 44 | ~~**`lib/errors/error-plugin.ts::formatErrorDetail`** é recursivo sem limite de profundidade~~ | ✅ **Resolvido em CP-29 (2026-04-22)** — parâmetro `depth` com `MAX_ERROR_DETAIL_DEPTH = 5`; emite `"[truncated: max depth 5 reached]"` ao invés de recursar. 3 unit tests |
+| 45 | ~~**`lib/responses/response.types.ts`** tem 7 schemas de erro quase idênticos~~ | ✅ **Resolvido em CP-5 (2026-04-22)** — factory `errorSchema<C>(code, detailsSchema?)` criada; 6 dos 7 schemas migrados. `badRequestErrorSchema` mantido à parte (code não-literal) |
+| 46 | ~~**`lib/cron-plugin.ts`** hardcoda 7 jobs com `.use(cron({...}))` encadeado~~ | ✅ **Resolvido em CP-32 (2026-04-22)** — helper `createCronJob<T>({ name, pattern, run, log })` em `plugins/cron/cron-plugin.ts`; 7 jobs declaram só o essencial; genérico `<T>` preserva tipagem |
+| 47 | ~~**`lib/crypto/pii.ts`** — `encrypt` retorna `string` e `decrypt` espera `string`~~ | ✅ **Resolvido em CP-34 (2026-04-22)** — branded type `EncryptedString`; `PII.encrypt` retorna `Promise<EncryptedString>`, `PII.decrypt` exige `EncryptedString`; `PII.isEncrypted` vira type guard |
 | 48 | **`lib/errors/error-plugin.ts`** — função `formatValidationErrors` usa cast inseguro `err as ElysiaValidationError` | 🟢 type safety | Usar type guard ou schema Zod para parse defensivo |
 
 **Bloco 3 (Auth):**
 
 | # | Débito | Severidade | Ação |
 |---|---|---|---|
-| 49 | **`lib/auth-plugin.ts` com 369 linhas** concentra: macro definition, resolvers, 7 funções helper de validação, OpenAPI enhancement (enhanceAuthProperties + addValidationsToComponents + addValidationsToPaths), exportação OpenAPI | 🟡 organização/qualidade | Dividir em: `lib/auth/plugin.ts` (só o Elysia macro), `lib/auth/validators.ts` (helpers de role/permission/subscription), `lib/auth/openapi-enhance.ts` (enhancements do OpenAPI do Better Auth). Pode ir junto com #38 no refactor de auth |
-| 50 | **`lib/permissions.ts`** — duplicação massiva entre `orgRoles` (owner/manager/supervisor/viewer) — owner e manager têm 20+ linhas quase idênticas | 🟡 duplicação | Helper `inheritRole(baseRole, overrides)` que recebe um role base e sobrescreve só as diferenças. Ex: `manager: inheritRole(owner, { organization: ["read", "update"], member: ["create", "read"], ... })`. Reduz ~80 linhas |
-| 51 | **`lib/auth.ts`** — 9 helpers `auditXxx` quase idênticos (auditUserCreate, auditLogin, auditOrganizationCreate, ..., auditInvitationAccept) | 🟡 duplicação | Generalizar em `buildAuditEntry(action, resource, resourceId, userId, organizationId?, changes?)` ou manter helpers mas extrair para `lib/auth/audit-helpers.ts` (alinhado com #38) |
-| 52 | **`lib/auth.ts` — `afterCreateOrganization`** usa dynamic import para `OrganizationService` (linha 651-653) | 🟡 investigar | Mesmo padrão suspeito do cron-plugin (#28). Investigar se há dep circular `auth.ts ↔ OrganizationService` e resolver se possível |
+| 49 | ~~**`lib/auth-plugin.ts` com 369 linhas**~~ | ✅ **Resolvido em CP-4 (2026-04-22)** — `plugins/auth/auth-plugin.ts` 396→79 linhas; split em `plugins/auth/{options, validators, openapi-enhance}.ts` |
+| 50 | ~~**`lib/permissions.ts`** — duplicação massiva entre `orgRoles`~~ | ✅ **Resolvido em CP-25 (2026-04-22)** — helper `inheritRole(base, overrides)` + `ownerPerms` como fonte da verdade. Manager (6 overrides), supervisor (15), viewer (24). Matrix test 109 assertions preservado. ~112 linhas reduzidas |
+| 51 | ~~**`lib/auth.ts`** — 9 helpers `auditXxx` quase idênticos~~ | ✅ **Resolvido em CP-33 (2026-04-22)** — `buildAuditEntry(params): AuditLogEntry` em `lib/auth/audit-helpers.ts` com shape tipado; 10 wrappers `auditXxx` chamam `AuditService.log(buildAuditEntry({...}))` |
+| 52 | ~~**`lib/auth.ts` — `afterCreateOrganization`** usa dynamic import para `OrganizationService`~~ | ✅ **Resolvido em CP-30 (2026-04-22)** — graph trace confirmou ausência de dep circular; dynamic import convertido para static |
 | 53 | **`lib/auth-plugin.ts::resolveApiKeyOrgContext`** faz `auth.api.verifyApiKey` a cada request com API key | 🟡 performance | Sem cache — toda request com `x-api-key` verifica no DB (via Better Auth). Para cliente consumindo Power BI, isso pode ser muitos queries redundantes. Cache simples por TTL curto (30s) pode ajudar. Validar no Bloco 4 (api-keys) se há cache built-in |
 
 #### Débitos descobertos no Bloco 4 da Fase 1 (2026-04-21) — Módulos críticos
@@ -1080,11 +1080,11 @@ Dimensão "Qualidade da implementação" adicionada à metodologia após o Bloco
 
 | # | Débito | Severidade | Ação |
 |---|---|---|---|
-| 54 | **API keys não auditam operações admin** | 🔴 compliance | `api-key.service.ts` NÃO chama `AuditService.log()` em create/revoke/delete. Operações administrativas sensíveis (criar credencial, revogar, apagar) **sem audit trail**. Adicionar audit em todas 3 operações com `resource: "api_key"`, capturing createdBy/prefix (nunca a key). Risco LGPD + SOC2 |
+| 54 | ~~**API keys não auditam operações admin**~~ | ✅ **Resolvido em RU-6 (2026-04-22)** — `AuditService.log()` adicionado em create/revoke/delete; capturing createdBy + prefix (nunca a key completa). `resource: "api_key"` enum. Cobre LGPD + SOC2 |
 | 55 | **Sem retention policy definida para audit logs** | 🟡 compliance | CLAUDE.md do audit não define quanto tempo logs são mantidos. LGPD pede retention justificada. Definir política (ex: 5 anos para eventos de segurança, 2 anos para CRUD operacional) e implementar jobs de pruning |
-| 56 | **Webhook usa Basic Auth em vez de HMAC signature** | 🟡 segurança | **Validado via WebSearch**: HMAC-SHA256 é o padrão usado por Stripe, GitHub, CircleCI, Shopify, Okta em 2026. Basic Auth é inferior porque: (1) credential estática trafega a cada request; (2) não detecta tampering do body; (3) rotação requer coordenação. Implementação atual tem timing-safe compare correto (webhook.service.ts:139-172), mas o modelo é fraco. **Ação**: consultar docs oficiais do Pagar.me v5 (em docs.pagar.me) para confirmar se suporta HMAC — alguns provedores BR ainda ficaram em Basic Auth. Se sim, migrar; se não, manter + restringir por IP allowlist (defesa adicional) |
-| 57 | **`_rawBody` em `WebhookService.process`** passed mas não usado para verificação | 🟢 código morto ou bug | `webhook.service.ts:76` — underscore indica intenção abandonada. Ou remover parâmetro, ou usar para verificação HMAC (#56). Provavelmente relacionado a HMAC incompleto |
-| 58 | **Webhook silencia quando metadata ausente** | 🟡 robustez | `handleChargePaid`, `handleChargeFailed`, `handleSubscriptionCreated` retornam silently se `data.metadata?.organization_id` não existe. Webhook crítico deveria logar WARN com payload para investigação posterior. `handleSubscriptionCreated` faz isso ✅; os demais não |
+| 56 | ~~**Webhook usa Basic Auth em vez de HMAC signature**~~ | ✅ **Resolvido em CP-6 (2026-04-22, reframed)** — research via context7 + WebSearch + SDK oficial confirmou que Pagar.me v5 **não oferece HMAC** nem publica IP allowlist. Escopo virou hardening do Basic Auth existente: Zod validation declarativa, logs `webhook:auth_failure` por reason, `extractClientIp`, `captureException` com tags, log de unhandled events |
+| 57 | ~~**`_rawBody` em `WebhookService.process`** passed mas não usado para verificação~~ | ✅ **Resolvido em CP-6 (2026-04-22)** — `_rawBody` órfão deletado do service + 36 callsites de teste em 6 arquivos. `parse: "text"` removido. Body agora é Zod-validated via `z.looseObject` no Elysia |
+| 58 | ~~**Webhook silencia quando metadata ausente**~~ | ✅ **Resolvido em CP-6 (2026-04-22)** — `logger.info({ type: "webhook:skipped:missing-metadata" })` em `handleChargePaid`/`handleChargeFailed` quando `metadata.organization_id` ausente |
 
 **API Keys** (`modules/admin/api-keys/`):
 
@@ -1092,13 +1092,13 @@ Dimensão "Qualidade da implementação" adicionada à metodologia após o Bloco
 |---|---|---|---|
 | 59 | **Listagem sem paginação** | 🟡 performance/DoS | `ApiKeyService.list()` retorna TODAS as keys (sem limit/offset). Com 1 cliente hoje OK, mas com N clientes e M keys cada, vira DoS via query pesada. Better Auth `listApiKeys` não tem paginação nativa — implementar via filter ou fetch + slice |
 | 60 | **Rate limit por key inconsistente entre service e plugin** | 🟢 documentação | `api-key.service.ts:34` diz `rateLimitMax: 100`; `lib/auth.ts:848` diz `maxRequests: 200`. CLAUDE.md do api-keys explica "200 para compensar dupla verificação". Documentar a intenção explicitamente ou unificar |
-| 61 | **`isBetterAuthNotFound` helper repetido em cada método** | 🟢 duplicação | `api-key.service.ts` tem 3 métodos (getById, revoke, delete) com try/catch quase idêntico só para mapear 404 do Better Auth. Extrair wrapper genérico: `handleBetterAuthNotFound(keyId, fn)` |
+| 61 | ~~**`isBetterAuthNotFound` helper repetido em cada método**~~ | ✅ **Resolvido em CP-35 (2026-04-22)** — wrapper `withApiKeyNotFoundFallback(keyId, fn)` em `api-key.service.ts`; try/catch duplicado eliminado em `getById`, `revoke`, `delete` |
 
 **Public** (`modules/public/`):
 
 | # | Débito | Severidade | Ação |
 |---|---|---|---|
-| 62 | **Newsletter revela existência de email** | 🟡 privacidade/enumeration | CLAUDE.md: "Email duplicado ativo → ConflictError (409)". Isso permite enumerar emails inscritos (enumeration attack). Retornar **mesmo response** em ambos os casos (sucesso vs duplicado) — lado servidor faz a distinção silenciosamente |
+| 62 | ~~**Newsletter revela existência de email**~~ | ✅ **Resolvido em CP-36 (2026-04-22)** — `POST /v1/public/newsletter/subscribe` retorna 200 silencioso (no-op) em duplicado ativo; `ConflictError` + schema 409 removidos. Anti-enumeration documentada em CLAUDE.md |
 | 63 | **Public endpoints sem captcha/honeypot** | 🟡 anti-automation | `/v1/public/contact` e `/v1/public/newsletter/subscribe` são alvos para bots/spam. Rate limit global (100/min) pode não ser suficiente. Cloudflare Free Tier (decisão 7.3 #1) resolverá parte. Considerar também honeypot field no form |
 | 64 | **Contact form envia email síncrono** | 🟡 performance | `contact.service` provavelmente chama `sendContactEmail` via await no request. Se SMTP lento, request lento. Já coberto em débito 5.2 #5 (Jobs assíncronos) |
 
@@ -1129,17 +1129,17 @@ Dimensão "Qualidade da implementação" adicionada à metodologia após o Bloco
 
 | # | Débito | Severidade | Ação |
 |---|---|---|---|
-| 76 | **`bun pm audit` ausente** em todos os workflows e scripts do package.json | 🟡 supply chain | Adicionar `bun pm audit --audit-level=high` como step no lint.yml — bloqueia PR com CVE HIGH/CRITICAL. Atualizar README para refletir realidade (hoje afirma que existe) |
-| 77 | **`SKIP_INTEGRATION_TESTS: "true"`** em test.yml | 🟡 cobertura | Validar semântica: o flag pula integration tests no CI? Se sim, integration não roda e cobertura é falsa. Documentar intenção ou remover flag. CLAUDE.md não menciona |
+| 76 | ~~**`bun pm audit` ausente** em todos os workflows e scripts do package.json~~ | ✅ **Resolvido em RU-4 (2026-04-22)** — `bun pm audit --audit-level=high` step em `lint.yml`; threshold subido de `critical` → `high` em CP-40 após triagem de CVEs |
+| 77 | ~~**`SKIP_INTEGRATION_TESTS: "true"`** em test.yml~~ | ✅ **Resolvido em RU-5 (2026-04-22)** — semântica documentada no CLAUDE.md: flag gateia **apenas** testes que fazem chamadas HTTP reais a Pagar.me. DB-level integration tests rodam sempre. Gap rastreado como CP-41 |
 | 78 | **Playwright E2E não está em nenhum workflow** | 🟡 cobertura | `test:e2e` existe em `package.json` mas não é executado em CI. Adicionar workflow separado (ou step em test.yml) — ao menos no schedule diário. E2E é a camada que detecta regressões de UX/integração completas |
-| 79 | **Build workflow não faz smoke test** | 🟡 qualidade | `build.yml:27-28` só verifica `test -f ./dist/index.js`. Um bundle pode existir mas falhar no startup. Adicionar step: `timeout 10 bun run dist/index.js || [ $? -eq 124 ]` (expect timeout, não erro) |
-| 80 | **Sem cache de `bun install`** em todos workflows | 🟢 performance CI | Cada run baixa deps do zero. `setup-bun@v2` tem cache nativo — ativar com `cache: true` ou `actions/cache`. Reduz CI time |
-| 81 | **`lint.yml` roda `bun install` sem `--frozen-lockfile`** | 🟡 reprodutibilidade | Se alguém alterar lockfile em PR sem notar, CI instala mas não pega. Adicionar flag para consistência com Dockerfile |
-| 82 | **Trivy scaneia imagem, não filesystem** | 🟡 cobertura | `security.yml` só faz image scan. Fazer scan FS também com `trivy fs .` (secrets em histórico git, misconfigs em IaC, vulnerabilidades em deps não-Docker) |
+| 79 | ~~**Build workflow não faz smoke test**~~ | ✅ **Resolvido em CP-23 (2026-04-22)** — `timeout 10 bun dist/index.js` com env fake válido em `build.yml`. Aceita exit 0/124/143 como sucesso, qualquer outro código reprova o bundle |
+| 80 | ~~**Sem cache de `bun install`** em todos workflows~~ | ✅ **Resolvido em CP-21 (2026-04-22)** — `actions/cache@v4` com chave `bun-${{ hashFiles('bun.lock') }}` em lint/test/build |
+| 81 | ~~**`lint.yml` roda `bun install` sem `--frozen-lockfile`**~~ | ✅ **Resolvido em CP-22 (2026-04-22)** — `bun install --frozen-lockfile` em lint/test/build (alinhado com Dockerfile). Detecta drift de package.json vs bun.lock |
+| 82 | ~~**Trivy scaneia imagem, não filesystem**~~ | ✅ **Resolvido em CP-9 (2026-04-22)** — job `trivy-fs` em `security.yml` com `scan-type: fs`, SARIF upload categorizado separadamente do container scan |
 | 83 | **Trivy severity `CRITICAL,HIGH` ignora MEDIUM** | 🟢 cobertura | Pode deixar MEDIUM real passar. Considerar incluir `MEDIUM` quando volume for gerenciável |
-| 84 | **Sem scan de secrets em histórico git** (gitleaks/trufflehog) | 🟡 segurança | `secretlint` é local (pre-commit via husky). Se alguém commitou secret e depois removeu, continua no histórico. Adicionar `gitleaks` ou `trufflehog` ao security.yml |
-| 85 | **Sem SBOM (Software Bill of Materials)** | 🟡 compliance | SOC2 e supply chain em 2026 esperam SBOM. Trivy pode gerar via `trivy sbom`. Adicionar como artifact do build |
-| 86 | **Sem coverage reporting** | 🟢 qualidade | `bun test --coverage` existe (`test:coverage` no package.json) mas não roda no CI. Para code review, saber que 70% do código tem testes é informação crítica. Subir pro Codecov/coveralls |
+| 84 | ~~**Sem scan de secrets em histórico git** (gitleaks/trufflehog)~~ | ✅ **Resolvido em CP-7 (2026-04-22)** — TruffleHog `secrets-scan` job em `security.yml` (com `--only-verified`, diff por PR ou full scan em schedule) |
+| 85 | ~~**Sem SBOM (Software Bill of Materials)**~~ | ✅ **Resolvido em CP-8 (2026-04-22)** — SBOM CycloneDX gerado via `trivy-action` format=cyclonedx no job trivy-image, upload como artifact (90d retention) |
+| 86 | ~~**Sem coverage reporting**~~ | ✅ **Resolvido em CP-20 (2026-04-22)** — `--coverage --coverage-reporter=lcov` em affected + full suite; upload via `codecov/codecov-action@v5`. Depende de `CODECOV_TOKEN` no repo secrets |
 
 **Dockerfile:**
 
@@ -1160,11 +1160,11 @@ Dimensão "Qualidade da implementação" adicionada à metodologia após o Bloco
 
 | # | Débito | Severidade | Ação |
 |---|---|---|---|
-| 92 | **Backup policy do Postgres gerenciado pelo Coolify não está documentada no repo** | 🟡 compliance | LGPD/SOC2 esperam retention documentada. Validar na UI do Coolify: frequência de backup, retention, teste de restore periódico. Documentar em runbook (`docs/runbooks/database-backup.md`) |
+| 92 | ~~**Backup policy do Postgres gerenciado pelo Coolify não está documentada no repo**~~ | ✅ **Resolvido em RU-10 + CP-45 (2026-04-22)** — runbook `docs/runbooks/database-backup.md` criado com frequência, retention, processo de restore; Local Backup Retention ajustado para 7/7 dias/2GB no Coolify (R2 inalterado) |
 | 93 | **Sem runbook de oncall/incidente** | 🟢 maturidade | Onde procurar quando algo quebra 3h da manhã? Criar `docs/runbooks/` com: DB down, webhook Pagar.me falhando, SMTP caído, Sentry recebendo 5xx em massa |
 | 94 | **Version do projeto em `package.json:3` (`1.0.50`) é manual** | 🟢 qualidade DX | Sem semantic-release ou similar — dev precisa bumpar manualmente. Para lib/app com release frequente, considerar automation. Não crítico agora |
-| 95 | **Em `test.yml`, secrets Pagar.me/Auth expostos no `env` do job inteiro** | 🟡 segurança CI | Todos os steps enxergam `PAGARME_SECRET_KEY` etc. Deveria ser escopado só ao step de teste, ou usar `secrets` inherit em actions filhas. Baixo risco (GitHub já protege logs), mas princípio de menor privilégio |
-| 96 | **Convenção inconsistente de `changes` em audit logs + reads sensíveis sem audit** | 🔴 compliance LGPD | Schema suporta `{ before, after }` mas apenas parte dos call-sites de mutation preenchem. Reads em dados sensíveis (Art. 11 LGPD — atestados médicos, CPF, salário, processos trabalhistas) não geram audit entry. Endereçar via CP-42 (convenção before/after + tratamento de PII) e CP-43 (audit de reads em GET handlers de recursos sensíveis) |
+| 95 | ~~**Em `test.yml`, secrets Pagar.me/Auth expostos no `env` do job inteiro**~~ | ✅ **Resolvido em CP-13 (2026-04-22)** — 8 secrets (BETTER_AUTH_SECRET, PAGARME_*, INTERNAL_API_KEY, PII_ENCRYPTION_KEY) movidos para step-level apenas nos 3 steps que executam código do projeto (migrations, affected tests, full suite) |
+| 96 | ~~**Convenção inconsistente de `changes` em audit logs + reads sensíveis sem audit**~~ | ✅ **Resolvido em CP-42 + CP-43 (2026-04-22)** — CP-42: helper `buildAuditChanges(before, after)` com redação automática de 11 campos PII + exclusão de metadata. CP-43: `auditPlugin` mountado em 4 controllers (employee, medical_certificate, cpf_analysis, labor_lawsuit); GET `/:id` emite `audit({ action: "read", ... })`. **Débito LGPD Art. 11/18/48 100% endereçado** |
 
 #### Features do Better Auth que já usamos (referência para não reinventar)
 
