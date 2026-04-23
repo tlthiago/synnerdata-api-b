@@ -13,12 +13,12 @@ import { extractErrorMessages } from "./lib/openapi/error-messages";
 import { setupGracefulShutdown } from "./lib/shutdown/shutdown";
 import { registerEmployeeListeners } from "./modules/employees/hooks/listeners";
 import { registerPaymentListeners } from "./modules/payments/hooks/listeners";
-import { betterAuthPlugin } from "./plugins/auth/auth-plugin";
-import { OpenAPI } from "./plugins/auth/openapi-enhance";
+import { betterAuthPlugin } from "./plugins/auth-guard/auth-plugin";
+import { OpenAPI } from "./plugins/auth-guard/openapi-enhance";
 import { cronPlugin } from "./plugins/cron/cron-plugin";
-import { errorPlugin } from "./plugins/errors/error-plugin";
+import { errorPlugin } from "./plugins/error-handler/error-plugin";
 import { healthPlugin } from "./plugins/health/health-plugin";
-import { loggerPlugin } from "./plugins/logger/logger-plugin";
+import { loggerPlugin } from "./plugins/request-logger/logger-plugin";
 import { routesV1 } from "./routes/v1";
 
 const corsOrigins = parseOrigins(env.CORS_ORIGIN);
