@@ -43,12 +43,12 @@ import {
 } from "@/lib/auth/hooks";
 import { validateUniqueRole } from "@/lib/auth/validators";
 import { parseOrigins } from "@/lib/cors";
+import { validatePasswordComplexity } from "./auth/password-complexity";
+import { orgAc, orgRoles, systemAc, systemRoles } from "./auth/permissions";
 import {
   sendTwoFactorOTPEmail,
   sendVerificationEmail as sendVerificationEmailFn,
 } from "./email";
-import { validatePasswordComplexity } from "./password-complexity";
-import { orgAc, orgRoles, systemAc, systemRoles } from "./permissions";
 
 const trustedOrigins = parseOrigins(env.CORS_ORIGIN);
 

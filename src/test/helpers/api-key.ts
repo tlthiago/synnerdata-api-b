@@ -1,5 +1,5 @@
 import { auth } from "@/lib/auth";
-import type { ApiKeyPermissions } from "@/lib/permissions";
+import type { ApiKeyPermissions } from "@/lib/auth/permissions";
 
 export type TestApiKey = {
   id: string;

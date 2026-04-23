@@ -1,5 +1,5 @@
 import { describe, expect, it } from "bun:test";
-import { orgRoles } from "@/lib/permissions";
+import { orgRoles } from "../permissions";
 
 /**
  * Permission matrix test — validates that each org role has exactly

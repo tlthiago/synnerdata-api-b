@@ -1,5 +1,5 @@
 import { auth } from "@/lib/auth";
-import { DEFAULT_API_KEY_PERMISSIONS } from "@/lib/permissions";
+import { DEFAULT_API_KEY_PERMISSIONS } from "@/lib/auth/permissions";
 import { AuditService } from "@/modules/audit/audit.service";
 import type {
   CreateApiKeyData,
