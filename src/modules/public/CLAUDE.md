@@ -1,6 +1,6 @@
 # Public Module
 
-Endpoints públicos (sem autenticação). Composite controller sem prefix próprio — sub-controllers definem `/v1/public/<nome>`.
+Endpoints públicos (sem autenticação). Composite controller sem prefix próprio — sub-controllers definem `/public/<nome>`. URL final: `/v1/public/<nome>` (`/v1/` injetado pelo composer `src/routes/v1/`).
 
 ## Sub-módulos
 

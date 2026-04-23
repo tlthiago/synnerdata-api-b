@@ -119,8 +119,8 @@ Novos recursos sensíveis devem seguir o mesmo padrão: `.use(auditPlugin)` + ch
 
 ## Endpoints
 
-- `GET /audit-logs` — logs da organização (owner only)
-- `GET /audit-logs/:resource/:resourceId` — histórico de um resource específico
+- `GET /v1/audit-logs` — logs da organização (owner only)
+- `GET /v1/audit-logs/:resource/:resourceId` — histórico de um resource específico
 
 ## Permissions
 
