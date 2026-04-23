@@ -4,8 +4,8 @@ import { schema } from "@/db/schema";
 import { calculateDaysBetween } from "@/lib/schemas/date-helpers";
 import { ensureEmployeeNotTerminated } from "@/modules/employees/status";
 import {
-  type ActiveCycle,
-  computeActiveCycle,
+  resolveNextCycle,
+  type VacationPeriods,
 } from "@/modules/occurrences/vacations/period-calculation";
 import {
   VacationAlreadyDeletedError,
@@ -24,6 +24,11 @@ import type {
   UpdateVacationInput,
   VacationData,
 } from "./vacation.model";
+
+type CycleWithBalance = VacationPeriods & {
+  daysUsed: number;
+  daysRemaining: number;
+};
 
 const MAX_VACATION_DAYS_PER_AQUISITIVO = 30;
 
@@ -237,12 +242,11 @@ export abstract class VacationService {
     }
   }
 
-  private static async computeActiveCycleFor(
+  private static async resolveCycleForEmployee(
     employeeId: string,
     organizationId: string,
-    hireDate: string,
-    referenceDate: Date
-  ): Promise<ActiveCycle> {
+    hireDate: string
+  ): Promise<CycleWithBalance> {
     const rows = await db
       .select({
         acquisitionPeriodStart: sql<string>`${schema.vacations.acquisitionPeriodStart}`,
@@ -264,18 +268,22 @@ export abstract class VacationService {
       daysEntitled: row.daysEntitled,
     }));
 
-    return computeActiveCycle({
-      hireDate,
-      referenceDate,
-      vacationsInCycles,
-    });
+    const periods = resolveNextCycle({ hireDate, vacationsInCycles });
+
+    const daysUsed = vacationsInCycles
+      .filter(
+        (row) => row.acquisitionPeriodStart === periods.acquisitionPeriodStart
+      )
+      .reduce((sum, row) => sum + row.daysEntitled, 0);
+    const daysRemaining = MAX_VACATION_DAYS_PER_AQUISITIVO - daysUsed;
+
+    return { ...periods, daysUsed, daysRemaining };
   }
 
-  static async getActiveCycle(
+  static async getNextCycle(
     employeeId: string,
-    organizationId: string,
-    referenceDate: Date = new Date()
-  ): Promise<ActiveCycle> {
+    organizationId: string
+  ): Promise<CycleWithBalance> {
     const employee = await VacationService.getEmployeeReference(
       employeeId,
       organizationId
@@ -283,11 +291,10 @@ export abstract class VacationService {
 
     await ensureEmployeeNotTerminated(employeeId, organizationId);
 
-    return VacationService.computeActiveCycleFor(
+    return VacationService.resolveCycleForEmployee(
       employeeId,
       organizationId,
-      employee.hireDate,
-      referenceDate
+      employee.hireDate
     );
   }
 
@@ -370,11 +377,10 @@ export abstract class VacationService {
 
     VacationService.validateDates(data.startDate, data.endDate);
 
-    const activeCycle = await VacationService.computeActiveCycleFor(
+    const activeCycle = await VacationService.resolveCycleForEmployee(
       data.employeeId,
       organizationId,
-      employee.hireDate,
-      new Date(`${data.startDate}T00:00:00Z`)
+      employee.hireDate
     );
 
     VacationService.validateStartDateInConcessive(data.startDate, activeCycle);
