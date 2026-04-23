@@ -135,7 +135,7 @@ Dimensão "Qualidade da implementação" adicionada à metodologia após o Bloco
 
 | # | Débito | Severidade | Ação |
 |---|---|---|---|
-| 49 | ~~**`lib/auth-plugin.ts` com 369 linhas**~~ | ✅ **Resolvido em CP-4 (2026-04-22)** — `plugins/auth/auth-plugin.ts` 396→79 linhas; split em `plugins/auth/{options, validators, openapi-enhance}.ts` |
+| 49 | ~~**`lib/auth-plugin.ts` com 369 linhas**~~ | ✅ **Resolvido em CP-4 (2026-04-22)** — `plugins/auth-guard/auth-plugin.ts` 396→79 linhas; split em `plugins/auth-guard/{options, validators, openapi-enhance}.ts`. Diretório renomeado de `plugins/auth/` em PR #268 (2026-04-23) para evitar colisão com `lib/auth/` |
 | 50 | ~~**`lib/permissions.ts`** — duplicação massiva entre `orgRoles`~~ | ✅ **Resolvido em CP-25 (2026-04-22)** — helper `inheritRole(base, overrides)` + `ownerPerms` como fonte da verdade. Manager (6 overrides), supervisor (15), viewer (24). Matrix test 109 assertions preservado. ~112 linhas reduzidas |
 | 51 | ~~**`lib/auth.ts`** — 9 helpers `auditXxx` quase idênticos~~ | ✅ **Resolvido em CP-33 (2026-04-22)** — `buildAuditEntry(params): AuditLogEntry` em `lib/auth/audit-helpers.ts` com shape tipado; 10 wrappers `auditXxx` chamam `AuditService.log(buildAuditEntry({...}))` |
 | 52 | ~~**`lib/auth.ts` — `afterCreateOrganization`** usa dynamic import para `OrganizationService`~~ | ✅ **Resolvido em CP-30 (2026-04-22)** — graph trace confirmou ausência de dep circular; dynamic import convertido para static |
@@ -196,7 +196,7 @@ Dimensão "Qualidade da implementação" adicionada à metodologia após o Bloco
 
 | # | Débito | Severidade | Ação |
 |---|---|---|---|
-| 76 | ~~**`bun pm audit` ausente** em todos os workflows e scripts do package.json~~ | ✅ **Resolvido em RU-4 (2026-04-22)** — `bun pm audit --audit-level=high` step em `lint.yml`; threshold subido de `critical` → `high` em CP-40 após triagem de CVEs |
+| 76 | ~~**`bun audit` ausente** em todos os workflows e scripts do package.json~~ | ✅ **Resolvido em RU-4 (2026-04-22)** — `bun audit --audit-level=high` step em `lint.yml:42`; comando foi renomeado durante execução (`bun pm audit` → `bun pm scan` → `bun audit` entre Bun 1.2.x e 1.3.x — detalhes no changelog 2026-04-22). Threshold subido de `critical` → `high` em CP-40 após triagem de CVEs |
 | 77 | ~~**`SKIP_INTEGRATION_TESTS: "true"`** em test.yml~~ | ✅ **Resolvido em RU-5 (2026-04-22)** — semântica documentada no CLAUDE.md: flag gateia **apenas** testes que fazem chamadas HTTP reais a Pagar.me. DB-level integration tests rodam sempre. Gap rastreado como CP-41 |
 | 78 | **Playwright E2E não está em nenhum workflow** | 🟡 cobertura | `test:e2e` existe em `package.json` mas não é executado em CI. Adicionar workflow separado (ou step em test.yml) — ao menos no schedule diário. E2E é a camada que detecta regressões de UX/integração completas |
 | 79 | ~~**Build workflow não faz smoke test**~~ | ✅ **Resolvido em CP-23 (2026-04-22)** — `timeout 10 bun dist/index.js` com env fake válido em `build.yml`. Aceita exit 0/124/143 como sucesso, qualquer outro código reprova o bundle |
@@ -232,6 +232,15 @@ Dimensão "Qualidade da implementação" adicionada à metodologia após o Bloco
 | 94 | **Version do projeto em `package.json:3` (`1.0.50`) é manual** | 🟢 qualidade DX | Sem semantic-release ou similar — dev precisa bumpar manualmente. Para lib/app com release frequente, considerar automation. Não crítico agora |
 | 95 | ~~**Em `test.yml`, secrets Pagar.me/Auth expostos no `env` do job inteiro**~~ | ✅ **Resolvido em CP-13 (2026-04-22)** — 8 secrets (BETTER_AUTH_SECRET, PAGARME_*, INTERNAL_API_KEY, PII_ENCRYPTION_KEY) movidos para step-level apenas nos 3 steps que executam código do projeto (migrations, affected tests, full suite) |
 | 96 | ~~**Convenção inconsistente de `changes` em audit logs + reads sensíveis sem audit**~~ | ✅ **Resolvido em CP-42 + CP-43 (2026-04-22)** — CP-42: helper `buildAuditChanges(before, after)` com redação automática de 11 campos PII + exclusão de metadata. CP-43: `auditPlugin` mountado em 4 controllers (employee, medical_certificate, cpf_analysis, labor_lawsuit); GET `/:id` emite `audit({ action: "read", ... })`. **Débito LGPD Art. 11/18/48 100% endereçado** |
+
+#### Débitos descobertos na revisão de documentação (2026-04-23)
+
+Surgidos durante sync de `principles.md` com estado real do código — pontos que o audit da Fase 1 deixou como `?` e foram classificados formalmente nesta rodada.
+
+| # | Débito | Severidade | Ação |
+|---|---|---|---|
+| 97 | **Paginação sem schema compartilhado** | 🟡 qualidade/DoS | 4 endpoints (`price-adjustment`, `admin-provision`, `cbo-occupations`, `admin/organizations`) declaram `limit: z.coerce.number().int().min(1).max(100).default(20)` inline em cada `*.model.ts`. Extrair `paginationQuerySchema` (com `limit`, `offset`, `search` opcional, `sort` opcional) para `src/lib/schemas/pagination.ts`. Migrar os 4 callsites. Trava o padrão para novos endpoints paginados e fecha o risco de esquecer `.max()` em um novo list. Cobre §4.1 #11 + §4.2 #6 de `principles.md`. Tamanho: **S**. Candidato a virar CP-51 no próximo review do roadmap |
+| 98 | **Sem field-level authorization em responses (data minimization)** | 🟢 compliance/governance | Campos sensíveis (`salary`, `cpf`, `rg`, `hourlyRate`, `healthInsurance`) retornam em clear para qualquer role com permissão de read sobre o employee. Não há filtro por papel em nível de campo — `viewer` vê o mesmo que `owner`. Audit logs já têm PII redaction via `buildAuditChanges()` (CP-42), mas responses dos controllers não. **Sinal para investir**: requisito concreto do cliente (ex: "viewer não deve ver salário") OU auditoria LGPD apontando Art. 18 minimization gap. Implementação: variante de response schema por role (ex: `employeeResponseByRole(role)` retornando o subset apropriado). Considerar antes de MP-13 (SOC 2). Candidato a virar MP-23 no próximo review do bucket 🟢 |
 
 #### Features do Better Auth que já usamos (referência para não reinventar)
 

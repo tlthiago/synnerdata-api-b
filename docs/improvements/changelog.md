@@ -11,6 +11,69 @@
 
 Registro temporal das decisões e entregas desta iniciativa. **Toda atualização do documento deve adicionar uma entrada aqui** (data ISO + resumo).
 
+### 2026-04-23 — Doc sync pass: `principles.md` alinhado com realidade
+
+Revisão pós-Onda 5 para consolidar o estado da documentação antes de avançar para CP-38/CP-44/CP-2. Tabela de audit da Fase 1 nunca tinha sido atualizada após as 54 resoluções; itens `?` ficaram pendurados sem classificação. Aproveitada também a oportunidade para arquivar legados e fechar inconsistências de path pós-PR #268.
+
+**Tabelas de audit em `principles.md` sincronizadas (9 Status + 7 `?` classificados):**
+
+| § | Item | Era | Virou | Por quê |
+|---|---|---|---|---|
+| 4.1 #5 | Env validation | ⚠️ | ✅ | RU-1 + CP-31 + CP-39 aplicados |
+| 4.1 #8 | Request timeout | ❌ | ✅ | RU-3 (`serve.idleTimeout: 30`) |
+| 4.1 #11 | Max page size | ? | ⚠️ | 4/4 endpoints OK; falta schema compartilhado (débito #97 novo) |
+| 4.1 #16 | requestId no body | ❌ | ✅ | RU-2 (`error.toResponse(requestId)`) |
+| 4.1 #18 | Dependency audit | ⚠️ | ✅ | RU-4 + CP-40 (`bun audit --audit-level=high`) |
+| 4.2 #4 | `/v1` versionamento | ⚠️ | ✅ | CP-3 (composer `src/routes/v1/`) |
+| 4.2 #5 | Response filtering | ? | ✅ | Padrão `successResponseSchema()` aplicado em todos os controllers |
+| 4.2 #6 | Paginação padronizada | ? | ⚠️ | Sem schema compartilhado (débito #97 novo) |
+| 4.2 #8 | Integration tests CI | ⚠️ | ⚠️ | RU-5 resolveu semântica; CP-41 (Pagar.me) + CP-19 (Playwright) pendentes |
+| 4.2 #10 | Backup automatizado | ⚠️ | ✅ | RU-10 + CP-45 |
+| 5.1 #3 | BOLA | ⚠️ | ✅ | RU-9 (50 services auditados + 12 cross-org tests) |
+| 5.1 #5 | Audit log | ⚠️ | ✅ | RU-6/7/8 + CP-33/42/43 — LGPD 100% endereçado |
+| 5.2 #1 | Security headers/CSP | ⚠️ | ✅ | CSP deferido formalmente em MP-20 (API JSON pura) |
+| 5.2 #3 | Compression | ❌ | 🟡 deferred | CP-15 Cloudflare (bloqueado por CP-14 DNS do cliente) |
+| 5.2 #4 | HTTP/2 no edge | ? | 🟡 deferred | Idem CP-15 |
+| 5.2 #6 | Retention logs/audit | ? | 🟡 deferred | MP-15 (sinal: auditoria LGPD formal) |
+| 5.2 #7 | Data minimization | ? | ⚠️ | Audit redaction OK (CP-42); field-level authz virou débito #98 novo |
+| 5.2 #9 | Content negotiation | ? | N/A | API JSON-only — não aplicável |
+
+**Legenda da tabela expandida** em `principles.md` §4 para incluir 🟡 deferred (coberto por ação de médio prazo ou dependência externa) e N/A (não aplicável ao contexto).
+
+**Débitos novos registrados em `debts.md`:**
+- **#97 (🟡)** — Paginação sem schema compartilhado. 4 endpoints declaram `limit/offset` inline em cada `.model.ts`. Extrair `paginationQuerySchema` para `src/lib/schemas/pagination.ts`. Candidato a **CP-51** (S).
+- **#98 (🟢)** — Sem field-level authorization em responses. `viewer` vê os mesmos campos que `owner` (inclusive `salary`, `cpf`). Investir só com requisito concreto. Candidato a **MP-23**.
+
+**Arquivamento de legados:**
+- `docs/improvements/api-maturity-plan.md` (2342 linhas, última atualização 2025-12-15 — pré-audit) → `docs/improvements/legacy/api-maturity-plan.md`
+- `docs/improvements/deployment.md` (pré-audit) → `docs/improvements/legacy/deployment.md`
+- `docs/improvements/legacy/README.md` criado documentando que são históricos e **não devem ser atualizados**; aponta para os docs vivos (o split em 6 arquivos feito em PR #268) + runbooks em `docs/runbooks/`
+
+**Consistência de paths pós-PR #268** (`plugins/auth→auth-guard`, `errors→error-handler`, `logger→request-logger`):
+- `README.md:30` descrição de CP-4 atualizada (`plugins/auth/*` → `plugins/auth-guard/*`)
+- `debts.md` débito #49 resolvido: path + nota sobre rename PR #268
+- `roadmap.md` CP-1 e CP-4 com nota `_Paths refletem rename do PR #268; à época eram `plugins/{logger, errors, auth}`._`
+- **Não tocado**: entries históricas no próprio `changelog.md` (são snapshots de data × path × ação; corrigir seria mentir sobre o passado)
+
+**Fixes menores:**
+- `debts.md` #76: `bun pm audit` → `bun audit` (comando foi renomeado entre Bun 1.2.x e 1.3.x; `lint.yml:42` usa a forma atual)
+
+**Atualizações no `README.md`:**
+- **CP-2 (XL) marcado como BLOQUEADO por issue #269** — flakes não-determinísticos em suite grande (signup welcome email + trial constraint + cpf-analyses list), descobertos no CI do PR #268. Resolver #269 antes de iniciar CP-2 ou o refactor de emails ficará com testes não-confiáveis.
+- Navegação ganhou entry `legacy/` com aviso.
+- Contadores atualizados: 98 débitos totais (era 96), 42 abertos (era 40).
+- "Candidatos pós-sync" seção nova listando CP-51 e MP-23 para próximo review do roadmap.
+
+**Por que isso importa:** `principles.md` é a primeira leitura para entender maturidade. Com 9 Status desatualizados, um leitor novo pensa que temos gaps que já não existem — ou pior, tenta resolver algo que já foi resolvido. A tabela agora reflete o que o código realmente tem em 2026-04-23.
+
+**Validação:**
+- ✅ `env.ts` conferido linha a linha contra as claims de RU-1/CP-31/CP-39
+- ✅ `index.ts` conferido contra RU-3 + RU-2 + CP-27
+- ✅ `error-plugin.ts` + `base-error.ts::toResponse` conferidos contra RU-2
+- ✅ `lint.yml:42` conferido (`bun audit --audit-level=high`)
+- ✅ `src/plugins/` listado — match com `src/index.ts:16-21`
+- ✅ 4 `*.model.ts` com paginação inspecionados — padrão idêntico confirmado
+
 ### 2026-04-23 — Onda 5 PR #8 entregue (CP-3): `src/routes/v1/` composer centraliza `/v1`
 
 - **CP-3 (L)** — worktree `.worktrees/refactor/cp-3-routes-v1` + plano formal local (gitignored). 5 commits atômicos: refactor principal, smoke tests, cbo assertion fix, docs modules, bootstrap grouping + docs infra.
