@@ -13,7 +13,7 @@ import { createTestVacation } from "@/test/helpers/vacation";
 
 const BASE_URL = env.API_URL;
 
-describe("GET /v1/vacations/employee/:employeeId/active-cycle", () => {
+describe("GET /v1/vacations/employee/:employeeId/next-cycle", () => {
   let app: TestApp;
 
   beforeAll(() => {
@@ -22,10 +22,9 @@ describe("GET /v1/vacations/employee/:employeeId/active-cycle", () => {
 
   test("should reject unauthenticated requests", async () => {
     const response = await app.handle(
-      new Request(
-        `${BASE_URL}/v1/vacations/employee/employee-123/active-cycle`,
-        { method: "GET" }
-      )
+      new Request(`${BASE_URL}/v1/vacations/employee/employee-123/next-cycle`, {
+        method: "GET",
+      })
     );
 
     expect(response.status).toBe(401);
@@ -35,10 +34,10 @@ describe("GET /v1/vacations/employee/:employeeId/active-cycle", () => {
     const { headers } = await createTestUser({ emailVerified: true });
 
     const response = await app.handle(
-      new Request(
-        `${BASE_URL}/v1/vacations/employee/employee-123/active-cycle`,
-        { method: "GET", headers }
-      )
+      new Request(`${BASE_URL}/v1/vacations/employee/employee-123/next-cycle`, {
+        method: "GET",
+        headers,
+      })
     );
 
     expect(response.status).toBe(403);
@@ -53,7 +52,7 @@ describe("GET /v1/vacations/employee/:employeeId/active-cycle", () => {
 
     const response = await app.handle(
       new Request(
-        `${BASE_URL}/v1/vacations/employee/employee-nonexistent/active-cycle`,
+        `${BASE_URL}/v1/vacations/employee/employee-nonexistent/next-cycle`,
         { method: "GET", headers }
       )
     );
@@ -79,7 +78,7 @@ describe("GET /v1/vacations/employee/:employeeId/active-cycle", () => {
 
     const response = await app.handle(
       new Request(
-        `${BASE_URL}/v1/vacations/employee/${employee.id}/active-cycle`,
+        `${BASE_URL}/v1/vacations/employee/${employee.id}/next-cycle`,
         { method: "GET", headers: headers1 }
       )
     );
@@ -106,7 +105,7 @@ describe("GET /v1/vacations/employee/:employeeId/active-cycle", () => {
 
     const response = await app.handle(
       new Request(
-        `${BASE_URL}/v1/vacations/employee/${employee.id}/active-cycle`,
+        `${BASE_URL}/v1/vacations/employee/${employee.id}/next-cycle`,
         { method: "GET", headers }
       )
     );
@@ -116,7 +115,7 @@ describe("GET /v1/vacations/employee/:employeeId/active-cycle", () => {
     expect(body.error.code).toBe("EMPLOYEE_TERMINATED");
   });
 
-  test("returns cycle 1 for new hire with no vacations", async () => {
+  test("returns cycle 1 derived from hireDate for new hire with no history", async () => {
     const { headers, organizationId, user } =
       await createTestUserWithOrganization({ emailVerified: true });
 
@@ -130,7 +129,7 @@ describe("GET /v1/vacations/employee/:employeeId/active-cycle", () => {
 
     const response = await app.handle(
       new Request(
-        `${BASE_URL}/v1/vacations/employee/${employee.id}/active-cycle`,
+        `${BASE_URL}/v1/vacations/employee/${employee.id}/next-cycle`,
         { method: "GET", headers }
       )
     );
@@ -146,7 +145,7 @@ describe("GET /v1/vacations/employee/:employeeId/active-cycle", () => {
     expect(body.data.daysRemaining).toBe(30);
   });
 
-  test("returns active cycle with partial usage", async () => {
+  test("returns same cycle with partial usage reflected in daysRemaining", async () => {
     const { headers, organizationId, user } =
       await createTestUserWithOrganization({
         emailVerified: true,
@@ -174,7 +173,7 @@ describe("GET /v1/vacations/employee/:employeeId/active-cycle", () => {
 
     const response = await app.handle(
       new Request(
-        `${BASE_URL}/v1/vacations/employee/${employee.id}/active-cycle`,
+        `${BASE_URL}/v1/vacations/employee/${employee.id}/next-cycle`,
         { method: "GET", headers }
       )
     );
@@ -189,7 +188,7 @@ describe("GET /v1/vacations/employee/:employeeId/active-cycle", () => {
     expect(body.data.daysRemaining).toBe(15);
   });
 
-  test("advances to next cycle after current cycle reaches 30 days used", async () => {
+  test("advances to next cycle after last cycle is filled with 30 days regardless of concessivo vigencia", async () => {
     const { headers, organizationId, user } =
       await createTestUserWithOrganization({
         emailVerified: true,
@@ -199,35 +198,40 @@ describe("GET /v1/vacations/employee/:employeeId/active-cycle", () => {
     const { employee } = await createTestEmployee({
       organizationId,
       userId: user.id,
-      hireDate: "2024-06-01",
+      hireDate: "2020-06-01",
       acquisitionPeriodStart: null,
       acquisitionPeriodEnd: null,
     });
 
-    await createTestVacation({
+    await db.insert(schema.vacations).values({
+      id: `vacation-${crypto.randomUUID()}`,
       organizationId,
-      userId: user.id,
       employeeId: employee.id,
-      startDate: "2025-07-01",
-      endDate: "2025-07-30",
+      startDate: "2021-07-01",
+      endDate: "2021-07-30",
+      acquisitionPeriodStart: "2020-06-01",
+      acquisitionPeriodEnd: "2021-05-31",
+      concessivePeriodStart: "2021-06-01",
+      concessivePeriodEnd: "2022-05-31",
       daysEntitled: 30,
-      daysUsed: 0,
-      status: "scheduled",
+      daysUsed: 30,
+      status: "completed",
+      createdBy: user.id,
     });
 
     const response = await app.handle(
       new Request(
-        `${BASE_URL}/v1/vacations/employee/${employee.id}/active-cycle`,
+        `${BASE_URL}/v1/vacations/employee/${employee.id}/next-cycle`,
         { method: "GET", headers }
       )
     );
 
     expect(response.status).toBe(200);
     const body = await response.json();
-    expect(body.data.acquisitionPeriodStart).toBe("2025-06-01");
-    expect(body.data.acquisitionPeriodEnd).toBe("2026-05-31");
-    expect(body.data.concessivePeriodStart).toBe("2026-06-01");
-    expect(body.data.concessivePeriodEnd).toBe("2027-05-31");
+    expect(body.data.acquisitionPeriodStart).toBe("2021-06-01");
+    expect(body.data.acquisitionPeriodEnd).toBe("2022-05-31");
+    expect(body.data.concessivePeriodStart).toBe("2022-06-01");
+    expect(body.data.concessivePeriodEnd).toBe("2023-05-31");
     expect(body.data.daysUsed).toBe(0);
     expect(body.data.daysRemaining).toBe(30);
   });

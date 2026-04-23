@@ -1,6 +1,5 @@
 import { beforeAll, describe, expect, test } from "bun:test";
 import { env } from "@/env";
-import { computePeriodsFromHireDate } from "@/modules/occurrences/vacations/period-calculation";
 import { VacationService } from "@/modules/occurrences/vacations/vacation.service";
 import { createTestApp, type TestApp } from "@/test/helpers/app";
 import { createTestEmployee } from "@/test/helpers/employee";
@@ -55,8 +54,8 @@ describe("GET /v1/employees/:id — lastAcquisitionPeriod", () => {
       organizationId,
       userId: user.id,
       employeeId: employee.id,
-      startDate: "2027-02-01",
-      endDate: "2027-02-10",
+      startDate: "2026-02-01",
+      endDate: "2026-02-10",
       daysEntitled: 10,
     });
 
@@ -69,14 +68,9 @@ describe("GET /v1/employees/:id — lastAcquisitionPeriod", () => {
 
     expect(response.status).toBe(200);
     const body = await response.json();
-    // The service computes periods using hireDate + vacation's startDate as reference.
-    const expected = computePeriodsFromHireDate(
-      "2025-01-01",
-      new Date("2027-02-01T00:00:00Z") // vacation startDate
-    );
     expect(body.data.lastAcquisitionPeriod).toEqual({
-      start: expected.acquisitionPeriodStart,
-      end: expected.acquisitionPeriodEnd,
+      start: "2025-01-01",
+      end: "2025-12-31",
     });
   });
 
@@ -96,8 +90,8 @@ describe("GET /v1/employees/:id — lastAcquisitionPeriod", () => {
       organizationId,
       userId: user.id,
       employeeId: employee.id,
-      startDate: "2027-03-01",
-      endDate: "2027-03-10",
+      startDate: "2025-03-01",
+      endDate: "2025-03-10",
       daysEntitled: 10,
     });
 
@@ -105,8 +99,8 @@ describe("GET /v1/employees/:id — lastAcquisitionPeriod", () => {
       organizationId,
       userId: user.id,
       employeeId: employee.id,
-      startDate: "2027-04-01",
-      endDate: "2027-04-10",
+      startDate: "2025-04-01",
+      endDate: "2025-04-10",
       daysEntitled: 10,
     });
 
@@ -119,15 +113,9 @@ describe("GET /v1/employees/:id — lastAcquisitionPeriod", () => {
 
     expect(response.status).toBe(200);
     const body = await response.json();
-    // The service computes each vacation's periods independently using its own startDate.
-    // getLastAcquisitionPeriod returns the one with the latest acquisitionPeriodEnd.
-    const secondPeriods = computePeriodsFromHireDate(
-      "2024-01-01",
-      new Date("2027-04-01T00:00:00Z") // second vacation startDate
-    );
     expect(body.data.lastAcquisitionPeriod).toEqual({
-      start: secondPeriods.acquisitionPeriodStart,
-      end: secondPeriods.acquisitionPeriodEnd,
+      start: "2024-01-01",
+      end: "2024-12-31",
     });
   });
 
@@ -147,8 +135,8 @@ describe("GET /v1/employees/:id — lastAcquisitionPeriod", () => {
       organizationId,
       userId: user.id,
       employeeId: employee.id,
-      startDate: "2027-05-01",
-      endDate: "2027-05-10",
+      startDate: "2025-05-01",
+      endDate: "2025-05-10",
       daysEntitled: 10,
     });
 
@@ -156,8 +144,8 @@ describe("GET /v1/employees/:id — lastAcquisitionPeriod", () => {
       organizationId,
       userId: user.id,
       employeeId: employee.id,
-      startDate: "2027-06-01",
-      endDate: "2027-06-10",
+      startDate: "2025-06-01",
+      endDate: "2025-06-10",
       daysEntitled: 10,
     });
 
@@ -172,14 +160,9 @@ describe("GET /v1/employees/:id — lastAcquisitionPeriod", () => {
 
     expect(response.status).toBe(200);
     const body = await response.json();
-    // Second vacation was deleted, so the last remaining period is from the first vacation.
-    const firstPeriods = computePeriodsFromHireDate(
-      "2024-01-01",
-      new Date("2027-05-01T00:00:00Z") // first vacation startDate
-    );
     expect(body.data.lastAcquisitionPeriod).toEqual({
-      start: firstPeriods.acquisitionPeriodStart,
-      end: firstPeriods.acquisitionPeriodEnd,
+      start: "2024-01-01",
+      end: "2024-12-31",
     });
   });
 
@@ -199,8 +182,8 @@ describe("GET /v1/employees/:id — lastAcquisitionPeriod", () => {
       organizationId,
       userId: user.id,
       employeeId: employee.id,
-      startDate: "2027-07-01",
-      endDate: "2027-07-10",
+      startDate: "2025-07-01",
+      endDate: "2025-07-10",
       daysEntitled: 10,
       status: "canceled",
     });
@@ -214,13 +197,9 @@ describe("GET /v1/employees/:id — lastAcquisitionPeriod", () => {
 
     expect(response.status).toBe(200);
     const body = await response.json();
-    const periods = computePeriodsFromHireDate(
-      "2024-01-01",
-      new Date("2027-07-01T00:00:00Z") // vacation startDate
-    );
     expect(body.data.lastAcquisitionPeriod).toEqual({
-      start: periods.acquisitionPeriodStart,
-      end: periods.acquisitionPeriodEnd,
+      start: "2024-01-01",
+      end: "2024-12-31",
     });
   });
 
@@ -287,14 +266,12 @@ describe("GET /v1/employees/:id — lastAcquisitionPeriod", () => {
       })
     );
 
-    // Create vacation — the service now computes periods using hireDate + vacation's
-    // startDate as reference, ignoring the manual seed.
     await createTestVacation({
       organizationId,
       userId: user.id,
       employeeId: employee.id,
-      startDate: "2027-08-01",
-      endDate: "2027-08-10",
+      startDate: "2025-08-01",
+      endDate: "2025-08-10",
       daysEntitled: 10,
     });
 
@@ -307,15 +284,9 @@ describe("GET /v1/employees/:id — lastAcquisitionPeriod", () => {
 
     expect(response.status).toBe(200);
     const body = await response.json();
-    // The vacation's periods are computed from hireDate + vacation's startDate,
-    // not from the manual seed. The vacation's period takes priority over the manual seed.
-    const vacationPeriods = computePeriodsFromHireDate(
-      "2024-01-01",
-      new Date("2027-08-01T00:00:00Z") // vacation startDate
-    );
     expect(body.data.lastAcquisitionPeriod).toEqual({
-      start: vacationPeriods.acquisitionPeriodStart,
-      end: vacationPeriods.acquisitionPeriodEnd,
+      start: "2024-01-01",
+      end: "2024-12-31",
     });
   });
 });

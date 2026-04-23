@@ -70,7 +70,7 @@ describe("GET /v1/vacations", () => {
     const { employee } = await createTestEmployee({
       organizationId,
       userId: user.id,
-      hireDate: "2020-01-01",
+      hireDate: "2024-01-01",
     });
 
     await createTestVacation({
@@ -119,7 +119,7 @@ describe("GET /v1/vacations", () => {
     const { employee } = await createTestEmployee({
       organizationId,
       userId: user.id,
-      hireDate: "2020-01-01",
+      hireDate: "2024-01-01",
     });
 
     const vacation1 = await createTestVacation({
@@ -174,25 +174,29 @@ describe("GET /v1/vacations", () => {
     const { employee: employee1 } = await createTestEmployee({
       organizationId: org1,
       userId: user1.id,
-      hireDate: "2020-01-01",
+      hireDate: "2024-01-01",
     });
 
     const { employee: employee2 } = await createTestEmployee({
       organizationId: org2,
       userId: user2.id,
-      hireDate: "2020-01-01",
+      hireDate: "2024-01-01",
     });
 
     await createTestVacation({
       organizationId: org1,
       userId: user1.id,
       employeeId: employee1.id,
+      startDate: "2025-06-01",
+      endDate: "2025-06-15",
     });
 
     await createTestVacation({
       organizationId: org2,
       userId: user2.id,
       employeeId: employee2.id,
+      startDate: "2025-06-01",
+      endDate: "2025-06-15",
     });
 
     const response = await app.handle(
@@ -222,13 +226,15 @@ describe("GET /v1/vacations", () => {
     const { employee } = await createTestEmployee({
       organizationId,
       userId: user.id,
-      hireDate: "2020-01-01",
+      hireDate: "2024-01-01",
     });
 
     await createTestVacation({
       organizationId,
       userId: user.id,
       employeeId: employee.id,
+      startDate: "2025-06-01",
+      endDate: "2025-06-15",
     });
 
     const memberResult = await createTestUser({ emailVerified: true });
