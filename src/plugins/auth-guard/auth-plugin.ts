@@ -2,7 +2,7 @@ import { Elysia } from "elysia";
 import { type AuthSession, type AuthUser, auth } from "@/lib/auth";
 import { UnauthorizedError } from "@/lib/errors/http-errors";
 import { logger } from "@/lib/logger";
-import { type AuthOptions, parseOptions } from "@/plugins/auth/options";
+import { type AuthOptions, parseOptions } from "@/plugins/auth-guard/options";
 import {
   canBypassSubscriptionCheck,
   extractClientIp,
@@ -11,7 +11,7 @@ import {
   validatePermissions,
   validateRoleRequirements,
   validateSubscriptionAndFeatures,
-} from "@/plugins/auth/validators";
+} from "@/plugins/auth-guard/validators";
 
 export type AuthContext = {
   user: AuthUser;

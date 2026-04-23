@@ -10,7 +10,7 @@ import {
 } from "@/lib/responses/response.types";
 import { capabilitiesResponseSchema } from "@/modules/payments/limits/limits.model";
 import { LimitsService } from "@/modules/payments/limits/limits.service";
-import { betterAuthPlugin } from "@/plugins/auth/auth-plugin";
+import { betterAuthPlugin } from "@/plugins/auth-guard/auth-plugin";
 import {
   cancelSubscriptionBodySchema,
   cancelSubscriptionResponseSchema,

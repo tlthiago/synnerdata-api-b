@@ -1,10 +1,10 @@
 import { cors } from "@elysiajs/cors";
 import { Elysia } from "elysia";
 import { env } from "@/env";
-import { betterAuthPlugin } from "@/plugins/auth/auth-plugin";
-import { errorPlugin } from "@/plugins/errors/error-plugin";
+import { betterAuthPlugin } from "@/plugins/auth-guard/auth-plugin";
+import { errorPlugin } from "@/plugins/error-handler/error-plugin";
 import { healthPlugin } from "@/plugins/health/health-plugin";
-import { loggerPlugin } from "@/plugins/logger/logger-plugin";
+import { loggerPlugin } from "@/plugins/request-logger/logger-plugin";
 import { routesV1 } from "@/routes/v1";
 
 /**

@@ -5,7 +5,7 @@ import {
   forbiddenErrorSchema,
   unauthorizedErrorSchema,
 } from "@/lib/responses/response.types";
-import { betterAuthPlugin } from "@/plugins/auth/auth-plugin";
+import { betterAuthPlugin } from "@/plugins/auth-guard/auth-plugin";
 import {
   cleanupOrphanedPlansResponseSchema,
   listOrphanedPlansResponseSchema,

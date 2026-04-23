@@ -6,9 +6,9 @@ O sistema de logging tem duas camadas com responsabilidades distintas:
 
 | Componente | Arquivo | Responsabilidade |
 |-----------|---------|-----------------|
-| `loggerPlugin` | `src/plugins/logger/logger-plugin.ts` | Access log (todas as requests), `X-Request-ID` header, `requestId` no contexto |
+| `loggerPlugin` | `src/plugins/request-logger/logger-plugin.ts` | Access log (todas as requests), `X-Request-ID` header, `requestId` no contexto |
 | `logger` (Pino util) | `src/lib/logger.ts` | Instância Pino + `shouldIgnore` + `generateRequestId` (utilitário puro, sem lifecycle Elysia) |
-| `errorPlugin` | `src/plugins/errors/error-plugin.ts` | Error log (detalhes de 5xx e unhandled), formatação do envelope de erro |
+| `errorPlugin` | `src/plugins/error-handler/error-plugin.ts` | Error log (detalhes de 5xx e unhandled), formatação do envelope de erro |
 | `request-context` | `src/lib/request-context.ts` | Propagação do `requestId` via `AsyncLocalStorage` para qualquer camada |
 
 ### Fluxo de uma request

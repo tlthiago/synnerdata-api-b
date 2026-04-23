@@ -4,7 +4,7 @@ import {
   unauthorizedErrorSchema,
   validationErrorSchema,
 } from "@/lib/responses/response.types";
-import { extractClientIp } from "@/plugins/auth/validators";
+import { extractClientIp } from "@/plugins/auth-guard/validators";
 import {
   processWebhookResponseSchema,
   processWebhookSchema,
