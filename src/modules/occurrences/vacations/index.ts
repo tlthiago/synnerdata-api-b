@@ -14,7 +14,7 @@ import {
   createVacationSchema,
   deleteVacationResponseSchema,
   employeeIdParamSchema,
-  getActiveCycleResponseSchema,
+  getNextCycleResponseSchema,
   getVacationResponseSchema,
   idParamSchema,
   listVacationsResponseSchema,
@@ -109,10 +109,10 @@ export const vacationController = new Elysia({
     }
   )
   .get(
-    "/employee/:employeeId/active-cycle",
+    "/employee/:employeeId/next-cycle",
     async ({ session, params }) =>
       wrapSuccess(
-        await VacationService.getActiveCycle(
+        await VacationService.getNextCycle(
           params.employeeId,
           session.activeOrganizationId as string
         )
@@ -124,16 +124,16 @@ export const vacationController = new Elysia({
       },
       params: employeeIdParamSchema,
       response: {
-        200: getActiveCycleResponseSchema,
+        200: getNextCycleResponseSchema,
         401: unauthorizedErrorSchema,
         403: forbiddenErrorSchema,
         404: notFoundErrorSchema,
         422: validationErrorSchema,
       },
       detail: {
-        summary: "Get active vacation cycle by employee",
+        summary: "Obter próximo ciclo de férias do funcionário",
         description:
-          "Returns the active acquisition/concessive cycle for an employee (first cycle with daysUsed < 30 and concessive window still open) plus the remaining days balance.",
+          "Retorna o próximo período aquisitivo/concessivo a ser cadastrado, baseado no histórico de férias registradas. Sem histórico → ciclo 1 derivado da admissão. Com histórico → próximo contíguo após o último aquisitivo com 30/30 dias.",
       },
     }
   )
