@@ -70,11 +70,10 @@ Raw token/key **nunca** é logado — só o flag `hasApiKey` se o header `x-api-
 
 ## Errors
 
-Declarados em `src/lib/errors/`:
-
-- `UnauthorizedError` (401) — sessão ausente/expirada
-- `ForbiddenError` (403) — `permissions` falha, `NoActiveOrganizationError`, `AdminRequiredError`, `SuperAdminRequiredError`
-- `SubscriptionRequiredError`, `FeatureNotAvailableError` — de `src/lib/errors/subscription-errors.ts`
+- `UnauthorizedError` (401) — sessão ausente/expirada. De `src/lib/errors/http-errors.ts`
+- `ForbiddenError` (403) — `permissions` falha. De `src/lib/errors/http-errors.ts`
+- `NoActiveOrganizationError`, `AdminRequiredError`, `SuperAdminRequiredError` (403) — declaradas em `validators.ts` deste plugin (extend `ForbiddenError`)
+- `SubscriptionRequiredError`, `FeatureNotAvailableError` (403) — de `src/modules/payments/errors.ts`
 
 ## OpenAPI helper
 
