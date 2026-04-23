@@ -28,7 +28,7 @@ import { ProjectService } from "./project.service";
 
 export const projectController = new Elysia({
   name: "projects",
-  prefix: "/v1/projects",
+  prefix: "/projects",
   detail: { tags: ["Organizations - Projects"] },
 })
   .use(betterAuthPlugin)

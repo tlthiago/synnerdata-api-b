@@ -10,7 +10,7 @@ import { ProvisionStatusService } from "./provision-status.service";
 
 export const provisionStatusController = new Elysia({
   name: "provision-status",
-  prefix: "/v1/public/provision-status",
+  prefix: "/public/provision-status",
   detail: { tags: ["Public - Provision Status"] },
 }).get(
   "/",

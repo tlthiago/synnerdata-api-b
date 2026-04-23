@@ -26,7 +26,7 @@ import { importResponseSchema } from "./import/import.model";
 
 export const employeeController = new Elysia({
   name: "employees",
-  prefix: "/v1/employees",
+  prefix: "/employees",
   detail: { tags: ["Employees"] },
 })
   .use(betterAuthPlugin)

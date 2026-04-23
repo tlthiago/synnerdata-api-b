@@ -23,7 +23,7 @@ import { AbsenceService } from "./absence.service";
 
 export const absenceController = new Elysia({
   name: "absences",
-  prefix: "/v1/absences",
+  prefix: "/absences",
   detail: { tags: ["Occurrences - Absences"] },
 })
   .use(betterAuthPlugin)

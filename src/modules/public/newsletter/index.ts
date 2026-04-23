@@ -10,7 +10,7 @@ import { NewsletterService } from "./newsletter.service";
 
 export const newsletterController = new Elysia({
   name: "newsletter",
-  prefix: "/v1/public/newsletter",
+  prefix: "/public/newsletter",
   detail: { tags: ["Public - Newsletter"] },
 }).post(
   "/subscribe",

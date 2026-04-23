@@ -23,7 +23,7 @@ import { WarningService } from "./warning.service";
 
 export const warningController = new Elysia({
   name: "warnings",
-  prefix: "/v1/warnings",
+  prefix: "/warnings",
   detail: { tags: ["Occurrences - Warnings"] },
 })
   .use(betterAuthPlugin)

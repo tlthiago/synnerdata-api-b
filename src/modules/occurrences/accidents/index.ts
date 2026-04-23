@@ -23,7 +23,7 @@ import { AccidentService } from "./accident.service";
 
 export const accidentController = new Elysia({
   name: "accidents",
-  prefix: "/v1/accidents",
+  prefix: "/accidents",
   detail: { tags: ["Occurrences - Accidents"] },
 })
   .use(betterAuthPlugin)

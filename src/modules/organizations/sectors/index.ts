@@ -23,7 +23,7 @@ import { SectorService } from "./sector.service";
 
 export const sectorController = new Elysia({
   name: "sectors",
-  prefix: "/v1/sectors",
+  prefix: "/sectors",
   detail: { tags: ["Organizations - Sectors"] },
 })
   .use(betterAuthPlugin)

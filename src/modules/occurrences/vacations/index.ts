@@ -24,7 +24,7 @@ import { VacationService } from "./vacation.service";
 
 export const vacationController = new Elysia({
   name: "vacations",
-  prefix: "/v1/vacations",
+  prefix: "/vacations",
   detail: { tags: ["Occurrences - Vacations"] },
 })
   .use(betterAuthPlugin)

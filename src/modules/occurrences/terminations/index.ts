@@ -23,7 +23,7 @@ import { TerminationService } from "./termination.service";
 
 export const terminationController = new Elysia({
   name: "terminations",
-  prefix: "/v1/terminations",
+  prefix: "/terminations",
   detail: { tags: ["Occurrences - Terminations"] },
 })
   .use(betterAuthPlugin)
