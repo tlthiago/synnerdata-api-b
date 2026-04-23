@@ -1,7 +1,7 @@
 import { and, eq, isNull } from "drizzle-orm";
 import { db } from "@/db";
 import { schema } from "@/db/schema";
-import { ensureEmployeeActive } from "@/lib/helpers/employee-status";
+import { ensureEmployeeActive } from "@/modules/employees/status";
 import {
   WarningAcknowledgedBeforeDateError,
   WarningAlreadyDeletedError,
