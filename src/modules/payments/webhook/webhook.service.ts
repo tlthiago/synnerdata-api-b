@@ -4,6 +4,7 @@ import { db } from "@/db";
 import { schema } from "@/db/schema";
 import { env } from "@/env";
 import { logger } from "@/lib/logger";
+import { captureException } from "@/lib/sentry";
 import { WebhookValidationError } from "@/modules/payments/errors";
 import { PaymentHooks } from "@/modules/payments/hooks";
 import { SubscriptionService } from "@/modules/payments/subscription/subscription.service";
@@ -117,6 +118,11 @@ export abstract class WebhookService {
           await WebhookService.handleSubscriptionUpdated(payload);
           break;
         default:
+          logger.info({
+            type: "webhook:unhandled-event-type",
+            eventType: payload.type,
+            eventId: payload.id,
+          });
           break;
       }
 
@@ -125,6 +131,13 @@ export abstract class WebhookService {
         .set({ processedAt: new Date() })
         .where(eq(schema.subscriptionEvents.id, eventId));
     } catch (error) {
+      captureException(error, {
+        tags: {
+          webhook_event_type: payload.type,
+          pagarme_event_id: payload.id,
+        },
+      });
+
       await db
         .update(schema.subscriptionEvents)
         .set({
