@@ -1,9 +1,9 @@
 import { Elysia } from "elysia";
 import { isProduction } from "@/env";
+import { ErrorReporter } from "@/lib/error-reporter";
 import { AppError } from "@/lib/errors/base-error";
 import { logger } from "@/lib/logger";
 import { getRequestId } from "@/lib/request-context";
-import { captureException } from "@/lib/sentry";
 
 const isDev = !isProduction;
 
@@ -60,7 +60,7 @@ export const errorPlugin = new Elysia({ name: "error-handler" })
 
     if (error instanceof AppError) {
       if (error.status >= 500) {
-        captureException(error);
+        ErrorReporter.capture(error);
         const pathname = new URL(request.url).pathname;
         logger.error(
           {
@@ -102,7 +102,7 @@ export const errorPlugin = new Elysia({ name: "error-handler" })
       };
     }
 
-    captureException(error);
+    ErrorReporter.capture(error);
 
     const errorDetail = formatErrorDetail(error);
     const pathname = new URL(request.url).pathname;

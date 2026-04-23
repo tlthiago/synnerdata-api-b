@@ -1,7 +1,10 @@
-import { beforeEach, describe, expect, spyOn, test } from "bun:test";
+import { beforeEach, describe, expect, mock, spyOn, test } from "bun:test";
 import { env } from "@/env";
+import { ErrorReporter } from "@/lib/error-reporter";
 import { logger } from "@/lib/logger";
+import { SubscriptionService } from "@/modules/payments/subscription/subscription.service";
 import { WebhookService } from "@/modules/payments/webhook/webhook.service";
+import { WebhookPayloadBuilder } from "@/test/builders/webhook-payload.builder";
 
 function createValidAuthHeader(): string {
   const credentials = `${env.PAGARME_WEBHOOK_USERNAME}:${env.PAGARME_WEBHOOK_PASSWORD}`;
@@ -65,6 +68,99 @@ describe("WebhookService error escalation", () => {
       expect(row).toBeDefined();
       expect(row.processedAt).not.toBeNull();
       expect(row.error).toBeNull();
+    });
+  });
+
+  describe("ErrorReporter escalation on handler failure", () => {
+    let captureSpy: ReturnType<typeof spyOn<typeof ErrorReporter, "capture">>;
+
+    beforeEach(() => {
+      captureSpy = spyOn(ErrorReporter, "capture").mockImplementation(
+        () => "mock-sentry-id"
+      );
+      captureSpy.mockClear();
+    });
+
+    test("invokes ErrorReporter.capture with tags { webhook_event_type, pagarme_event_id } when handler throws", async () => {
+      const failure = new Error("handler exploded");
+      const originalMarkActive = SubscriptionService.markActive;
+      const stubbedMarkActive = mock(() => Promise.reject(failure));
+      (
+        SubscriptionService as unknown as {
+          markActive: typeof SubscriptionService.markActive;
+        }
+      ).markActive =
+        stubbedMarkActive as unknown as typeof SubscriptionService.markActive;
+
+      const payload = new WebhookPayloadBuilder()
+        .chargePaid()
+        .withOrganizationId("org-forcing-markActive")
+        .build();
+
+      try {
+        await expect(
+          WebhookService.process(payload, createValidAuthHeader())
+        ).rejects.toThrow("handler exploded");
+
+        expect(captureSpy).toHaveBeenCalledTimes(1);
+        const [capturedError, context] = captureSpy.mock.calls[0];
+        expect(capturedError).toBe(failure);
+        expect(context).toMatchObject({
+          tags: {
+            webhook_event_type: "charge.paid",
+            pagarme_event_id: payload.id,
+          },
+        });
+      } finally {
+        (
+          SubscriptionService as unknown as {
+            markActive: typeof SubscriptionService.markActive;
+          }
+        ).markActive = originalMarkActive;
+      }
+    });
+
+    test("still persists the error message to subscription_events.error and rethrows", async () => {
+      const failure = new Error("transient DB timeout");
+      const originalMarkPastDue = SubscriptionService.markPastDue;
+      const stubbedMarkPastDue = mock(() => Promise.reject(failure));
+      (
+        SubscriptionService as unknown as {
+          markPastDue: typeof SubscriptionService.markPastDue;
+        }
+      ).markPastDue =
+        stubbedMarkPastDue as unknown as typeof SubscriptionService.markPastDue;
+
+      const payload = new WebhookPayloadBuilder()
+        .chargePaymentFailed()
+        .withOrganizationId("org-forcing-markPastDue")
+        .build();
+
+      try {
+        await expect(
+          WebhookService.process(payload, createValidAuthHeader())
+        ).rejects.toThrow("transient DB timeout");
+
+        expect(captureSpy).toHaveBeenCalledTimes(1);
+
+        const { db } = await import("@/db");
+        const { schema } = await import("@/db/schema");
+        const { eq } = await import("drizzle-orm");
+        const [row] = await db
+          .select()
+          .from(schema.subscriptionEvents)
+          .where(eq(schema.subscriptionEvents.pagarmeEventId, payload.id))
+          .limit(1);
+
+        expect(row.error).toBe("transient DB timeout");
+        expect(row.processedAt).toBeNull();
+      } finally {
+        (
+          SubscriptionService as unknown as {
+            markPastDue: typeof SubscriptionService.markPastDue;
+          }
+        ).markPastDue = originalMarkPastDue;
+      }
     });
   });
 });

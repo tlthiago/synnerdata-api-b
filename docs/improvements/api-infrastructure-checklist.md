@@ -1225,6 +1225,18 @@ A consultar via `context7` e docs oficiais quando surgir gap específico — **n
 
 Registro temporal das decisões e entregas desta iniciativa. **Toda atualização do documento deve adicionar uma entrada aqui** (data ISO + resumo).
 
+### 2026-04-23 — Onda 5 PR #7 entregue (CP-6 follow-up): `ErrorReporter` wrapper fecha débito de testabilidade
+
+- **Follow-up explícito** do débito declarado no corpo de PR #263 (CP-6, commit `947ae4d`): a chamada `captureException(error, { tags })` dentro do catch do `webhook.service.ts` não tinha teste unitário porque `spyOn` / `mock.module` em named import ESM não intercepta a const local já capturada no load do módulo.
+- **Solução (Opção A — wrapper)**: novo `src/lib/error-reporter.ts` expõe `ErrorReporter.capture(error, context?)` wrapping `captureException` do `@sentry/bun` diretamente. Consumers chamam `ErrorReporter.capture(...)` — property access em objeto compartilhado, trivialmente mockável via `spyOn(ErrorReporter, "capture")`.
+- **Migração de 3 callsites** (todos os consumers de `captureException` em código de produção): `webhook.service.ts:134` (catch do webhook), `error-plugin.ts:63` (5xx AppError branch), `error-plugin.ts:105` (unhandled error branch). `src/lib/sentry.ts` perdeu o re-export de `captureException` e virou puramente side-effect (init com `beforeSend` PII-stripping); `index.ts` continua importando via `import "@/lib/sentry"`.
+- **2 novos tests** (`webhook.error-escalation.test.ts`):
+  - (a) `ErrorReporter.capture` invocada com `(error, { tags: { webhook_event_type, pagarme_event_id } })` quando handler do webhook rejeita
+  - (b) DB `subscription_events.error` persiste a mensagem + `processedAt` fica null + promise rejeita upstream (anti-regressão contra silent swallow)
+- **Suite**: 63 → 65 tests em `webhook/__tests__/`. Full payments suite permanece 448/448.
+- **Por que é Opção A (wrapper) e não B (DI) ou C (@sentry/testing) ou D (preload global)**: wrapper é o caminho de menor custo que destrava testabilidade em **todos os 3 callsites** de uma vez, sem poluir signatures (DI) ou alterar config global de tests (preload). Futuros call sites de reporte de erro usam a mesma API.
+- **PR #7** da Onda 5 — branch simples `refactor/cp-6-error-reporter` (sem worktree, é S).
+
 ### 2026-04-22 — Onda 5 PR #6 entregue (CP-6): webhook Pagar.me hardening
 
 - **CP-6 (M)** — escopo **reframado** após research das docs Pagar.me v5. 3 commits atômicos; branch simples (S/M, sem worktree).
