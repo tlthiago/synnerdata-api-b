@@ -14,6 +14,7 @@ import {
   createVacationSchema,
   deleteVacationResponseSchema,
   employeeIdParamSchema,
+  getActiveCycleResponseSchema,
   getVacationResponseSchema,
   idParamSchema,
   listVacationsResponseSchema,
@@ -104,6 +105,35 @@ export const vacationController = new Elysia({
         summary: "List vacations by employee",
         description:
           "Lists all vacations for a specific employee in the active organization",
+      },
+    }
+  )
+  .get(
+    "/employee/:employeeId/active-cycle",
+    async ({ session, params }) =>
+      wrapSuccess(
+        await VacationService.getActiveCycle(
+          params.employeeId,
+          session.activeOrganizationId as string
+        )
+      ),
+    {
+      auth: {
+        permissions: { vacation: ["read"] },
+        requireOrganization: true,
+      },
+      params: employeeIdParamSchema,
+      response: {
+        200: getActiveCycleResponseSchema,
+        401: unauthorizedErrorSchema,
+        403: forbiddenErrorSchema,
+        404: notFoundErrorSchema,
+        422: validationErrorSchema,
+      },
+      detail: {
+        summary: "Get active vacation cycle by employee",
+        description:
+          "Returns the active acquisition/concessive cycle for an employee (first cycle with daysUsed < 30 and concessive window still open) plus the remaining days balance.",
       },
     }
   )
