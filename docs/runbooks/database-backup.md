@@ -2,7 +2,7 @@
 
 Runbook do processo de backup do Postgres em produção. Gerenciado pelo Coolify (UI) com storage dual — disco local do servidor + Cloudflare R2 (S3-compatible).
 
-Cobre débito #92 do [checklist de infra](../improvements/api-infrastructure-checklist.md) e serve como evidência operacional para LGPD (Art. 41 — capacidade de reconstituir dados em caso de incidente).
+Cobre débito #92 do [catálogo de débitos](../improvements/debts.md) (iniciativa de melhorias da API — [README](../improvements/README.md)) e serve como evidência operacional para LGPD (Art. 41 — capacidade de reconstituir dados em caso de incidente).
 
 ## Estado atual
 
@@ -159,4 +159,4 @@ _Preencher os campos acima com os contatos/logins reais antes da primeira execu�
 - [Coolify — Backup documentation](https://coolify.io/docs/databases/backups)
 - [Postgres pg_restore man page](https://www.postgresql.org/docs/current/app-pgrestore.html)
 - [Cloudflare R2 — S3 API compatibility](https://developers.cloudflare.com/r2/api/s3/)
-- Débito #92 em `docs/improvements/api-infrastructure-checklist.md` (seção 7.7)
+- Débito #92 em [`docs/improvements/debts.md`](../improvements/debts.md)
