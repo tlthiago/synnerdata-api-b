@@ -20,7 +20,7 @@
 
 - ✅ **854 tests pass** (suíte afetada + smoke tests novos do `routes/v1/`)
 - ✅ **Ultracite clean** em 582 files
-- ✅ **56/98 débitos resolvidos** em `debts.md` (+ 2 reavaliados como não-débito) — 40 abertos (#4 + #6 fechados em CP-52)
+- ✅ **60/98 débitos resolvidos** em `debts.md` (+ 2 reavaliados como não-débito) — 38 abertos (+2 fechados em CP-53: #70 + #71 via PR #271)
 - ✅ **Zero débito 🔴** pendente
 - ✅ **Onda 5 (refactors grandes)**: 9/12 entregues (75%) — restam CP-38 (M), CP-44 (M), CP-2 (XL — bloqueado por issue [#269](https://github.com/tlthiago/synnerdata-api-b/issues/269))
 
@@ -57,8 +57,10 @@
 ### Candidatos pós-sync (2026-04-23)
 
 - **CP-51 (S, candidato)** — extrair `paginationQuerySchema` para `lib/schemas/pagination.ts` e migrar 4 callsites (débito #97). Fecha gap de §4.1 #11 + §4.2 #6 do `principles.md`.
-- ✅ **CP-52 entregue (2026-04-23)** — reorganização interna de `src/lib/` (Opção B): 3 commits atômicos, achatamento de 4 subdirs single-file + agrupamento de Better Auth + agrupamento de Sentry. Débitos #4 e #6 fechados. Observações de qualidade anotadas para CP-53.
-- **CP-53 (M, candidato)** — pass de qualidade por arquivo em `src/lib/` após CP-52. Focos: `lib/pii.ts` (zero consumers em prod), `lib/auth/hooks.ts` (368L, mix de concerns), `lib/auth/audit-helpers.ts` (200L). Pipeline Compozy completo (PRD → TechSpec → final-verify).
+- ✅ **CP-52 entregue (2026-04-23)** — reorganização interna de `src/lib/` (Opção B): 3 commits atômicos, achatamento de 4 subdirs single-file + agrupamento de Better Auth + agrupamento de Sentry. Débitos #4 e #6 fechados.
+- ✅ **CP-53 Fase 1 entregue (2026-04-23)** — auditoria de qualidade de 25 arquivos em `src/lib/`, 15 Open Questions registradas em [`open-questions.md`](./open-questions.md). Matriz de ações consolidada.
+- ✅ **CP-53 Fase 2 entregue (2026-04-23, PR #271)** — 10 commits atômicos de fixes objetivos (não-bloqueados por OQs): PII redaction em logs + Sentry, auth/hooks 6 smells, extração de 6 callbacks pra hooks.ts, email env vars + requireTLS, admin allowlist normalize, date-helpers validation, shutdown portability, types tightening. Débitos #70 e #71 fechados, #73 parcial.
+- **CP-53 Fase 3 (pendente)** — fixes bloqueados por OQs (1-15). Destravam conforme OQs forem respondidas.
 - **MP-23 (candidato)** — field-level authorization em responses (débito #98). Sinal: requisito concreto do cliente ou auditoria LGPD Art. 18.
 
 ### Onda 4 (pós-Onda 5) — requer brainstorm
@@ -76,7 +78,8 @@
 | [principles.md](./principles.md) | Padrões agnósticos (qualquer API): princípios de priorização, MVP/Early/Scale, OWASP | Primeira leitura, referência teórica |
 | [project.md](./project.md) | Contexto do projeto, compliance, decisões arquiteturais, audit da Fase 1, organização semântica | Entender o projeto especificamente |
 | [roadmap.md](./roadmap.md) | CPs/RUs/MPs priorizados em 3 buckets + 5 ondas, metodologia Fase 3, política de testes | Ver o que vem agora + como executar |
-| [debts.md](./debts.md) | 98 débitos catalogados — 54 resolvidos, 42 abertos (+2 reavaliados como não-débito) | Rastrear débito específico |
+| [debts.md](./debts.md) | 98 débitos catalogados — 60 resolvidos, 38 abertos (+2 reavaliados como não-débito) | Rastrear débito específico |
+| [open-questions.md](./open-questions.md) | 15 perguntas estratégicas a discutir (OQ-1 a OQ-15) — surgidas no audit CP-53 | Decisões pendentes antes de virar CP |
 | [changelog.md](./changelog.md) | Registro temporal de decisões e entregas (40+ entries) | Saber quando algo foi feito e porquê |
 | [legacy/](./legacy/) | Documentos pré-audit mantidos para referência histórica (`api-maturity-plan.md`, `deployment.md`) — **não atualizar** | Pesquisa histórica somente |
 
@@ -112,6 +115,8 @@ Detalhes completos em [roadmap.md § Metodologia de execução](./roadmap.md).
 - **2026-04-22** — Bucket 🔴 fechado (10/10). Ondas 1/2 concluídas. Onda 3 (PRs A/B/C) entregue. Onda 5 iniciada com CP-1 (XL).
 - **2026-04-23** — Onda 5: CP-6 follow-up (ErrorReporter), CP-3 (routes/v1). PR #267 sweep de 46 débitos §7.7. PR #268 split da doc em 6 arquivos + rename de plugins (`plugins/auth→auth-guard`, `errors→error-handler`, `logger→request-logger`).
 - **2026-04-23 (sync pass)** — Doc audit: `principles.md` sincronizado com realidade (9 Status ⚠️/❌ → ✅ + 7 `?` classificados). `api-maturity-plan.md` + `deployment.md` arquivados em `legacy/`. Débitos novos #97 (paginação schema) e #98 (field-level authz) registrados. `bun pm audit` → `bun audit`.
-- **2026-04-23 (CP-52)** — Reorganização interna de `src/lib/`: achatamento de 4 subdirs single-file, agrupamento de Better Auth (`permissions` + `password-complexity` → `lib/auth/`), agrupamento de Sentry (`sentry.ts` + `error-reporter.ts` → `lib/sentry/`). Débitos #4 e #6 fechados. Observações de qualidade anotadas para CP-53 (pass futuro de code review por arquivo).
+- **2026-04-23 (CP-52)** — Reorganização interna de `src/lib/`: achatamento de 4 subdirs single-file, agrupamento de Better Auth (`permissions` + `password-complexity` → `lib/auth/`), agrupamento de Sentry (`sentry.ts` + `error-reporter.ts` → `lib/sentry/`). Débitos #4 e #6 fechados.
+- **2026-04-23 (CP-53 Fase 1)** — Auditoria de qualidade de 25 arquivos em `src/lib/` (8 agentes paralelos + 8 arquivos triviais auditados pelo parent). 15 Open Questions registradas. Matriz consolidada em changelog.
+- **2026-04-23 (CP-53 Fase 2 — PR #271)** — 10 commits atômicos de fixes objetivos não-bloqueados por OQs. Destaques: PII redaction em logs/Sentry (LGPD), extração de 6 callbacks do auth.ts, admin allowlist normalize (whitespace/case bug), email env vars. 707/707 tests passando. Débitos #70 e #71 fechados.
 
 Changelog completo: [changelog.md](./changelog.md).

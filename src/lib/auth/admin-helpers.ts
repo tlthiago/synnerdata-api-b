@@ -2,13 +2,21 @@ import { env } from "@/env";
 import { sendWelcomeEmail } from "@/lib/email";
 import { logger } from "@/lib/logger";
 
+function normalizeEmailList(raw: string): string[] {
+  return raw
+    .split(",")
+    .map((email) => email.trim().toLowerCase())
+    .filter(Boolean);
+}
+
 export function getAdminEmails(): {
   superAdmins: string[];
   admins: string[];
 } {
-  const superAdmins = env.SUPER_ADMIN_EMAILS.split(",").filter(Boolean);
-  const admins = env.ADMIN_EMAILS.split(",").filter(Boolean);
-  return { superAdmins, admins };
+  return {
+    superAdmins: normalizeEmailList(env.SUPER_ADMIN_EMAILS),
+    admins: normalizeEmailList(env.ADMIN_EMAILS),
+  };
 }
 
 export async function handleWelcomeEmail(user: {

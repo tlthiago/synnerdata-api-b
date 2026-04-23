@@ -1,12 +1,24 @@
 import { APIError } from "better-auth/api";
-import type { Organization } from "better-auth/plugins/organization";
+import type {
+  Invitation,
+  Member,
+  Organization,
+} from "better-auth/plugins/organization";
 import type { User } from "better-auth/types";
 import { and, eq } from "drizzle-orm";
 import { db } from "@/db";
 import { roleValues, schema } from "@/db/schema";
 import { env } from "@/env";
 import { getAdminEmails } from "@/lib/auth/admin-helpers";
-import { auditOrganizationCreate } from "@/lib/auth/audit-helpers";
+import {
+  auditInvitationAccept,
+  auditMemberAdd,
+  auditMemberRemove,
+  auditMemberRoleUpdate,
+  auditOrganizationCreate,
+  auditOrganizationDelete,
+  auditOrganizationUpdate,
+} from "@/lib/auth/audit-helpers";
 import { validateUniqueRole } from "@/lib/auth/validators";
 import {
   sendOrganizationInvitationEmail,
@@ -24,7 +36,7 @@ export async function sendPasswordResetForProvisionOrDefault({
   user: { id: string; email: string; name: string };
   url: string;
 }): Promise<void> {
-  const provision = await db.query.adminOrgProvisions?.findFirst({
+  const provision = await db.query.adminOrgProvisions.findFirst({
     where: and(
       eq(schema.adminOrgProvisions.userId, user.id),
       eq(schema.adminOrgProvisions.status, "pending_activation")
@@ -43,6 +55,7 @@ export async function sendPasswordResetForProvisionOrDefault({
         url,
         userId: user.id,
       });
+      await sendPasswordResetEmail({ email: user.email, url });
       return;
     }
 
@@ -74,7 +87,7 @@ export async function sendPasswordResetForProvisionOrDefault({
 export async function activateProvisionOnPasswordReset(user: {
   id: string;
 }): Promise<void> {
-  const provision = await db.query.adminOrgProvisions?.findFirst({
+  const provision = await db.query.adminOrgProvisions.findFirst({
     where: and(
       eq(schema.adminOrgProvisions.userId, user.id),
       eq(schema.adminOrgProvisions.status, "pending_activation")
@@ -149,18 +162,16 @@ export async function validateUserBeforeDelete(user: {
 
 type UserCreatePayload = User & { email: string };
 type UserCreateResult = {
-  data:
-    | UserCreatePayload
-    | (UserCreatePayload & { role: string; emailVerified: true })
-    | (UserCreatePayload & { emailVerified: true });
+  data: UserCreatePayload & { role?: string; emailVerified?: boolean };
 };
 
 export async function applyAdminRolesBeforeUserCreate(
   user: UserCreatePayload
 ): Promise<UserCreateResult> {
   const { superAdmins, admins } = getAdminEmails();
+  const normalizedEmail = user.email.toLowerCase();
 
-  if (superAdmins.includes(user.email)) {
+  if (superAdmins.includes(normalizedEmail)) {
     return {
       data: {
         ...user,
@@ -170,7 +181,7 @@ export async function applyAdminRolesBeforeUserCreate(
     };
   }
 
-  if (admins.includes(user.email)) {
+  if (admins.includes(normalizedEmail)) {
     return {
       data: {
         ...user,
@@ -222,13 +233,17 @@ export async function activateAdminProvisionOnLogin(session: {
         eq(schema.adminOrgProvisions.status, "pending_activation")
       )
     )
-    .catch(() => {
-      // Silently ignore — should not affect normal login flow
+    .catch((error) => {
+      logger.error({
+        type: "admin-provision:login-activation:failed",
+        userId: session.userId,
+        error: error instanceof Error ? error.message : String(error),
+      });
     });
 }
 
 export async function validateCanCreateOrganization(
-  user: User & Record<string, unknown>
+  user: User & { role?: string; email: string }
 ): Promise<boolean> {
   if (user.role !== "user") {
     return false;
@@ -279,8 +294,7 @@ export async function validateBeforeCreateInvitation({
   invitation: { role: string; email: string };
   organization: Organization;
 }): Promise<void> {
-  const validRoles = roleValues as readonly string[];
-  if (!validRoles.includes(invitation.role)) {
+  if (!(roleValues as readonly string[]).includes(invitation.role)) {
     throw new APIError("BAD_REQUEST", {
       code: "INVALID_ORGANIZATION_ROLE",
       message: `Role inválida: "${invitation.role}". Roles válidas: ${roleValues.join(", ")}`,
@@ -336,6 +350,98 @@ export async function triggerAfterCreateOrganizationEffects({
       error: error instanceof Error ? error.message : String(error),
     });
   });
+}
+
+export async function onOrganizationUpdated({
+  organization: org,
+  user,
+}: {
+  organization: Organization | null;
+  user: User;
+}): Promise<void> {
+  if (org) {
+    await auditOrganizationUpdate(org, user.id);
+  }
+}
+
+export async function onOrganizationDeleted({
+  organization: org,
+  user,
+}: {
+  organization: Organization | null;
+  user: User;
+}): Promise<void> {
+  if (org) {
+    await auditOrganizationDelete(org, user.id);
+  }
+}
+
+export async function onInvitationAccepted({
+  invitation,
+  member,
+  organization: org,
+}: {
+  invitation: Invitation;
+  member: Member;
+  organization: Organization;
+}): Promise<void> {
+  await auditInvitationAccept(
+    { id: invitation.id, email: invitation.email, role: invitation.role },
+    { id: member.id, userId: member.userId },
+    org.id
+  );
+}
+
+export async function onMemberRoleUpdated({
+  member,
+  previousRole,
+  user,
+  organization: org,
+}: {
+  member: Member;
+  previousRole: string;
+  user: User;
+  organization: Organization;
+}): Promise<void> {
+  await auditMemberRoleUpdate({
+    member: { id: member.id, userId: member.userId },
+    previousRole,
+    newRole: member.role,
+    organizationId: org.id,
+    updatedByUserId: user.id,
+  });
+}
+
+export async function onMemberAdded({
+  member,
+  user,
+  organization: org,
+}: {
+  member: Member;
+  user: User;
+  organization: Organization;
+}): Promise<void> {
+  await auditMemberAdd(
+    { id: member.id, userId: member.userId, role: member.role },
+    org.id,
+    user.id
+  );
+}
+
+export async function onMemberRemoved({
+  member,
+  user,
+  organization: org,
+}: {
+  member: Member;
+  user: User;
+  organization: Organization;
+}): Promise<void> {
+  await auditMemberRemove(
+    { id: member.id, userId: member.userId, role: member.role },
+    org.id,
+    user.id
+  );
 }
 
 export async function validateBeforeDeleteOrganization({

@@ -11,6 +11,46 @@
 
 Registro temporal das decisões e entregas desta iniciativa. **Toda atualização do documento deve adicionar uma entrada aqui** (data ISO + resumo).
 
+### 2026-04-23 — CP-53 Fase 2 entregue: 10 fixes objetivos em `src/lib/` (PR #271)
+
+Executa fixes de qualidade identificados na Fase 1 do CP-53 **que não dependem de Open Questions estratégicas**. Escopo disciplinado após pushback válido do dono:
+
+> "porque deletar ValidationError e InternalError, não iremos utilizar? algo que você está sugerindo é over engineering?"
+
+Cortados da proposta original (over-engineering detectado e removido):
+
+- **Reverted**: deletar `ValidationError`/`InternalError` — scaffolding coerente da hierarquia HTTP, custo de manter = 5 linhas, churn de deletar = iminente
+- **Dropped**: extrair helper `assertNoActiveSubscription` — duplicação em 2 lugares não justifica abstração (rule of three)
+- **Dropped**: estender `buildAuditEntry` com ipAddress/userAgent — YAGNI, nenhum caller passa
+- **Dropped**: derivar `SuccessResponse<T>` TS type via z.infer — duplicação mínima, risk de tipos estranhos
+- **Dropped**: exportar `RequestContext` type — "for extensibility" sem consumer = YAGNI
+- **Dropped**: narrow `AppError.status` para `HttpErrorStatus` — blast radius de 25 errors.ts. Type exportado, sweep fica pra futuro
+- **Dropped**: converter `beforeRemoveMember` para async — ultracite `useAwait` falha em async sem await; trade-off atual é o válido
+
+**10 commits atômicos** na branch `refactor/cp-53-lib-quality-fixes`:
+
+| # | Commit | Severidade | Escopo |
+|---|---|---|---|
+| 1 | `71c16fa` refactor(logger+sentry): redact PII in logs + Sentry event body (CP-54) | 🔴 LGPD | Pino `redact.paths` cobrindo auth headers, campos PII brasileiros (cpf, rg, pisPasep, ctps, salary, hourlyRate, birthDate, cid), `password`, `card.*`. Sentry `beforeSend` estendido para scrub recursivo de `event.request.data` via `PII_FIELDS` de `modules/audit/pii-redaction.ts` — single source of truth. |
+| 2 | `d34dcc3` refactor(auth/hooks): 6 code smells | 🔴 hygiene | Silent `.catch(() => {})` em `activateAdminProvisionOnLogin` → log estruturado com userId. URL token extraction em `sendPasswordResetForProvisionOrDefault` ganha fallback pro default reset se extraction falhar. Defensive `?.` em `db.query.adminOrgProvisions` removido (2 lugares). Cast `roleValues as readonly string[]` inline no use site. `UserCreateResult` union 3-variantes simplificado para shape único. Tipo `Record<string, unknown>` em `validateCanCreateOrganization` trocado por `User & { role?: string; email: string }`. |
+| 3 | `efbdf38` refactor(auth): extract 6 organization lifecycle callbacks to hooks.ts | 🟡 convention | 6 callbacks inline em `lib/auth.ts` (5-10 linhas cada) extraídos como `on<Event>` (`onOrganizationUpdated`, `onOrganizationDeleted`, `onInvitationAccepted`, `onMemberRoleUpdated`, `onMemberAdded`, `onMemberRemoved`). Alinha com convenção documentada em `lib/auth/CLAUDE.md`. `auth.ts` reduziu de 339→230 linhas. Comentário de `sendVerificationEmail` atualizado (antes falava só de admins, invitees também caem). |
+| 4 | `edfa6db` docs(audit-helpers): document why auditOrganizationUpdate lacks before state | 🟢 clarity | Comentário inline explica que BA's `afterUpdateOrganization` hook não expõe pre-update state. Para obter diff `before/after` seria preciso adicionar `beforeUpdateOrganization` hook + stash em ALS. Fora do escopo deste audit. |
+| 5 | `cc79fd5` refactor(email): extract hardcoded recipients to env + requireTLS in prod | 🟡 config | Débitos #70 (hardcoded `"contato@synnerdata.com.br"`) e #71 (SMTP_USER como destino admin) fechados. Novas env vars: `CONTACT_INBOX_EMAIL` (default preserva comportamento), `ADMIN_NOTIFICATION_EMAIL` (opcional). `requireTLS: env.NODE_ENV === "production" && env.SMTP_PORT !== 465` explícito — STARTTLS garantido em SMTP 587 prod. |
+| 6 | `3793320` fix(auth/admin-helpers): normalize admin allowlist | 🔴 silent bug | `env.SUPER_ADMIN_EMAILS` / `ADMIN_EMAILS` agora são normalizados (trim + lowercase). `applyAdminRolesBeforeUserCreate` também lowercase `user.email` antes de comparar. Antes: `"Admin@X.com"` no env não batia com user.email `"admin@x.com"` — signup não atribuía role admin, sem erro visível. |
+| 7 | `9d23a4c` refactor(date-helpers): validate inputs + document semantics | 🟢 robustness | `isFutureDate`/`isFutureDatetime` agora explicit `Number.isNaN(getTime())` check. `calculateDaysBetween` throw `RangeError` em input inválido (era NaN silencioso). JSDoc documenta timezone (server-local em `isFutureDate`, UTC em `calculateDaysBetween`) e `+1` inclusive count. |
+| 8 | `4dcc171` refactor(shutdown): portable sleep + exit code + pool.end timeout | 🟡 resilience | `Bun.sleep` → wrapper `setTimeout`-Promise (portabilidade — `type ElysiaLike` sugeria abstração). `process.exit(0)` hardcoded → `exit(dbClosedCleanly ? 0 : 1)` — supervisor (Docker/k8s) detecta falha de teardown. Novo `withTimeout(pool.end(), dbCloseTimeoutMs)` — evita hang indefinido em pool travado. |
+| 9 | `b2384de` docs(zod-config): document side-effect contract | 🟢 clarity | JSDoc header em arquivo de 3 linhas. Documenta: side-effect, import once no bootstrap, locale pt-BR global, override per-schema. |
+| 10 | `cb61820` refactor(base-error+responses): tighten types and add HttpErrorStatus alias | 🟡 types | Type `HttpErrorStatus = 400 \| 401 \| 403 \| 404 \| 409 \| 422 \| 429 \| 500` exportado de `base-error.ts`. Não aplicado a `AppError.status` agora (blast radius de 25 errors.ts em modules/). Disponível para sweep futuro. `paginationMetaSchema` campos agora `z.number().int().nonnegative()` — OpenAPI gera `type: integer, minimum: 0` ao invés de `type: number`. |
+
+**Validação consolidada**:
+- `bunx tsc --noEmit` clean após cada commit
+- `npx ultracite check` clean (583 files)
+- 707/707 tests afetados passam (lib/* + plugins/* + auth + admin/api-keys + payments/webhook + organizations/profile + employees + medical-certificates)
+
+**Débitos fechados**: #70 (hardcoded contact email), #71 (SMTP_USER misuso como admin). #73 (transporter conditional) parcialmente endereçado via `requireTLS`.
+
+**Blocked**: fixes que dependem de OQs permanecem pendentes (Fase 3). Ver [open-questions.md](./open-questions.md) para as 15 questões.
+
 ### 2026-04-23 — CP-53 Fase 1: auditoria de qualidade de `src/lib/` (25 arquivos)
 
 Auditoria completa de todos os arquivos de `src/lib/` focada em **qualidade de implementação** (idiomatic patterns, bad patterns, code smells, dead code, duplications, type safety). Feita após CP-52 (reorganização estrutural) — agora que a organização está firmada, revisar o que está dentro.

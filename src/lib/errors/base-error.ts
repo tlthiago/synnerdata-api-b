@@ -1,3 +1,11 @@
+/**
+ * Valid HTTP error status codes used by AppError subclasses.
+ * Exported for future narrowing of domain error base classes (today they
+ * declare `status: number`, widening back to number — tracked for a
+ * follow-up sweep).
+ */
+export type HttpErrorStatus = 400 | 401 | 403 | 404 | 409 | 422 | 429 | 500;
+
 export type ErrorResponse = {
   success: false;
   error: {

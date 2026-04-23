@@ -25,6 +25,7 @@ const transporter = createTransport({
   host: env.SMTP_HOST,
   port: env.SMTP_PORT,
   secure: env.SMTP_PORT === 465,
+  requireTLS: env.NODE_ENV === "production" && env.SMTP_PORT !== 465,
   auth:
     env.SMTP_USER && env.SMTP_PASSWORD
       ? { user: env.SMTP_USER, pass: env.SMTP_PASSWORD }
@@ -426,7 +427,7 @@ export async function sendAdminCancellationNoticeEmail(params: {
   reason?: string;
   comment?: string;
 }) {
-  if (!env.SMTP_USER) {
+  if (!env.ADMIN_NOTIFICATION_EMAIL) {
     return;
   }
 
@@ -441,7 +442,7 @@ export async function sendAdminCancellationNoticeEmail(params: {
     />
   );
   await sendEmail({
-    to: env.SMTP_USER,
+    to: env.ADMIN_NOTIFICATION_EMAIL,
     subject: `[Cancelamento] ${params.organizationName} — Plano ${params.planName}`,
     html,
     text,
@@ -471,7 +472,7 @@ export async function sendContactEmail(params: {
     />
   );
   await sendEmail({
-    to: "contato@synnerdata.com.br",
+    to: env.CONTACT_INBOX_EMAIL,
     subject: `[Contato Site] ${params.subject}`,
     html,
     text,
