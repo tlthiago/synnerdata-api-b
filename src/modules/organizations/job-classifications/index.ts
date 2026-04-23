@@ -23,7 +23,7 @@ import { JobClassificationService } from "./job-classification.service";
 
 export const jobClassificationController = new Elysia({
   name: "job-classifications",
-  prefix: "/v1/job-classifications",
+  prefix: "/job-classifications",
   detail: { tags: ["Organizations - Job Classifications"] },
 })
   .use(betterAuthPlugin)

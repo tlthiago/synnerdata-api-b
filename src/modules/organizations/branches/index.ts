@@ -23,7 +23,7 @@ import { BranchService } from "./branch.service";
 
 export const branchController = new Elysia({
   name: "branches",
-  prefix: "/v1/branches",
+  prefix: "/branches",
   detail: { tags: ["Organizations - Branches"] },
 })
   .use(betterAuthPlugin)

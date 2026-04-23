@@ -11,21 +11,15 @@ import { parseOrigins } from "./lib/cors";
 import { logger } from "./lib/logger";
 import { extractErrorMessages } from "./lib/openapi/error-messages";
 import { setupGracefulShutdown } from "./lib/shutdown/shutdown";
-import { adminController } from "./modules/admin";
-import { auditController } from "./modules/audit";
-import { employeeController } from "./modules/employees";
 import { registerEmployeeListeners } from "./modules/employees/hooks/listeners";
-import { occurrencesController } from "./modules/occurrences";
-import { organizationController } from "./modules/organizations";
-import { paymentsController } from "./modules/payments";
 import { registerPaymentListeners } from "./modules/payments/hooks/listeners";
-import { publicController } from "./modules/public";
 import { betterAuthPlugin } from "./plugins/auth/auth-plugin";
 import { OpenAPI } from "./plugins/auth/openapi-enhance";
 import { cronPlugin } from "./plugins/cron/cron-plugin";
 import { errorPlugin } from "./plugins/errors/error-plugin";
 import { healthPlugin } from "./plugins/health/health-plugin";
 import { loggerPlugin } from "./plugins/logger/logger-plugin";
+import { routesV1 } from "./routes/v1";
 
 const corsOrigins = parseOrigins(env.CORS_ORIGIN);
 
@@ -111,13 +105,7 @@ const app = new Elysia({
     })
   )
   .use(cronPlugin)
-  .use(organizationController)
-  .use(employeeController)
-  .use(occurrencesController)
-  .use(paymentsController)
-  .use(auditController)
-  .use(adminController)
-  .use(publicController)
+  .use(routesV1)
   .get("/", ({ redirect }) => redirect("/health"));
 
 registerPaymentListeners();

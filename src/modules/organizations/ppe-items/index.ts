@@ -28,7 +28,7 @@ import { PpeItemService } from "./ppe-item.service";
 
 export const ppeItemController = new Elysia({
   name: "ppe-items",
-  prefix: "/v1/ppe-items",
+  prefix: "/ppe-items",
   detail: { tags: ["Organizations - PPE Items"] },
 })
   .use(betterAuthPlugin)

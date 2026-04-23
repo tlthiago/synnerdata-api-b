@@ -16,7 +16,7 @@ import { CboOccupationService } from "./cbo-occupation.service";
 
 export const cboOccupationController = new Elysia({
   name: "cbo-occupations",
-  prefix: "/v1/cbo-occupations",
+  prefix: "/cbo-occupations",
   detail: { tags: ["CBO Occupations"] },
 })
   .use(betterAuthPlugin)

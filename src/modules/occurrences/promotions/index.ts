@@ -28,7 +28,7 @@ const EMPLOYEE_REVERTED_MESSAGE =
 
 export const promotionController = new Elysia({
   name: "promotions",
-  prefix: "/v1/promotions",
+  prefix: "/promotions",
   detail: { tags: ["Occurrences - Promotions"] },
 })
   .use(betterAuthPlugin)

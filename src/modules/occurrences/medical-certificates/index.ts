@@ -24,7 +24,7 @@ import { MedicalCertificateService } from "./medical-certificates.service";
 
 export const medicalCertificatesController = new Elysia({
   name: "medical-certificates",
-  prefix: "/v1/medical-certificates",
+  prefix: "/medical-certificates",
   detail: { tags: ["Occurrences - Medical Certificates"] },
 })
   .use(betterAuthPlugin)

@@ -25,7 +25,7 @@ import { LaborLawsuitService } from "./labor-lawsuit.service";
 
 export const laborLawsuitController = new Elysia({
   name: "labor-lawsuits",
-  prefix: "/v1/labor-lawsuits",
+  prefix: "/labor-lawsuits",
   detail: { tags: ["Occurrences - Labor Lawsuits"] },
 })
   .use(betterAuthPlugin)

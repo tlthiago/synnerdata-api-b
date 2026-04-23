@@ -24,7 +24,7 @@ import { CpfAnalysisService } from "./cpf-analysis.service";
 
 export const cpfAnalysisController = new Elysia({
   name: "cpf-analyses",
-  prefix: "/v1/cpf-analyses",
+  prefix: "/cpf-analyses",
   detail: { tags: ["Occurrences - CPF Analyses"] },
 })
   .use(betterAuthPlugin)
