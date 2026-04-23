@@ -38,7 +38,7 @@ Arquivo `<nome>-plugin.ts` exporta **somente** o plugin e types relacionados. Ut
 
 Exemplo (logger):
 - `src/lib/logger.ts` → `export const logger = pino(...)` (util)
-- `src/plugins/logger/logger-plugin.ts` → `export const loggerPlugin = new Elysia(...)` (plugin que consome o util)
+- `src/plugins/request-logger/logger-plugin.ts` → `export const loggerPlugin = new Elysia(...)` (plugin que consome o util)
 
 ### Tests colocalizados
 

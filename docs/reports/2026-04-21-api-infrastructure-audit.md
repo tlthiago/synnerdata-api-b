@@ -1,9 +1,9 @@
 # Relatório de Auditoria de Infraestrutura da API
 
 **Data:** 2026-04-21
-**Escopo:** Fase 1 do fluxo definido em `docs/improvements/api-infrastructure-checklist.md`
+**Escopo:** Fase 1 do fluxo definido em [`docs/improvements/`](../improvements/README.md) (matriz agnóstica em [principles.md](../improvements/principles.md), aplicação em [project.md](../improvements/project.md))
 **Status:** ✅ Concluído (Blocos 1-6 + relatório)
-**Próximo passo:** Fase 2 — consolidação do roadmap priorizado (seção 7.5 do checklist)
+**Próximo passo:** Fase 2 — consolidação do roadmap priorizado (ver [roadmap.md](../improvements/roadmap.md))
 
 ---
 
@@ -175,7 +175,7 @@ Proposta preliminar de buckets para o roadmap (a consolidar na Fase 2):
 - [Node.js Security Best Practices 2026](https://medium.com/@sparklewebhelp/node-js-security-best-practices-for-2026-3b27fb1e8160)
 
 **Fontes internas:**
-- `docs/improvements/api-infrastructure-checklist.md` — matriz de referência
+- [`docs/improvements/`](../improvements/README.md) — iniciativa de improvements (README + principles/project/roadmap/debts/changelog)
 - `docs/code-standards/module-code-standards.md` — padrões do projeto
 - CLAUDE.md por módulo (audit, payments/webhook, admin, admin/api-keys, public, logger)
 - avocado-hp (`apps/server/src/`) — benchmark pareado

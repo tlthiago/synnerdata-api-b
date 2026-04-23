@@ -9,7 +9,7 @@ import { SubscriptionService } from "@/modules/payments/subscription/subscriptio
 import {
   needsSubscriptionValidation,
   type ParsedAuthOptions,
-} from "@/plugins/auth/options";
+} from "@/plugins/auth-guard/options";
 
 export class NoActiveOrganizationError extends ForbiddenError {
   code = "NO_ACTIVE_ORGANIZATION";

@@ -2,7 +2,7 @@ import { beforeEach, describe, expect, spyOn, test } from "bun:test";
 import Elysia from "elysia";
 import { env } from "@/env";
 import { logger } from "@/lib/logger";
-import { betterAuthPlugin } from "@/plugins/auth/auth-plugin";
+import { betterAuthPlugin } from "@/plugins/auth-guard/auth-plugin";
 
 const BASE_URL = env.API_URL;
 

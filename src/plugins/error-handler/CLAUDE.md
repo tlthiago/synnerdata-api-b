@@ -35,12 +35,12 @@ Sem `.as("scoped")`, o `.onError` propagaria apenas por escopo `global` dos hook
 
 ### Proibição de `status()` do Elysia
 
-O plugin atribui diretamente `set.status = error.status` em vez de chamar `status(N)`. Razão em `src/plugins/logger/CLAUDE.md` (bug de lifecycle do Elysia).
+O plugin atribui diretamente `set.status = error.status` em vez de chamar `status(N)`. Razão em `src/plugins/request-logger/CLAUDE.md` (bug de lifecycle do Elysia).
 
 ## Consumers
 
 - `src/index.ts` — primeiro no bootstrap (antes de loggerPlugin, para que erros ao gerar requestId sejam capturados)
-- `src/test/support/app.ts`, `src/test/helpers/app.ts`, `src/plugins/logger/__tests__/logger-plugin.test.ts`, `src/lib/ratelimit/__tests__/ratelimit.test.ts`
+- `src/test/support/app.ts`, `src/test/helpers/app.ts`, `src/plugins/request-logger/__tests__/logger-plugin.test.ts`
 
 ## Envelope de erro
 
