@@ -29,6 +29,8 @@ export const envSchema = z
     SMTP_PASSWORD: z.string().optional(),
     SMTP_FROM: z.email().default("noreply@synnerdata.com"),
     SMTP_FROM_NAME: z.string().min(1).optional(),
+    CONTACT_INBOX_EMAIL: z.email().default("contato@synnerdata.com.br"),
+    ADMIN_NOTIFICATION_EMAIL: z.email().optional(),
     SUPER_ADMIN_EMAILS: z.string().default(""),
     ADMIN_EMAILS: z.string().default(""),
     INTERNAL_API_KEY: z.string().min(32),
