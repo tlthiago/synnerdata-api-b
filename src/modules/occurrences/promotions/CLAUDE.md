@@ -38,5 +38,5 @@ Registro de promoções com mudança de cargo e salário. Sincroniza automaticam
 - `InvalidPromotionDataError` (422) — cargo igual ou salário não aumentou
 - `PromotionDuplicateDateError` (409) — same employee + same date
 - `PromotionNotLatestError` (422) — tentativa de editar/deletar promoção que não é a mais recente
-- `EmployeeTerminatedError` (422) — shared, from `src/lib/errors/employee-status-errors.ts`
-- `EmployeeOnVacationError` (422) — shared, from `src/lib/errors/employee-status-errors.ts`
+- `EmployeeTerminatedError` (422) — shared, from `src/modules/employees/errors.ts`
+- `EmployeeOnVacationError` (422) — shared, from `src/modules/employees/errors.ts`

@@ -1,9 +1,9 @@
 import { aliasedTable, and, eq, isNull } from "drizzle-orm";
 import { db } from "@/db";
 import { schema } from "@/db/schema";
-import { ensureEmployeeActive } from "@/lib/helpers/employee-status";
 import type { EntityReference } from "@/lib/schemas/relationships";
 import { EmployeeService } from "@/modules/employees/employee.service";
+import { ensureEmployeeActive } from "@/modules/employees/status";
 import { JobPositionService } from "@/modules/organizations/job-positions/job-position.service";
 import {
   InvalidPromotionDataError,

@@ -60,7 +60,7 @@ Prioridade: `in_progress` > `scheduled` > `ACTIVE`. O helper consulta todas as f
 - `VacationAquisitivoExceededError` (422) -- soma de `daysEntitled` no aquisitivo excederia 30 dias. Details: `{ acquisitionPeriodStart, acquisitionPeriodEnd, currentTotal, requestedDays, daysRemaining, maxAllowed: 30 }`.
 - `VacationNoRightsError` (422) -- `startDate` anterior ao primeiro aniversario da admissao
 - `VacationOverlapError` (409) -- same employee + overlapping dates (excluding canceled)
-- `EmployeeTerminatedError` (422) -- shared, from `src/lib/errors/employee-status-errors.ts`
+- `EmployeeTerminatedError` (422) -- shared, from `src/modules/employees/errors.ts`
 
 ## Scheduled Jobs
 

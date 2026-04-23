@@ -33,5 +33,5 @@ Registro de advertências e suspensões disciplinares.
 - `WarningInvalidEmployeeError` (422)
 - `WarningAcknowledgedBeforeDateError` (422)
 - `WarningDuplicateError` (409) — same employee + date + type
-- `EmployeeTerminatedError` (422) — shared, from `src/lib/errors/employee-status-errors.ts`
-- `EmployeeOnVacationError` (422) — shared, from `src/lib/errors/employee-status-errors.ts`
+- `EmployeeTerminatedError` (422) — shared, from `src/modules/employees/errors.ts`
+- `EmployeeOnVacationError` (422) — shared, from `src/modules/employees/errors.ts`

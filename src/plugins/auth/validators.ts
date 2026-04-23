@@ -3,7 +3,7 @@ import { ForbiddenError } from "@/lib/errors/http-errors";
 import {
   FeatureNotAvailableError,
   SubscriptionRequiredError,
-} from "@/lib/errors/subscription-errors";
+} from "@/modules/payments/errors";
 import { LimitsService } from "@/modules/payments/limits/limits.service";
 import { SubscriptionService } from "@/modules/payments/subscription/subscription.service";
 import {

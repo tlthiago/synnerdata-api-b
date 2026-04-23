@@ -1,10 +1,10 @@
 import { and, eq, isNull, sql } from "drizzle-orm";
 import { db } from "@/db";
 import { schema } from "@/db/schema";
-import { ensureEmployeeActive } from "@/lib/helpers/employee-status";
 import { calculateDaysBetween } from "@/lib/schemas/date-helpers";
 import { AuditService } from "@/modules/audit/audit.service";
 import { buildAuditChanges } from "@/modules/audit/pii-redaction";
+import { ensureEmployeeActive } from "@/modules/employees/status";
 import {
   MedicalCertificateAlreadyDeletedError,
   MedicalCertificateInvalidDaysOffError,

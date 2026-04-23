@@ -86,6 +86,18 @@ export class SubscriptionNotRestorableError extends PaymentError {
   }
 }
 
+export class SubscriptionRequiredError extends PaymentError {
+  status = 403;
+
+  constructor(subscriptionStatus: string) {
+    super(
+      `Assinatura necessária. Status atual: ${subscriptionStatus}`,
+      "SUBSCRIPTION_REQUIRED",
+      { subscriptionStatus }
+    );
+  }
+}
+
 export class TrialAlreadyUsedError extends PaymentError {
   status = 400;
 
@@ -185,14 +197,6 @@ export class OrganizationNotFoundError extends PaymentError {
         organizationId,
       }
     );
-  }
-}
-
-export class NoActiveOrganizationError extends PaymentError {
-  status = 400;
-
-  constructor() {
-    super("Nenhuma organização ativa na sessão", "NO_ACTIVE_ORGANIZATION");
   }
 }
 

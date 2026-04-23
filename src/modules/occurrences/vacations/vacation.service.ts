@@ -1,8 +1,8 @@
 import { and, eq, isNull, sql } from "drizzle-orm";
 import { db } from "@/db";
 import { schema } from "@/db/schema";
-import { ensureEmployeeNotTerminated } from "@/lib/helpers/employee-status";
 import { calculateDaysBetween } from "@/lib/schemas/date-helpers";
+import { ensureEmployeeNotTerminated } from "@/modules/employees/status";
 import { computePeriodsFromHireDate } from "@/modules/occurrences/vacations/period-calculation";
 import {
   VacationAlreadyDeletedError,

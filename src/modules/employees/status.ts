@@ -4,7 +4,7 @@ import { schema } from "@/db/schema";
 import {
   EmployeeOnVacationError,
   EmployeeTerminatedError,
-} from "@/lib/errors/employee-status-errors";
+} from "@/modules/employees/errors";
 
 export async function ensureEmployeeNotTerminated(
   employeeId: string,
