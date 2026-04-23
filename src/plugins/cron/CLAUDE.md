@@ -30,9 +30,22 @@ Orquestra jobs agendados do domínio. Composição de 7 cron jobs via `@elysiajs
 
 Após CP-30 (confirmado em runtime que não há cycle), `JobsService` e `VacationJobsService` são importados estaticamente no topo. Antes eram `await import(...)` dinâmico — cargo-cult de refactor antigo.
 
-### Refactor pendente (CP-32)
+### Registro declarativo via `createCronJob` (CP-32)
 
-Os 7 jobs hoje têm boilerplate duplicado (`name`, `pattern`, `async run()` com `logger.info` padronizado). CP-32 vai extrair um helper `createCronJob({ name, pattern, handler })` ou array declarativo para reduzir duplicação.
+Helper interno `createCronJob<T>({ name, pattern, run, log })` encapsula o boilerplate de cada job: chama `run()`, captura o resultado tipado, e emite `logger.info({ type: "cron:<name>", ...log(result) })`. Consumers declaram só o essencial — nome, schedule, service call, e quais campos do resultado logar.
+
+Assinatura:
+
+```ts
+type CronJobConfig<T> = {
+  name: string;
+  pattern: string;
+  run: () => Promise<T>;
+  log: (result: T) => Record<string, unknown>;
+};
+```
+
+O genérico `<T>` flui do retorno de `run` para o parâmetro de `log`, preservando inferência (ex: `log: (r) => ({ expired: r.expired.length })` tem `r` tipado como `ExpireTrialsData`). Sem helper, seriam ~7 linhas por job com as mesmas chamadas repetidas.
 
 ## Consumers
 
