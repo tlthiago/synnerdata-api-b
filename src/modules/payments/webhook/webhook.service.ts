@@ -3,8 +3,8 @@ import { and, eq } from "drizzle-orm";
 import { db } from "@/db";
 import { schema } from "@/db/schema";
 import { env } from "@/env";
+import { ErrorReporter } from "@/lib/error-reporter";
 import { logger } from "@/lib/logger";
-import { captureException } from "@/lib/sentry";
 import { WebhookValidationError } from "@/modules/payments/errors";
 import { PaymentHooks } from "@/modules/payments/hooks";
 import { SubscriptionService } from "@/modules/payments/subscription/subscription.service";
@@ -131,7 +131,7 @@ export abstract class WebhookService {
         .set({ processedAt: new Date() })
         .where(eq(schema.subscriptionEvents.id, eventId));
     } catch (error) {
-      captureException(error, {
+      ErrorReporter.capture(error, {
         tags: {
           webhook_event_type: payload.type,
           pagarme_event_id: payload.id,
