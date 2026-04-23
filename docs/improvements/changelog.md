@@ -11,6 +11,70 @@
 
 Registro temporal das decisões e entregas desta iniciativa. **Toda atualização do documento deve adicionar uma entrada aqui** (data ISO + resumo).
 
+### 2026-04-23 — CP-52 entregue: reorganização interna de `src/lib/` (Opção B)
+
+Audit pontual disparado pelo dono após o sync pass de `principles.md` — preocupação válida com organização interna de `lib/` (27 arquivos misturados, alguns subdirs single-file com overhead sem payoff, concerns de Better Auth espalhados em 4 lugares). Executado como **pure move** — zero mudança de comportamento. Observações de qualidade foram anotadas mas **não fixadas** neste PR (serão o próximo CP de code review por arquivo).
+
+**3 commits atômicos por concern:**
+
+**Commit 1 — `refactor(lib): flatten single-file subdirs + dedup isFutureDate`**
+
+Achatados 4 subdirs que tinham 1 arquivo só (`crypto/`, `openapi/`, `shutdown/`, `validation/`):
+
+- `src/lib/crypto/pii.ts` → `src/lib/pii.ts`
+- `src/lib/openapi/error-messages.ts` → `src/lib/openapi-helpers.ts`
+- `src/lib/shutdown/shutdown.ts` → `src/lib/shutdown.ts`
+- `src/lib/validation/documents.ts` → `src/lib/document-validators.ts`
+
+Tests movidos para `src/lib/__tests__/` (colocalizados com os arquivos no root de lib/).
+
+**Dedup silencioso**: `src/modules/employees/employee.model.ts:6-11` declarava `isFutureDate` inline — idêntico ao helper em `lib/schemas/date-helpers.ts` que todos os outros occurrences importam. Removido o inline; passa a importar do helper.
+
+**Observação de qualidade anotada (não fix)**: `src/lib/pii.ts` tem **zero consumidores em produção**. `env.PII_ENCRYPTION_KEY` está validado e o util tem 155 linhas com 186 linhas de teste, mas `PII.encrypt/decrypt/mask` não são usados em lugar nenhum. Ou é infraestrutura pronta para futuro uso, ou alguém esqueceu de wire-up em campos sensíveis do DB. Candidato a investigar em CP-52 follow-up.
+
+**Commit 2 — `refactor(lib): group Better Auth concerns under lib/auth/`**
+
+- `src/lib/permissions.ts` → `src/lib/auth/permissions.ts`
+- `src/lib/password-complexity.ts` → `src/lib/auth/password-complexity.ts`
+- `src/lib/__tests__/permissions.test.ts` → `src/lib/auth/__tests__/permissions.test.ts`
+
+Raciocínio: ambos eram concerns exclusivos do Better Auth (access control statements + hook de senha), mas viviam soltos no topo de `lib/`. Mantenedor novo olhando `lib/auth/` não encontrava esses arquivos. 5 import sites atualizados. `lib/auth/CLAUDE.md` atualizado com inventário + consumers.
+
+Consumers confirmados — todos no universo auth:
+- `permissions`: `api-key.service` (DEFAULT_API_KEY_PERMISSIONS), `auth-guard/options` (types), test helpers, `lib/auth.ts`
+- `password-complexity`: só `lib/auth.ts` (hook `emailAndPassword.password.hash`)
+
+**Commit 3 — `refactor(lib): group Sentry concerns under lib/sentry/`**
+
+- `src/lib/sentry.ts` → `src/lib/sentry/init.ts`
+- `src/lib/error-reporter.ts` → `src/lib/sentry/reporter.ts`
+
+4 import sites atualizados. Novo `src/lib/sentry/CLAUDE.md` documentando: (a) `init.ts` é side-effect, importado no bootstrap via `import "@/lib/sentry/init"`; (b) `reporter.ts` existe por causa de ESM hoisting em Bun (mock.module não intercepta named imports — ver CP-6 follow-up); (c) **nunca** importar `captureException` direto do `@sentry/bun` em código de produção.
+
+**Débitos fechados:**
+
+- **#4** — `lib/request-context.ts` + `lib/request-context/` convivendo → verificado que dir não existe mais (resolvido em CP-1 sem marcação)
+- **#6** — `lib/__tests__/` inconsistente → agora contém apenas tests de arquivos no root de `lib/`, que é colocalização válida (test ao lado do código, mesmo nível). Subdir files têm tests no próprio subdir. Padrão consistente
+
+**Estado final de `src/lib/`:**
+
+Antes: 10 arquivos soltos + 9 subdirs (4 com 1 arquivo só) = 19 entries no topo.
+Depois: 9 arquivos + 6 subdirs = 15 entries no topo, cada subdir justifica sua existência (≥2 arquivos OU agrupamento semântico forte tipo `lib/auth/`).
+
+**Validação:**
+- `bunx tsc --noEmit` clean em todos os 3 commits
+- `npx ultracite check` clean em todos os 3 commits (4 auto-fixes de ordem de imports entre commits 2 e 3)
+- 278+ tests afetados rodaram verdes (pii, shutdown, document-validators, employees, branches, organizations/profile, auth hooks, api-keys, error-handler, webhook)
+
+**Observações de qualidade anotadas para CP-53 (pass futuro de code review por arquivo):**
+
+1. `lib/pii.ts` — 155 linhas de código + 186 linhas de teste, zero consumidores em produção. Investigar wire-up ou considerar deletar.
+2. `lib/auth/hooks.ts` — 368 linhas (maior arquivo de `lib/`). 11 callbacks extraídos de `auth.ts` em CP-4. Não revisados criticamente — são mix de auth + organization + provision + subscription concerns.
+3. `lib/auth/audit-helpers.ts` — 200 linhas. 10 wrappers `auditXxx` + `buildAuditEntry`. Já consolidado em CP-33 mas não auditado por qualidade.
+4. `lib/email.tsx` — 479 linhas, sabido (#8/#9/CP-2, bloqueado por issue #269).
+
+**Próximo passo sugerido**: CP-53 (candidato) — pass de qualidade por arquivo em `src/lib/` após CP-52, com foco em "é o padrão idiomático do Elysia?" + "existe simplificação sem perda de feature?". Use Compozy pipeline para ações M.
+
 ### 2026-04-23 — Doc sync pass: `principles.md` alinhado com realidade
 
 Revisão pós-Onda 5 para consolidar o estado da documentação antes de avançar para CP-38/CP-44/CP-2. Tabela de audit da Fase 1 nunca tinha sido atualizada após as 54 resoluções; itens `?` ficaram pendurados sem classificação. Aproveitada também a oportunidade para arquivar legados e fechar inconsistências de path pós-PR #268.

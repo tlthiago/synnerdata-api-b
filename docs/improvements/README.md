@@ -20,7 +20,7 @@
 
 - ✅ **854 tests pass** (suíte afetada + smoke tests novos do `routes/v1/`)
 - ✅ **Ultracite clean** em 582 files
-- ✅ **54/98 débitos resolvidos** em `debts.md` (+ 2 reavaliados como não-débito) — 42 abertos (+#97 #98 identificados no sync de 2026-04-23)
+- ✅ **56/98 débitos resolvidos** em `debts.md` (+ 2 reavaliados como não-débito) — 40 abertos (#4 + #6 fechados em CP-52)
 - ✅ **Zero débito 🔴** pendente
 - ✅ **Onda 5 (refactors grandes)**: 9/12 entregues (75%) — restam CP-38 (M), CP-44 (M), CP-2 (XL — bloqueado por issue [#269](https://github.com/tlthiago/synnerdata-api-b/issues/269))
 
@@ -57,6 +57,8 @@
 ### Candidatos pós-sync (2026-04-23)
 
 - **CP-51 (S, candidato)** — extrair `paginationQuerySchema` para `lib/schemas/pagination.ts` e migrar 4 callsites (débito #97). Fecha gap de §4.1 #11 + §4.2 #6 do `principles.md`.
+- ✅ **CP-52 entregue (2026-04-23)** — reorganização interna de `src/lib/` (Opção B): 3 commits atômicos, achatamento de 4 subdirs single-file + agrupamento de Better Auth + agrupamento de Sentry. Débitos #4 e #6 fechados. Observações de qualidade anotadas para CP-53.
+- **CP-53 (M, candidato)** — pass de qualidade por arquivo em `src/lib/` após CP-52. Focos: `lib/pii.ts` (zero consumers em prod), `lib/auth/hooks.ts` (368L, mix de concerns), `lib/auth/audit-helpers.ts` (200L). Pipeline Compozy completo (PRD → TechSpec → final-verify).
 - **MP-23 (candidato)** — field-level authorization em responses (débito #98). Sinal: requisito concreto do cliente ou auditoria LGPD Art. 18.
 
 ### Onda 4 (pós-Onda 5) — requer brainstorm
@@ -110,5 +112,6 @@ Detalhes completos em [roadmap.md § Metodologia de execução](./roadmap.md).
 - **2026-04-22** — Bucket 🔴 fechado (10/10). Ondas 1/2 concluídas. Onda 3 (PRs A/B/C) entregue. Onda 5 iniciada com CP-1 (XL).
 - **2026-04-23** — Onda 5: CP-6 follow-up (ErrorReporter), CP-3 (routes/v1). PR #267 sweep de 46 débitos §7.7. PR #268 split da doc em 6 arquivos + rename de plugins (`plugins/auth→auth-guard`, `errors→error-handler`, `logger→request-logger`).
 - **2026-04-23 (sync pass)** — Doc audit: `principles.md` sincronizado com realidade (9 Status ⚠️/❌ → ✅ + 7 `?` classificados). `api-maturity-plan.md` + `deployment.md` arquivados em `legacy/`. Débitos novos #97 (paginação schema) e #98 (field-level authz) registrados. `bun pm audit` → `bun audit`.
+- **2026-04-23 (CP-52)** — Reorganização interna de `src/lib/`: achatamento de 4 subdirs single-file, agrupamento de Better Auth (`permissions` + `password-complexity` → `lib/auth/`), agrupamento de Sentry (`sentry.ts` + `error-reporter.ts` → `lib/sentry/`). Débitos #4 e #6 fechados. Observações de qualidade anotadas para CP-53 (pass futuro de code review por arquivo).
 
 Changelog completo: [changelog.md](./changelog.md).
