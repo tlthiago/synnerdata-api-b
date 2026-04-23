@@ -24,7 +24,7 @@ export async function sendPasswordResetForProvisionOrDefault({
   user: { id: string; email: string; name: string };
   url: string;
 }): Promise<void> {
-  const provision = await db.query.adminOrgProvisions?.findFirst({
+  const provision = await db.query.adminOrgProvisions.findFirst({
     where: and(
       eq(schema.adminOrgProvisions.userId, user.id),
       eq(schema.adminOrgProvisions.status, "pending_activation")
@@ -43,6 +43,7 @@ export async function sendPasswordResetForProvisionOrDefault({
         url,
         userId: user.id,
       });
+      await sendPasswordResetEmail({ email: user.email, url });
       return;
     }
 
@@ -74,7 +75,7 @@ export async function sendPasswordResetForProvisionOrDefault({
 export async function activateProvisionOnPasswordReset(user: {
   id: string;
 }): Promise<void> {
-  const provision = await db.query.adminOrgProvisions?.findFirst({
+  const provision = await db.query.adminOrgProvisions.findFirst({
     where: and(
       eq(schema.adminOrgProvisions.userId, user.id),
       eq(schema.adminOrgProvisions.status, "pending_activation")
@@ -149,10 +150,7 @@ export async function validateUserBeforeDelete(user: {
 
 type UserCreatePayload = User & { email: string };
 type UserCreateResult = {
-  data:
-    | UserCreatePayload
-    | (UserCreatePayload & { role: string; emailVerified: true })
-    | (UserCreatePayload & { emailVerified: true });
+  data: UserCreatePayload & { role?: string; emailVerified?: boolean };
 };
 
 export async function applyAdminRolesBeforeUserCreate(
@@ -222,13 +220,17 @@ export async function activateAdminProvisionOnLogin(session: {
         eq(schema.adminOrgProvisions.status, "pending_activation")
       )
     )
-    .catch(() => {
-      // Silently ignore — should not affect normal login flow
+    .catch((error) => {
+      logger.error({
+        type: "admin-provision:login-activation:failed",
+        userId: session.userId,
+        error: error instanceof Error ? error.message : String(error),
+      });
     });
 }
 
 export async function validateCanCreateOrganization(
-  user: User & Record<string, unknown>
+  user: User & { role?: string; email: string }
 ): Promise<boolean> {
   if (user.role !== "user") {
     return false;
@@ -279,8 +281,7 @@ export async function validateBeforeCreateInvitation({
   invitation: { role: string; email: string };
   organization: Organization;
 }): Promise<void> {
-  const validRoles = roleValues as readonly string[];
-  if (!validRoles.includes(invitation.role)) {
+  if (!(roleValues as readonly string[]).includes(invitation.role)) {
     throw new APIError("BAD_REQUEST", {
       code: "INVALID_ORGANIZATION_ROLE",
       message: `Role inválida: "${invitation.role}". Roles válidas: ${roleValues.join(", ")}`,
