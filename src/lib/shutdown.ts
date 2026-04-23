@@ -9,12 +9,46 @@ type ShutdownConfig = {
   app: ElysiaLike;
   pool: Pool;
   gracePeriodMs?: number;
+  dbCloseTimeoutMs?: number;
 };
+
+const DEFAULT_DB_CLOSE_TIMEOUT_MS = 5000;
 
 let isShuttingDown = false;
 
+function sleep(ms: number): Promise<void> {
+  return new Promise((resolve) => setTimeout(resolve, ms));
+}
+
+function withTimeout<T>(
+  promise: Promise<T>,
+  ms: number,
+  label: string
+): Promise<T> {
+  return new Promise((resolve, reject) => {
+    const timer = setTimeout(() => {
+      reject(new Error(`${label} timed out after ${ms}ms`));
+    }, ms);
+    promise.then(
+      (value) => {
+        clearTimeout(timer);
+        resolve(value);
+      },
+      (err) => {
+        clearTimeout(timer);
+        reject(err);
+      }
+    );
+  });
+}
+
 export function setupGracefulShutdown(config: ShutdownConfig): void {
-  const { app, pool, gracePeriodMs = 5000 } = config;
+  const {
+    app,
+    pool,
+    gracePeriodMs = 5000,
+    dbCloseTimeoutMs = DEFAULT_DB_CLOSE_TIMEOUT_MS,
+  } = config;
 
   const shutdown = async (signal: string): Promise<void> => {
     if (isShuttingDown) {
@@ -32,20 +66,25 @@ export function setupGracefulShutdown(config: ShutdownConfig): void {
       type: "shutdown:grace-period",
       durationMs: gracePeriodMs,
     });
-    await Bun.sleep(gracePeriodMs);
+    await sleep(gracePeriodMs);
 
+    let dbClosedCleanly = true;
     try {
-      await pool.end();
+      await withTimeout(pool.end(), dbCloseTimeoutMs, "pool.end");
       logger.info({ type: "shutdown:db-closed" });
     } catch (error) {
+      dbClosedCleanly = false;
       logger.error({
         type: "shutdown:db-error",
         error: error instanceof Error ? error.message : String(error),
       });
     }
 
-    logger.info({ type: "shutdown:complete" });
-    process.exit(0);
+    logger.info({
+      type: "shutdown:complete",
+      dbClosedCleanly,
+    });
+    process.exit(dbClosedCleanly ? 0 : 1);
   };
 
   process.on("SIGTERM", () => shutdown("SIGTERM"));
