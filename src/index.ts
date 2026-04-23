@@ -9,6 +9,7 @@ import { pool } from "./db";
 import { env, isProduction } from "./env";
 import { parseOrigins } from "./lib/cors";
 import { logger } from "./lib/logger";
+import { extractErrorMessages } from "./lib/openapi/error-messages";
 import { setupGracefulShutdown } from "./lib/shutdown/shutdown";
 import { adminController } from "./modules/admin";
 import { auditController } from "./modules/audit";
@@ -31,35 +32,6 @@ const corsOrigins = parseOrigins(env.CORS_ORIGIN);
 const RATE_LIMIT_SKIP_PATHS = ["/health", "/health/live", "/api/auth"];
 
 const REQUEST_IDLE_TIMEOUT_SECONDS = 30;
-
-// biome-ignore lint/suspicious/noExplicitAny: Zod v4 internal API for extracting check error messages
-function extractErrorMessages(zodDef: any): Record<string, string> | null {
-  const { checks } = zodDef;
-  if (!(checks && Array.isArray(checks))) {
-    return null;
-  }
-
-  const errorMessages: Record<string, string> = {};
-  for (const check of checks) {
-    const checkDef = check._zod?.def;
-    if (!checkDef?.error || typeof checkDef.error !== "function") {
-      continue;
-    }
-    try {
-      const msg = checkDef.error({ input: "" });
-      if (typeof msg === "string") {
-        const key = checkDef.format
-          ? `${checkDef.check}:${checkDef.format}`
-          : checkDef.check;
-        errorMessages[key] = msg;
-      }
-    } catch {
-      // Skip checks that can't produce a message
-    }
-  }
-
-  return Object.keys(errorMessages).length > 0 ? errorMessages : null;
-}
 
 const app = new Elysia({
   serve: {
