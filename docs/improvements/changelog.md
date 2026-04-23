@@ -11,6 +11,85 @@
 
 Registro temporal das decisões e entregas desta iniciativa. **Toda atualização do documento deve adicionar uma entrada aqui** (data ISO + resumo).
 
+### 2026-04-23 — CP-53 Fase 1: auditoria de qualidade de `src/lib/` (25 arquivos)
+
+Auditoria completa de todos os arquivos de `src/lib/` focada em **qualidade de implementação** (idiomatic patterns, bad patterns, code smells, dead code, duplications, type safety). Feita após CP-52 (reorganização estrutural) — agora que a organização está firmada, revisar o que está dentro.
+
+**Método:**
+- 8 arquivos triviais (<20L ou óbvios) auditados pelo parent diretamente (`cors.ts`, `zod-config.ts`, `request-context.ts`, `schemas/*`, `responses/envelope.ts`, `sentry/*`).
+- 17 arquivos restantes (2328L) distribuídos em **8 agentes `general-purpose` em paralelo**, cada um com prompt triangulando 3-4 fontes:
+  1. Docs oficiais via `context7` (Elysia, Better Auth, Zod, Pino, Nodemailer)
+  2. Community via `WebSearch` (GitHub discussions, OWASP, best practices 2025)
+  3. `avocado-hp` pareado em `~/Documentos/avocado-hp/avocado-hp/apps/server/src/lib/`
+  4. Julgamento próprio do agente (sem tomar nenhuma fonte como verdade única)
+- Formato de output fixo por arquivo: Implementation quality + Real issues + Matters of taste (skip) + Preservar + Action proposta + Open Questions.
+
+**Disciplina aplicada**: focus em qualidade de código, perguntas estratégicas ("deveria existir?", "qual é a política?") vão pra `open-questions.md` em vez de virar fixes por conta própria.
+
+**Categorias de code smells detectadas** (inventário, não exaustivo):
+
+| Categoria | Exemplos |
+|---|---|
+| Dead code | `plan` resource sem macro, 3 errors unused, `Timeout.withTimeout` zero consumers, `passwordComplexityRules` export órfão |
+| Duplicação de source of truth | `ownerPerms` vs `orgStatements`, `ErrorResponse` TS type vs `errorSchema<C>()` Zod, `PII_FIELDS` duas listas |
+| Silent error swallowing | `.catch(() => {})` em admin-provision, empty `catch {}` em extractErrorMessages, welcome email sem contexto |
+| Defensive noise | `?.` em `db.query.adminOrgProvisions` (sempre existe), `UserCreateResult` union 3-variantes |
+| Magic numbers | `apiKey.rateLimit.maxRequests: 200`, `gracePeriodMs = 5000` sem justificativa |
+| Type safety violations | `as any`, cast derruba enum (`roleValues`), `User & Record<string, unknown>` |
+| Inconsistent conventions | Params `email:` vs `to:` em email senders, positional vs object-params em audit wrappers |
+| Over-coupling | `Bun.sleep` em shutdown quando tipo sugere abstração |
+| Missing defense-in-depth | Sem `AbortSignal` em retry, sem `maxDelayMs`, sem jitter (thundering herd), sem `redact` PII em Pino, sem scrub body em Sentry, sem `requireTLS` em SMTP prod |
+| Fragile implementations | URL `split("/")` pra extrair reset token, Zod v4 internals walk, reflection em private APIs |
+| Race conditions | `validateUniqueRole` findFirst → insert sem unique partial index |
+| Async anti-patterns | `Promise.resolve()` em função não-async, 19 `sendMail` sem error handling |
+| Standards drift | OWASP ASVS 2023+ deprecou composition rules em password, CNPJ alfanumérico julho/2026 não suportado |
+| Testing smells | Tautologias em `timeout.test.ts`, timing-bound flaky em `retry.test.ts` |
+
+**Resultado consolidado:**
+
+- **🔴 4 itens de alta prioridade** (fix agora):
+  1. PII redaction em Pino + Sentry scrub body (LGPD gap) — CP-54 (S)
+  2. Dead code sweep (3 errors + Timeout + permissions dead resources) — CP-55 (S+M)
+  3. `auth/hooks.ts` cleanup batch de 8 smells — CP-56 (M)
+  4. CNPJ alfanumérico (Receita Federal jul/2026) — CP-57 (M, tracking)
+
+- **🟡 6 itens de média prioridade** (fix quando tocar):
+  - `utils/retry.ts` gaps (jitter, AbortSignal, maxDelayMs, 429, network detect) — CP-58 (M)
+  - `auth/audit-helpers.ts` inconsistências (shape, params) — S
+  - `lib/auth.ts` cleanup (`beforeRemoveMember` async, mover 6 callbacks) — S
+  - `openapi-helpers.ts` + `openapi-enhance.ts` contrato divergente — CP-59 (M)
+  - `email.tsx` 3 fixes independentes (hardcoded contact, SMTP_USER misuso, requireTLS) — S pré-CP-2
+  - `responses/response.types.ts` + `errors/base-error.ts` double-source-of-truth — S
+
+- **🟢 6 itens de baixa prioridade** (nice-to-have)
+- **✅ 5 arquivos limpos** — não tocar
+
+**Open Questions identificadas** (15 totais) — registradas em [open-questions.md](./open-questions.md):
+
+- OQ-1 (pré-existente): Estratégia de proteção PII em repouso (wire-up, deletar, ou documentar status quo)
+- OQ-2: `member`/`invitation`/`billingProfile` em orgStatements — docs ou macro?
+- OQ-3: `triggerAfterCreateOrganizationEffects` fire-and-forget intencional?
+- OQ-4: Algo não-merged usa `Timeout.withTimeout`?
+- OQ-5: `apiKey.rateLimit: 200` documentado ou parametrizado por env?
+- OQ-6: `super_admin` vs `admin` idênticos — intencional?
+- OQ-7: `RateLimitedError` retryAfter: details ou first-class?
+- OQ-8: `passwordComplexityRules` consumido por FE?
+- OQ-9: Cliente com CNPJ alfanumérico pós-julho/2026?
+- OQ-10: Jitter default=true quebra testes timing-based?
+- OQ-11: `deleteUser` self-reference deveria virar endpoint custom em modules/auth/?
+- OQ-12: `x-error-messages` FE espera semântico ou Zod-internal?
+- OQ-13: Migrar pra `.meta({ errorMessages })` vs reflection?
+- OQ-14: Política de erro em emails: throw crítico vs engole notificação?
+- OQ-15: SMTP pool — qual provedor de produção + volume projetado?
+
+**Próximo passo**: consolidar OQs com o dono em batch (1 reunião pra desbloquear 15 perguntas), então executar CPs 54-60 em ondas conforme decisões. Arquivos em `🟢 baixa prioridade` esperam próxima onda.
+
+**Validação do método** (meta):
+- Zero agente mergeou código ou fez push — audit-only preservado.
+- Nenhuma fonte foi tomada como verdade única — triangulação efetiva em todos os agentes.
+- Descobertas extras além do escopo inicial: `lib/pii.ts` zero consumers (descoberto antes de dispatching), `Timeout.withTimeout` zero consumers (agent 6), dead resources em permissions (agent 2), CNPJ alfanumérico (agent 7).
+- Custo: ~8 spawns paralelos + ~5 min wall clock vs ~2-3h sequencial.
+
 ### 2026-04-23 — CP-52 entregue: reorganização interna de `src/lib/` (Opção B)
 
 Audit pontual disparado pelo dono após o sync pass de `principles.md` — preocupação válida com organização interna de `lib/` (27 arquivos misturados, alguns subdirs single-file com overhead sem payoff, concerns de Better Auth espalhados em 4 lugares). Executado como **pure move** — zero mudança de comportamento. Observações de qualidade foram anotadas mas **não fixadas** neste PR (serão o próximo CP de code review por arquivo).
