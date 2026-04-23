@@ -19,7 +19,7 @@ import { webhookController } from "./webhook";
 
 export const paymentsController = new Elysia({
   name: "payments",
-  prefix: "/v1/payments",
+  prefix: "/payments",
   detail: { tags: ["Payments"] },
 })
   .use(plansPublicController)

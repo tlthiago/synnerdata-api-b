@@ -1,6 +1,5 @@
 import { Elysia } from "elysia";
 import { isProduction } from "@/env";
-import { betterAuthPlugin } from "@/lib/auth-plugin";
 import { wrapSuccess } from "@/lib/responses/envelope";
 import {
   conflictErrorSchema,
@@ -9,6 +8,7 @@ import {
   unauthorizedErrorSchema,
   validationErrorSchema,
 } from "@/lib/responses/response.types";
+import { betterAuthPlugin } from "@/plugins/auth-guard/auth-plugin";
 import {
   createBranchResponseSchema,
   createBranchSchema,
@@ -23,7 +23,7 @@ import { BranchService } from "./branch.service";
 
 export const branchController = new Elysia({
   name: "branches",
-  prefix: "/v1/branches",
+  prefix: "/branches",
   detail: { tags: ["Organizations - Branches"] },
 })
   .use(betterAuthPlugin)

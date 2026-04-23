@@ -125,6 +125,35 @@ const deletedVacationDataSchema = vacationDataSchema.extend({
 
 const vacationListDataSchema = z.array(vacationDataSchema);
 
+export const nextCycleSchema = z.object({
+  acquisitionPeriodStart: z
+    .string()
+    .describe("Início do período aquisitivo (YYYY-MM-DD)"),
+  acquisitionPeriodEnd: z
+    .string()
+    .describe("Fim do período aquisitivo (YYYY-MM-DD)"),
+  concessivePeriodStart: z
+    .string()
+    .describe("Início do período concessivo (YYYY-MM-DD)"),
+  concessivePeriodEnd: z
+    .string()
+    .describe("Fim do período concessivo (YYYY-MM-DD)"),
+  daysUsed: z
+    .number()
+    .int()
+    .min(0)
+    .describe("Dias já utilizados no ciclo ativo"),
+  daysRemaining: z
+    .number()
+    .int()
+    .min(0)
+    .max(30)
+    .describe("Dias restantes no ciclo ativo"),
+});
+
+export const getNextCycleResponseSchema =
+  successResponseSchema(nextCycleSchema);
+
 export const createVacationResponseSchema =
   successResponseSchema(vacationDataSchema);
 export const getVacationResponseSchema =

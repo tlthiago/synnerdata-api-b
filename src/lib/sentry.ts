@@ -1,4 +1,4 @@
-import { init, captureException as sentryCaptureException } from "@sentry/bun";
+import { init } from "@sentry/bun";
 import { env, isProduction } from "@/env";
 
 const dsn = env.SENTRY_DSN;
@@ -17,5 +17,3 @@ if (dsn) {
     },
   });
 }
-
-export const captureException = sentryCaptureException;

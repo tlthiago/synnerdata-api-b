@@ -1,6 +1,5 @@
 import { Elysia } from "elysia";
 import { isProduction } from "@/env";
-import { betterAuthPlugin } from "@/lib/auth-plugin";
 import { wrapSuccess } from "@/lib/responses/envelope";
 import {
   conflictErrorSchema,
@@ -9,6 +8,7 @@ import {
   unauthorizedErrorSchema,
   validationErrorSchema,
 } from "@/lib/responses/response.types";
+import { betterAuthPlugin } from "@/plugins/auth-guard/auth-plugin";
 import {
   createTerminationResponseSchema,
   createTerminationSchema,
@@ -23,7 +23,7 @@ import { TerminationService } from "./termination.service";
 
 export const terminationController = new Elysia({
   name: "terminations",
-  prefix: "/v1/terminations",
+  prefix: "/terminations",
   detail: { tags: ["Occurrences - Terminations"] },
 })
   .use(betterAuthPlugin)

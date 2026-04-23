@@ -1,6 +1,5 @@
 import { Elysia, t } from "elysia";
 import { isProduction } from "@/env";
-import { betterAuthPlugin } from "@/lib/auth-plugin";
 import { wrapSuccess } from "@/lib/responses/envelope";
 import {
   conflictErrorSchema,
@@ -10,6 +9,7 @@ import {
   validationErrorSchema,
 } from "@/lib/responses/response.types";
 import { auditPlugin } from "@/plugins/audit/audit-plugin";
+import { betterAuthPlugin } from "@/plugins/auth-guard/auth-plugin";
 import {
   createEmployeeResponseSchema,
   createEmployeeSchema,
@@ -26,7 +26,7 @@ import { importResponseSchema } from "./import/import.model";
 
 export const employeeController = new Elysia({
   name: "employees",
-  prefix: "/v1/employees",
+  prefix: "/employees",
   detail: { tags: ["Employees"] },
 })
   .use(betterAuthPlugin)

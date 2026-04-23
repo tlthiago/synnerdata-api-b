@@ -1,6 +1,6 @@
 # Admin Module
 
-Recursos exclusivos para administradores da plataforma. Composite controller com prefix `/v1/admin`.
+Recursos exclusivos para administradores da plataforma. Composite controller com domain prefix `/admin`. A versão `/v1/` é injetada pelo composer `src/routes/v1/` — URL final `/v1/admin/*`.
 
 ## Sub-módulos
 
@@ -12,7 +12,7 @@ Recursos exclusivos para administradores da plataforma. Composite controller com
 - Todos os endpoints usam `requireAdmin: true` (admin ou super_admin)
 - Não são scoped por organização — operam sobre todas as orgs
 - OpenAPI tags seguem `Admin - <Sub-módulo>` (e.g., `Admin - Organizations`, `Admin - API Keys`)
-- Sub-controllers definem prefix relativo (e.g., `/organizations`), herdando `/v1/admin` do composite
+- Sub-controllers definem prefix relativo (e.g., `/organizations`). URL final: `/v1/admin/<resource>` (`/v1/` de `src/routes/v1/` + `/admin` do composite)
 
 ## Adicionando novos sub-módulos
 

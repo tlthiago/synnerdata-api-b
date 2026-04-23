@@ -1,6 +1,5 @@
 import { Elysia } from "elysia";
 import { isProduction } from "@/env";
-import { betterAuthPlugin } from "@/lib/auth-plugin";
 import { wrapSuccess } from "@/lib/responses/envelope";
 import {
   conflictErrorSchema,
@@ -9,6 +8,7 @@ import {
   unauthorizedErrorSchema,
   validationErrorSchema,
 } from "@/lib/responses/response.types";
+import { betterAuthPlugin } from "@/plugins/auth-guard/auth-plugin";
 import {
   addEmployeeResponseSchema,
   addEmployeeSchema,
@@ -28,7 +28,7 @@ import { ProjectService } from "./project.service";
 
 export const projectController = new Elysia({
   name: "projects",
-  prefix: "/v1/projects",
+  prefix: "/projects",
   detail: { tags: ["Organizations - Projects"] },
 })
   .use(betterAuthPlugin)

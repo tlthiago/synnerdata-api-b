@@ -64,11 +64,7 @@ describe("Payment Failure Webhook Validation", () => {
         },
       });
 
-      await WebhookService.process(
-        payload,
-        createValidAuthHeader(),
-        JSON.stringify(payload)
-      );
+      await WebhookService.process(payload, createValidAuthHeader());
 
       const [subscription] = await db
         .select()
@@ -88,11 +84,7 @@ describe("Payment Failure Webhook Validation", () => {
         invoice: { id: "inv_456" },
       });
 
-      await WebhookService.process(
-        payload,
-        createValidAuthHeader(),
-        JSON.stringify(payload)
-      );
+      await WebhookService.process(payload, createValidAuthHeader());
 
       const [subscription] = await db
         .select()
@@ -120,11 +112,7 @@ describe("Payment Failure Webhook Validation", () => {
         status: "pending",
       });
 
-      await WebhookService.process(
-        payload,
-        createValidAuthHeader(),
-        JSON.stringify(payload)
-      );
+      await WebhookService.process(payload, createValidAuthHeader());
 
       const [subscription] = await db
         .select()
@@ -151,11 +139,7 @@ describe("Payment Failure Webhook Validation", () => {
         status: "failed",
       });
 
-      await WebhookService.process(
-        payload,
-        createValidAuthHeader(),
-        JSON.stringify(payload)
-      );
+      await WebhookService.process(payload, createValidAuthHeader());
 
       const [subscription] = await db
         .select()
@@ -182,11 +166,7 @@ describe("Payment Failure Webhook Validation", () => {
         status: "unpaid", // Status que Pagar.me pode enviar durante retries
       });
 
-      await WebhookService.process(
-        payload,
-        createValidAuthHeader(),
-        JSON.stringify(payload)
-      );
+      await WebhookService.process(payload, createValidAuthHeader());
 
       const [subscription] = await db
         .select()
@@ -214,11 +194,7 @@ describe("Payment Failure Webhook Validation", () => {
           },
         });
 
-        await WebhookService.process(
-          payload,
-          authHeader,
-          JSON.stringify(payload)
-        );
+        await WebhookService.process(payload, authHeader);
 
         const [subscription] = await db
           .select()
@@ -261,11 +237,7 @@ describe("Payment Failure Webhook Validation", () => {
           },
         };
 
-        await WebhookService.process(
-          payload,
-          authHeader,
-          JSON.stringify(payload)
-        );
+        await WebhookService.process(payload, authHeader);
       }
 
       // Verifica que todos os eventos foram registrados
@@ -295,11 +267,7 @@ describe("Payment Failure Webhook Validation", () => {
         invoice: { id: "inv_fail" },
       });
 
-      await WebhookService.process(
-        failPayload,
-        authHeader,
-        JSON.stringify(failPayload)
-      );
+      await WebhookService.process(failPayload, authHeader);
 
       // Confirma que está past_due
       let [subscription] = await db
@@ -320,11 +288,7 @@ describe("Payment Failure Webhook Validation", () => {
         },
       });
 
-      await WebhookService.process(
-        successPayload,
-        authHeader,
-        JSON.stringify(successPayload)
-      );
+      await WebhookService.process(successPayload, authHeader);
 
       // Confirma restauração
       [subscription] = await db
@@ -349,11 +313,7 @@ describe("Payment Failure Webhook Validation", () => {
           invoice: { id: `inv_retry_${i}` },
         });
 
-        await WebhookService.process(
-          failPayload,
-          authHeader,
-          JSON.stringify(failPayload)
-        );
+        await WebhookService.process(failPayload, authHeader);
       }
 
       // Simula sucesso na 4ª tentativa (dia 9)
@@ -366,11 +326,7 @@ describe("Payment Failure Webhook Validation", () => {
         },
       });
 
-      await WebhookService.process(
-        successPayload,
-        authHeader,
-        JSON.stringify(successPayload)
-      );
+      await WebhookService.process(successPayload, authHeader);
 
       const [subscription] = await db
         .select()
@@ -392,11 +348,7 @@ describe("Payment Failure Webhook Validation", () => {
         invoice: { id: "inv_grace_test" },
       });
 
-      await WebhookService.process(
-        payload,
-        createValidAuthHeader(),
-        JSON.stringify(payload)
-      );
+      await WebhookService.process(payload, createValidAuthHeader());
 
       const [subscription] = await db
         .select()
@@ -428,11 +380,7 @@ describe("Payment Failure Webhook Validation", () => {
       const failPayload = createPayload("charge.payment_failed", {
         metadata: { organization_id: org.id },
       });
-      await WebhookService.process(
-        failPayload,
-        authHeader,
-        JSON.stringify(failPayload)
-      );
+      await WebhookService.process(failPayload, authHeader);
 
       // Verifica que os campos foram definidos
       let [subscription] = await db
@@ -453,11 +401,7 @@ describe("Payment Failure Webhook Validation", () => {
           end_at: new Date(Date.now() + 30 * 24 * 60 * 60 * 1000).toISOString(),
         },
       });
-      await WebhookService.process(
-        successPayload,
-        authHeader,
-        JSON.stringify(successPayload)
-      );
+      await WebhookService.process(successPayload, authHeader);
 
       [subscription] = await db
         .select()
@@ -488,18 +432,10 @@ describe("Payment Failure Webhook Validation", () => {
       };
 
       // Primeira chamada
-      await WebhookService.process(
-        payload,
-        authHeader,
-        JSON.stringify(payload)
-      );
+      await WebhookService.process(payload, authHeader);
 
       // Segunda chamada com mesmo ID (duplicata)
-      await WebhookService.process(
-        payload,
-        authHeader,
-        JSON.stringify(payload)
-      );
+      await WebhookService.process(payload, authHeader);
 
       // Deve existir apenas 1 registro do evento
       const events = await db

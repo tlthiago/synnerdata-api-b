@@ -1,6 +1,5 @@
 import { Elysia } from "elysia";
 import { isProduction } from "@/env";
-import { betterAuthPlugin } from "@/lib/auth-plugin";
 import { wrapSuccess } from "@/lib/responses/envelope";
 import {
   conflictErrorSchema,
@@ -9,6 +8,7 @@ import {
   unauthorizedErrorSchema,
   validationErrorSchema,
 } from "@/lib/responses/response.types";
+import { betterAuthPlugin } from "@/plugins/auth-guard/auth-plugin";
 import {
   addJobPositionResponseSchema,
   addJobPositionSchema,
@@ -28,7 +28,7 @@ import { PpeItemService } from "./ppe-item.service";
 
 export const ppeItemController = new Elysia({
   name: "ppe-items",
-  prefix: "/v1/ppe-items",
+  prefix: "/ppe-items",
   detail: { tags: ["Organizations - PPE Items"] },
 })
   .use(betterAuthPlugin)

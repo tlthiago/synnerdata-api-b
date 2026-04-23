@@ -1,6 +1,5 @@
 import { Elysia } from "elysia";
 import { isProduction } from "@/env";
-import { betterAuthPlugin } from "@/lib/auth-plugin";
 import { wrapSuccess } from "@/lib/responses/envelope";
 import {
   conflictErrorSchema,
@@ -9,6 +8,7 @@ import {
   unauthorizedErrorSchema,
   validationErrorSchema,
 } from "@/lib/responses/response.types";
+import { betterAuthPlugin } from "@/plugins/auth-guard/auth-plugin";
 import {
   createWarningResponseSchema,
   createWarningSchema,
@@ -23,7 +23,7 @@ import { WarningService } from "./warning.service";
 
 export const warningController = new Elysia({
   name: "warnings",
-  prefix: "/v1/warnings",
+  prefix: "/warnings",
   detail: { tags: ["Occurrences - Warnings"] },
 })
   .use(betterAuthPlugin)

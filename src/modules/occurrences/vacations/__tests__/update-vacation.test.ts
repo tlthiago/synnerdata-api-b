@@ -61,7 +61,7 @@ describe("PUT /v1/vacations/:id", () => {
     const { employee } = await createTestEmployee({
       organizationId,
       userId: user.id,
-      hireDate: "2020-01-01",
+      hireDate: "2024-01-01",
     });
 
     const vacation = await createTestVacation({
@@ -120,7 +120,7 @@ describe("PUT /v1/vacations/:id", () => {
     const { employee } = await createTestEmployee({
       organizationId: org2,
       userId: user2.id,
-      hireDate: "2020-01-01",
+      hireDate: "2024-01-01",
     });
 
     const vacation = await createTestVacation({
@@ -151,7 +151,7 @@ describe("PUT /v1/vacations/:id", () => {
     const { employee } = await createTestEmployee({
       organizationId,
       userId: user.id,
-      hireDate: "2020-01-01",
+      hireDate: "2024-01-01",
     });
 
     const vacation = await createTestVacation({
@@ -198,7 +198,7 @@ describe("PUT /v1/vacations/:id", () => {
     const { employee } = await createTestEmployee({
       organizationId,
       userId: user.id,
-      hireDate: "2020-01-01",
+      hireDate: "2024-01-01",
     });
 
     const vacation = await createTestVacation({
@@ -233,7 +233,7 @@ describe("PUT /v1/vacations/:id", () => {
     const { employee } = await createTestEmployee({
       organizationId,
       userId: user.id,
-      hireDate: "2020-01-01",
+      hireDate: "2024-01-01",
     });
 
     const vacation = await createTestVacation({
@@ -277,7 +277,7 @@ describe("PUT /v1/vacations/:id", () => {
     const { employee } = await createTestEmployee({
       organizationId,
       userId: user.id,
-      hireDate: "2020-01-01",
+      hireDate: "2024-01-01",
     });
 
     await createTestVacation({
@@ -325,7 +325,7 @@ describe("PUT /v1/vacations/:id", () => {
     const { employee } = await createTestEmployee({
       organizationId,
       userId: user.id,
-      hireDate: "2020-01-01",
+      hireDate: "2024-01-01",
     });
 
     const vacation = await createTestVacation({
@@ -401,7 +401,7 @@ describe("PUT /v1/vacations/:id", () => {
     const { employee } = await createTestEmployee({
       organizationId,
       userId: user.id,
-      hireDate: "2020-01-01",
+      hireDate: "2024-01-01",
     });
 
     const vacation = await createTestVacation({
@@ -436,7 +436,7 @@ describe("PUT /v1/vacations/:id", () => {
     const { employee } = await createTestEmployee({
       organizationId,
       userId: user.id,
-      hireDate: "2020-01-01",
+      hireDate: "2024-01-01",
     });
 
     const vacation = await createTestVacation({
@@ -471,7 +471,7 @@ describe("PUT /v1/vacations/:id", () => {
     const { employee } = await createTestEmployee({
       organizationId,
       userId: user.id,
-      hireDate: "2020-01-01",
+      hireDate: "2024-01-01",
     });
 
     // First vacation: in_progress
@@ -541,8 +541,8 @@ describe("PUT /v1/vacations/:id", () => {
         headers: { ...headers, "Content-Type": "application/json" },
         body: JSON.stringify({
           employeeId: employee.id,
-          startDate: "2026-10-06",
-          endDate: "2026-11-04",
+          startDate: "2025-10-06",
+          endDate: "2025-11-04",
           daysEntitled: 30,
           daysUsed: 30,
           status: "scheduled",
@@ -584,7 +584,7 @@ describe("PUT /v1/vacations/:id", () => {
     const { employee } = await createTestEmployee({
       organizationId,
       userId: user.id,
-      hireDate: "2020-01-01",
+      hireDate: "2024-01-01",
     });
 
     const created = await createTestVacation({
@@ -641,8 +641,8 @@ describe("PUT /v1/vacations/:id", () => {
         headers: { ...headers, "Content-Type": "application/json" },
         body: JSON.stringify({
           employeeId: employee.id,
-          startDate: "2026-07-01",
-          endDate: "2026-07-10",
+          startDate: "2025-07-01",
+          endDate: "2025-07-10",
           daysEntitled: 10,
           daysUsed: 0,
           status: "scheduled",
@@ -683,8 +683,8 @@ describe("PUT /v1/vacations/:id", () => {
         headers: { ...headers, "Content-Type": "application/json" },
         body: JSON.stringify({
           employeeId: employee.id,
-          startDate: "2026-07-01",
-          endDate: "2026-07-20",
+          startDate: "2025-07-01",
+          endDate: "2025-07-20",
           daysEntitled: 20,
           daysUsed: 0,
           status: "scheduled",
@@ -699,8 +699,8 @@ describe("PUT /v1/vacations/:id", () => {
         headers: { ...headers, "Content-Type": "application/json" },
         body: JSON.stringify({
           employeeId: employee.id,
-          startDate: "2026-08-01",
-          endDate: "2026-08-05",
+          startDate: "2025-08-01",
+          endDate: "2025-08-05",
           daysEntitled: 5,
           daysUsed: 0,
           status: "scheduled",
@@ -715,8 +715,8 @@ describe("PUT /v1/vacations/:id", () => {
         method: "PUT",
         headers: { ...headers, "Content-Type": "application/json" },
         body: JSON.stringify({
-          startDate: "2026-08-01",
-          endDate: "2026-08-15",
+          startDate: "2025-08-01",
+          endDate: "2025-08-15",
           daysEntitled: 15,
         }),
       })
@@ -751,8 +751,8 @@ describe("PUT /v1/vacations/:id", () => {
         headers: { ...headers, "Content-Type": "application/json" },
         body: JSON.stringify({
           employeeId: employee.id,
-          startDate: "2026-07-01",
-          endDate: "2026-07-20",
+          startDate: "2025-07-01",
+          endDate: "2025-07-20",
           daysEntitled: 20,
           daysUsed: 0,
           status: "scheduled",
@@ -767,8 +767,8 @@ describe("PUT /v1/vacations/:id", () => {
         method: "PUT",
         headers: { ...headers, "Content-Type": "application/json" },
         body: JSON.stringify({
-          startDate: "2026-07-01",
-          endDate: "2026-07-25",
+          startDate: "2025-07-01",
+          endDate: "2025-07-25",
           daysEntitled: 25,
         }),
       })
@@ -797,8 +797,8 @@ describe("PUT /v1/vacations/:id", () => {
         headers: { ...headers, "Content-Type": "application/json" },
         body: JSON.stringify({
           employeeId: employee.id,
-          startDate: "2026-07-01",
-          endDate: "2026-07-10",
+          startDate: "2025-07-01",
+          endDate: "2025-07-10",
           daysEntitled: 10,
           daysUsed: 0,
           status: "scheduled",
@@ -812,8 +812,8 @@ describe("PUT /v1/vacations/:id", () => {
         headers: { ...headers, "Content-Type": "application/json" },
         body: JSON.stringify({
           employeeId: employee.id,
-          startDate: "2026-08-01",
-          endDate: "2026-08-10",
+          startDate: "2025-08-01",
+          endDate: "2025-08-10",
           daysEntitled: 10,
           daysUsed: 0,
           status: "scheduled",
@@ -828,8 +828,8 @@ describe("PUT /v1/vacations/:id", () => {
         method: "PUT",
         headers: { ...headers, "Content-Type": "application/json" },
         body: JSON.stringify({
-          startDate: "2026-08-01",
-          endDate: "2026-08-15",
+          startDate: "2025-08-01",
+          endDate: "2025-08-15",
           daysEntitled: 15,
         }),
       })
@@ -853,7 +853,7 @@ describe("PUT /v1/vacations/:id", () => {
     const { employee } = await createTestEmployee({
       organizationId,
       userId: user.id,
-      hireDate: "2020-01-01",
+      hireDate: "2024-01-01",
       acquisitionPeriodStart: null,
       acquisitionPeriodEnd: null,
     });
@@ -912,8 +912,8 @@ describe("PUT /v1/vacations/:id", () => {
         headers: { ...headers, "Content-Type": "application/json" },
         body: JSON.stringify({
           employeeId: employee.id,
-          startDate: "2026-07-01",
-          endDate: "2026-07-15",
+          startDate: "2025-07-01",
+          endDate: "2025-07-15",
           daysEntitled: 15,
           daysUsed: 0,
           status: "scheduled",

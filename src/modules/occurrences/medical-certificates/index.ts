@@ -1,6 +1,5 @@
 import { Elysia } from "elysia";
 import { isProduction } from "@/env";
-import { betterAuthPlugin } from "@/lib/auth-plugin";
 import { wrapSuccess } from "@/lib/responses/envelope";
 import {
   conflictErrorSchema,
@@ -10,6 +9,7 @@ import {
   validationErrorSchema,
 } from "@/lib/responses/response.types";
 import { auditPlugin } from "@/plugins/audit/audit-plugin";
+import { betterAuthPlugin } from "@/plugins/auth-guard/auth-plugin";
 import {
   createMedicalCertificateResponseSchema,
   createMedicalCertificateSchema,
@@ -24,7 +24,7 @@ import { MedicalCertificateService } from "./medical-certificates.service";
 
 export const medicalCertificatesController = new Elysia({
   name: "medical-certificates",
-  prefix: "/v1/medical-certificates",
+  prefix: "/medical-certificates",
   detail: { tags: ["Occurrences - Medical Certificates"] },
 })
   .use(betterAuthPlugin)

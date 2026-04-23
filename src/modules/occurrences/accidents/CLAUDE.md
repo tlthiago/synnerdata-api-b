@@ -18,5 +18,5 @@ Registro de acidentes de trabalho e incidentes.
 - `AccidentAlreadyDeletedError` (404)
 - `AccidentInvalidEmployeeError` (404)
 - `AccidentCatAlreadyExistsError` (409) — CAT number unique per organization
-- `EmployeeTerminatedError` (422) — shared, from `src/lib/errors/employee-status-errors.ts`
-- `EmployeeOnVacationError` (422) — shared, from `src/lib/errors/employee-status-errors.ts`
+- `EmployeeTerminatedError` (422) — shared, from `src/modules/employees/errors.ts`
+- `EmployeeOnVacationError` (422) — shared, from `src/modules/employees/errors.ts`

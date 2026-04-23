@@ -1,6 +1,5 @@
 import { Elysia } from "elysia";
 import { isProduction } from "@/env";
-import { betterAuthPlugin } from "@/lib/auth-plugin";
 import { wrapSuccess } from "@/lib/responses/envelope";
 import {
   conflictErrorSchema,
@@ -9,6 +8,7 @@ import {
   unauthorizedErrorSchema,
   validationErrorSchema,
 } from "@/lib/responses/response.types";
+import { betterAuthPlugin } from "@/plugins/auth-guard/auth-plugin";
 import {
   createAbsenceResponseSchema,
   createAbsenceSchema,
@@ -23,7 +23,7 @@ import { AbsenceService } from "./absence.service";
 
 export const absenceController = new Elysia({
   name: "absences",
-  prefix: "/v1/absences",
+  prefix: "/absences",
   detail: { tags: ["Occurrences - Absences"] },
 })
   .use(betterAuthPlugin)

@@ -1,5 +1,5 @@
 import { describe, expect, test } from "bun:test";
-import { PII } from "@/lib/crypto/pii";
+import { type EncryptedString, PII } from "@/lib/crypto/pii";
 
 describe("PII", () => {
   describe("encrypt", () => {
@@ -57,15 +57,15 @@ describe("PII", () => {
     });
 
     test("should throw error for invalid ciphertext format", async () => {
-      await expect(PII.decrypt("invalid-format")).rejects.toThrow(
-        "Invalid ciphertext format"
-      );
+      await expect(
+        PII.decrypt("invalid-format" as EncryptedString)
+      ).rejects.toThrow("Invalid ciphertext format");
 
-      await expect(PII.decrypt("part1:part2")).rejects.toThrow(
-        "Invalid ciphertext format"
-      );
+      await expect(
+        PII.decrypt("part1:part2" as EncryptedString)
+      ).rejects.toThrow("Invalid ciphertext format");
 
-      await expect(PII.decrypt("a:b:c:d:e")).rejects.toThrow(
+      await expect(PII.decrypt("a:b:c:d:e" as EncryptedString)).rejects.toThrow(
         "Invalid ciphertext format"
       );
     });
@@ -74,10 +74,9 @@ describe("PII", () => {
       const ciphertext = await PII.encrypt("original-data");
       const parts = ciphertext.split(":");
 
-      // Tamper with the encrypted data
       const tamperedParts = [...parts];
       tamperedParts[3] = "00".repeat(parts[3].length / 2);
-      const tampered = tamperedParts.join(":");
+      const tampered = tamperedParts.join(":") as EncryptedString;
 
       await expect(PII.decrypt(tampered)).rejects.toThrow();
     });
@@ -100,8 +99,20 @@ describe("PII", () => {
       expect(PII.isEncrypted("a:b:c:d")).toBe(false);
       expect(PII.isEncrypted("short:parts:here:now")).toBe(false);
 
-      // Wrong salt length (should be 64)
       expect(PII.isEncrypted("abc:def:ghi:jkl")).toBe(false);
+    });
+
+    test("narrows type to EncryptedString when true", async () => {
+      const ciphertext = await PII.encrypt("brand-check");
+      const value: string = ciphertext;
+
+      if (PII.isEncrypted(value)) {
+        const narrowed: EncryptedString = value;
+        const roundtrip = await PII.decrypt(narrowed);
+        expect(roundtrip).toBe("brand-check");
+      } else {
+        throw new Error("expected isEncrypted to return true");
+      }
     });
   });
 

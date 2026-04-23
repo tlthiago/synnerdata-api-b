@@ -26,5 +26,5 @@ Registro de faltas de funcionários (justificadas ou injustificadas).
 - `AbsenceInvalidDateRangeError` (422)
 - `AbsenceInvalidEmployeeError` (422)
 - `AbsenceOverlapError` (409) — same employee + type + overlapping dates
-- `EmployeeTerminatedError` (422) — shared, from `src/lib/errors/employee-status-errors.ts`
-- `EmployeeOnVacationError` (422) — shared, from `src/lib/errors/employee-status-errors.ts`
+- `EmployeeTerminatedError` (422) — shared, from `src/modules/employees/errors.ts`
+- `EmployeeOnVacationError` (422) — shared, from `src/modules/employees/errors.ts`

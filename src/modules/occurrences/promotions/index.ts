@@ -1,6 +1,5 @@
 import { Elysia } from "elysia";
 import { isProduction } from "@/env";
-import { betterAuthPlugin } from "@/lib/auth-plugin";
 import { wrapSuccess, wrapSuccessWithMessage } from "@/lib/responses/envelope";
 import {
   conflictErrorSchema,
@@ -9,6 +8,7 @@ import {
   unauthorizedErrorSchema,
   validationErrorSchema,
 } from "@/lib/responses/response.types";
+import { betterAuthPlugin } from "@/plugins/auth-guard/auth-plugin";
 import {
   createPromotionResponseSchema,
   createPromotionSchema,
@@ -28,7 +28,7 @@ const EMPLOYEE_REVERTED_MESSAGE =
 
 export const promotionController = new Elysia({
   name: "promotions",
-  prefix: "/v1/promotions",
+  prefix: "/promotions",
   detail: { tags: ["Occurrences - Promotions"] },
 })
   .use(betterAuthPlugin)

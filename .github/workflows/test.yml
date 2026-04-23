@@ -34,14 +34,14 @@ jobs:
       mailhog:
         image: mailhog/mailhog
         ports:
-          - 1025:1025
-          - 8025:8025
+          - 1027:1025
+          - 8027:8025
 
     env:
       NODE_ENV: test
       DATABASE_URL: postgresql://postgres:postgres@localhost:5432/synnerdata_test
       SMTP_HOST: localhost
-      SMTP_PORT: 1025
+      SMTP_PORT: 1027
       SUPER_ADMIN_EMAILS: superadmin@test.com
       ADMIN_EMAILS: admin@test.com
       SKIP_INTEGRATION_TESTS: "true"

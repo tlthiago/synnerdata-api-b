@@ -1,5 +1,3 @@
-import { VacationNoRightsError } from "./errors";
-
 export function addDays(isoDate: string, days: number): string {
   const d = new Date(`${isoDate}T00:00:00Z`);
   d.setUTCDate(d.getUTCDate() + days);
@@ -50,14 +48,7 @@ export function computePeriodsFromHireDate(
     }
   }
 
-  if (completed < 1) {
-    throw new VacationNoRightsError(
-      hireDate,
-      referenceDate.toISOString().slice(0, 10)
-    );
-  }
-
-  const index = completed - 1;
+  const index = Math.max(completed - 1, 0);
   const acquisitionPeriodStart = addMonths(hireDate, index * 12);
   const acquisitionPeriodEnd = addDays(
     addMonths(hireDate, (index + 1) * 12),
@@ -72,4 +63,50 @@ export function computePeriodsFromHireDate(
     concessivePeriodStart,
     concessivePeriodEnd,
   };
+}
+
+export type NextCycleInput = {
+  hireDate: string;
+  vacationsInCycles: Array<{
+    acquisitionPeriodStart: string;
+    daysEntitled: number;
+  }>;
+};
+
+function buildCycleFromStart(start: string): VacationPeriods {
+  const acquisitionPeriodEnd = addDays(addMonths(start, 12), -1);
+  const concessivePeriodStart = addDays(acquisitionPeriodEnd, 1);
+  const concessivePeriodEnd = addDays(addMonths(concessivePeriodStart, 12), -1);
+  return {
+    acquisitionPeriodStart: start,
+    acquisitionPeriodEnd,
+    concessivePeriodStart,
+    concessivePeriodEnd,
+  };
+}
+
+export function resolveNextCycle(input: NextCycleInput): VacationPeriods {
+  const sumDaysByAquisitivo = new Map<string, number>();
+  for (const vacation of input.vacationsInCycles) {
+    const current =
+      sumDaysByAquisitivo.get(vacation.acquisitionPeriodStart) ?? 0;
+    sumDaysByAquisitivo.set(
+      vacation.acquisitionPeriodStart,
+      current + vacation.daysEntitled
+    );
+  }
+
+  if (sumDaysByAquisitivo.size === 0) {
+    return buildCycleFromStart(input.hireDate);
+  }
+
+  const starts = Array.from(sumDaysByAquisitivo.keys());
+  const lastStart = starts.reduce((a, b) => (b > a ? b : a));
+
+  const total = sumDaysByAquisitivo.get(lastStart) ?? 0;
+  if (total < 30) {
+    return buildCycleFromStart(lastStart);
+  }
+
+  return buildCycleFromStart(addMonths(lastStart, 12));
 }

@@ -1,6 +1,5 @@
 import { Elysia } from "elysia";
 import { isProduction } from "@/env";
-import { betterAuthPlugin } from "@/lib/auth-plugin";
 import { wrapSuccess } from "@/lib/responses/envelope";
 import {
   conflictErrorSchema,
@@ -9,6 +8,7 @@ import {
   unauthorizedErrorSchema,
   validationErrorSchema,
 } from "@/lib/responses/response.types";
+import { betterAuthPlugin } from "@/plugins/auth-guard/auth-plugin";
 import {
   createSectorResponseSchema,
   createSectorSchema,
@@ -23,7 +23,7 @@ import { SectorService } from "./sector.service";
 
 export const sectorController = new Elysia({
   name: "sectors",
-  prefix: "/v1/sectors",
+  prefix: "/sectors",
   detail: { tags: ["Organizations - Sectors"] },
 })
   .use(betterAuthPlugin)

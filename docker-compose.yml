@@ -23,8 +23,8 @@ services:
     image: mailhog/mailhog
     container_name: synnerdata-mailhog
     ports:
-      - "1025:1025"
-      - "8025:8025"
+      - "1027:1025"
+      - "8027:8025"
     restart: unless-stopped
 
 volumes:

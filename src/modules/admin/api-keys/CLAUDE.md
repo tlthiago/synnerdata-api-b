@@ -33,7 +33,7 @@ Chaves de API para integrações externas. Admin-only.
 
 ## Organization Context Resolution
 
-- O auth plugin (`src/lib/auth-plugin.ts`) detecta o header `x-api-key` e chama `verifyApiKey` para extrair `organizationId` da metadata
+- O auth plugin (`src/plugins/auth-guard/auth-plugin.ts`) detecta o header `x-api-key` e chama `verifyApiKey` para extrair `organizationId` da metadata
 - O `organizationId` é injetado em `session.activeOrganizationId` para que endpoints org-scoped funcionem
 - API keys **pulam** a checagem de permissão de role na org (`hasPermission`) — usam seu próprio modelo de permissões read-only
 - Keys globais (sem `organizationId`) são rejeitadas por endpoints com `requireOrganization: true`

@@ -1,7 +1,6 @@
 import { eq } from "drizzle-orm";
 import { db } from "@/db";
 import { schema } from "@/db/schema";
-import { ConflictError } from "@/lib/errors/http-errors";
 import type { SubscribeNewsletter } from "./newsletter.model";
 
 export abstract class NewsletterService {
@@ -14,9 +13,8 @@ export abstract class NewsletterService {
 
     if (existing) {
       if (existing.status === "active") {
-        throw new ConflictError("Este email já está inscrito na newsletter");
+        return;
       }
-      // Reactivate unsubscribed email
       await db
         .update(schema.newsletterSubscribers)
         .set({ status: "active" })

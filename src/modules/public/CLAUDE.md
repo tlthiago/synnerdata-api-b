@@ -1,6 +1,6 @@
 # Public Module
 
-Endpoints públicos (sem autenticação). Composite controller sem prefix próprio — sub-controllers definem `/v1/public/<nome>`.
+Endpoints públicos (sem autenticação). Composite controller sem prefix próprio — sub-controllers definem `/public/<nome>`. URL final: `/v1/public/<nome>` (`/v1/` injetado pelo composer `src/routes/v1/`).
 
 ## Sub-módulos
 
@@ -20,10 +20,10 @@ Inscrição na newsletter.
 
 - **Endpoint**: `POST /v1/public/newsletter/subscribe`
 - **Sem autenticação**
-- Email duplicado ativo → `ConflictError` (409)
-- Email previamente cancelado (`status !== "active"`) → reativado (sem erro)
-- Novo email → insere com `status: "active"` e ID `newsletter-<uuid>`
-- Resposta: `wrapMessage()` (sem data, apenas message)
+- Email duplicado ativo → no-op silencioso (200 com mesma mensagem). Não diferenciar de um novo cadastro evita enumeração de emails inscritos
+- Email previamente cancelado (`status !== "active"`) → reativado (200)
+- Novo email → insere com `status: "active"` e ID `newsletter-<uuid>` (200)
+- Resposta: `wrapMessage()` (sem data, apenas message) — idêntica nos 3 casos
 - **Campos**: `email`
 
 ### Provision Status (`provision-status/`)

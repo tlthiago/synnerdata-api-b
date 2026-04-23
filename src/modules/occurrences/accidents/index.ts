@@ -1,6 +1,5 @@
 import { Elysia } from "elysia";
 import { isProduction } from "@/env";
-import { betterAuthPlugin } from "@/lib/auth-plugin";
 import { wrapSuccess } from "@/lib/responses/envelope";
 import {
   conflictErrorSchema,
@@ -9,6 +8,7 @@ import {
   unauthorizedErrorSchema,
   validationErrorSchema,
 } from "@/lib/responses/response.types";
+import { betterAuthPlugin } from "@/plugins/auth-guard/auth-plugin";
 import {
   createAccidentResponseSchema,
   createAccidentSchema,
@@ -23,7 +23,7 @@ import { AccidentService } from "./accident.service";
 
 export const accidentController = new Elysia({
   name: "accidents",
-  prefix: "/v1/accidents",
+  prefix: "/accidents",
   detail: { tags: ["Occurrences - Accidents"] },
 })
   .use(betterAuthPlugin)
