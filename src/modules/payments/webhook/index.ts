@@ -4,6 +4,7 @@ import {
   unauthorizedErrorSchema,
   validationErrorSchema,
 } from "@/lib/responses/response.types";
+import { extractClientIp } from "@/plugins/auth/validators";
 import {
   processWebhookResponseSchema,
   processWebhookSchema,
@@ -18,7 +19,8 @@ export const webhookController = new Elysia({
   "/pagarme",
   async ({ request, body }) => {
     const authHeader = request.headers.get("Authorization");
-    await WebhookService.process(body, authHeader);
+    const clientIp = extractClientIp(request.headers);
+    await WebhookService.process(body, authHeader, clientIp);
     return { success: true as const, data: { received: true } };
   },
   {

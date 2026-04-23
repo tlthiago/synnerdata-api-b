@@ -70,8 +70,12 @@ type SubscriptionUpdatedData = {
 };
 
 export abstract class WebhookService {
-  static async process(payload: ProcessWebhook, authHeader: string | null) {
-    WebhookService.validateBasicAuth(authHeader);
+  static async process(
+    payload: ProcessWebhook,
+    authHeader: string | null,
+    clientIp: string | null = null
+  ) {
+    WebhookService.validateBasicAuth(authHeader, clientIp);
 
     const [existingEvent] = await db
       .select()
@@ -132,8 +136,12 @@ export abstract class WebhookService {
     }
   }
 
-  private static validateBasicAuth(authHeader: string | null) {
+  private static validateBasicAuth(
+    authHeader: string | null,
+    clientIp: string | null
+  ) {
     if (!authHeader?.startsWith("Basic ")) {
+      WebhookService.logAuthFailure(clientIp, "missing_or_wrong_scheme");
       throw new WebhookValidationError();
     }
 
@@ -142,11 +150,13 @@ export abstract class WebhookService {
     try {
       decoded = Buffer.from(base64, "base64").toString("utf-8");
     } catch {
+      WebhookService.logAuthFailure(clientIp, "invalid_base64");
       throw new WebhookValidationError();
     }
 
     const separatorIndex = decoded.indexOf(":");
     if (separatorIndex === -1) {
+      WebhookService.logAuthFailure(clientIp, "missing_separator");
       throw new WebhookValidationError();
     }
 
@@ -163,8 +173,18 @@ export abstract class WebhookService {
     );
 
     if (!(validUser && validPass)) {
+      WebhookService.logAuthFailure(clientIp, "invalid_credentials");
       throw new WebhookValidationError();
     }
+  }
+
+  private static logAuthFailure(clientIp: string | null, reason: string) {
+    logger.warn({
+      type: "webhook:auth_failure",
+      path: "/webhooks/pagarme",
+      ip: clientIp,
+      reason,
+    });
   }
 
   private static timingSafeCompare(a: string, b: string): boolean {
@@ -190,6 +210,11 @@ export abstract class WebhookService {
     const organizationId = data.metadata?.organization_id;
 
     if (!organizationId) {
+      logger.info({
+        type: "webhook:skipped:missing-metadata",
+        eventType: payload.type,
+        eventId: payload.id,
+      });
       return;
     }
 
@@ -225,6 +250,11 @@ export abstract class WebhookService {
     const organizationId = data.metadata?.organization_id;
 
     if (!organizationId) {
+      logger.info({
+        type: "webhook:skipped:missing-metadata",
+        eventType: payload.type,
+        eventId: payload.id,
+      });
       return;
     }
 
