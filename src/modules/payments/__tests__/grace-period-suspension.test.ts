@@ -74,11 +74,7 @@ describe("Grace Period Suspension: past_due → Job → canceled", () => {
       await SubscriptionFactory.createActive(org.id, diamondPlanResult.plan.id);
 
       const payload = createPaymentFailedPayload(org.id);
-      await WebhookService.process(
-        payload,
-        createValidAuthHeader(),
-        JSON.stringify(payload)
-      );
+      await WebhookService.process(payload, createValidAuthHeader());
 
       const [subscription] = await db
         .select()
@@ -108,11 +104,7 @@ describe("Grace Period Suspension: past_due → Job → canceled", () => {
       await SubscriptionFactory.createActive(org.id, diamondPlanResult.plan.id);
 
       const payload = createPaymentFailedPayload(org.id);
-      await WebhookService.process(
-        payload,
-        createValidAuthHeader(),
-        JSON.stringify(payload)
-      );
+      await WebhookService.process(payload, createValidAuthHeader());
 
       const access = await SubscriptionService.checkAccess(org.id);
 
@@ -271,11 +263,7 @@ describe("Grace Period Suspension: past_due → Job → canceled", () => {
 
       // Step 1: Payment fails
       const failPayload = createPaymentFailedPayload(org.id);
-      await WebhookService.process(
-        failPayload,
-        authHeader,
-        JSON.stringify(failPayload)
-      );
+      await WebhookService.process(failPayload, authHeader);
 
       // Verify past_due with grace period fields
       let [subscription] = await db
@@ -303,11 +291,7 @@ describe("Grace Period Suspension: past_due → Job → canceled", () => {
         },
       };
 
-      await WebhookService.process(
-        successPayload,
-        authHeader,
-        JSON.stringify(successPayload)
-      );
+      await WebhookService.process(successPayload, authHeader);
 
       // Verify recovery: status active, grace period fields cleared
       [subscription] = await db

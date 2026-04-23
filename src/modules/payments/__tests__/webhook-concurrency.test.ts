@@ -64,20 +64,11 @@ describe("Webhook Concurrency: Idempotency with Simultaneous Events", () => {
         .build();
 
       const authHeader = createValidAuthHeader();
-      const payloadStr = JSON.stringify(payload);
 
       // Send same webhook twice
-      await WebhookService.process(
-        payload as ProcessWebhook,
-        authHeader,
-        payloadStr
-      );
+      await WebhookService.process(payload as ProcessWebhook, authHeader);
 
-      await WebhookService.process(
-        payload as ProcessWebhook,
-        authHeader,
-        payloadStr
-      );
+      await WebhookService.process(payload as ProcessWebhook, authHeader);
 
       // Should only have one event record
       const events = await db
@@ -102,26 +93,13 @@ describe("Webhook Concurrency: Idempotency with Simultaneous Events", () => {
         .build();
 
       const authHeader = createValidAuthHeader();
-      const payloadStr = JSON.stringify(payload);
 
       // Send webhook 3 times
-      await WebhookService.process(
-        payload as ProcessWebhook,
-        authHeader,
-        payloadStr
-      );
+      await WebhookService.process(payload as ProcessWebhook, authHeader);
 
-      await WebhookService.process(
-        payload as ProcessWebhook,
-        authHeader,
-        payloadStr
-      );
+      await WebhookService.process(payload as ProcessWebhook, authHeader);
 
-      await WebhookService.process(
-        payload as ProcessWebhook,
-        authHeader,
-        payloadStr
-      );
+      await WebhookService.process(payload as ProcessWebhook, authHeader);
 
       // Status should be past_due (only processed once)
       const [subscription] = await db
@@ -160,25 +138,12 @@ describe("Webhook Concurrency: Idempotency with Simultaneous Events", () => {
         .build();
 
       const authHeader = createValidAuthHeader();
-      const payloadStr = JSON.stringify(payload);
 
       // Send webhooks concurrently
       const results = await Promise.allSettled([
-        WebhookService.process(
-          payload as ProcessWebhook,
-          authHeader,
-          payloadStr
-        ),
-        WebhookService.process(
-          payload as ProcessWebhook,
-          authHeader,
-          payloadStr
-        ),
-        WebhookService.process(
-          payload as ProcessWebhook,
-          authHeader,
-          payloadStr
-        ),
+        WebhookService.process(payload as ProcessWebhook, authHeader),
+        WebhookService.process(payload as ProcessWebhook, authHeader),
+        WebhookService.process(payload as ProcessWebhook, authHeader),
       ]);
 
       // At least one should succeed (the first one)
@@ -242,16 +207,8 @@ describe("Webhook Concurrency: Idempotency with Simultaneous Events", () => {
 
       // Send different events concurrently
       await Promise.all([
-        WebhookService.process(
-          payload1 as ProcessWebhook,
-          authHeader,
-          JSON.stringify(payload1)
-        ),
-        WebhookService.process(
-          payload2 as ProcessWebhook,
-          authHeader,
-          JSON.stringify(payload2)
-        ),
+        WebhookService.process(payload1 as ProcessWebhook, authHeader),
+        WebhookService.process(payload2 as ProcessWebhook, authHeader),
       ]);
 
       // Both events should be recorded (different event IDs)
@@ -286,20 +243,11 @@ describe("Webhook Concurrency: Idempotency with Simultaneous Events", () => {
         .build();
 
       const authHeader = createValidAuthHeader();
-      const payloadStr = JSON.stringify(payload);
 
       // Process twice
-      await WebhookService.process(
-        payload as ProcessWebhook,
-        authHeader,
-        payloadStr
-      );
+      await WebhookService.process(payload as ProcessWebhook, authHeader);
 
-      await WebhookService.process(
-        payload as ProcessWebhook,
-        authHeader,
-        payloadStr
-      );
+      await WebhookService.process(payload as ProcessWebhook, authHeader);
 
       // Verify idempotency
       const events = await db
@@ -342,20 +290,11 @@ describe("Webhook Concurrency: Idempotency with Simultaneous Events", () => {
         .build();
 
       const authHeader = createValidAuthHeader();
-      const payloadStr = JSON.stringify(payload);
 
       // Process twice
-      await WebhookService.process(
-        payload as ProcessWebhook,
-        authHeader,
-        payloadStr
-      );
+      await WebhookService.process(payload as ProcessWebhook, authHeader);
 
-      await WebhookService.process(
-        payload as ProcessWebhook,
-        authHeader,
-        payloadStr
-      );
+      await WebhookService.process(payload as ProcessWebhook, authHeader);
 
       // Only one event recorded
       const events = await db
@@ -388,20 +327,11 @@ describe("Webhook Concurrency: Idempotency with Simultaneous Events", () => {
         .build();
 
       const authHeader = createValidAuthHeader();
-      const payloadStr = JSON.stringify(payload);
 
       // Process twice
-      await WebhookService.process(
-        payload as ProcessWebhook,
-        authHeader,
-        payloadStr
-      );
+      await WebhookService.process(payload as ProcessWebhook, authHeader);
 
-      await WebhookService.process(
-        payload as ProcessWebhook,
-        authHeader,
-        payloadStr
-      );
+      await WebhookService.process(payload as ProcessWebhook, authHeader);
 
       // Only one event recorded
       const events = await db
@@ -459,18 +389,10 @@ describe("Webhook Concurrency: Idempotency with Simultaneous Events", () => {
 
       // Process both (simulating race condition where they arrive close together)
       await Promise.all([
-        WebhookService.process(
-          failPayload as ProcessWebhook,
-          authHeader,
-          JSON.stringify(failPayload)
-        ),
+        WebhookService.process(failPayload as ProcessWebhook, authHeader),
         // Small delay to simulate realistic timing
         new Promise((resolve) => setTimeout(resolve, 10)).then(() =>
-          WebhookService.process(
-            successPayload as ProcessWebhook,
-            authHeader,
-            JSON.stringify(successPayload)
-          )
+          WebhookService.process(successPayload as ProcessWebhook, authHeader)
         ),
       ]);
 
@@ -525,17 +447,12 @@ describe("Webhook Concurrency: Idempotency with Simultaneous Events", () => {
         .build();
 
       const authHeader = createValidAuthHeader();
-      const payloadStr = JSON.stringify(payload);
 
       // Send 10 concurrent requests with same event ID
       const requests = new Array(10)
         .fill(null)
         .map(() =>
-          WebhookService.process(
-            payload as ProcessWebhook,
-            authHeader,
-            payloadStr
-          )
+          WebhookService.process(payload as ProcessWebhook, authHeader)
         );
 
       await Promise.allSettled(requests);
@@ -567,13 +484,8 @@ describe("Webhook Concurrency: Idempotency with Simultaneous Events", () => {
         .build();
 
       const authHeader = createValidAuthHeader();
-      const payloadStr = JSON.stringify(payload);
 
-      await WebhookService.process(
-        payload as ProcessWebhook,
-        authHeader,
-        payloadStr
-      );
+      await WebhookService.process(payload as ProcessWebhook, authHeader);
 
       // Verify event metadata
       const [event] = await db

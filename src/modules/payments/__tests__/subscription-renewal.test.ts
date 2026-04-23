@@ -94,8 +94,7 @@ describe("Subscription Renewal: charge.paid Updates Period", () => {
 
       await WebhookService.process(
         payload as ProcessWebhook,
-        createValidAuthHeader(),
-        JSON.stringify(payload)
+        createValidAuthHeader()
       );
 
       // Verify period was updated
@@ -136,8 +135,7 @@ describe("Subscription Renewal: charge.paid Updates Period", () => {
 
       await WebhookService.process(
         payload as ProcessWebhook,
-        createValidAuthHeader(),
-        JSON.stringify(payload)
+        createValidAuthHeader()
       );
 
       const access = await SubscriptionService.checkAccess(org.id);
@@ -190,8 +188,7 @@ describe("Subscription Renewal: charge.paid Updates Period", () => {
 
       await WebhookService.process(
         payload as ProcessWebhook,
-        createValidAuthHeader(),
-        JSON.stringify(payload)
+        createValidAuthHeader()
       );
 
       // Verify restoration
@@ -246,8 +243,7 @@ describe("Subscription Renewal: charge.paid Updates Period", () => {
 
       await WebhookService.process(
         payload as ProcessWebhook,
-        createValidAuthHeader(),
-        JSON.stringify(payload)
+        createValidAuthHeader()
       );
 
       // Verify grace period fields are cleared
@@ -293,11 +289,7 @@ describe("Subscription Renewal: charge.paid Updates Period", () => {
           .withPeriod(start, end)
           .build();
 
-        await WebhookService.process(
-          payload as ProcessWebhook,
-          authHeader,
-          JSON.stringify(payload)
-        );
+        await WebhookService.process(payload as ProcessWebhook, authHeader);
 
         // Verify subscription is active after each renewal
         const access = await SubscriptionService.checkAccess(org.id);
@@ -340,8 +332,7 @@ describe("Subscription Renewal: charge.paid Updates Period", () => {
 
       await WebhookService.process(
         payload as ProcessWebhook,
-        createValidAuthHeader(),
-        JSON.stringify(payload)
+        createValidAuthHeader()
       );
 
       // Verify pagarmeSubscriptionId was set
@@ -380,8 +371,7 @@ describe("Subscription Renewal: charge.paid Updates Period", () => {
 
       await WebhookService.process(
         payload as ProcessWebhook,
-        createValidAuthHeader(),
-        JSON.stringify(payload)
+        createValidAuthHeader()
       );
 
       // Verify event was recorded
@@ -428,17 +418,9 @@ describe("Subscription Renewal: charge.paid Updates Period", () => {
       const authHeader = createValidAuthHeader();
 
       // Process same webhook twice
-      await WebhookService.process(
-        payload as ProcessWebhook,
-        authHeader,
-        JSON.stringify(payload)
-      );
+      await WebhookService.process(payload as ProcessWebhook, authHeader);
 
-      await WebhookService.process(
-        payload as ProcessWebhook,
-        authHeader,
-        JSON.stringify(payload)
-      );
+      await WebhookService.process(payload as ProcessWebhook, authHeader);
 
       // Should only have one event recorded
       const events = await db
@@ -469,8 +451,7 @@ describe("Subscription Renewal: charge.paid Updates Period", () => {
 
       await WebhookService.process(
         payload as ProcessWebhook,
-        createValidAuthHeader(),
-        JSON.stringify(payload)
+        createValidAuthHeader()
       );
 
       // Verify subscription is still active

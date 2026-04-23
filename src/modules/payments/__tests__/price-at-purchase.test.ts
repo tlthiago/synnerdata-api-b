@@ -61,11 +61,7 @@ describe("priceAtPurchase tracking", () => {
         .withPaymentLinkCode(checkout.paymentLinkId)
         .build();
 
-      await WebhookService.process(
-        payload,
-        createValidAuthHeader(),
-        JSON.stringify(payload)
-      );
+      await WebhookService.process(payload, createValidAuthHeader());
 
       const [subscription] = await db
         .select()
@@ -94,11 +90,7 @@ describe("priceAtPurchase tracking", () => {
         .withPaymentLinkCode(checkout.paymentLinkId)
         .build();
 
-      await WebhookService.process(
-        payload,
-        createValidAuthHeader(),
-        JSON.stringify(payload)
-      );
+      await WebhookService.process(payload, createValidAuthHeader());
 
       const [subscription] = await db
         .select()
@@ -130,11 +122,7 @@ describe("priceAtPurchase tracking", () => {
         .withBillingCycle("monthly")
         .build();
 
-      await WebhookService.process(
-        payload,
-        createValidAuthHeader(),
-        JSON.stringify(payload)
-      );
+      await WebhookService.process(payload, createValidAuthHeader());
 
       const [subscription] = await db
         .select()
@@ -181,11 +169,7 @@ describe("priceAtPurchase tracking", () => {
         .withBillingCycle("monthly")
         .build();
 
-      await WebhookService.process(
-        payload,
-        createValidAuthHeader(),
-        JSON.stringify(payload)
-      );
+      await WebhookService.process(payload, createValidAuthHeader());
 
       const [subscription] = await db
         .select()
@@ -217,11 +201,7 @@ describe("priceAtPurchase tracking", () => {
         .withBillingCycle("yearly")
         .build();
 
-      await WebhookService.process(
-        payload,
-        createValidAuthHeader(),
-        JSON.stringify(payload)
-      );
+      await WebhookService.process(payload, createValidAuthHeader());
 
       const [subscription] = await db
         .select()
@@ -412,11 +392,7 @@ describe("priceAtPurchase tracking", () => {
         .withPaymentLinkCode(checkout.paymentLinkId)
         .build();
 
-      await WebhookService.process(
-        payload,
-        createValidAuthHeader(),
-        JSON.stringify(payload)
-      );
+      await WebhookService.process(payload, createValidAuthHeader());
 
       // Simulate catalog price change (update tier price)
       await db

@@ -4,7 +4,11 @@ import {
   unauthorizedErrorSchema,
   validationErrorSchema,
 } from "@/lib/responses/response.types";
-import { processWebhookResponseSchema } from "./webhook.model";
+import { extractClientIp } from "@/plugins/auth/validators";
+import {
+  processWebhookResponseSchema,
+  processWebhookSchema,
+} from "./webhook.model";
 import { WebhookService } from "./webhook.service";
 
 export const webhookController = new Elysia({
@@ -13,16 +17,14 @@ export const webhookController = new Elysia({
   detail: { tags: ["Payments - Webhook"] },
 }).post(
   "/pagarme",
-  async ({ request, body: rawBody }) => {
+  async ({ request, body }) => {
     const authHeader = request.headers.get("Authorization");
-    const rawBodyString =
-      typeof rawBody === "string" ? rawBody : JSON.stringify(rawBody);
-    const body = typeof rawBody === "string" ? JSON.parse(rawBody) : rawBody;
-    await WebhookService.process(body, authHeader, rawBodyString);
+    const clientIp = extractClientIp(request.headers);
+    await WebhookService.process(body, authHeader, clientIp);
     return { success: true as const, data: { received: true } };
   },
   {
-    parse: "text",
+    body: processWebhookSchema,
     response: {
       200: processWebhookResponseSchema,
       422: validationErrorSchema,
