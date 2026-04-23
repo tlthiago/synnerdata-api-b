@@ -169,8 +169,9 @@ export async function applyAdminRolesBeforeUserCreate(
   user: UserCreatePayload
 ): Promise<UserCreateResult> {
   const { superAdmins, admins } = getAdminEmails();
+  const normalizedEmail = user.email.toLowerCase();
 
-  if (superAdmins.includes(user.email)) {
+  if (superAdmins.includes(normalizedEmail)) {
     return {
       data: {
         ...user,
@@ -180,7 +181,7 @@ export async function applyAdminRolesBeforeUserCreate(
     };
   }
 
-  if (admins.includes(user.email)) {
+  if (admins.includes(normalizedEmail)) {
     return {
       data: {
         ...user,
