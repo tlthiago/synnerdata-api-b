@@ -1,7 +1,7 @@
 import { z } from "zod";
 import { successResponseSchema } from "@/lib/responses/response.types";
 
-export const processWebhookSchema = z.object({
+export const processWebhookSchema = z.looseObject({
   id: z.string().describe("Webhook event ID from Pagarme"),
   type: z.string().describe("Event type (e.g., charge.paid)"),
   created_at: z.string().describe("Event creation timestamp"),

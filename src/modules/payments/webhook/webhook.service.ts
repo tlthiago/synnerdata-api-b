@@ -70,11 +70,7 @@ type SubscriptionUpdatedData = {
 };
 
 export abstract class WebhookService {
-  static async process(
-    payload: ProcessWebhook,
-    authHeader: string | null,
-    _rawBody: string
-  ) {
+  static async process(payload: ProcessWebhook, authHeader: string | null) {
     WebhookService.validateBasicAuth(authHeader);
 
     const [existingEvent] = await db
