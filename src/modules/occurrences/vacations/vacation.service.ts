@@ -3,7 +3,10 @@ import { db } from "@/db";
 import { schema } from "@/db/schema";
 import { calculateDaysBetween } from "@/lib/schemas/date-helpers";
 import { ensureEmployeeNotTerminated } from "@/modules/employees/status";
-import { computePeriodsFromHireDate } from "@/modules/occurrences/vacations/period-calculation";
+import {
+  type ActiveCycle,
+  computeActiveCycle,
+} from "@/modules/occurrences/vacations/period-calculation";
 import {
   VacationAlreadyDeletedError,
   VacationAquisitivoExceededError,
@@ -13,6 +16,7 @@ import {
   VacationInvalidEmployeeError,
   VacationNotFoundError,
   VacationOverlapError,
+  VacationStartDateOutsideConcessiveError,
 } from "./errors";
 import type {
   CreateVacationInput,
@@ -217,6 +221,76 @@ export abstract class VacationService {
     }
   }
 
+  private static validateStartDateInConcessive(
+    startDate: string,
+    cycle: { concessivePeriodStart: string; concessivePeriodEnd: string }
+  ): void {
+    if (
+      startDate < cycle.concessivePeriodStart ||
+      startDate > cycle.concessivePeriodEnd
+    ) {
+      throw new VacationStartDateOutsideConcessiveError({
+        startDate,
+        concessivePeriodStart: cycle.concessivePeriodStart,
+        concessivePeriodEnd: cycle.concessivePeriodEnd,
+      });
+    }
+  }
+
+  private static async computeActiveCycleFor(
+    employeeId: string,
+    organizationId: string,
+    hireDate: string,
+    referenceDate: Date
+  ): Promise<ActiveCycle> {
+    const rows = await db
+      .select({
+        acquisitionPeriodStart: sql<string>`${schema.vacations.acquisitionPeriodStart}`,
+        daysEntitled: schema.vacations.daysEntitled,
+      })
+      .from(schema.vacations)
+      .where(
+        and(
+          eq(schema.vacations.organizationId, organizationId),
+          eq(schema.vacations.employeeId, employeeId),
+          sql`${schema.vacations.status} != 'canceled'`,
+          isNull(schema.vacations.deletedAt),
+          sql`${schema.vacations.acquisitionPeriodStart} IS NOT NULL`
+        )
+      );
+
+    const vacationsInCycles = rows.map((row) => ({
+      acquisitionPeriodStart: row.acquisitionPeriodStart,
+      daysEntitled: row.daysEntitled,
+    }));
+
+    return computeActiveCycle({
+      hireDate,
+      referenceDate,
+      vacationsInCycles,
+    });
+  }
+
+  static async getActiveCycle(
+    employeeId: string,
+    organizationId: string,
+    referenceDate: Date = new Date()
+  ): Promise<ActiveCycle> {
+    const employee = await VacationService.getEmployeeReference(
+      employeeId,
+      organizationId
+    );
+
+    await ensureEmployeeNotTerminated(employeeId, organizationId);
+
+    return VacationService.computeActiveCycleFor(
+      employeeId,
+      organizationId,
+      employee.hireDate,
+      referenceDate
+    );
+  }
+
   private static async syncEmployeeStatus(
     employeeId: string,
     organizationId: string,
@@ -295,18 +369,15 @@ export abstract class VacationService {
     await ensureEmployeeNotTerminated(data.employeeId, organizationId);
 
     VacationService.validateDates(data.startDate, data.endDate);
-    // validateDatesNotBeforeHire must run before computePeriodsFromHireDate so
-    // `startDate < hireDate` throws VacationDateBeforeHireError (specific)
-    // instead of VacationNoRightsError (generic, fired when completed = 0).
-    VacationService.validateDatesNotBeforeHire(employee.hireDate, {
-      startDate: data.startDate,
-      endDate: data.endDate,
-    });
 
-    const periods = computePeriodsFromHireDate(
+    const activeCycle = await VacationService.computeActiveCycleFor(
+      data.employeeId,
+      organizationId,
       employee.hireDate,
       new Date(`${data.startDate}T00:00:00Z`)
     );
+
+    VacationService.validateStartDateInConcessive(data.startDate, activeCycle);
 
     VacationService.validateDays(
       data.startDate,
@@ -318,8 +389,8 @@ export abstract class VacationService {
     await VacationService.ensureAquisitivoLimit({
       employeeId: data.employeeId,
       organizationId,
-      acquisitionPeriodStart: periods.acquisitionPeriodStart,
-      acquisitionPeriodEnd: periods.acquisitionPeriodEnd,
+      acquisitionPeriodStart: activeCycle.acquisitionPeriodStart,
+      acquisitionPeriodEnd: activeCycle.acquisitionPeriodEnd,
       requestedDays: data.daysEntitled,
     });
 
@@ -338,10 +409,10 @@ export abstract class VacationService {
       employeeId: data.employeeId,
       startDate: data.startDate,
       endDate: data.endDate,
-      acquisitionPeriodStart: periods.acquisitionPeriodStart,
-      acquisitionPeriodEnd: periods.acquisitionPeriodEnd,
-      concessivePeriodStart: periods.concessivePeriodStart,
-      concessivePeriodEnd: periods.concessivePeriodEnd,
+      acquisitionPeriodStart: activeCycle.acquisitionPeriodStart,
+      acquisitionPeriodEnd: activeCycle.acquisitionPeriodEnd,
+      concessivePeriodStart: activeCycle.concessivePeriodStart,
+      concessivePeriodEnd: activeCycle.concessivePeriodEnd,
       daysEntitled: data.daysEntitled,
       daysUsed: data.daysUsed,
       status: data.status,
@@ -361,10 +432,10 @@ export abstract class VacationService {
       employee,
       startDate: data.startDate,
       endDate: data.endDate,
-      acquisitionPeriodStart: periods.acquisitionPeriodStart,
-      acquisitionPeriodEnd: periods.acquisitionPeriodEnd,
-      concessivePeriodStart: periods.concessivePeriodStart,
-      concessivePeriodEnd: periods.concessivePeriodEnd,
+      acquisitionPeriodStart: activeCycle.acquisitionPeriodStart,
+      acquisitionPeriodEnd: activeCycle.acquisitionPeriodEnd,
+      concessivePeriodStart: activeCycle.concessivePeriodStart,
+      concessivePeriodEnd: activeCycle.concessivePeriodEnd,
       daysEntitled: data.daysEntitled,
       daysUsed: data.daysUsed,
       status: data.status,
