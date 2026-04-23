@@ -1,7 +1,7 @@
 import { beforeEach, describe, expect, mock, spyOn, test } from "bun:test";
 import { env } from "@/env";
-import { ErrorReporter } from "@/lib/error-reporter";
 import { logger } from "@/lib/logger";
+import { ErrorReporter } from "@/lib/sentry/reporter";
 import { SubscriptionService } from "@/modules/payments/subscription/subscription.service";
 import { WebhookService } from "@/modules/payments/webhook/webhook.service";
 import { WebhookPayloadBuilder } from "@/test/builders/webhook-payload.builder";

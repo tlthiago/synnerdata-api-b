@@ -1,9 +1,9 @@
 import { Elysia } from "elysia";
 import { isProduction } from "@/env";
-import { ErrorReporter } from "@/lib/error-reporter";
 import { AppError } from "@/lib/errors/base-error";
 import { logger } from "@/lib/logger";
 import { getRequestId } from "@/lib/request-context";
+import { ErrorReporter } from "@/lib/sentry/reporter";
 
 const isDev = !isProduction;
 
