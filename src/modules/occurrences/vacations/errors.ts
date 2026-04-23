@@ -131,15 +131,3 @@ export class VacationStartDateOutsideConcessiveError extends VacationError {
     );
   }
 }
-
-export class VacationActiveCycleUnresolvableError extends VacationError {
-  status = 500;
-
-  constructor(hireDate: string, referenceDate: string) {
-    super(
-      "Não foi possível determinar o ciclo de férias ativo dentro do intervalo de segurança",
-      "VACATION_ACTIVE_CYCLE_UNRESOLVABLE",
-      { hireDate, referenceDate }
-    );
-  }
-}

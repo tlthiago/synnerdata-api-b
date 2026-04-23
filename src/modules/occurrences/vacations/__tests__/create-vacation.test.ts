@@ -200,8 +200,8 @@ describe("POST /v1/vacations", () => {
         headers: { ...headers, "Content-Type": "application/json" },
         body: JSON.stringify({
           employeeId: employee.id,
-          startDate: "2025-01-01",
-          endDate: "2025-01-15",
+          startDate: "2021-01-01",
+          endDate: "2021-01-15",
           daysEntitled: 15,
           daysUsed: 10,
           status: "scheduled",
@@ -253,8 +253,8 @@ describe("POST /v1/vacations", () => {
         },
         body: JSON.stringify({
           employeeId: employee.id,
-          startDate: "2025-02-01",
-          endDate: "2025-02-15",
+          startDate: "2021-02-01",
+          endDate: "2021-02-15",
           daysEntitled: 15,
           daysUsed: 0,
         }),
@@ -284,8 +284,8 @@ describe("POST /v1/vacations", () => {
       organizationId,
       userId: user.id,
       employeeId: employee.id,
-      startDate: "2025-03-01",
-      endDate: "2025-03-15",
+      startDate: "2021-03-01",
+      endDate: "2021-03-15",
       daysUsed: 0,
       status: "scheduled",
     });
@@ -296,8 +296,8 @@ describe("POST /v1/vacations", () => {
         headers: { ...headers, "Content-Type": "application/json" },
         body: JSON.stringify({
           employeeId: employee.id,
-          startDate: "2025-03-10",
-          endDate: "2025-03-20",
+          startDate: "2021-03-10",
+          endDate: "2021-03-20",
           daysEntitled: 11,
           daysUsed: 0,
         }),
@@ -325,8 +325,8 @@ describe("POST /v1/vacations", () => {
       organizationId,
       userId: user.id,
       employeeId: employee.id,
-      startDate: "2025-04-01",
-      endDate: "2025-04-15",
+      startDate: "2021-04-01",
+      endDate: "2021-04-15",
       daysUsed: 0,
       status: "canceled",
     });
@@ -337,8 +337,8 @@ describe("POST /v1/vacations", () => {
         headers: { ...headers, "Content-Type": "application/json" },
         body: JSON.stringify({
           employeeId: employee.id,
-          startDate: "2025-04-01",
-          endDate: "2025-04-15",
+          startDate: "2021-04-01",
+          endDate: "2021-04-15",
           daysEntitled: 15,
           daysUsed: 0,
         }),
@@ -409,8 +409,8 @@ describe("POST /v1/vacations", () => {
         headers: { ...headers, "Content-Type": "application/json" },
         body: JSON.stringify({
           employeeId: employee.id,
-          startDate: "2025-06-01",
-          endDate: "2025-06-15",
+          startDate: "2021-06-01",
+          endDate: "2021-06-15",
           daysEntitled: 15,
           daysUsed: 0,
         }),
@@ -477,8 +477,8 @@ describe("POST /v1/vacations", () => {
         headers: { ...headers, "Content-Type": "application/json" },
         body: JSON.stringify({
           employeeId: employee.id,
-          startDate: "2026-07-01",
-          endDate: "2026-07-30",
+          startDate: "2025-07-01",
+          endDate: "2025-07-30",
           daysEntitled: 30,
           daysUsed: 30,
           status: "scheduled",
@@ -488,17 +488,13 @@ describe("POST /v1/vacations", () => {
 
     expect(response.status).toBe(200);
     const body = await response.json();
-    // startDate=2026-07-01 as reference: completed=2 (2025-06-10 and 2026-06-10 anniversaries), index=1
-    // acquisitionPeriodStart = addMonths("2024-06-10", 12) = "2025-06-10"
-    // acquisitionPeriodEnd = addDays(addMonths("2024-06-10", 24), -1) = "2026-06-09"
-    // concessivePeriodStart = "2026-06-10", concessivePeriodEnd = "2027-06-09"
-    expect(body.data.acquisitionPeriodStart).toBe("2025-06-10");
-    expect(body.data.acquisitionPeriodEnd).toBe("2026-06-09");
-    expect(body.data.concessivePeriodStart).toBe("2026-06-10");
-    expect(body.data.concessivePeriodEnd).toBe("2027-06-09");
+    expect(body.data.acquisitionPeriodStart).toBe("2024-06-10");
+    expect(body.data.acquisitionPeriodEnd).toBe("2025-06-09");
+    expect(body.data.concessivePeriodStart).toBe("2025-06-10");
+    expect(body.data.concessivePeriodEnd).toBe("2026-06-09");
   });
 
-  test("ignores employee manual seed and computes periods from hireDate + startDate", async () => {
+  test("ignores employee manual seed and derives cycle from history (none here)", async () => {
     const { headers, organizationId, user } =
       await createTestUserWithOrganization({
         emailVerified: true,
@@ -518,8 +514,8 @@ describe("POST /v1/vacations", () => {
         headers: { ...headers, "Content-Type": "application/json" },
         body: JSON.stringify({
           employeeId: employee.id,
-          startDate: "2026-10-06",
-          endDate: "2026-11-04",
+          startDate: "2025-10-06",
+          endDate: "2025-11-04",
           daysEntitled: 30,
           daysUsed: 30,
           status: "scheduled",
@@ -529,12 +525,10 @@ describe("POST /v1/vacations", () => {
 
     expect(response.status).toBe(200);
     const body = await response.json();
-    // Manual seed on employee is now ignored; periods always computed
-    // from hireDate + vacation.startDate.
-    expect(body.data.acquisitionPeriodStart).toBe("2025-06-10");
-    expect(body.data.acquisitionPeriodEnd).toBe("2026-06-09");
-    expect(body.data.concessivePeriodStart).toBe("2026-06-10");
-    expect(body.data.concessivePeriodEnd).toBe("2027-06-09");
+    expect(body.data.acquisitionPeriodStart).toBe("2024-06-10");
+    expect(body.data.acquisitionPeriodEnd).toBe("2025-06-09");
+    expect(body.data.concessivePeriodStart).toBe("2025-06-10");
+    expect(body.data.concessivePeriodEnd).toBe("2026-06-09");
   });
 
   test("ignores period fields in payload and computes from backend", async () => {
@@ -557,8 +551,8 @@ describe("POST /v1/vacations", () => {
         headers: { ...headers, "Content-Type": "application/json" },
         body: JSON.stringify({
           employeeId: employee.id,
-          startDate: "2026-10-06",
-          endDate: "2026-11-04",
+          startDate: "2025-10-06",
+          endDate: "2025-11-04",
           daysEntitled: 30,
           daysUsed: 30,
           status: "scheduled",
@@ -572,11 +566,10 @@ describe("POST /v1/vacations", () => {
 
     expect(response.status).toBe(200);
     const body = await response.json();
-    // Zod strips the 4 garbage values; backend computes from hireDate + startDate.
-    expect(body.data.acquisitionPeriodStart).toBe("2025-06-10");
-    expect(body.data.acquisitionPeriodEnd).toBe("2026-06-09");
-    expect(body.data.concessivePeriodStart).toBe("2026-06-10");
-    expect(body.data.concessivePeriodEnd).toBe("2027-06-09");
+    expect(body.data.acquisitionPeriodStart).toBe("2024-06-10");
+    expect(body.data.acquisitionPeriodEnd).toBe("2025-06-09");
+    expect(body.data.concessivePeriodStart).toBe("2025-06-10");
+    expect(body.data.concessivePeriodEnd).toBe("2026-06-09");
   });
 
   test("rejects with 422 when vacation startDate is before first cycle's concessivo", async () => {
@@ -703,7 +696,7 @@ describe("POST /v1/vacations", () => {
     expect(body.data.concessivePeriodEnd).toBe("2027-04-21");
   });
 
-  test("silently skips cycles with expired concessivo and < 30 days used", async () => {
+  test("partial usage in past cycle keeps new registration anchored to that same cycle", async () => {
     const { headers, organizationId, user } =
       await createTestUserWithOrganization({
         emailVerified: true,
@@ -740,8 +733,8 @@ describe("POST /v1/vacations", () => {
         headers: { ...headers, "Content-Type": "application/json" },
         body: JSON.stringify({
           employeeId: employee.id,
-          startDate: "2026-05-01",
-          endDate: "2026-05-10",
+          startDate: "2024-09-01",
+          endDate: "2024-09-10",
           daysEntitled: 10,
           daysUsed: 0,
           status: "scheduled",
@@ -751,10 +744,10 @@ describe("POST /v1/vacations", () => {
 
     expect(response.status).toBe(200);
     const body = await response.json();
-    expect(body.data.acquisitionPeriodStart).toBe("2025-04-22");
-    expect(body.data.acquisitionPeriodEnd).toBe("2026-04-21");
-    expect(body.data.concessivePeriodStart).toBe("2026-04-22");
-    expect(body.data.concessivePeriodEnd).toBe("2027-04-21");
+    expect(body.data.acquisitionPeriodStart).toBe("2023-04-22");
+    expect(body.data.acquisitionPeriodEnd).toBe("2024-04-21");
+    expect(body.data.concessivePeriodStart).toBe("2024-04-22");
+    expect(body.data.concessivePeriodEnd).toBe("2025-04-21");
   });
 
   test("rejects when startDate falls outside the selected active cycle's concessivo", async () => {
@@ -816,8 +809,8 @@ describe("POST /v1/vacations", () => {
       hireDate: "2020-01-01",
     });
 
-    const startDate = "2027-06-01";
-    const endDate = "2027-06-10";
+    const startDate = "2021-06-01";
+    const endDate = "2021-06-10";
 
     const response = await app.handle(
       new Request(`${BASE_URL}/v1/vacations`, {
@@ -895,8 +888,8 @@ describe("POST /v1/vacations", () => {
         headers: { ...headers, "Content-Type": "application/json" },
         body: JSON.stringify({
           employeeId: employee.id,
-          startDate: "2026-07-01",
-          endDate: "2026-07-30",
+          startDate: "2025-07-01",
+          endDate: "2025-07-30",
           daysEntitled: 30,
           daysUsed: 0,
           status: "scheduled",
@@ -927,8 +920,8 @@ describe("POST /v1/vacations", () => {
         headers: { ...headers, "Content-Type": "application/json" },
         body: JSON.stringify({
           employeeId: employee.id,
-          startDate: "2026-07-01",
-          endDate: "2026-07-20", // 20 days
+          startDate: "2025-07-01",
+          endDate: "2025-07-20",
           daysEntitled: 20,
           daysUsed: 0,
           status: "scheduled",
@@ -943,8 +936,8 @@ describe("POST /v1/vacations", () => {
         headers: { ...headers, "Content-Type": "application/json" },
         body: JSON.stringify({
           employeeId: employee.id,
-          startDate: "2026-08-01",
-          endDate: "2026-08-10", // 10 days, totals 30 in aquisitivo
+          startDate: "2025-08-01",
+          endDate: "2025-08-10",
           daysEntitled: 10,
           daysUsed: 0,
           status: "scheduled",
@@ -974,8 +967,8 @@ describe("POST /v1/vacations", () => {
         headers: { ...headers, "Content-Type": "application/json" },
         body: JSON.stringify({
           employeeId: employee.id,
-          startDate: "2026-07-01",
-          endDate: "2026-07-20", // 20 days
+          startDate: "2025-07-01",
+          endDate: "2025-07-20",
           daysEntitled: 20,
           daysUsed: 0,
           status: "scheduled",
@@ -989,8 +982,8 @@ describe("POST /v1/vacations", () => {
         headers: { ...headers, "Content-Type": "application/json" },
         body: JSON.stringify({
           employeeId: employee.id,
-          startDate: "2026-08-01",
-          endDate: "2026-08-15", // 15 days, would total 35
+          startDate: "2025-08-01",
+          endDate: "2025-08-15",
           daysEntitled: 15,
           daysUsed: 0,
           status: "scheduled",
@@ -1026,8 +1019,8 @@ describe("POST /v1/vacations", () => {
         headers: { ...headers, "Content-Type": "application/json" },
         body: JSON.stringify({
           employeeId: employee.id,
-          startDate: "2026-07-01",
-          endDate: "2026-07-29", // 29 days
+          startDate: "2025-07-01",
+          endDate: "2025-07-29",
           daysEntitled: 29,
           daysUsed: 0,
           status: "scheduled",
@@ -1041,8 +1034,8 @@ describe("POST /v1/vacations", () => {
         headers: { ...headers, "Content-Type": "application/json" },
         body: JSON.stringify({
           employeeId: employee.id,
-          startDate: "2026-08-05",
-          endDate: "2026-08-05", // 1 day, totals 30 exactly
+          startDate: "2025-08-05",
+          endDate: "2025-08-05",
           daysEntitled: 1,
           daysUsed: 0,
           status: "scheduled",
@@ -1121,8 +1114,8 @@ describe("POST /v1/vacations", () => {
         headers: { ...headers, "Content-Type": "application/json" },
         body: JSON.stringify({
           employeeId: employee.id,
-          startDate: "2026-07-01",
-          endDate: "2026-07-30",
+          startDate: "2025-07-01",
+          endDate: "2025-07-30",
           daysEntitled: 30,
           daysUsed: 0,
           status: "scheduled",
@@ -1147,8 +1140,8 @@ describe("POST /v1/vacations", () => {
         headers: { ...headers, "Content-Type": "application/json" },
         body: JSON.stringify({
           employeeId: employee.id,
-          startDate: "2026-09-01",
-          endDate: "2026-09-30",
+          startDate: "2025-09-01",
+          endDate: "2025-09-30",
           daysEntitled: 30,
           daysUsed: 0,
           status: "scheduled",
@@ -1178,8 +1171,8 @@ describe("POST /v1/vacations", () => {
         headers: { ...headers, "Content-Type": "application/json" },
         body: JSON.stringify({
           employeeId: employee.id,
-          startDate: "2026-07-01",
-          endDate: "2026-07-30",
+          startDate: "2025-07-01",
+          endDate: "2025-07-30",
           daysEntitled: 30,
           daysUsed: 0,
           status: "scheduled",
@@ -1203,8 +1196,8 @@ describe("POST /v1/vacations", () => {
         headers: { ...headers, "Content-Type": "application/json" },
         body: JSON.stringify({
           employeeId: employee.id,
-          startDate: "2026-09-01",
-          endDate: "2026-09-30",
+          startDate: "2025-09-01",
+          endDate: "2025-09-30",
           daysEntitled: 30,
           daysUsed: 0,
           status: "scheduled",
@@ -1212,5 +1205,43 @@ describe("POST /v1/vacations", () => {
       })
     );
     expect(second.status).toBe(200);
+  });
+
+  test("employer data migration: first vacation registration lands in cycle 1 derived from old hireDate", async () => {
+    const { headers, organizationId, user } =
+      await createTestUserWithOrganization({
+        emailVerified: true,
+        skipTrialCreation: true,
+      });
+
+    const { employee } = await createTestEmployee({
+      organizationId,
+      userId: user.id,
+      hireDate: "2019-02-15",
+      acquisitionPeriodStart: null,
+      acquisitionPeriodEnd: null,
+    });
+
+    const response = await app.handle(
+      new Request(`${BASE_URL}/v1/vacations`, {
+        method: "POST",
+        headers: { ...headers, "Content-Type": "application/json" },
+        body: JSON.stringify({
+          employeeId: employee.id,
+          startDate: "2020-03-01",
+          endDate: "2020-03-15",
+          daysEntitled: 15,
+          daysUsed: 0,
+          status: "scheduled",
+        }),
+      })
+    );
+
+    expect(response.status).toBe(200);
+    const body = await response.json();
+    expect(body.data.acquisitionPeriodStart).toBe("2019-02-15");
+    expect(body.data.acquisitionPeriodEnd).toBe("2020-02-14");
+    expect(body.data.concessivePeriodStart).toBe("2020-02-15");
+    expect(body.data.concessivePeriodEnd).toBe("2021-02-14");
   });
 });

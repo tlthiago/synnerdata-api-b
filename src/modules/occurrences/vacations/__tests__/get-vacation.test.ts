@@ -69,13 +69,15 @@ describe("GET /v1/vacations/:id", () => {
     const { employee } = await createTestEmployee({
       organizationId: org2,
       userId: user2.id,
-      hireDate: "2020-01-01",
+      hireDate: "2024-01-01",
     });
 
     const vacation = await createTestVacation({
       organizationId: org2,
       userId: user2.id,
       employeeId: employee.id,
+      startDate: "2025-06-01",
+      endDate: "2025-06-15",
     });
 
     const response = await app.handle(
@@ -99,7 +101,7 @@ describe("GET /v1/vacations/:id", () => {
     const { employee } = await createTestEmployee({
       organizationId,
       userId: user.id,
-      hireDate: "2020-01-01",
+      hireDate: "2024-01-01",
     });
 
     const vacation = await createTestVacation({
@@ -146,13 +148,15 @@ describe("GET /v1/vacations/:id", () => {
     const { employee } = await createTestEmployee({
       organizationId,
       userId: user.id,
-      hireDate: "2020-01-01",
+      hireDate: "2024-01-01",
     });
 
     const vacation = await createTestVacation({
       organizationId,
       userId: user.id,
       employeeId: employee.id,
+      startDate: "2025-06-01",
+      endDate: "2025-06-15",
     });
 
     const memberResult = await createTestUser({ emailVerified: true });

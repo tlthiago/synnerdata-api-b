@@ -1,5 +1,3 @@
-import { VacationActiveCycleUnresolvableError } from "./errors";
-
 export function addDays(isoDate: string, days: number): string {
   const d = new Date(`${isoDate}T00:00:00Z`);
   d.setUTCDate(d.getUTCDate() + days);
@@ -67,75 +65,48 @@ export function computePeriodsFromHireDate(
   };
 }
 
-export type ActiveCycleInput = {
+export type NextCycleInput = {
   hireDate: string;
-  referenceDate?: Date;
   vacationsInCycles: Array<{
     acquisitionPeriodStart: string;
     daysEntitled: number;
   }>;
 };
 
-export type ActiveCycle = VacationPeriods & {
-  daysUsed: number;
-  daysRemaining: number;
-};
+function buildCycleFromStart(start: string): VacationPeriods {
+  const acquisitionPeriodEnd = addDays(addMonths(start, 12), -1);
+  const concessivePeriodStart = addDays(acquisitionPeriodEnd, 1);
+  const concessivePeriodEnd = addDays(addMonths(concessivePeriodStart, 12), -1);
+  return {
+    acquisitionPeriodStart: start,
+    acquisitionPeriodEnd,
+    concessivePeriodStart,
+    concessivePeriodEnd,
+  };
+}
 
-const MAX_DAYS_PER_CYCLE = 30;
-const SAFETY_BOUND_MONTHS = 24;
-
-export function computeActiveCycle(input: ActiveCycleInput): ActiveCycle {
-  const referenceDate = input.referenceDate ?? new Date();
-  const referenceIso = referenceDate.toISOString().slice(0, 10);
-  const safetyBoundIso = addMonths(referenceIso, SAFETY_BOUND_MONTHS);
-
-  const usageByCycleStart = new Map<string, number>();
+export function resolveNextCycle(input: NextCycleInput): VacationPeriods {
+  const sumDaysByAquisitivo = new Map<string, number>();
   for (const vacation of input.vacationsInCycles) {
-    const current = usageByCycleStart.get(vacation.acquisitionPeriodStart) ?? 0;
-    usageByCycleStart.set(
+    const current =
+      sumDaysByAquisitivo.get(vacation.acquisitionPeriodStart) ?? 0;
+    sumDaysByAquisitivo.set(
       vacation.acquisitionPeriodStart,
       current + vacation.daysEntitled
     );
   }
 
-  let cycleNumber = 1;
-  while (cycleNumber < Number.MAX_SAFE_INTEGER) {
-    const acquisitionPeriodStart = addMonths(
-      input.hireDate,
-      (cycleNumber - 1) * 12
-    );
-
-    if (acquisitionPeriodStart > safetyBoundIso) {
-      break;
-    }
-
-    const acquisitionPeriodEnd = addDays(
-      addMonths(input.hireDate, cycleNumber * 12),
-      -1
-    );
-    const concessivePeriodStart = addDays(acquisitionPeriodEnd, 1);
-    const concessivePeriodEnd = addDays(
-      addMonths(concessivePeriodStart, 12),
-      -1
-    );
-
-    const daysUsed = usageByCycleStart.get(acquisitionPeriodStart) ?? 0;
-    const hasDaysAvailable = daysUsed < MAX_DAYS_PER_CYCLE;
-    const concessivoStillValid = concessivePeriodEnd >= referenceIso;
-
-    if (hasDaysAvailable && concessivoStillValid) {
-      return {
-        acquisitionPeriodStart,
-        acquisitionPeriodEnd,
-        concessivePeriodStart,
-        concessivePeriodEnd,
-        daysUsed,
-        daysRemaining: MAX_DAYS_PER_CYCLE - daysUsed,
-      };
-    }
-
-    cycleNumber += 1;
+  if (sumDaysByAquisitivo.size === 0) {
+    return buildCycleFromStart(input.hireDate);
   }
 
-  throw new VacationActiveCycleUnresolvableError(input.hireDate, referenceIso);
+  const starts = Array.from(sumDaysByAquisitivo.keys());
+  const lastStart = starts.reduce((a, b) => (b > a ? b : a));
+
+  const total = sumDaysByAquisitivo.get(lastStart) ?? 0;
+  if (total < 30) {
+    return buildCycleFromStart(lastStart);
+  }
+
+  return buildCycleFromStart(addMonths(lastStart, 12));
 }

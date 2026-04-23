@@ -58,7 +58,7 @@ describe("DELETE /v1/vacations/:id", () => {
     const { employee } = await createTestEmployee({
       organizationId,
       userId: user.id,
-      hireDate: "2020-01-01",
+      hireDate: "2024-01-01",
     });
 
     const vacation = await createTestVacation({
@@ -112,7 +112,7 @@ describe("DELETE /v1/vacations/:id", () => {
     const { employee } = await createTestEmployee({
       organizationId: org2,
       userId: user2.id,
-      hireDate: "2020-01-01",
+      hireDate: "2024-01-01",
     });
 
     const vacation = await createTestVacation({
@@ -142,7 +142,7 @@ describe("DELETE /v1/vacations/:id", () => {
     const { employee } = await createTestEmployee({
       organizationId,
       userId: user.id,
-      hireDate: "2020-01-01",
+      hireDate: "2024-01-01",
     });
 
     const vacation = await createTestVacation({
@@ -179,7 +179,7 @@ describe("DELETE /v1/vacations/:id", () => {
     const { employee } = await createTestEmployee({
       organizationId,
       userId: user.id,
-      hireDate: "2020-01-01",
+      hireDate: "2024-01-01",
     });
 
     const vacation = await createTestVacation({
@@ -217,7 +217,7 @@ describe("DELETE /v1/vacations/:id", () => {
     const { employee } = await createTestEmployee({
       organizationId,
       userId: user.id,
-      hireDate: "2020-01-01",
+      hireDate: "2024-01-01",
     });
 
     const vacation = await createTestVacation({
@@ -252,7 +252,7 @@ describe("DELETE /v1/vacations/:id", () => {
     const { employee } = await createTestEmployee({
       organizationId,
       userId: user.id,
-      hireDate: "2020-01-01",
+      hireDate: "2024-01-01",
     });
 
     const vacation = await createTestVacation({
@@ -292,7 +292,7 @@ describe("DELETE /v1/vacations/:id", () => {
     const { employee } = await createTestEmployee({
       organizationId,
       userId: user.id,
-      hireDate: "2020-01-01",
+      hireDate: "2024-01-01",
     });
 
     const vacation1 = await createTestVacation({

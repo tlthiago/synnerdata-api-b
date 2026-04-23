@@ -125,7 +125,7 @@ const deletedVacationDataSchema = vacationDataSchema.extend({
 
 const vacationListDataSchema = z.array(vacationDataSchema);
 
-export const activeCycleSchema = z.object({
+export const nextCycleSchema = z.object({
   acquisitionPeriodStart: z
     .string()
     .describe("Início do período aquisitivo (YYYY-MM-DD)"),
@@ -151,8 +151,8 @@ export const activeCycleSchema = z.object({
     .describe("Dias restantes no ciclo ativo"),
 });
 
-export const getActiveCycleResponseSchema =
-  successResponseSchema(activeCycleSchema);
+export const getNextCycleResponseSchema =
+  successResponseSchema(nextCycleSchema);
 
 export const createVacationResponseSchema =
   successResponseSchema(vacationDataSchema);

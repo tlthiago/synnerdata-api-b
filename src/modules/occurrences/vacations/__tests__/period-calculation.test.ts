@@ -2,9 +2,9 @@ import { describe, expect, test } from "bun:test";
 import {
   addDays,
   addMonths,
-  computeActiveCycle,
   computePeriodsFromHireDate,
   computePeriodsFromLastAcquisition,
+  resolveNextCycle,
 } from "@/modules/occurrences/vacations/period-calculation";
 
 const ISO_DATE_PATTERN = /^\d{4}-\d{2}-\d{2}$/;
@@ -146,12 +146,11 @@ describe("computePeriodsFromHireDate", () => {
   });
 });
 
-describe("computeActiveCycle", () => {
-  test("new hire (0 anniversaries) → returns cycle 1 with future concessivo", () => {
+describe("resolveNextCycle", () => {
+  test("no history → returns cycle 1 from hireDate", () => {
     expect(
-      computeActiveCycle({
+      resolveNextCycle({
         hireDate: "2026-01-01",
-        referenceDate: new Date("2026-06-01T00:00:00Z"),
         vacationsInCycles: [],
       })
     ).toEqual({
@@ -159,150 +158,122 @@ describe("computeActiveCycle", () => {
       acquisitionPeriodEnd: "2026-12-31",
       concessivePeriodStart: "2027-01-01",
       concessivePeriodEnd: "2027-12-31",
-      daysUsed: 0,
-      daysRemaining: 30,
     });
   });
 
-  test("employee with 1 anniversary and 0 vacations → cycle 1 active", () => {
+  test("partial usage in last cycle → same cycle (still has balance)", () => {
     expect(
-      computeActiveCycle({
-        hireDate: "2025-01-01",
-        referenceDate: new Date("2026-06-01T00:00:00Z"),
-        vacationsInCycles: [],
-      })
-    ).toEqual({
-      acquisitionPeriodStart: "2025-01-01",
-      acquisitionPeriodEnd: "2025-12-31",
-      concessivePeriodStart: "2026-01-01",
-      concessivePeriodEnd: "2026-12-31",
-      daysUsed: 0,
-      daysRemaining: 30,
-    });
-  });
-
-  test("employee with 1 anniversary and 30 days used in cycle 1 → cycle 2 active", () => {
-    expect(
-      computeActiveCycle({
-        hireDate: "2025-01-01",
-        referenceDate: new Date("2026-06-01T00:00:00Z"),
-        vacationsInCycles: [
-          { acquisitionPeriodStart: "2025-01-01", daysEntitled: 30 },
-        ],
-      })
-    ).toEqual({
-      acquisitionPeriodStart: "2026-01-01",
-      acquisitionPeriodEnd: "2026-12-31",
-      concessivePeriodStart: "2027-01-01",
-      concessivePeriodEnd: "2027-12-31",
-      daysUsed: 0,
-      daysRemaining: 30,
-    });
-  });
-
-  test("cycle with daysUsed < 30 but concessivo vencido → silently skipped", () => {
-    expect(
-      computeActiveCycle({
+      resolveNextCycle({
         hireDate: "2023-01-01",
-        referenceDate: new Date("2026-06-01T00:00:00Z"),
         vacationsInCycles: [
-          { acquisitionPeriodStart: "2023-01-01", daysEntitled: 15 },
-        ],
-      })
-    ).toEqual({
-      acquisitionPeriodStart: "2025-01-01",
-      acquisitionPeriodEnd: "2025-12-31",
-      concessivePeriodStart: "2026-01-01",
-      concessivePeriodEnd: "2026-12-31",
-      daysUsed: 0,
-      daysRemaining: 30,
-    });
-  });
-
-  test("multiple cycles with mixed usage → returns first viable", () => {
-    expect(
-      computeActiveCycle({
-        hireDate: "2023-01-01",
-        referenceDate: new Date("2026-06-01T00:00:00Z"),
-        vacationsInCycles: [
-          { acquisitionPeriodStart: "2023-01-01", daysEntitled: 30 },
           { acquisitionPeriodStart: "2024-01-01", daysEntitled: 15 },
-          { acquisitionPeriodStart: "2025-01-01", daysEntitled: 10 },
         ],
-      })
-    ).toEqual({
-      acquisitionPeriodStart: "2025-01-01",
-      acquisitionPeriodEnd: "2025-12-31",
-      concessivePeriodStart: "2026-01-01",
-      concessivePeriodEnd: "2026-12-31",
-      daysUsed: 10,
-      daysRemaining: 20,
-    });
-  });
-
-  test("partial days in active cycle → correct daysRemaining", () => {
-    expect(
-      computeActiveCycle({
-        hireDate: "2025-01-01",
-        referenceDate: new Date("2026-06-01T00:00:00Z"),
-        vacationsInCycles: [
-          { acquisitionPeriodStart: "2025-01-01", daysEntitled: 15 },
-        ],
-      })
-    ).toEqual({
-      acquisitionPeriodStart: "2025-01-01",
-      acquisitionPeriodEnd: "2025-12-31",
-      concessivePeriodStart: "2026-01-01",
-      concessivePeriodEnd: "2026-12-31",
-      daysUsed: 15,
-      daysRemaining: 15,
-    });
-  });
-
-  test("Geralda case: long history with no vacations → returns first cycle whose concessivo is still valid", () => {
-    expect(
-      computeActiveCycle({
-        hireDate: "2011-02-01",
-        referenceDate: new Date("2026-04-22T00:00:00Z"),
-        vacationsInCycles: [],
-      })
-    ).toEqual({
-      acquisitionPeriodStart: "2025-02-01",
-      acquisitionPeriodEnd: "2026-01-31",
-      concessivePeriodStart: "2026-02-01",
-      concessivePeriodEnd: "2027-01-31",
-      daysUsed: 0,
-      daysRemaining: 30,
-    });
-  });
-
-  test("boundary: concessivo ends exactly on referenceDate → still active", () => {
-    expect(
-      computeActiveCycle({
-        hireDate: "2024-01-01",
-        referenceDate: new Date("2025-12-31T00:00:00Z"),
-        vacationsInCycles: [],
       })
     ).toEqual({
       acquisitionPeriodStart: "2024-01-01",
       acquisitionPeriodEnd: "2024-12-31",
       concessivePeriodStart: "2025-01-01",
       concessivePeriodEnd: "2025-12-31",
-      daysUsed: 0,
-      daysRemaining: 30,
     });
   });
 
-  test("defaults referenceDate to today when omitted", () => {
-    const result = computeActiveCycle({
-      hireDate: "2020-01-01",
-      vacationsInCycles: [],
+  test("exactly 30 in last cycle → next cycle (aquisitivo +12m)", () => {
+    expect(
+      resolveNextCycle({
+        hireDate: "2023-01-01",
+        vacationsInCycles: [
+          { acquisitionPeriodStart: "2024-01-01", daysEntitled: 30 },
+        ],
+      })
+    ).toEqual({
+      acquisitionPeriodStart: "2025-01-01",
+      acquisitionPeriodEnd: "2025-12-31",
+      concessivePeriodStart: "2026-01-01",
+      concessivePeriodEnd: "2026-12-31",
+    });
+  });
+
+  test("multiple registrations summing 30 → next cycle", () => {
+    expect(
+      resolveNextCycle({
+        hireDate: "2023-01-01",
+        vacationsInCycles: [
+          { acquisitionPeriodStart: "2024-01-01", daysEntitled: 15 },
+          { acquisitionPeriodStart: "2024-01-01", daysEntitled: 15 },
+        ],
+      })
+    ).toEqual({
+      acquisitionPeriodStart: "2025-01-01",
+      acquisitionPeriodEnd: "2025-12-31",
+      concessivePeriodStart: "2026-01-01",
+      concessivePeriodEnd: "2026-12-31",
+    });
+  });
+
+  test("Geralda case: 13 contiguous cycles all 30 days → cycle 14", () => {
+    const vacationsInCycles = Array.from({ length: 13 }, (_, i) => ({
+      acquisitionPeriodStart: addMonths("2011-02-01", i * 12),
+      daysEntitled: 30,
+    }));
+    expect(
+      resolveNextCycle({
+        hireDate: "2011-02-01",
+        vacationsInCycles,
+      })
+    ).toEqual({
+      acquisitionPeriodStart: "2024-02-01",
+      acquisitionPeriodEnd: "2025-01-31",
+      concessivePeriodStart: "2025-02-01",
+      concessivePeriodEnd: "2026-01-31",
+    });
+  });
+
+  test("gap in history → derives next cycle from LAST registered, not first", () => {
+    expect(
+      resolveNextCycle({
+        hireDate: "2020-01-01",
+        vacationsInCycles: [
+          { acquisitionPeriodStart: "2020-01-01", daysEntitled: 30 },
+          { acquisitionPeriodStart: "2024-01-01", daysEntitled: 30 },
+        ],
+      })
+    ).toEqual({
+      acquisitionPeriodStart: "2025-01-01",
+      acquisitionPeriodEnd: "2025-12-31",
+      concessivePeriodStart: "2026-01-01",
+      concessivePeriodEnd: "2026-12-31",
+    });
+  });
+
+  test("leap-year hire (Feb 29) with 30 days in cycle 1 advances to next cycle", () => {
+    const result = resolveNextCycle({
+      hireDate: "2024-02-29",
+      vacationsInCycles: [
+        { acquisitionPeriodStart: "2024-02-29", daysEntitled: 30 },
+      ],
     });
     expect(result.acquisitionPeriodStart).toMatch(ISO_DATE_PATTERN);
     expect(result.acquisitionPeriodEnd).toMatch(ISO_DATE_PATTERN);
     expect(result.concessivePeriodStart).toMatch(ISO_DATE_PATTERN);
     expect(result.concessivePeriodEnd).toMatch(ISO_DATE_PATTERN);
-    expect(result.daysUsed).toBe(0);
-    expect(result.daysRemaining).toBe(30);
+    expect(result).toEqual({
+      acquisitionPeriodStart: "2025-03-01",
+      acquisitionPeriodEnd: "2026-02-28",
+      concessivePeriodStart: "2026-03-01",
+      concessivePeriodEnd: "2027-02-28",
+    });
+  });
+
+  test("day-31 hire with no history returns cycle 1 with normalized month-end", () => {
+    const result = resolveNextCycle({
+      hireDate: "2025-01-31",
+      vacationsInCycles: [],
+    });
+    expect(result).toEqual({
+      acquisitionPeriodStart: "2025-01-31",
+      acquisitionPeriodEnd: "2026-01-30",
+      concessivePeriodStart: "2026-01-31",
+      concessivePeriodEnd: "2027-01-30",
+    });
   });
 });
