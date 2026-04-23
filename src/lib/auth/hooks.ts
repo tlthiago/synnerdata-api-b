@@ -1,12 +1,24 @@
 import { APIError } from "better-auth/api";
-import type { Organization } from "better-auth/plugins/organization";
+import type {
+  Invitation,
+  Member,
+  Organization,
+} from "better-auth/plugins/organization";
 import type { User } from "better-auth/types";
 import { and, eq } from "drizzle-orm";
 import { db } from "@/db";
 import { roleValues, schema } from "@/db/schema";
 import { env } from "@/env";
 import { getAdminEmails } from "@/lib/auth/admin-helpers";
-import { auditOrganizationCreate } from "@/lib/auth/audit-helpers";
+import {
+  auditInvitationAccept,
+  auditMemberAdd,
+  auditMemberRemove,
+  auditMemberRoleUpdate,
+  auditOrganizationCreate,
+  auditOrganizationDelete,
+  auditOrganizationUpdate,
+} from "@/lib/auth/audit-helpers";
 import { validateUniqueRole } from "@/lib/auth/validators";
 import {
   sendOrganizationInvitationEmail,
@@ -337,6 +349,98 @@ export async function triggerAfterCreateOrganizationEffects({
       error: error instanceof Error ? error.message : String(error),
     });
   });
+}
+
+export async function onOrganizationUpdated({
+  organization: org,
+  user,
+}: {
+  organization: Organization | null;
+  user: User;
+}): Promise<void> {
+  if (org) {
+    await auditOrganizationUpdate(org, user.id);
+  }
+}
+
+export async function onOrganizationDeleted({
+  organization: org,
+  user,
+}: {
+  organization: Organization | null;
+  user: User;
+}): Promise<void> {
+  if (org) {
+    await auditOrganizationDelete(org, user.id);
+  }
+}
+
+export async function onInvitationAccepted({
+  invitation,
+  member,
+  organization: org,
+}: {
+  invitation: Invitation;
+  member: Member;
+  organization: Organization;
+}): Promise<void> {
+  await auditInvitationAccept(
+    { id: invitation.id, email: invitation.email, role: invitation.role },
+    { id: member.id, userId: member.userId },
+    org.id
+  );
+}
+
+export async function onMemberRoleUpdated({
+  member,
+  previousRole,
+  user,
+  organization: org,
+}: {
+  member: Member;
+  previousRole: string;
+  user: User;
+  organization: Organization;
+}): Promise<void> {
+  await auditMemberRoleUpdate({
+    member: { id: member.id, userId: member.userId },
+    previousRole,
+    newRole: member.role,
+    organizationId: org.id,
+    updatedByUserId: user.id,
+  });
+}
+
+export async function onMemberAdded({
+  member,
+  user,
+  organization: org,
+}: {
+  member: Member;
+  user: User;
+  organization: Organization;
+}): Promise<void> {
+  await auditMemberAdd(
+    { id: member.id, userId: member.userId, role: member.role },
+    org.id,
+    user.id
+  );
+}
+
+export async function onMemberRemoved({
+  member,
+  user,
+  organization: org,
+}: {
+  member: Member;
+  user: User;
+  organization: Organization;
+}): Promise<void> {
+  await auditMemberRemove(
+    { id: member.id, userId: member.userId, role: member.role },
+    org.id,
+    user.id
+  );
 }
 
 export async function validateBeforeDeleteOrganization({
