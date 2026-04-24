@@ -6,15 +6,15 @@
 
 ---
 
-## Estado atual — 2026-04-23
+## Estado atual — 2026-04-24
 
 ### Progresso por bucket
 
 | Bucket | Total | Done | Active | Progresso |
 |---|---|---|---|---|
 | 🔴 **Urgente** (MVP-bloqueante) | 10 | 10 | 0 | ✅ **Completo** em 2026-04-22 |
-| 🟡 **Curto prazo** (hardening, 30-90d) | 50 | 32 | 15 | **64%** · 2 reclassificadas para MP em 2026-04-23 (CP-18→MP-24, CP-19→MP-25) |
-| 🟢 **Médio prazo** (sob demanda) | 26 | 0 | 26 | +4 em 2026-04-23 (MP-23 formalizado + MP-24/25 ex-CP + MP-26 ex-candidato CP-51) |
+| 🟡 **Curto prazo** (hardening, 30-90d) | 50 | 32 | 14 | **64%** · 3 reclassificadas para MP (CP-18→MP-24, CP-19→MP-25 em 2026-04-23; CP-44→MP-27 em 2026-04-24) |
+| 🟢 **Médio prazo** (sob demanda) | 27 | 0 | 27 | +1 em 2026-04-24 (MP-27 ex-CP-44); +4 em 2026-04-23 (MP-23 + MP-24/25 ex-CP + MP-26 ex-candidato CP-51) |
 
 ### Saúde do codebase
 
@@ -22,7 +22,7 @@
 - ✅ **Ultracite clean** em 582 files
 - ✅ **60/98 débitos resolvidos** em `debts.md` (+ 2 reavaliados como não-débito) — 38 abertos (+2 fechados em CP-53: #70 + #71 via PR #271)
 - ✅ **Zero débito 🔴** pendente
-- ✅ **Onda 5 (refactors grandes)**: 9/12 entregues (75%) — restam CP-38 (M), CP-44 (M), CP-2 (XL — bloqueado por issue [#269](https://github.com/tlthiago/synnerdata-api-b/issues/269))
+- ✅ **Onda 5 (refactors grandes)**: 9/11 entregues (82%) — restam CP-38 (M, em PR #282), CP-2 (XL — bloqueado por issue [#269](https://github.com/tlthiago/synnerdata-api-b/issues/269)). CP-44 reclassificado para MP-27 em 2026-04-24
 
 ### Conquistas arquiteturais (Onda 5 — 2026-04-22/23)
 
@@ -43,26 +43,25 @@
 
 ## Próxima ação
 
-### Ordem de execução recomendada (2026-04-23)
+### Ordem de execução recomendada (2026-04-24)
 
 Por **valor × custo × dependência** — ver tabela completa em [`roadmap.md § Ordem de execução`](./roadmap.md).
 
 **🔴 Próximo agora:**
 
-1. **CP-38** (M, Onda 5) — Runbook oncall em `docs/runbooks/`. Valor operacional imediato (1 cliente em prod). Fecha débito #93 + cobre migration rollback (#90/91). Docs-heavy, branch simples.
+1. **CP-38** (M, Onda 5) — Runbook oncall em `docs/runbooks/`. Valor operacional imediato (1 cliente em prod). Fecha débito #93 + cobre migration rollback (#90/91). **PR #282 em aberto.**
 
 **🟡 Alta prioridade:**
 
-2. **CP-44** (M, Onda 5) — BOLA AST automation. Security preventive, follow-up RU-9.
-3. **CP-41** (M, Onda 3) — Workflow Pagarme integration tests. Fecha Onda 3.
-4. **Onda 6 batch** (4×S) — CP-10/11/12/49 em PR único: Docker SHA pin + HEALTHCHECK deep + wait-for-db + react/react-dom sync.
-5. **CP-17** (M, Onda 4) — Métricas básicas OTel/Prometheus. Gap operacional conhecido. Inclui #43 agregado.
+2. **CP-41** (M, Onda 3) — Workflow Pagarme integration tests. Fecha Onda 3.
+3. **Onda 6 batch** (4×S) — CP-10/11/12/49 em PR único: Docker SHA pin + HEALTHCHECK deep + wait-for-db + react/react-dom sync.
+4. **CP-17** (M, Onda 4) — Métricas básicas OTel/Prometheus. Gap operacional conhecido. Inclui #43 agregado.
 
 **🟢 Condicional / bloqueio externo:**
 
-6. **CP-14 → 15 → 16** (Cloudflare Free Tier) — bloqueado pelo cliente (DNS registro.br).
-7. **Onda 7 seq** (CP-48 → 47 → 46 → 50) — Tooling migrations em janela dedicada.
-8. **CP-2** (XL, Onda 5) — Emails consolidation. **Bloqueado por [#269](https://github.com/tlthiago/synnerdata-api-b/issues/269)**. Último por design.
+5. **CP-14 → 15 → 16** (Cloudflare Free Tier) — bloqueado pelo cliente (DNS registro.br).
+6. **Onda 7 seq** (CP-48 → 47 → 46 → 50) — Tooling migrations em janela dedicada.
+7. **CP-2** (XL, Onda 5) — Emails consolidation. **Bloqueado por [#269](https://github.com/tlthiago/synnerdata-api-b/issues/269)**. Último por design.
 
 ### Ondas novas criadas em 2026-04-23
 
@@ -71,6 +70,7 @@ Por **valor × custo × dependência** — ver tabela completa em [`roadmap.md �
 
 ### Histórico recente do bucket 🟡
 
+- ~~**CP-44**~~ → **MP-27** (reclassificado 2026-04-24 — BOLA AST preventivo; solo dev + RU-9 limpo + testes cross-org já existentes tornam regressão improvável hoje)
 - ~~**CP-18/19**~~ → **MP-24/25** (reclassificados 2026-04-23 — sinal-driven, não pressing)
 - ~~**CP-51 candidato**~~ → **MP-26** (paginação schema, mesma lógica)
 - ✅ **CP-52 entregue** (2026-04-23) — reorganização interna de `src/lib/` (Opção B): débitos #4 e #6 fechados.
@@ -125,5 +125,7 @@ Detalhes completos em [roadmap.md § Metodologia de execução](./roadmap.md).
 - **2026-04-23 (CP-52)** — Reorganização interna de `src/lib/`: achatamento de 4 subdirs single-file, agrupamento de Better Auth (`permissions` + `password-complexity` → `lib/auth/`), agrupamento de Sentry (`sentry.ts` + `error-reporter.ts` → `lib/sentry/`). Débitos #4 e #6 fechados.
 - **2026-04-23 (CP-53 Fase 1)** — Auditoria de qualidade de 25 arquivos em `src/lib/` (8 agentes paralelos + 8 arquivos triviais auditados pelo parent). 15 Open Questions registradas. Matriz consolidada em changelog.
 - **2026-04-23 (CP-53 Fase 2 — PR #271)** — 10 commits atômicos de fixes objetivos não-bloqueados por OQs. Destaques: PII redaction em logs/Sentry (LGPD), extração de 6 callbacks do auth.ts, admin allowlist normalize (whitespace/case bug), email env vars. 707/707 tests passando. Débitos #70 e #71 fechados.
+
+- **2026-04-24 (CP-44 reclassificação)** — CP-44 (BOLA AST automation) reclassificado para MP-27. Preventivo sem sinal hoje: solo dev + pattern bem estabelecido + RU-9 validou estado limpo (0/50 gaps) + testes cross-org dinâmicos já existem. Sinal para reativar: equipe cresce, onboarding, near-miss real, ou refactor grande em `src/modules/`.
 
 Changelog completo: [changelog.md](./changelog.md).
