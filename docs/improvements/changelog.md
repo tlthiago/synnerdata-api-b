@@ -11,6 +11,17 @@
 
 Registro temporal das decisões e entregas desta iniciativa. **Toda atualização do documento deve adicionar uma entrada aqui** (data ISO + resumo).
 
+### 2026-04-24 — Onda 6 batch entregue (infra hardening)
+
+Primeira execução da sequência revisada. 4 CPs em 5 commits atômicos (1 de docs da sequência + 4 de CPs):
+
+- **CP-10** — `oven/bun:1-alpine` pinado com SHA digest (`sha256:4de475...`). Dependabot ecossistema docker já configurado detecta novos digests semanalmente. Fecha débito #87.
+- **CP-11** — HEALTHCHECK troca `/health/live` por `/health` com body check `grep -q '"status":"healthy"'` (endpoint sempre retorna 200, status vive no body via envelope). `retries` 5→10 (100s total). Coolify agora reinicia container se DB morrer. Fecha débito #88.
+- **CP-12** — `src/db/wait-for-db.ts` tenta `SELECT 1` com retry (30×1s, 2s connection timeout, ~30s total) antes de migrations em `scripts/entrypoint.sh`. Log estruturado via Pino. Fecha débito #89.
+- **CP-49** — `react-dom: "19.2.5"` adicionado explicitamente em `dependencies` (mesma versão pinada de `react`). Opção (a) do débito. Garante sync no lockfile + visibilidade para Dependabot. Testes de email (25 assertions) passando após mudança.
+
+**Bucket 🟡**: 37/50 concluídas (era 33). Onda 6 fechada ✅. Próximo passo: issue #269 tests 3+4 (DB state leak — pré-requisito de CP-47 e CP-2).
+
 ### 2026-04-24 — Sequência de execução revisada (Onda 6 → #269 → Onda 7 → Onda 5)
 
 Após audit de over-engineering (ver entry 2026-04-24 "reclassificação CP-44 → MP-27") e discussão sobre terminar Onda 5, **dono decidiu manter CP-2** (emails consolidation) como trabalho genuíno — refactor real de organização do módulo, facilita compreensão e manutenção.

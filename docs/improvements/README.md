@@ -13,14 +13,14 @@
 | Bucket | Total | Done | Active | Progresso |
 |---|---|---|---|---|
 | 🔴 **Urgente** (MVP-bloqueante) | 10 | 10 | 0 | ✅ **Completo** em 2026-04-22 |
-| 🟡 **Curto prazo** (hardening, 30-90d) | 50 | 33 | 13 | **66%** · 3 reclassificadas para MP (CP-18→MP-24, CP-19→MP-25 em 2026-04-23; CP-44→MP-27 em 2026-04-24) · CP-38 entregue 2026-04-24 |
+| 🟡 **Curto prazo** (hardening, 30-90d) | 50 | 37 | 9 | **74%** · 3 reclassificadas para MP (CP-18→MP-24, CP-19→MP-25 em 2026-04-23; CP-44→MP-27 em 2026-04-24) · Onda 6 batch + CP-38 entregues 2026-04-24 |
 | 🟢 **Médio prazo** (sob demanda) | 27 | 0 | 27 | +1 em 2026-04-24 (MP-27 ex-CP-44); +4 em 2026-04-23 (MP-23 + MP-24/25 ex-CP + MP-26 ex-candidato CP-51) |
 
 ### Saúde do codebase
 
 - ✅ **854 tests pass** (suíte afetada + smoke tests novos do `routes/v1/`)
 - ✅ **Ultracite clean** em 582 files
-- ✅ **63/98 débitos resolvidos** em `debts.md` (+ 2 reavaliados como não-débito) — 35 abertos (+3 fechados em CP-38: #90, #91, #93)
+- ✅ **66/98 débitos resolvidos** em `debts.md` (+ 2 reavaliados como não-débito) — 32 abertos (+3 fechados na Onda 6 batch: #87, #88, #89)
 - ✅ **Zero débito 🔴** pendente
 - ✅ **Onda 5 (refactors grandes)**: 10/11 entregues (91%) — resta apenas CP-2 (XL — bloqueado por issue [#269](https://github.com/tlthiago/synnerdata-api-b/issues/269)). CP-44 reclassificado para MP-27 em 2026-04-24
 
@@ -49,7 +49,7 @@
 
 **🟡 Linha principal:**
 
-1. **Onda 6 batch** (4×S) — CP-10/11/12/49 em PR único: Docker SHA pin + HEALTHCHECK deep + wait-for-db + react/react-dom sync. ~2-3h.
+1. ~~**Onda 6 batch**~~ ✅ Entregue 2026-04-24 — CP-10 (Docker SHA pin) + CP-11 (HEALTHCHECK deep) + CP-12 (wait-for-db) + CP-49 (react/react-dom sync).
 2. **Issue #269 tests 3+4** (DB state leak) — audit de factories/fixtures + cleanup explícito. **Pré-requisito de CP-47 e CP-2** (sem isso, PRs grandes reativam flakes em CI). Efforte M/L.
 3. **Onda 7 seq** (CP-48 → 47 → 46 → 50) — tooling migrations por ordem de risco crescente: Zod 4.3 → Better Auth 1.6 → Ultracite 7 → TS 6. Cada PR dedicado.
 4. **CP-2** (XL, Onda 5) — Emails consolidation. Inclui `EmailDispatcher` wrapper que resolve #269 tests 1+2 de graça. Fecha Onda 5 em 11/11.
@@ -70,6 +70,7 @@
 
 ### Histórico recente do bucket 🟡
 
+- ✅ **Onda 6 batch entregue** (2026-04-24) — 4 CPs em 5 commits atômicos: CP-10 (Docker SHA pin) + CP-11 (HEALTHCHECK deep com body check) + CP-12 (wait-for-db via `src/db/wait-for-db.ts`) + CP-49 (react-dom pin). Fecha débitos #87, #88, #89.
 - ✅ **CP-38 entregue** (2026-04-24) — 6 runbooks de oncall em `docs/runbooks/` + índice. Fecha débitos #90, #91, #93.
 - ~~**CP-44**~~ → **MP-27** (reclassificado 2026-04-24 — BOLA AST preventivo; solo dev + RU-9 limpo + testes cross-org já existentes tornam regressão improvável hoje)
 - ~~**CP-18/19**~~ → **MP-24/25** (reclassificados 2026-04-23 — sinal-driven, não pressing)
@@ -127,6 +128,7 @@ Detalhes completos em [roadmap.md § Metodologia de execução](./roadmap.md).
 - **2026-04-23 (CP-53 Fase 1)** — Auditoria de qualidade de 25 arquivos em `src/lib/` (8 agentes paralelos + 8 arquivos triviais auditados pelo parent). 15 Open Questions registradas. Matriz consolidada em changelog.
 - **2026-04-23 (CP-53 Fase 2 — PR #271)** — 10 commits atômicos de fixes objetivos não-bloqueados por OQs. Destaques: PII redaction em logs/Sentry (LGPD), extração de 6 callbacks do auth.ts, admin allowlist normalize (whitespace/case bug), email env vars. 707/707 tests passando. Débitos #70 e #71 fechados.
 - **2026-04-24 (CP-38 + CP-44 reclass)** — 6 runbooks de oncall em `docs/runbooks/` (db-down, app-container, pagarme-webhook, smtp-down, 5xx-surge, migration-rollback) + índice `README.md` com decision tree. Débitos #90, #91, #93 fechados. CP-44 reclassificado para MP-27 no mesmo dia → Onda 5 ficou em **10/11 entregues (91%)**.
+- **2026-04-24 (Onda 6 batch)** — 4 CPs em 5 commits atômicos: Docker SHA pin, HEALTHCHECK deep com body check, wait-for-db script, react-dom pin. Débitos #87/#88/#89 fechados. Onda 6 ✅ concluída.
 
 
 Changelog completo: [changelog.md](./changelog.md).
