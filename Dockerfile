@@ -30,7 +30,7 @@ USER bun
 
 EXPOSE 3333
 
-HEALTHCHECK --interval=10s --timeout=5s --retries=5 --start-period=30s \
-  CMD curl -f http://localhost:${PORT:-3333}/health/live || exit 1
+HEALTHCHECK --interval=10s --timeout=5s --retries=10 --start-period=30s \
+  CMD curl -fsS http://localhost:${PORT:-3333}/health | grep -q '"status":"healthy"' || exit 1
 
 CMD ["./scripts/entrypoint.sh"]
