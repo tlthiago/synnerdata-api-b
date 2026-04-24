@@ -20,6 +20,7 @@ import { TrialExpiredEmail } from "@/emails/templates/payments/trial-expired";
 import { TrialExpiringEmail } from "@/emails/templates/payments/trial-expiring";
 import { UpgradeConfirmationEmail } from "@/emails/templates/payments/upgrade-confirmation";
 import { env } from "@/env";
+import { logger } from "@/lib/logger";
 
 const isProdEmail = env.NODE_ENV === "production";
 
@@ -65,6 +66,30 @@ export async function sendEmail({ to, subject, html, text }: SendEmailParams) {
     html,
     ...(text && { text }),
   });
+}
+
+/**
+ * Wraps a best-effort email send — logs failures but never propagates them.
+ * Use in system/cron-initiated flows where the primary operation (subscription
+ * cancel, plan change, provision creation, etc.) already succeeded and the
+ * email is purely a notification. Failing the email must not fail the parent.
+ *
+ * Critical user-initiated emails (verification, password reset, 2FA, invitation,
+ * contact form, user-facing admin actions like checkout link) keep throwing —
+ * user needs feedback when retries are their only recourse.
+ */
+export async function sendBestEffort(
+  send: () => Promise<void>,
+  context: { type: string; [key: string]: unknown }
+): Promise<void> {
+  try {
+    await send();
+  } catch (error) {
+    logger.error({
+      ...context,
+      error: error instanceof Error ? error.message : String(error),
+    });
+  }
 }
 
 // ============================================================

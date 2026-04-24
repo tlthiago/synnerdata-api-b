@@ -68,13 +68,27 @@ export async function sendPasswordResetForProvisionOrDefault({
       .where(eq(schema.organizations.id, provision.organizationId))
       .limit(1);
 
-    await sendProvisionActivationEmail({
-      email: user.email,
-      url: activationUrl,
-      userName: user.name,
-      organizationName: org?.name ?? "sua organização",
-      isTrial: provision.type === "trial",
-    });
+    try {
+      await sendProvisionActivationEmail({
+        email: user.email,
+        url: activationUrl,
+        userName: user.name,
+        organizationName: org?.name ?? "sua organização",
+        isTrial: provision.type === "trial",
+      });
+    } catch (error) {
+      // Provision activation falhou (SMTP down ou template erro) — cai no fluxo
+      // default de reset para não deixar o user sem email. activationSentAt não
+      // é gravado nesse caso, permitindo reenvio posterior.
+      logger.error({
+        type: "admin-provision:activation:email-failed",
+        userId: user.id,
+        provisionId: provision.id,
+        error: error instanceof Error ? error.message : String(error),
+      });
+      await sendPasswordResetEmail({ email: user.email, url });
+      return;
+    }
     await db
       .update(schema.adminOrgProvisions)
       .set({ activationUrl, activationSentAt: new Date() })
