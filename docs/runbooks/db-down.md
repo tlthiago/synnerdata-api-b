@@ -27,7 +27,7 @@
 **Caminho A — Container parado/reiniciando:**
 1. Coolify → `postgresql-production` → `Restart`.
 2. Aguardar status voltar para `Running`.
-3. Testar `curl .../health` → `ok: true`.
+3. Testar `curl .../health` → `data.status: "healthy"`.
 4. Se app também precisar restart (pool travado): Coolify → `app` → `Restart`.
 
 **Caminho B — VPS sem recursos:**
