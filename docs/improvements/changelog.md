@@ -11,6 +11,30 @@
 
 Registro temporal das decisões e entregas desta iniciativa. **Toda atualização do documento deve adicionar uma entrada aqui** (data ISO + resumo).
 
+### 2026-04-23 — Wave governance: criar Onda 6/7 + reclassificação + formalização
+
+Revisão estrutural das Ondas após analisar CPs abertos. Dois achados:
+
+**1. Ondas 6 e 7 criadas** — havia 8 CPs órfãos sem wave original (adicionados depois das Ondas 1-5 serem propostas):
+
+- **Onda 6 — Infra hardening pequeno**: CP-10 (Docker SHA pin), CP-11 (HEALTHCHECK deep), CP-12 (wait-for-db), CP-49 (react/react-dom sync). Agrupar em 1 PR batch. Todos S, independentes, infra-only.
+- **Onda 7 — Tooling migrations**: CP-46 (ultracite 6→7, L), CP-47 (better-auth 1.4→1.6, L), CP-48 (Zod 4.1→4.3, M), CP-50 (TypeScript 5.9→6.x, M, contenção atual). PRs dedicados, ordem de risco crescente, janela de teste.
+
+**2. Ordem de execução atualizada** no `roadmap.md` § "Ordem de execução recomendada":
+
+| Prioridade | CP | Onda | Racional |
+|---|---|---|---|
+| 🔴 1 | CP-38 (runbook oncall) | 5 | Valor operacional imediato |
+| 🟡 2 | CP-44 (BOLA AST) | 5 | Security preventive |
+| 🟡 3 | CP-41 (Pagarme tests) | 3 | Fecha Onda 3 |
+| 🟡 4 | Onda 6 batch | 6 | Quick wins |
+| 🟡 5 | CP-17 (métricas) | 4 | Observability gap |
+| 🟢 6 | Cloudflare seq | 4 | Bloqueio externo |
+| 🟢 7 | Onda 7 seq | 7 | Janela dedicada |
+| ⏸️ 8 | CP-2 (emails) | 5 | Bloqueado #269 |
+
+Projeção: completando 1-5 (~12-16h), bucket 🟡 fica reduzido a itens externamente bloqueados ou em janela dedicada. "Trabalho planejável" termina.
+
 ### 2026-04-23 — Reclassificação de CP→MP + formalização de candidatos
 
 Revisão honesta dos CPs abertos aplicando o critério "tem sinal pressing hoje vs esperando sinal futuro". Resultado: 2 CPs reclassificados para MP, 2 candidatos formalizados como MP.

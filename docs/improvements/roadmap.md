@@ -133,14 +133,34 @@ Sequência proposta para extrair valor rápido antes de atacar os refactors gran
 | **Onda 1 — Ganhos rápidos de CI/segurança** | ✅ **Concluída em 2026-04-22** | CP-40 (M) → CP-7 (S), CP-8 (S), CP-9 (S), CP-22 (S), CP-21 (S), CP-23 (S), CP-13 (S), CP-20 (S) | CP-40 entregue em PR separada (escopo maior). Os 8 S's entregues numa PR agrupada com 8 commits atômicos |
 | **Onda 2 — Compliance LGPD (débito #96)** | ✅ **Concluída em 2026-04-22** | CP-42 (M) → CP-43 (M) | CP-42 entregou a convenção (`buildAuditChanges` + redação PII); CP-43 aplicou `auditPlugin` nos 4 GET handlers sensíveis. Débito #96 100% endereçado |
 | **Onda 3 — Qualidade pontual** | 🔄 Em progresso — **PRs A/B/C entregues 2026-04-22** (9 S's + CP-25 + CP-30). Resta apenas **CP-41** (M) como PR-D standalone | CP-24✅, CP-27✅, CP-29✅, CP-31✅, CP-34✅, CP-35✅, CP-36✅, CP-37✅, CP-39✅ (todos S); CP-25✅, CP-30✅, CP-41 (M) | PR-C: 5 S's de "Qualidade geral" em 5 commits. PR-B: 3 S's de "Error handling + env" em 3 commits. PR-A: 1 S + 2 M's de "Auth hardening" em 3 commits (log unauthorized, inheritRole, dynamic→static imports). CP-41 vale PR separada (workflow novo, requer secrets sandbox Pagar.me) |
-| **Onda 4 — Cloudflare + Observabilidade** | Depende de janela com o dono (CP-14 precisa alinhar DNS) | CP-14 → CP-15 → CP-16; CP-17, CP-18, CP-19 | Cloudflare é sequencial (CP-14 destrava CP-15 destrava CP-16). Observabilidade (CP-17/18/19) pode rodar em paralelo — CP-18 depende de CP-3 |
-| **Onda 5 — Refactors grandes** | PRs dedicados, worktree obrigatório, plan formal em `docs/plans/` | CP-1 (XL) → CP-4, CP-26, CP-28, CP-32 (dependem de CP-1); CP-2 (XL); CP-3 (L) → CP-18; CP-5 (L); CP-6 (M), CP-33, CP-38, CP-44 | CP-1 tem o maior raio de desbloqueio (4 CPs menores dependem dele). CP-2 e CP-3 independentes. CP-38 e CP-44 são documentação/tooling — podem intercalar |
+| **Onda 4 — Cloudflare + Observabilidade** | Depende de janela com o dono (CP-14 precisa alinhar DNS) | CP-14 → CP-15 → CP-16; CP-17 (inclui #43) | Cloudflare é sequencial (CP-14 destrava CP-15 destrava CP-16). CP-17 standalone. _Ex-CP-18/19 reclassificados para MP-24/25 em 2026-04-23._ |
+| **Onda 5 — Refactors grandes** | PRs dedicados, worktree obrigatório (XL), plan formal em `docs/plans/` | CP-2 (XL, bloqueado por #269); CP-38 (M, runbook); CP-44 (M, BOLA AST) | CP-2 é último por design (toca auth). CP-38 e CP-44 são documentação/tooling — podem intercalar sem dependência. _CP-1/3/4/5/6/26/28/32/33 já concluídos 2026-04-22/23._ |
+| **Onda 6 — Infra hardening pequeno** ⭐ criada 2026-04-23 | 1 PR batch com commits atômicos | CP-10 (S, Docker SHA pin), CP-11 (S, HEALTHCHECK deep), CP-12 (S, wait-for-db), CP-49 (S, react/react-dom sync) | 4 CPs órfãos (sem wave original) agrupados. Todos S, independentes, infra-only. ~2-3h total em PR único |
+| **Onda 7 — Tooling migrations** ⭐ criada 2026-04-23 | PRs dedicados, um por migration, risco alto | CP-48 (M, Zod 4.1→4.3) → CP-47 (L, better-auth 1.4→1.6) → CP-46 (L, ultracite 6→7) → CP-50 (M, TypeScript 5.9→6.x, contenção atual) | Seguir ordem de risco crescente. Cada migration em worktree + PR próprio + janela de teste. Follow-ups do CP-40 (triagem de deps). Bloqueio externo mínimo; mais a estabilidade da suíte |
 
 **Notas operacionais:**
 - **CP-45 já concluída** (2026-04-22) — ação operacional no Coolify, sem código.
 - **Onda 1 e Onda 2 não têm dependências cruzadas** — podem rodar em paralelo se houver bandwidth.
 - **XL (CP-1, CP-2) em worktree isolado** (ver 7.5.1 § Metodologia híbrida) — regra do projeto para features que bloqueiam outros trabalhos.
+- **Ondas 6 e 7 criadas em 2026-04-23** durante sync de wave governance — realocam 8 CPs órfãos (CP-10/11/12/46/47/48/49/50) que nunca tinham sido mapeados em onda original.
 - Reavaliar ordem a cada 5 CPs concluídos — aprendizado do bucket 🔴 mostrou que prioridades mudam ao descobrir o escopo real.
+
+#### Ordem de execução recomendada (atualizada 2026-04-23)
+
+Sequência pragmática por **valor × custo × dependência**:
+
+| Prioridade | CP | Onda | Tamanho | Depende de | Racional |
+|---|---|---|---|---|---|
+| 🔴 1 | **CP-38** Runbook oncall | Onda 5 | M | — | Valor operacional imediato (1 cliente em prod); fecha #93 + cobre migration rollback (#90/91) |
+| 🟡 2 | **CP-44** BOLA AST automation | Onda 5 | M | — | Security preventive LGPD + multi-tenant; follow-up RU-9 |
+| 🟡 3 | **CP-41** Pagarme integration tests workflow | Onda 3 | M | Secrets sandbox Pagar.me | Payments crítico; fecha Onda 3 (última ação restante) |
+| 🟡 4 | **Onda 6 batch** (CP-10/11/12/49) | Onda 6 | 4×S | — | Infra hardening quick wins em PR único |
+| 🟡 5 | **CP-17** Métricas OTel/Prometheus | Onda 4 | M | Decisão OTel vs Prometheus | Observability gap conhecido; inclui #43 agregado |
+| 🟢 6 | **CP-14 → 15 → 16** Cloudflare | Onda 4 | S→M→S | DNS do cliente (externo) | Sequencial, bloqueio externo |
+| 🟢 7 | **Onda 7 seq** (CP-48→47→46→50) | Onda 7 | M→L→L→M | Estabilidade da suíte | Tooling migrations em janela dedicada |
+| ⏸️ 8 | **CP-2** Emails consolidation | Onda 5 | XL | Issue #269 (flakes) | Último por design; worktree + plan formal obrigatórios |
+
+**Projeção**: completando priorities 1-5 (~12-16h), bucket 🟡 fica reduzido a CP-2 (bloqueado) + sequência Cloudflare (externo) + Onda 7 (janela dedicada). Pode-se afirmar que "trabalho planejável" acabou.
 
 #### 🟢 Bucket Médio Prazo / Sob Demanda (quando houver sinal real)
 
