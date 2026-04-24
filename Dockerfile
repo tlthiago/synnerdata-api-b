@@ -1,5 +1,5 @@
 # Install dependencies
-FROM oven/bun:1-alpine AS install
+FROM oven/bun:1-alpine@sha256:4de475389889577f346c636f956b42a5c31501b654664e9ae5726f94d7bb5349 AS install
 
 WORKDIR /app
 
@@ -11,7 +11,7 @@ RUN mkdir -p /temp/prod && \
     bun install --frozen-lockfile --production --ignore-scripts
 
 # Release stage
-FROM oven/bun:1-alpine
+FROM oven/bun:1-alpine@sha256:4de475389889577f346c636f956b42a5c31501b654664e9ae5726f94d7bb5349
 
 RUN apk add --no-cache curl
 
