@@ -11,6 +11,31 @@
 
 Registro temporal das decisões e entregas desta iniciativa. **Toda atualização do documento deve adicionar uma entrada aqui** (data ISO + resumo).
 
+### 2026-04-24 — CP-47 entregue: migração Better Auth 1.4 → 1.6 (Onda 7)
+
+Segundo passo da Onda 7. Migração de `better-auth` de `~1.4.22` para `~1.6.9`.
+
+**Breaking changes endereçados**:
+
+1. **apiKey plugin movido** (1.5) → `@better-auth/api-key` standalone package. Import atualizado em `src/lib/auth.ts`.
+2. **Schema `two_factors`** (1.6) → nova coluna `verified` boolean default `true`. Migration 0039.
+3. **Schema `apikeys`** (1.5) → `user_id` renomeado `reference_id` + nova coluna `config_id` default `'default'`. Migration 0040.
+4. **Email enumeration protection** (1.5) → sign-up com email duplicado retorna 200 silencioso quando `requireEmailVerification=true`. Test adaptado (era `expect(status).not.toBe(200)`, agora verifica silent 200 + integridade de duplicates).
+5. **`better-auth-localization`** bumped 2.3 → 3.0 (peer dep compatível com BA 1.5+).
+6. **`session.freshAge`** agora calculado de `createdAt` em vez de `updatedAt` (nova semântica). Projeto usa default — sem impacto prático.
+
+**Commits (4 atômicos)**:
+- `e50188d` — chore(deps): bump + apiKey import
+- `(a)` — feat(db): schema + migrations
+- `dbaddf8` — test(auth): enumeration protection adapt
+- `(this)` — docs
+
+**Validação**: 2453+ tests passing (auth: 115, plugins: 74, payments: 565, occurrences: 952, orgs+employees+audit+public: 862). Type check clean.
+
+**Nota sobre drizzle-kit**: snapshots 35-38 têm ids/prevIds duplicados (bug preexistente do repo, não relacionado a este CP). Migrations 39-40 criadas manualmente pra evitar arrastar esse débito. Fix pode virar CP futuro se drizzle-kit generate for realmente necessário.
+
+**Destrava**: Onda 7 avança para CP-46 (Ultracite 6 → 7, Biome → Oxc, L). CP-50 (TS 6) segue contenção.
+
 ### 2026-04-24 — CP-48 entregue: migração Zod 4.1 → 4.3 (Onda 7)
 
 Primeiro passo da Onda 7 (tooling migrations). Migração de `zod` de `~4.1.13` (pinado como contenção em CP-40) para `~4.3.6`.
