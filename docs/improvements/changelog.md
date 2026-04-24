@@ -11,6 +11,27 @@
 
 Registro temporal das decisões e entregas desta iniciativa. **Toda atualização do documento deve adicionar uma entrada aqui** (data ISO + resumo).
 
+### 2026-04-24 — CP-38 entregue: runbooks de oncall
+
+Criados 6 runbooks em `docs/runbooks/` seguindo o padrão do `database-backup.md` existente:
+
+- `db-down.md` — Postgres inacessível (4 caminhos: container, VPS, pool, corrupção). Schema do `/health` corrigido para refletir a realidade (retorna HTTP 200 com `data.status: "unhealthy"`, não 503; paths atualizados para `src/plugins/health/`).
+- `app-container.md` — app não sobe (4 caminhos: env, migration, OOM, bug). Distingue de db-down via `/health/live`.
+- `pagarme-webhook.md` — webhook falhando (5 classificações via logs tipados do CP-6). Tabela correta é `subscription_events` com column `error` (não `error_message`).
+- `smtp-down.md` — SMTP Hostinger fora (4 caminhos). Referencia política de 2 classes (OQ-14) e dimensionamento de pool (OQ-15).
+- `5xx-surge.md` — pico de 5xx (triagem, roteia para runbook específico via correlation ID).
+- `migration-rollback.md` — migration quebrada (3 caminhos + nota de escala para débito #90). Entrypoint real é `bun run src/db/migrate.ts`.
+
+Novo `docs/runbooks/README.md` serve como índice com decision tree sintoma→runbook e ordem de escalação padrão.
+
+**Débitos fechados**: #90 (estratégia de migration em scale — documentado como nota), #91 (rollback de migration — 3 caminhos com SQL concreto), #93 (runbook oncall completo).
+
+**Bucket 🟡**: 33/50 concluídas (era 32). Onda 5: 10/12 entregues (83%). "Trabalho planejável" reduzido — restam CP-44 (BOLA AST), CP-41 (Pagarme tests), Onda 6 batch, CP-17 (métricas), Cloudflare (externo), Onda 7 (janela dedicada), CP-2 (bloqueado #269).
+
+**Processo**: executado via subagent-driven-development skill (primeira task com 2-stage review que pegou 3 issues de paths stale em db-down). Após usuário observar overhead desnecessário para docs puros, switch para fluxo enxuto (implementer direto + verificação do controller + final review) para os 5 arquivos restantes + cross-refs.
+
+Cross-refs atualizadas em `roadmap.md`, `debts.md`, `README.md`.
+
 ### 2026-04-23 — Wave governance: criar Onda 6/7 + reclassificação + formalização
 
 Revisão estrutural das Ondas após analisar CPs abertos. Dois achados:
