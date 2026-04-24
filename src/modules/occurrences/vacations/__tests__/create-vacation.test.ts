@@ -422,7 +422,7 @@ describe("POST /v1/vacations", () => {
     expect(body.success).toBe(true);
   });
 
-  test("should reject when startDate is before the active cycle's concessivo", async () => {
+  test("accepts cadastro with startDate after concessivoEnd of resolved cycle (pago via multa, no prior history)", async () => {
     const { headers, organizationId, user } =
       await createTestUserWithOrganization({
         emailVerified: true,
@@ -440,21 +440,25 @@ describe("POST /v1/vacations", () => {
         headers: { ...headers, "Content-Type": "application/json" },
         body: JSON.stringify({
           employeeId: employee.id,
-          startDate: "2024-12-20",
-          endDate: "2025-01-05",
+          startDate: "2027-02-01",
+          endDate: "2027-02-17",
           daysEntitled: 17,
           daysUsed: 0,
+          status: "scheduled",
         }),
       })
     );
 
-    expect(response.status).toBe(422);
+    expect(response.status).toBe(200);
     const body = await response.json();
-    expect(body.error.code).toBe("VACATION_START_DATE_OUTSIDE_CONCESSIVE");
-    expect(body.error.details).toBeObject();
-    expect(body.error.details.startDate).toBe("2024-12-20");
-    expect(body.error.details.concessivePeriodStart).toBeString();
-    expect(body.error.details.concessivePeriodEnd).toBeString();
+    expect(body.success).toBe(true);
+    expect(body.data.startDate).toBe("2027-02-01");
+    expect(body.data.endDate).toBe("2027-02-17");
+    expect(body.data.daysEntitled).toBe(17);
+    expect(body.data.acquisitionPeriodStart).toBe("2025-01-01");
+    expect(body.data.acquisitionPeriodEnd).toBe("2025-12-31");
+    expect(body.data.concessivePeriodStart).toBe("2026-01-01");
+    expect(body.data.concessivePeriodEnd).toBe("2026-12-31");
   });
 
   test("computes periods from hireDate for employee without prior vacations", async () => {
@@ -572,7 +576,7 @@ describe("POST /v1/vacations", () => {
     expect(body.data.concessivePeriodEnd).toBe("2026-06-09");
   });
 
-  test("rejects with 422 when vacation startDate is before first cycle's concessivo", async () => {
+  test("accepts cadastro with startDate after concessivoEnd of first cycle (pago via multa for new hire)", async () => {
     const { headers, organizationId, user } =
       await createTestUserWithOrganization({
         emailVerified: true,
@@ -592,8 +596,8 @@ describe("POST /v1/vacations", () => {
         headers: { ...headers, "Content-Type": "application/json" },
         body: JSON.stringify({
           employeeId: employee.id,
-          startDate: "2026-03-01",
-          endDate: "2026-03-10",
+          startDate: "2027-08-01",
+          endDate: "2027-08-10",
           daysEntitled: 10,
           daysUsed: 0,
           status: "scheduled",
@@ -601,12 +605,16 @@ describe("POST /v1/vacations", () => {
       })
     );
 
-    expect(response.status).toBe(422);
+    expect(response.status).toBe(200);
     const body = await response.json();
-    expect(body.error.code).toBe("VACATION_START_DATE_OUTSIDE_CONCESSIVE");
-    expect(body.error.details.startDate).toBe("2026-03-01");
-    expect(body.error.details.concessivePeriodStart).toBe("2026-06-10");
-    expect(body.error.details.concessivePeriodEnd).toBe("2027-06-09");
+    expect(body.success).toBe(true);
+    expect(body.data.startDate).toBe("2027-08-01");
+    expect(body.data.endDate).toBe("2027-08-10");
+    expect(body.data.daysEntitled).toBe(10);
+    expect(body.data.acquisitionPeriodStart).toBe("2025-06-10");
+    expect(body.data.acquisitionPeriodEnd).toBe("2026-06-09");
+    expect(body.data.concessivePeriodStart).toBe("2026-06-10");
+    expect(body.data.concessivePeriodEnd).toBe("2027-06-09");
   });
 
   test("allows creating vacation for new hire (< 1 anniversary) when startDate is within first future concessivo", async () => {
@@ -750,7 +758,7 @@ describe("POST /v1/vacations", () => {
     expect(body.data.concessivePeriodEnd).toBe("2025-04-21");
   });
 
-  test("rejects when startDate falls outside the selected active cycle's concessivo", async () => {
+  test("accepts cadastro with startDate after concessivoEnd of next resolved cycle (pago via multa, with history)", async () => {
     const { headers, organizationId, user } =
       await createTestUserWithOrganization({
         emailVerified: true,
@@ -782,8 +790,8 @@ describe("POST /v1/vacations", () => {
         headers: { ...headers, "Content-Type": "application/json" },
         body: JSON.stringify({
           employeeId: employee.id,
-          startDate: "2024-10-01",
-          endDate: "2024-10-10",
+          startDate: "2026-02-01",
+          endDate: "2026-02-10",
           daysEntitled: 10,
           daysUsed: 0,
           status: "scheduled",
@@ -791,12 +799,58 @@ describe("POST /v1/vacations", () => {
       })
     );
 
-    expect(response.status).toBe(422);
+    expect(response.status).toBe(200);
     const body = await response.json();
-    expect(body.error.code).toBe("VACATION_START_DATE_OUTSIDE_CONCESSIVE");
-    expect(body.error.details.startDate).toBe("2024-10-01");
-    expect(body.error.details.concessivePeriodStart).toBe("2025-01-01");
-    expect(body.error.details.concessivePeriodEnd).toBe("2025-12-31");
+    expect(body.success).toBe(true);
+    expect(body.data.startDate).toBe("2026-02-01");
+    expect(body.data.endDate).toBe("2026-02-10");
+    expect(body.data.daysEntitled).toBe(10);
+    expect(body.data.acquisitionPeriodStart).toBe("2024-01-01");
+    expect(body.data.acquisitionPeriodEnd).toBe("2024-12-31");
+    expect(body.data.concessivePeriodStart).toBe("2025-01-01");
+    expect(body.data.concessivePeriodEnd).toBe("2025-12-31");
+  });
+
+  test("accepts cadastro with startDate far in the future beyond the resolved cycle's concessivo (pago via multa scenario)", async () => {
+    const { headers, organizationId, user } =
+      await createTestUserWithOrganization({
+        emailVerified: true,
+        skipTrialCreation: true,
+      });
+
+    const { employee } = await createTestEmployee({
+      organizationId,
+      userId: user.id,
+      hireDate: "2024-01-01",
+      acquisitionPeriodStart: null,
+      acquisitionPeriodEnd: null,
+    });
+
+    const response = await app.handle(
+      new Request(`${BASE_URL}/v1/vacations`, {
+        method: "POST",
+        headers: { ...headers, "Content-Type": "application/json" },
+        body: JSON.stringify({
+          employeeId: employee.id,
+          startDate: "2026-05-01",
+          endDate: "2026-05-10",
+          daysEntitled: 10,
+          daysUsed: 0,
+          status: "scheduled",
+        }),
+      })
+    );
+
+    expect(response.status).toBe(200);
+    const body = await response.json();
+    expect(body.success).toBe(true);
+    expect(body.data.startDate).toBe("2026-05-01");
+    expect(body.data.endDate).toBe("2026-05-10");
+    expect(body.data.daysEntitled).toBe(10);
+    expect(body.data.acquisitionPeriodStart).toBe("2024-01-01");
+    expect(body.data.acquisitionPeriodEnd).toBe("2024-12-31");
+    expect(body.data.concessivePeriodStart).toBe("2025-01-01");
+    expect(body.data.concessivePeriodEnd).toBe("2025-12-31");
   });
 
   test("should set employee status to VACATION_SCHEDULED after creating vacation", async () => {
