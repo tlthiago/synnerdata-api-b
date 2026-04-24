@@ -12,9 +12,12 @@
 - OQ-1 → Issue #273 (PII strategy)
 - OQ-4 → Issue #278 (Timeout.withTimeout scaffolding)
 - OQ-9 → Issue #274 (CNPJ alfanumérico)
+- OQ-10 → Issue #279 (retry jitter preventive)
 - OQ-12/OQ-13 → Issue #275 (x-error-messages shape)
 
 **✅ Resolvidas** (decisão tomada, ação registrada):
+- OQ-2 (orgStatements dead resources) — keep, inventário documental
+- OQ-3 (fire-and-forget em org effects) — try/catch await uniformizado + Sentry alerts (commit `b973dfd`)
 - OQ-5 (apiKey.rateLimit magic number) — keep hardcoded, CLAUDE.md já documenta
 - OQ-6 (super_admin vs admin idênticos) — intencional, distinção em allowlists + UI
 - OQ-7 (RateLimitedError) — keep scaffolding (PR #271 decidido)
@@ -23,10 +26,7 @@
 - OQ-14 (política de erro em emails) — 2 classes via `sendBestEffort` (commit `42699a0`)
 - OQ-15 (SMTP pool) — Hostinger pool configurado (commit `b4c5204`)
 
-**⏸️ Aguardando análise/decisão do dono** (abertas):
-- OQ-2 (orgStatements dead resources) — aguardando decisão após esclarecimento
-- OQ-3 (fire-and-forget em org effects) — dono indicou Opção A, aguardando confirmação do fallback strategy
-- OQ-10 (retry jitter default) — dono perguntou relevância, audit sugere fechar como YAGNI
+**🎉 Todas as 15 OQs endereçadas** — 5 em issues (revisitar depois), 10 resolvidas.
 
 ---
 
@@ -60,7 +60,7 @@
 
 ### OQ-2 — `member`, `invitation`, `billingProfile` em `orgStatements` são documentação viva ou futura checagem?
 
-**⏸️ Status**: Aguardando análise do dono. **Sugestão do audit**: manter — custo de remover 5 linhas agora > churn ao reintroduzir se precisar. Mas pode também argumentar pro lado oposto (menos dead declarations).
+**✅ Status**: Resolvida (2026-04-23). Decisão do dono: **manter como está**. Inventário documental das resources — se alguém expuser endpoint custom de member/invitation/billingProfile no futuro (em vez de depender do BA plugin interno), as declarações estarão prontas para uso via `permissions: {...}` no macro. Não é bug — autorização acontece (via BA internal access control para member/invitation, `requireAdmin` para billingProfile), só não passa pelo macro local.
 
 **Origem**: review de `src/lib/auth/permissions.ts` (CP-53).
 
@@ -82,7 +82,7 @@
 
 ### OQ-3 — `triggerAfterCreateOrganizationEffects` fire-and-forget em side-effects é intencional?
 
-**⏸️ Status**: Aguardando análise do dono. **Sugestão do audit**: aceitar silent-fail com log em MVP (evitar dead-letter queue / BullMQ = MP-4 YAGNI). Se aceitar, adicionar alerta Sentry para log types `organization:auto-profile:failed` e `audit:organization-create:failed` (infra operacional). Alternativa: uniformizar em `try/catch await` síncrono — bloqueia resposta mas garante consistência.
+**✅ Status**: Resolvida (2026-04-23, commit `b973dfd`). Decisão do dono: **Opção A + alerta Sentry**. Todos os 3 side-effects (createTrial, createMinimalProfile, auditOrganizationCreate) agora seguem mesmo pattern: `try/catch await + logger.error + ErrorReporter.capture`. Novo helper privado `reportOrgEffectFailure` em hooks.ts emite Sentry event com tags estruturadas (`type`, `organizationId`) para alerting. Usuário nunca trava — caminhos de recuperação manual documentados no JSDoc do helper. **Ação operacional pendente**: configurar alert rule no Sentry dashboard para `tag:type startsWith "organization:" OR "audit:organization"`.
 
 **Origem**: review de `src/lib/auth/hooks.ts` (CP-53).
 
@@ -243,7 +243,7 @@
 
 ### OQ-10 — Jitter default=true em `retry.ts` quebra determinismo dos testes existentes?
 
-**⏸️ Status**: Aguardando análise do dono. **Sugestão do audit**: não adicionar preventivamente — thundering herd não foi observado em produção, mudança quebra tests timing-based, 8 consumers internos usam config padrão. Alternativas: (a) adicionar como opcional `jitter?: boolean` default false; (b) adicionar default true + migrar tests para fake timers (esforço extra).
+**📌 Status**: Rastreada em **[issue #279](https://github.com/tlthiago/synnerdata-api-b/issues/279)** (2026-04-23). Decisão do dono: criar issue para entender melhor depois. Não adicionar agora — preventivo para problema não-observado. Issue lista triggers (crescimento de base, sinal Sentry de 429 cascata, migração BullMQ) que devem trazer a decisão de volta ao radar.
 
 **Origem**: review de `src/lib/utils/retry.ts` (CP-53).
 
