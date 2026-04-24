@@ -43,31 +43,38 @@
 
 ## Próxima ação
 
-### Concluir Onda 5 (3 CPs restantes)
+### Ordem de execução recomendada (2026-04-23)
 
-1. **CP-38 (M)** — runbook de oncall em `docs/runbooks/` (DB down, webhook Pagar.me falhando, SMTP caído, Sentry em massa). **Docs-heavy**, branch simples. Pronto pra atacar.
-2. **CP-44 (M)** — audit BOLA automatizado em CI (AST-scan de queries sem `organizationId`). Preventivo — follow-up de RU-9. Branch simples. Pronto pra atacar.
-3. **CP-2 (XL)** — consolidar emails em `src/lib/emails/`. **Último por design** — toca fluxos críticos de auth (signup/reset/2FA/invitation). Worktree + plano formal obrigatórios.
-   - 🔴 **BLOQUEADO por issue [#269](https://github.com/tlthiago/synnerdata-api-b/issues/269)** — flakes não-determinísticos em suite grande (state leak: signup welcome email + trial constraint + cpf-analyses list). Descoberto no CI do PR #268. Resolver #269 antes de iniciar CP-2 — ou os testes do refactor de emails serão não-confiáveis.
+Por **valor × custo × dependência** — ver tabela completa em [`roadmap.md § Ordem de execução`](./roadmap.md).
 
-### Paralelizável (agora destravado)
+**🔴 Próximo agora:**
 
-- ~~**CP-18**~~ → **MP-24** (reclassificado 2026-04-23) — deprecation headers ficam no bucket 🟢, sinal para reativar é primeiro breaking change real.
+1. **CP-38** (M, Onda 5) — Runbook oncall em `docs/runbooks/`. Valor operacional imediato (1 cliente em prod). Fecha débito #93 + cobre migration rollback (#90/91). Docs-heavy, branch simples.
 
-### Candidatos pós-sync (2026-04-23)
+**🟡 Alta prioridade:**
 
-- ~~**CP-51 (candidato)**~~ → **MP-26** (formalizado 2026-04-23). Paginação schema compartilhado ficou no bucket 🟢 — sinal para ativar: 5+ endpoints paginados OU bug real de `.max()` esquecido.
-- ✅ **CP-52 entregue (2026-04-23)** — reorganização interna de `src/lib/` (Opção B): 3 commits atômicos, achatamento de 4 subdirs single-file + agrupamento de Better Auth + agrupamento de Sentry. Débitos #4 e #6 fechados.
-- ✅ **CP-53 Fase 1 entregue (2026-04-23)** — auditoria de qualidade de 25 arquivos em `src/lib/`, 15 Open Questions registradas em [`open-questions.md`](./open-questions.md). Matriz de ações consolidada.
-- ✅ **CP-53 Fase 2 entregue (2026-04-23, PR #271)** — 10 commits atômicos de fixes objetivos (não-bloqueados por OQs): PII redaction em logs + Sentry, auth/hooks 6 smells, extração de 6 callbacks pra hooks.ts, email env vars + requireTLS, admin allowlist normalize, date-helpers validation, shutdown portability, types tightening. Débitos #70 e #71 fechados, #73 parcial.
-- **CP-53 Fase 3 (pendente)** — fixes bloqueados por OQs (1-15). Destravam conforme OQs forem respondidas.
-- ~~**MP-23 (candidato)**~~ → formalizado no roadmap.md como **MP-23** (field-level authorization em responses, débito #98). Sinal: requisito concreto do cliente ou auditoria LGPD Art. 18.
+2. **CP-44** (M, Onda 5) — BOLA AST automation. Security preventive, follow-up RU-9.
+3. **CP-41** (M, Onda 3) — Workflow Pagarme integration tests. Fecha Onda 3.
+4. **Onda 6 batch** (4×S) — CP-10/11/12/49 em PR único: Docker SHA pin + HEALTHCHECK deep + wait-for-db + react/react-dom sync.
+5. **CP-17** (M, Onda 4) — Métricas básicas OTel/Prometheus. Gap operacional conhecido. Inclui #43 agregado.
 
-### Onda 4 (pós-Onda 5) — requer brainstorm
+**🟢 Condicional / bloqueio externo:**
 
-- **CP-17 (M)** — métricas básicas (OTel/Prometheus). Gap operacional conhecido: "Sem métricas ainda".
-- ~~**CP-19**~~ → **MP-25** (reclassificado 2026-04-23) — Playwright E2E em bucket 🟢, sinal é regressão UX não-pega-em-CI ou crescimento da equipe.
-- **Cloudflare Free Tier** — CP-14 → 15 → 16 (blocked pelo cliente: DNS registro.br).
+6. **CP-14 → 15 → 16** (Cloudflare Free Tier) — bloqueado pelo cliente (DNS registro.br).
+7. **Onda 7 seq** (CP-48 → 47 → 46 → 50) — Tooling migrations em janela dedicada.
+8. **CP-2** (XL, Onda 5) — Emails consolidation. **Bloqueado por [#269](https://github.com/tlthiago/synnerdata-api-b/issues/269)**. Último por design.
+
+### Ondas novas criadas em 2026-04-23
+
+- **Onda 6 — Infra hardening pequeno**: 4 CPs órfãos agrupados (CP-10/11/12/49)
+- **Onda 7 — Tooling migrations**: 4 CPs órfãos (CP-46/47/48/50, follow-ups de CP-40)
+
+### Histórico recente do bucket 🟡
+
+- ~~**CP-18/19**~~ → **MP-24/25** (reclassificados 2026-04-23 — sinal-driven, não pressing)
+- ~~**CP-51 candidato**~~ → **MP-26** (paginação schema, mesma lógica)
+- ✅ **CP-52 entregue** (2026-04-23) — reorganização interna de `src/lib/` (Opção B): débitos #4 e #6 fechados.
+- ✅ **CP-53 Fase 1+2 entregues** (2026-04-23, PRs #271 e #276) — audit de qualidade + 10 fixes objetivos + 10 OQs resolvidas (ver [open-questions.md](./open-questions.md)).
 
 ---
 
