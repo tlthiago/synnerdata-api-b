@@ -119,7 +119,7 @@ Dimensão "Qualidade da implementação" adicionada à metodologia após o Bloco
 | # | Débito | Severidade | Ação |
 |---|---|---|---|
 | 42 | ~~**`src/index.ts` encadeia 16 `.use()`** linearmente sem agrupamento semântico~~ | ✅ **Resolvido em CP-3 (2026-04-23)** — `routesV1` absorveu 7 controllers em 1 `.use()`; 5 comentários `// ---` agrupando por concern (Core infra, HTTP middleware, Auth + docs, Background jobs, Versioned API routes) |
-| 43 | **`src/index.ts:60-64`** — config `serve.maxRequestBodySize` hardcoded | 🟢 qualidade | Extrair constante nomeada (ex: `const MAX_BODY_SIZE_MB = 10`) ou puxar de env para configurabilidade |
+| 43 | **`src/index.ts:60-64`** — config `serve.maxRequestBodySize` hardcoded | 🟢 qualidade | Extrair constante nomeada (ex: `const MAX_BODY_SIZE_MB = 10`) ou puxar de env para configurabilidade. **Agregado a CP-17** (métricas) — bootstrap será tocado para registrar middleware de métricas, fix natural enquanto lá |
 
 **Bloco 2 (lib/):**
 

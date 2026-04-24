@@ -77,7 +77,7 @@ Organizado em **5 PRs dedicados** (refactors grandes) + ações pontuais.
 
 | ID | Ação | Débitos cobertos | Tipo | Esforço | Depende de |
 |---|---|---|---|---|---|
-| **CP-17** | Métricas básicas — OTel Metrics ou Prometheus client: latência por rota, throughput, erro rate, pool de conexões DB | Early #2 | new | M | — |
+| **CP-17** | Métricas básicas — OTel Metrics ou Prometheus client: latência por rota, throughput, erro rate, pool de conexões DB. Incluir extração da constante `MAX_REQUEST_BODY_MB` no `src/index.ts` (débito #43) — "while you're there" fix, bootstrap já será tocado para registrar middleware de métricas | Early #2, #43 | new | M | — |
 | **CP-18** | Política de deprecation com headers `Deprecation` / `Sunset` — documentar em `docs/api-versioning.md` + helper em `lib/responses/` para injetar headers. ✨ **Destravado em 2026-04-23** (CP-3 entregou `src/routes/v1/` composer) | Early #9 | new | M | CP-3 ✅ |
 | **CP-19** | Playwright E2E em workflow CI — novo workflow ou step em `test.yml` (pelo menos no schedule diário) | #78 | config | M | — |
 | **CP-20** | ✅ **2026-04-22** — `--coverage --coverage-reporter=lcov` ativado em affected + full suite. Upload via `codecov/codecov-action@v5`. Depende de `CODECOV_TOKEN` no repo secrets para publicação | #86 | config | S | — |
