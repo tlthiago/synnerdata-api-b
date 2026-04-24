@@ -13,7 +13,7 @@
 | Bucket | Total | Done | Active | Progresso |
 |---|---|---|---|---|
 | 🔴 **Urgente** (MVP-bloqueante) | 10 | 10 | 0 | ✅ **Completo** em 2026-04-22 |
-| 🟡 **Curto prazo** (hardening, 30-90d) | 50 | 37 | 9 | **74%** · 3 reclassificadas para MP (CP-18→MP-24, CP-19→MP-25 em 2026-04-23; CP-44→MP-27 em 2026-04-24) · Onda 6 batch + CP-38 entregues 2026-04-24 |
+| 🟡 **Curto prazo** (hardening, 30-90d) | 50 | 38 | 8 | **76%** · 3 reclassificadas para MP (CP-18→MP-24, CP-19→MP-25 em 2026-04-23; CP-44→MP-27 em 2026-04-24) · Onda 6 + CP-38 + #269 parcial + CP-48 (Zod 4.3) entregues 2026-04-24 |
 | 🟢 **Médio prazo** (sob demanda) | 27 | 0 | 27 | +1 em 2026-04-24 (MP-27 ex-CP-44); +4 em 2026-04-23 (MP-23 + MP-24/25 ex-CP + MP-26 ex-candidato CP-51) |
 
 ### Saúde do codebase
@@ -51,7 +51,7 @@
 
 1. ~~**Onda 6 batch**~~ ✅ Entregue 2026-04-24 — CP-10 (Docker SHA pin) + CP-11 (HEALTHCHECK deep) + CP-12 (wait-for-db) + CP-49 (react/react-dom sync).
 2. ~~**Issue #269 tests 3+4**~~ ✅ Entregue 2026-04-24 — trial constraint self-contained + cpf-analyses dates explícitas. Tests 1+2 (email spy race) para CP-2.
-3. **Onda 7 seq** (CP-48 → 47 → 46 → 50) — tooling migrations por ordem de risco crescente: Zod 4.3 → Better Auth 1.6 → Ultracite 7 → TS 6. Cada PR dedicado.
+3. **Onda 7 seq** (~~CP-48~~ → CP-47 → 46 → 50) — tooling migrations por ordem de risco crescente: ~~Zod 4.3 ✅~~ → Better Auth 1.6 → Ultracite 7 → TS 6. Cada PR dedicado.
 4. **CP-2** (XL, Onda 5) — Emails consolidation. Inclui `EmailDispatcher` wrapper que resolve #269 tests 1+2 de graça. Fecha Onda 5 em 11/11.
 
 **🟡 Em paralelo (encaixa onde convier):**
@@ -70,6 +70,7 @@
 
 ### Histórico recente do bucket 🟡
 
+- ✅ **CP-48 entregue** (2026-04-24) — Zod `~4.1.13` → `~4.3.6`. Fix do `.partial() + refine` afetou apenas 1 arquivo (`medical-certificates.model.ts`). 1709+ tests passando em escopo grande.
 - ✅ **Issue #269 tests 3+4 fixados** (2026-04-24) — trial constraint self-contained + cpf-analyses dates explícitas. 14/14 pass local; CI valida em escopo grande. Tests 1+2 (email spy race) para CP-2.
 - ✅ **Onda 6 batch entregue** (2026-04-24) — 4 CPs em 5 commits atômicos: CP-10 (Docker SHA pin) + CP-11 (HEALTHCHECK deep com body check) + CP-12 (wait-for-db via `src/db/wait-for-db.ts`) + CP-49 (react-dom pin). Fecha débitos #87, #88, #89.
 - ✅ **CP-38 entregue** (2026-04-24) — 6 runbooks de oncall em `docs/runbooks/` + índice. Fecha débitos #90, #91, #93.

@@ -11,6 +11,31 @@
 
 Registro temporal das decisões e entregas desta iniciativa. **Toda atualização do documento deve adicionar uma entrada aqui** (data ISO + resumo).
 
+### 2026-04-24 — CP-48 entregue: migração Zod 4.1 → 4.3 (Onda 7)
+
+Primeiro passo da Onda 7 (tooling migrations). Migração de `zod` de `~4.1.13` (pinado como contenção em CP-40) para `~4.3.6`.
+
+**Breaking change endereçado**: Zod 4.3 proíbe `.partial()` em object schemas contendo `.refine()` cross-field (antes permitia com comportamento indefinido).
+
+**Escopo real vs. estimativa**: débito previa impacto em ~16 arquivos `.model.ts`. Na prática, apenas **1 arquivo** disparava o erro em runtime — `medical-certificates.model.ts`. Outros arquivos com `.partial()` + `.refine()` têm refines em nível de campo (`z.string().refine(...)` — afeta um field schema, não o object), que não dispara a validação nova.
+
+**Fix aplicado** no medical-certificates:
+
+```ts
+// antes
+const createSchema = z.object({...}).refine(crossField, ...);
+const updateSchema = createSchema.partial().extend({...}).refine(crossField, ...);  // ❌ 4.3
+
+// depois
+const fieldsSchema = z.object({...});  // base, sem refine cross-field
+const createSchema = fieldsSchema.refine(crossField, ...);
+const updateSchema = fieldsSchema.partial().extend({...}).refine(crossField, ...);  // ✅
+```
+
+**Validação**: testes rodados por escopo em local (~1709+ assertions): 952 pass payments, 201 pass occurrences (accidents/terminations/promotions/cpf-analyses), 121 pass vacations, 101 pass warnings+labor-lawsuits, 50 pass medical-certificates, 245 pass organizations (branches/cost-centers/job-positions/sectors/ppe-items), 160 pass auth/admin/public/audit, 215 pass branches+employees+billing.
+
+**Destrava**: Onda 7 avança para CP-47 (Better Auth 1.4 → 1.6, L). CP-50 (TypeScript 6) permanece contenção ativa (pin `~5.9.3`).
+
 ### 2026-04-24 — Issue #269 tests 3+4 fixados (DB state leak)
 
 Continuação da sequência revisada — segundo passo após Onda 6. Tests 3+4 do #269 fixados; tests 1+2 (ESM named-import spy race) ficam para CP-2 (emails consolidation) via `EmailDispatcher` wrapper inline.
