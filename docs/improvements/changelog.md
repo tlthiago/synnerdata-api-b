@@ -11,28 +11,50 @@
 
 Registro temporal das decisões e entregas desta iniciativa. **Toda atualização do documento deve adicionar uma entrada aqui** (data ISO + resumo).
 
-### 2026-04-24 — Reclassificação CP-44 → MP-27 (BOLA AST automation)
+### 2026-04-24 — CP-38 entregue + CP-44 reclassificado (Onda 5 chega a 10/11)
 
-Aplicando o mesmo critério usado em 2026-04-23 para CP-18/19 ("committed para 30-90d vs sinal-driven"), **CP-44** reclassificado para **MP-27**.
+Duas decisões na mesma janela:
 
-**Contexto**: CP-44 era preventivo contra regressão de BOLA (OWASP API1) em multi-tenancy. Avaliando honestamente:
+#### 1. CP-38 entregue (PR #282) — runbooks de oncall
+
+Criados 6 runbooks em `docs/runbooks/` seguindo o padrão do `database-backup.md` existente:
+
+- `db-down.md` — Postgres inacessível (4 caminhos: container, VPS, pool, corrupção). Schema do `/health` corrigido para refletir a realidade (retorna HTTP 200 com `data.status: "unhealthy"`, não 503; paths atualizados para `src/plugins/health/`).
+- `app-container.md` — app não sobe (4 caminhos: env, migration, OOM, bug). Distingue de db-down via `/health/live`.
+- `pagarme-webhook.md` — webhook falhando (5 classificações via logs tipados do CP-6). Tabela correta é `subscription_events` com column `error` (não `error_message`).
+- `smtp-down.md` — SMTP Hostinger fora (4 caminhos). Referencia política de 2 classes (OQ-14) e dimensionamento de pool (OQ-15).
+- `5xx-surge.md` — pico de 5xx (triagem, roteia para runbook específico via correlation ID).
+- `migration-rollback.md` — migration quebrada (3 caminhos + nota de escala para débito #90). Entrypoint real é `bun run src/db/migrate.ts`.
+
+Novo `docs/runbooks/README.md` serve como índice com decision tree sintoma→runbook e ordem de escalação padrão.
+
+**Débitos fechados**: #90 (estratégia de migration em scale — documentado como nota), #91 (rollback de migration — 3 caminhos com SQL concreto), #93 (runbook oncall completo).
+
+**Processo**: executado via subagent-driven-development skill (primeira task com 2-stage review que pegou 3 issues de paths stale em db-down). Após usuário observar overhead desnecessário para docs puros, switch para fluxo enxuto (implementer direto + verificação do controller + final review) para os 5 arquivos restantes + cross-refs.
+
+#### 2. CP-44 reclassificado → MP-27 (PR #283)
+
+Aplicando o mesmo critério usado em 2026-04-23 para CP-18/19 ("committed para 30-90d vs sinal-driven"), **CP-44** (BOLA AST automation em CI) reclassificado para **MP-27**. Avaliando honestamente:
 
 - Solo dev escrevendo todos os services — sem drift de time.
-- RU-9 (2026-04-22) validou estado limpo: 29/29 services org-scoped filtram corretamente, 0/50 gaps. Pattern maduro.
-- Testes cross-org dinâmicos já existem em 3 módulos representativos (`employees`, `medical-certificates`, `cost-centers`), cobrindo verificação dinâmica nos caminhos críticos.
+- RU-9 (2026-04-22) validou estado limpo: 29/29 services org-scoped filtram corretamente, 0/50 gaps.
+- Testes cross-org dinâmicos já existem em 3 módulos representativos (`employees`, `medical-certificates`, `cost-centers`).
 - Custo de manter o AST scanner: ~2-3h de build + manutenção contínua (schema changes, falsos positivos, exemptions).
-- É defensive engineering contra cenário que não existe hoje.
+- Defensive engineering contra cenário que não existe hoje.
 
-**Sinal para reativar MP-27**: equipe cresce (2+ devs, risco real de drift), onboarding de novo dev, near-miss real de BOLA em review/produção, ou refactor grande em `src/modules/` onde cobertura manual fica exaustiva.
+**Sinal para reativar MP-27**: equipe cresce (2+ devs), onboarding de novo dev, near-miss real de BOLA, ou refactor grande em `src/modules/`.
 
-**Contadores atualizados**:
+#### Contadores finais (após ambos mergeados)
 
-- Bucket 🟡: 50 ações · **14 ativas** (era 15) · 32 concluídas · **3 reclassificadas** (CP-18/19/44) · 1 contenção
-- Bucket 🟢: **27 ações** monitoradas (era 26) — MP-27 formalizada com implementação-guia preservada para execução futura
+- **Bucket 🟡**: 50 ações · **33 concluídas** (era 32) · **13 ativas** (era 15) · **3 reclassificadas** (CP-18/19/44) · 1 contenção
+- **Bucket 🟢**: **27 ações** monitoradas (era 26) — MP-27 formalizada com implementação-guia preservada
+- **Onda 5**: **10/11 entregues (91%)** — resta apenas CP-2 (XL, bloqueado #269)
+
+**"Trabalho planejável" reduzido** — restam: CP-41 (Pagarme tests, precisa secrets sandbox), Onda 6 batch (CP-10/11/12/49, 4 quick wins), CP-17 (métricas), Cloudflare (externo), Onda 7 (janela dedicada), CP-2 (bloqueado).
 
 **Princípio reforçado**: distinguir "committed para 30-90d" (CP) de "sob demanda, sinal-driven" (MP) impede que o bucket 🟡 acumule trabalho de baixo ROI no contexto atual. Honestidade sobre scaffolding preventivo > completude defensiva.
 
-Cross-refs atualizadas em `roadmap.md`, `README.md`.
+Cross-refs atualizadas em `roadmap.md`, `README.md`, `debts.md`.
 
 ### 2026-04-23 — Wave governance: criar Onda 6/7 + reclassificação + formalização
 

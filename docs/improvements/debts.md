@@ -220,15 +220,15 @@ Dimensão "Qualidade da implementação" adicionada à metodologia após o Bloco
 | # | Débito | Severidade | Ação |
 |---|---|---|---|
 | 89 | **Migrations rodam a cada startup sem wait-for-db** | 🟡 robustez | Se Postgres não está pronto quando container sobe, `bun run src/db/migrate.ts` falha e container morre. Adicionar `wait-for-it.sh` ou loop simples: `until pg_isready -h $DB_HOST; do sleep 1; done` antes do migrate |
-| 90 | **Sem estratégia de migration em scale** | 🟢 escala | Múltiplas instâncias subindo simultaneamente podem ter race condition em migration. Drizzle é idempotente mas locks podem travar. Em escala: migration em job one-shot separado (Kubernetes Job ou script pré-deploy) |
-| 91 | **Sem rollback de migration** | 🟢 robustez | Se migration tem bug, deploy fica preso. Documentar processo de rollback (reset de `__drizzle_migrations` + checkout de commit anterior + redeploy) em runbook |
+| 90 | ~~**Sem estratégia de migration em scale**~~ | ✅ **Resolvido em CP-38 (2026-04-24)** — runbook `docs/runbooks/migration-rollback.md` documenta nota de escala: quando escalar horizontalmente (2+ instâncias), mover migration para job one-shot separado (Coolify pre-deploy hook ou Kubernetes Job). Não investir antes do sinal de escala |
+| 91 | ~~**Sem rollback de migration**~~ | ✅ **Resolvido em CP-38 (2026-04-24)** — runbook `docs/runbooks/migration-rollback.md` documenta 3 caminhos (parcial/corrupt-registry/destruído) com comandos SQL concretos e fallback para restore via `database-backup.md` |
 
 **Deploy e observabilidade de produção:**
 
 | # | Débito | Severidade | Ação |
 |---|---|---|---|
 | 92 | ~~**Backup policy do Postgres gerenciado pelo Coolify não está documentada no repo**~~ | ✅ **Resolvido em RU-10 + CP-45 (2026-04-22)** — runbook `docs/runbooks/database-backup.md` criado com frequência, retention, processo de restore; Local Backup Retention ajustado para 7/7 dias/2GB no Coolify (R2 inalterado) |
-| 93 | **Sem runbook de oncall/incidente** | 🟢 maturidade | Onde procurar quando algo quebra 3h da manhã? Criar `docs/runbooks/` com: DB down, webhook Pagar.me falhando, SMTP caído, Sentry recebendo 5xx em massa |
+| 93 | ~~**Sem runbook de oncall/incidente**~~ | ✅ **Resolvido em CP-38 (2026-04-24)** — 6 runbooks novos em `docs/runbooks/` (db-down, app-container, pagarme-webhook, smtp-down, 5xx-surge, migration-rollback) + índice `README.md` com decision tree sintoma→runbook |
 | 94 | **Version do projeto em `package.json:3` (`1.0.50`) é manual** | 🟢 qualidade DX | Sem semantic-release ou similar — dev precisa bumpar manualmente. Para lib/app com release frequente, considerar automation. Não crítico agora |
 | 95 | ~~**Em `test.yml`, secrets Pagar.me/Auth expostos no `env` do job inteiro**~~ | ✅ **Resolvido em CP-13 (2026-04-22)** — 8 secrets (BETTER_AUTH_SECRET, PAGARME_*, INTERNAL_API_KEY, PII_ENCRYPTION_KEY) movidos para step-level apenas nos 3 steps que executam código do projeto (migrations, affected tests, full suite) |
 | 96 | ~~**Convenção inconsistente de `changes` em audit logs + reads sensíveis sem audit**~~ | ✅ **Resolvido em CP-42 + CP-43 (2026-04-22)** — CP-42: helper `buildAuditChanges(before, after)` com redação automática de 11 campos PII + exclusão de metadata. CP-43: `auditPlugin` mountado em 4 controllers (employee, medical_certificate, cpf_analysis, labor_lawsuit); GET `/:id` emite `audit({ action: "read", ... })`. **Débito LGPD Art. 11/18/48 100% endereçado** |
