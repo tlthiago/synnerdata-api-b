@@ -43,21 +43,25 @@
 
 ## Próxima ação
 
-### Ordem de execução recomendada (2026-04-24)
+### Ordem de execução recomendada (2026-04-24, revisada)
 
-Por **valor × custo × dependência** — ver tabela completa em [`roadmap.md § Ordem de execução`](./roadmap.md).
+**Sequência formal decidida** — priorizar isolamento de diagnóstico + destravar PRs grandes antes de escalar escopo. Ver [changelog 2026-04-24 "Sequência de execução revisada"](./changelog.md) para raciocínio completo.
 
-**🟡 Alta prioridade:**
+**🟡 Linha principal:**
 
-1. **CP-41** (M, Onda 3) — Workflow Pagarme integration tests. Fecha Onda 3.
-2. **Onda 6 batch** (4×S) — CP-10/11/12/49 em PR único: Docker SHA pin + HEALTHCHECK deep + wait-for-db + react/react-dom sync.
-3. **CP-17** (M, Onda 4) — Métricas básicas OTel/Prometheus. Gap operacional conhecido. Inclui #43 agregado.
+1. **Onda 6 batch** (4×S) — CP-10/11/12/49 em PR único: Docker SHA pin + HEALTHCHECK deep + wait-for-db + react/react-dom sync. ~2-3h.
+2. **Issue #269 tests 3+4** (DB state leak) — audit de factories/fixtures + cleanup explícito. **Pré-requisito de CP-47 e CP-2** (sem isso, PRs grandes reativam flakes em CI). Efforte M/L.
+3. **Onda 7 seq** (CP-48 → 47 → 46 → 50) — tooling migrations por ordem de risco crescente: Zod 4.3 → Better Auth 1.6 → Ultracite 7 → TS 6. Cada PR dedicado.
+4. **CP-2** (XL, Onda 5) — Emails consolidation. Inclui `EmailDispatcher` wrapper que resolve #269 tests 1+2 de graça. Fecha Onda 5 em 11/11.
+
+**🟡 Em paralelo (encaixa onde convier):**
+
+- **CP-41** (M, Onda 3) — Pagarme integration tests workflow. Dependência: secrets sandbox Pagar.me configurados. Fecha Onda 3.
+- **CP-17** (M, Onda 4) — Métricas OTel/Prometheus. Gap operacional conhecido. Inclui #43 agregado.
 
 **🟢 Condicional / bloqueio externo:**
 
-4. **CP-14 → 15 → 16** (Cloudflare Free Tier) — bloqueado pelo cliente (DNS registro.br).
-5. **Onda 7 seq** (CP-48 → 47 → 46 → 50) — Tooling migrations em janela dedicada.
-6. **CP-2** (XL, Onda 5) — Emails consolidation. **Bloqueado por [#269](https://github.com/tlthiago/synnerdata-api-b/issues/269)**. Último por design.
+- **CP-14 → 15 → 16** (Cloudflare Free Tier) — bloqueado pelo cliente (DNS registro.br).
 
 ### Ondas novas criadas em 2026-04-23
 

@@ -145,20 +145,28 @@ Sequência proposta para extrair valor rápido antes de atacar os refactors gran
 - **Ondas 6 e 7 criadas em 2026-04-23** durante sync de wave governance — realocam 8 CPs órfãos (CP-10/11/12/46/47/48/49/50) que nunca tinham sido mapeados em onda original.
 - Reavaliar ordem a cada 5 CPs concluídos — aprendizado do bucket 🔴 mostrou que prioridades mudam ao descobrir o escopo real.
 
-#### Ordem de execução recomendada (atualizada 2026-04-24)
+#### Ordem de execução recomendada (atualizada 2026-04-24, revisada)
 
-Sequência pragmática por **valor × custo × dependência**:
+Sequência formal decidida — priorizar isolamento de diagnóstico + destravar PRs grandes antes de escalar escopo. Ver [changelog 2026-04-24 "Sequência de execução revisada"](./changelog.md) para raciocínio completo.
+
+**Linha principal (sequencial):**
 
 | Prioridade | CP | Onda | Tamanho | Depende de | Racional |
 |---|---|---|---|---|---|
-| 🟡 1 | **CP-41** Pagarme integration tests workflow | Onda 3 | M | Secrets sandbox Pagar.me | Payments crítico; fecha Onda 3 (última ação restante) |
-| 🟡 2 | **Onda 6 batch** (CP-10/11/12/49) | Onda 6 | 4×S | — | Infra hardening quick wins em PR único |
-| 🟡 3 | **CP-17** Métricas OTel/Prometheus | Onda 4 | M | Decisão OTel vs Prometheus | Observability gap conhecido; inclui #43 agregado |
-| 🟢 4 | **CP-14 → 15 → 16** Cloudflare | Onda 4 | S→M→S | DNS do cliente (externo) | Sequencial, bloqueio externo |
-| 🟢 5 | **Onda 7 seq** (CP-48→47→46→50) | Onda 7 | M→L→L→M | Estabilidade da suíte | Tooling migrations em janela dedicada |
-| ⏸️ 6 | **CP-2** Emails consolidation | Onda 5 | XL | Issue #269 (flakes) | Último por design; worktree + plan formal obrigatórios |
+| 🟡 1 | **Onda 6 batch** (CP-10/11/12/49) | Onda 6 | 4×S | — | Infra hardening quick wins em PR único; zero dependência |
+| 🟡 2 | **Issue #269 tests 3+4** (DB state leak) | — | M/L | — | Pré-requisito de CP-47 e CP-2 — sem isso, PRs grandes reativam flakes em CI |
+| 🟡 3 | **Onda 7 seq** (CP-48 → 47 → 46 → 50) | Onda 7 | M→L→L→M | #269 resolvido | Tooling migrations por risco crescente: Zod → Better Auth → Ultracite → TS |
+| ⏸️ 4 | **CP-2** Emails consolidation | Onda 5 | XL | Onda 7 + #269 (parcialmente inline) | Inclui `EmailDispatcher` wrapper que resolve #269 tests 1+2. Fecha Onda 5 em 11/11 |
 
-**Projeção**: completando priorities 1-4 (~8-12h), bucket 🟡 fica reduzido a CP-2 (bloqueado) + sequência Cloudflare (externo) + Onda 7 (janela dedicada). Pode-se afirmar que "trabalho planejável" acabou.
+**Em paralelo (encaixa conforme bandwidth/dependências externas):**
+
+| Prioridade | CP | Onda | Tamanho | Depende de | Racional |
+|---|---|---|---|---|---|
+| 🟡 | **CP-41** Pagarme integration tests workflow | Onda 3 | M | Secrets sandbox Pagar.me | Payments crítico; fecha Onda 3 |
+| 🟡 | **CP-17** Métricas OTel/Prometheus | Onda 4 | M | Decisão OTel vs Prometheus | Observability gap conhecido; inclui #43 |
+| 🟢 | **CP-14 → 15 → 16** Cloudflare | Onda 4 | S→M→S | DNS do cliente (externo) | Sequencial, bloqueio externo |
+
+**Projeção**: completando a linha principal (1 → 4), bucket 🟡 fica reduzido a trabalho em paralelo (CP-41, CP-17, Cloudflare) conforme bandwidth + dependências externas. Onda 5 chega a 11/11 (100%) com CP-2.
 
 #### 🟢 Bucket Médio Prazo / Sob Demanda (quando houver sinal real)
 
