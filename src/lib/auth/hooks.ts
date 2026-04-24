@@ -26,6 +26,7 @@ import {
   sendProvisionActivationEmail,
 } from "@/lib/email";
 import { logger } from "@/lib/logger";
+import { ErrorReporter } from "@/lib/sentry/reporter";
 import { OrganizationService } from "@/modules/organizations/profile/organization.service";
 import { SubscriptionService } from "@/modules/payments/subscription/subscription.service";
 
@@ -330,6 +331,37 @@ export async function validateBeforeCreateInvitation({
   }
 }
 
+/**
+ * Reports a post-organization-create side-effect failure.
+ *
+ * These side-effects are best-effort — signup must succeed even if one
+ * or more of them fail. Each failure gets logged + Sentry captured so the
+ * operator can alert on the structured `type` tag and fix manually.
+ *
+ * Recovery paths (documented for future operators):
+ * - `organization:trial-creation:failed` → org sem subscription. User vê "sem
+ *   plano". Admin pode criar trial manualmente via POST /admin/provisions/trial.
+ * - `organization:auto-profile:failed` → org sem profile. GET /organizations/
+ *   profile retorna null. Admin pode completar via UI/endpoint de update.
+ * - `audit:organization-create:failed` → sem entry de audit. Sem impacto
+ *   funcional, gap de compliance. Insert manual em audit_logs se necessário.
+ */
+function reportOrgEffectFailure(
+  error: unknown,
+  context: { type: string; organizationId: string; userId?: string }
+): void {
+  logger.error({
+    ...context,
+    error: error instanceof Error ? error.message : String(error),
+  });
+  ErrorReporter.capture(error, {
+    tags: {
+      type: context.type,
+      organizationId: context.organizationId,
+    },
+  });
+}
+
 export async function triggerAfterCreateOrganizationEffects({
   organization: org,
   member,
@@ -340,30 +372,31 @@ export async function triggerAfterCreateOrganizationEffects({
   try {
     await SubscriptionService.createTrial(org.id);
   } catch (error) {
-    logger.error({
+    reportOrgEffectFailure(error, {
       type: "organization:trial-creation:failed",
       organizationId: org.id,
       userId: member.userId,
-      error: error instanceof Error ? error.message : String(error),
     });
   }
 
-  OrganizationService.createMinimalProfile(org.id, org.name).catch((error) => {
-    logger.error({
+  try {
+    await OrganizationService.createMinimalProfile(org.id, org.name);
+  } catch (error) {
+    reportOrgEffectFailure(error, {
       type: "organization:auto-profile:failed",
       organizationId: org.id,
-      error: error instanceof Error ? error.message : String(error),
     });
-  });
+  }
 
-  auditOrganizationCreate(org, member.userId).catch((error) => {
-    logger.error({
+  try {
+    await auditOrganizationCreate(org, member.userId);
+  } catch (error) {
+    reportOrgEffectFailure(error, {
       type: "audit:organization-create:failed",
       organizationId: org.id,
       userId: member.userId,
-      error: error instanceof Error ? error.message : String(error),
     });
-  });
+  }
 }
 
 export async function onOrganizationUpdated({
