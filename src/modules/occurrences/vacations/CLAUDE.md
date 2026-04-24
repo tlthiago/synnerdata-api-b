@@ -18,8 +18,11 @@ Gestao de ferias com periodos aquisitivo e concessivo inline e controle de dias,
       - Se `daysUsed < 30` nesse aquisitivo → retorna o **mesmo ciclo** (ainda tem saldo a cadastrar).
       - Se `daysUsed === 30` → retorna o **próximo ciclo contíguo** (`lastAquisitivoStart + 12 meses`).
     - Não há silent skip de ciclos vencidos — a sequência é contíguamente derivada do histórico.
-  - **`startDate` obrigatoriamente dentro do concessivo do ciclo retornado** — caso contrário lança `VacationStartDateOutsideConcessiveError` (422). Válido para cadastros retroativos (concessivo no passado), vigentes (concessivo contém hoje) e agendados (concessivo no futuro).
+  - **`startDate` é livre** dentro dos limites gerais do módulo (validações de `validateDates`, `validateDaysBetweenDates`, `ensureAquisitivoLimit`, `ensureNoOverlap`). O snapshot de aquisitivo/concessivo capturado no registro é sempre o ciclo retornado por `resolveNextCycle` (derivado do histórico), **mesmo quando `startDate` cai fora do concessivo desse ciclo** — isso representa o cenário de férias pagas fora do prazo legal (pago via multa, CLT art. 137).
+
+    A **classificação "Pago via Multa"** é **derivada pela UI** (frontend) a partir da comparação `startDate > concessivePeriodEnd` do snapshot. Não é persistida no banco — o dado fica na combinação `(startDate, concessivePeriodEnd)`. Se futuramente precisarmos rastrear overrides manuais (ex: "gozado em data fora do prazo por acordo coletivo"), migrar pra campo persistido.
   - **Exemplo — empresa migrando**: funcionário admitido em 15/02/2019, sem férias cadastradas → primeiro cadastro cai no ciclo 1 (aquisitivo 15/02/2019-14/02/2020). Depois de completar 30 dias nesse ciclo → próximo cadastro cai no ciclo 2 (aquisitivo 15/02/2020-14/02/2021). Assim sucessivamente até chegar ao ciclo atual. O RH preserva a história da organização no sistema.
+  - **Exemplo — pago via multa (Maria, caso reportado em homologação)**: funcionário admitido em 02/04/2024, sem férias cadastradas → `resolveNextCycle` retorna ciclo 1 (aquisitivo 02/04/2024-01/04/2025, concessivo 02/04/2025-01/04/2026). Hoje é 23/04/2026 — concessivo já terminou há 22 dias. Cadastro com `startDate=21/05/2026, endDate=31/05/2026` → aceito, snapshot captura ciclo 1. UI compara `startDate (21/05/2026) > concessivePeriodEnd (01/04/2026)` → exibe badge "Pago via Multa".
   - Suporte a ferias fracionadas (multiplos registros no mesmo aquisitivo) já é considerado por `resolveNextCycle` via soma de `daysEntitled` por `acquisitionPeriodStart`.
   - Regra CLT: aquisitivo = 12 meses; concessivo = 12 meses apos o fim do aquisitivo.
   - **Read-only na API**: removidos dos schemas Zod de create/update. Enviados no payload sao silenciosamente stripados. Frontend exibe em DatePickers desabilitados.
@@ -49,7 +52,7 @@ Prioridade: `in_progress` > `scheduled` > `ACTIVE`. O helper consulta todas as f
 
 ## Fields
 
-- `startDate`, `endDate` (datas das ferias — obrigatoriamente dentro do concessivo do proximo ciclo no momento do create)
+- `startDate`, `endDate` (datas das ferias — livres dentro dos limites gerais do módulo; quando `startDate > concessivePeriodEnd` do snapshot, a UI classifica como "Pago via Multa")
 - `acquisitionPeriodStart`, `acquisitionPeriodEnd` (periodo aquisitivo — **snapshot do proximo ciclo** resolvido pelo backend no create, read-only na API, presente na response)
 - `concessivePeriodStart`, `concessivePeriodEnd` (periodo concessivo — **snapshot do proximo ciclo** resolvido pelo backend no create, read-only na API, presente na response)
 - `daysEntitled` (inteiro, 1 a 30 conforme CLT art. 130, obrigatorio, sem default)
@@ -86,7 +89,6 @@ Prioridade: `in_progress` > `scheduled` > `ACTIVE`. O helper consulta todas as f
 - `VacationInvalidDaysError` (422) -- daysEntitled != intervalo de datas, ou daysUsed > daysEntitled
 - `VacationDateBeforeHireError` (422) -- qualquer data anterior a hireDate do funcionario
 - `VacationAquisitivoExceededError` (422) -- soma de `daysEntitled` no aquisitivo excederia 30 dias. Details: `{ acquisitionPeriodStart, acquisitionPeriodEnd, currentTotal, requestedDays, daysRemaining, maxAllowed: 30 }`.
-- `VacationStartDateOutsideConcessiveError` (422) -- `startDate` fora do concessivo do proximo ciclo. Details: `{ startDate, concessivePeriodStart, concessivePeriodEnd }`. Substitui a antiga regra que bloqueava novos contratados.
 - `VacationNoRightsError` (422) -- **legacy, nao mais lancado em producao**. Mantido no arquivo `errors.ts` para compatibilidade retroativa (codigos de erro ja expostos em integracoes / historicos). Novos contratados agora agendam ferias futuras livremente via proximo ciclo.
 - `VacationOverlapError` (409) -- same employee + overlapping dates (excluding canceled)
 - `EmployeeTerminatedError` (422) -- shared, from `src/modules/employees/errors.ts`
