@@ -10,23 +10,23 @@
 
 **📌 Rastreadas em GitHub issues** (decisão adiada com contexto preservado):
 - OQ-1 → Issue #273 (PII strategy)
+- OQ-4 → Issue #278 (Timeout.withTimeout scaffolding)
 - OQ-9 → Issue #274 (CNPJ alfanumérico)
 - OQ-12/OQ-13 → Issue #275 (x-error-messages shape)
 
 **✅ Resolvidas** (decisão tomada, ação registrada):
+- OQ-5 (apiKey.rateLimit magic number) — keep hardcoded, CLAUDE.md já documenta
+- OQ-6 (super_admin vs admin idênticos) — intencional, distinção em allowlists + UI
 - OQ-7 (RateLimitedError) — keep scaffolding (PR #271 decidido)
 - OQ-8 (passwordComplexityRules export) — removed (commit `b4c5204`)
-- OQ-14 (política de erro em emails) — 2 classes implementadas via `sendBestEffort` wrapper (commit `42699a0`)
+- OQ-11 (deleteUser custom endpoint) — keep self-reference, revisitar quando iniciativa "delete account robusto" for priorizada
+- OQ-14 (política de erro em emails) — 2 classes via `sendBestEffort` (commit `42699a0`)
 - OQ-15 (SMTP pool) — Hostinger pool configurado (commit `b4c5204`)
 
-**⏸️ Aguardando análise/decisão do dono** (abertas, com sugestão do audit registrada):
-- OQ-2 (orgStatements dead resources)
-- OQ-3 (fire-and-forget em org effects)
-- OQ-4 (Timeout.withTimeout deletar?)
-- OQ-5 (apiKey.rateLimit parametrize?)
-- OQ-6 (super_admin vs admin consolidar?)
-- OQ-10 (retry jitter default?)
-- OQ-11 (deleteUser custom endpoint?)
+**⏸️ Aguardando análise/decisão do dono** (abertas):
+- OQ-2 (orgStatements dead resources) — aguardando decisão após esclarecimento
+- OQ-3 (fire-and-forget em org effects) — dono indicou Opção A, aguardando confirmação do fallback strategy
+- OQ-10 (retry jitter default) — dono perguntou relevância, audit sugere fechar como YAGNI
 
 ---
 
@@ -108,7 +108,7 @@
 
 ### OQ-4 — Algo em PR/branch não-merged usa `Timeout.withTimeout` antes de deletar?
 
-**⏸️ Status**: Aguardando análise do dono. **Sugestão do audit**: manter como scaffolding viável (mesma regra aplicada a `ValidationError`/`InternalError` no PR #271). Alternativa: deletar (71L código + 108L tests órfãos) — mais radical mas purista.
+**📌 Status**: Rastreada em **[issue #278](https://github.com/tlthiago/synnerdata-api-b/issues/278)** (2026-04-23). Decisão do dono: criar issue pra revisitar depois. Manter como scaffolding hoje. Issue lista triggers que devem trazer a decisão de volta ao radar.
 
 **Origem**: review de `src/lib/utils/timeout.ts` (CP-53).
 
@@ -130,7 +130,7 @@
 
 ### OQ-5 — `apiKey.rateLimit.maxRequests: 200/min` deveria ser documentado ou parametrizado por env?
 
-**⏸️ Status**: Aguardando análise do dono. **Sugestão do audit**: manter hardcoded — CLAUDE.md de api-keys já documenta o motivo. 1 cliente hoje não justifica env var. Alternativas: parametrizar por env (`API_KEY_RATE_LIMIT_PER_MINUTE`) ou por key (campo no DB, granularidade máxima).
+**✅ Status**: Resolvida (2026-04-23). Decisão do dono: **manter hardcoded**. CLAUDE.md de api-keys já documenta o motivo (compensação por dupla verificação). Reavaliar se houver demanda por limit diferente por cliente/env.
 
 **Origem**: review de `src/lib/auth.ts` (CP-53).
 
@@ -154,7 +154,7 @@
 
 ### OQ-6 — `super_admin` e `admin` em `systemRoles` são idênticos. Intencional?
 
-**⏸️ Status**: Aguardando análise do dono. **Sugestão do audit**: provavelmente intencional — distinção vive em allowlists `SUPER_ADMIN_EMAILS` vs `ADMIN_EMAILS` + UI/rótulos, não em access control. Se confirmar, documentar em CLAUDE.md. Alternativa: restringir `admin` (ex: admin não cria/deleta plans, só lê) — exige validar impacto em rotas existentes.
+**✅ Status**: Resolvida (2026-04-23). Decisão do dono: **intencional, manter**. Distinção vive em allowlists `SUPER_ADMIN_EMAILS` vs `ADMIN_EMAILS` + UI/rótulos, não em access control. Nenhuma mudança de código necessária.
 
 **Origem**: review de `src/lib/auth/permissions.ts` (CP-53).
 
@@ -265,7 +265,7 @@
 
 ### OQ-11 — `deleteUser` via BA (`auth.api.deleteOrganization` self-reference em `lib/auth.ts`) deveria mover pra endpoint custom em `modules/auth/`?
 
-**⏸️ Status**: Aguardando análise do dono. **Sugestão do audit**: não mover agora — self-reference funciona, refactor só faz sentido junto com iniciativa "delete account robusto" (memória do projeto) que envolve grace period, soft delete e tratamento de membros. Prematuro mexer isolado.
+**✅ Status**: Resolvida (2026-04-23). Decisão do dono: **manter como está**. Refactor só faz sentido junto com iniciativa "delete account robusto" (memória do projeto) que envolve grace period, soft delete e tratamento de membros. Prematuro mexer isolado.
 
 **Origem**: review de `src/lib/auth.ts` (CP-53).
 
