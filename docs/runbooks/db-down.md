@@ -4,12 +4,12 @@
 
 ## Sintomas
 
-- `GET /health` retorna 503 com `checks.database: { ok: false }`.
+- `GET /health` retorna 200 com `data.status: "unhealthy"` e `data.checks.database.status: "unhealthy"`.
 - Sentry captura erros tipo `connection refused`, `timeout`, `too many clients already`.
 - Logs Pino (`type:"db:*"`) mostram falhas consecutivas.
 - API responde 500 em endpoints que tocam DB; endpoints sem DB (ex: `/health/live`) continuam 200.
 
-**Distinguir de [app-container.md](./app-container.md)**: se `/health/live` responde 200 mas `/health` retorna 503, é DB. Se nem `/health/live` responde, é container/app — abrir `app-container.md`.
+**Distinguir de [app-container.md](./app-container.md)**: se `/health/live` responde 200 e `/health` responde 200 mas com `data.status: "unhealthy"`, é DB. Se nem `/health/live` responde, é container/app — abrir `app-container.md`.
 
 ## Diagnóstico rápido (≤ 5 min)
 
@@ -58,6 +58,6 @@ Seguir [database-backup.md § Procedimento de restore](./database-backup.md#proc
 
 ## Referências
 
-- Código do healthcheck: `src/lib/health/index.ts`.
+- Código do healthcheck: `src/plugins/health/health-plugin.ts` + `src/plugins/health/health.model.ts`.
 - [database-backup.md](./database-backup.md) — restore procedures.
 - [docs/improvements/debts.md](../improvements/debts.md) — débito #93.
