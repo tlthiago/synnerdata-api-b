@@ -2,6 +2,7 @@ import { and, eq, isNotNull, isNull, lte } from "drizzle-orm";
 import { db } from "@/db";
 import { schema } from "@/db/schema";
 import {
+  sendBestEffort,
   sendCheckoutLinkEmail,
   sendPlanChangeExecutedEmail,
 } from "@/lib/email";
@@ -1465,13 +1466,26 @@ export abstract class PlanChangeService {
     const emailData =
       await PlanChangeService.getOrganizationOwnerEmail(organizationId);
 
-    if (emailData) {
-      await sendPlanChangeExecutedEmail({
-        to: emailData.email,
-        organizationName: emailData.organizationName,
+    if (!emailData) {
+      return;
+    }
+
+    // Cron-triggered (executeScheduledChange) — plan change já foi persistido.
+    // Email falhar não pode quebrar o job e impedir outros scheduled changes.
+    await sendBestEffort(
+      () =>
+        sendPlanChangeExecutedEmail({
+          to: emailData.email,
+          organizationName: emailData.organizationName,
+          previousPlanName,
+          newPlanName,
+        }),
+      {
+        type: "plan-change:executed-email:failed",
+        organizationId,
         previousPlanName,
         newPlanName,
-      });
-    }
+      }
+    );
   }
 }

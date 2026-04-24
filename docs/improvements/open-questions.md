@@ -16,6 +16,7 @@
 **✅ Resolvidas** (decisão tomada, ação registrada):
 - OQ-7 (RateLimitedError) — keep scaffolding (PR #271 decidido)
 - OQ-8 (passwordComplexityRules export) — removed (commit `b4c5204`)
+- OQ-14 (política de erro em emails) — 2 classes implementadas via `sendBestEffort` wrapper (commit `42699a0`)
 - OQ-15 (SMTP pool) — Hostinger pool configurado (commit `b4c5204`)
 
 **⏸️ Aguardando análise/decisão do dono** (abertas, com sugestão do audit registrada):
@@ -26,7 +27,6 @@
 - OQ-6 (super_admin vs admin consolidar?)
 - OQ-10 (retry jitter default?)
 - OQ-11 (deleteUser custom endpoint?)
-- OQ-14 (política de erro em emails)
 
 ---
 
@@ -334,7 +334,7 @@
 
 ### OQ-14 — Política de erro em emails: throw em críticos (verification/passwordReset), log-e-engole em notificações (admin/cancel)?
 
-**⏸️ Status**: Aguardando decisão do dono (2026-04-23). Proposta detalhada apresentada — ver resposta no chat. Current state não é "errado", é **inconsistente**. Fix simples (wrapper `dispatchEmail({ critical: boolean })`) cabe no CP-2.
+**✅ Status**: Resolvida (2026-04-23, commit `42699a0`). Decisão do dono: aplicar política de 2 classes para consistência e UX. **Críticos** (user-initiated com feedback síncrono: verification, reset, 2FA, invitation, contact, admin checkout-link) continuam propagando erro. **Best-effort** (system/cron-initiated pós-operação: plan-change executado, provision checkout link, provision activation) ganham wrapper `sendBestEffort` que loga e não propaga. 4 call sites convertidos + fallback adicionado em `sendPasswordResetForProvisionOrDefault` para user nunca ficar sem email.
 
 **Origem**: review de `src/lib/email.tsx` (CP-53).
 

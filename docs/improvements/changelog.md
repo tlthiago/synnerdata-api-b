@@ -11,6 +11,36 @@
 
 Registro temporal das decisões e entregas desta iniciativa. **Toda atualização do documento deve adicionar uma entrada aqui** (data ISO + resumo).
 
+### 2026-04-23 — OQ-14 resolvida: política de 2 classes para erros de email (commit `42699a0`)
+
+Formalizada política de erro em emails, aplicada via novo helper `sendBestEffort` em `src/lib/email.tsx`:
+
+**Críticos** (propagam erro — user espera feedback):
+- `sendVerificationEmail`, `sendPasswordResetEmail`, `sendTwoFactorOTPEmail`, `sendOrganizationInvitationEmail`, `sendContactEmail`
+- Admin actions síncronas: `sendCheckoutLinkEmail` (self-service), `sendCancellationScheduledEmail`, `sendPriceAdjustmentEmail`, `sendUpgradeConfirmationEmail`
+
+**Best-effort** (log + swallow — operação principal já commitada):
+- Listeners de payments (já tinham `try/catch` individual — sem mudança)
+- Cron jobs em `jobs.service.ts` (já tinham `try/catch` — sem mudança)
+- **4 call sites convertidos neste commit**:
+  1. `plan-change.service.ts::sendPlanChangeEmail` — cron-triggered, email falhar antes quebrava o job impedindo outros scheduled changes
+  2. `admin-provision.service.ts::createCheckoutProvision` — admin triggered, email falhar dava 500 mesmo com org+checkout persistidos
+  3. `admin-provision.service.ts::sendRegenerationEmail` — regenerate checkout, mesma lógica
+  4. `lib/auth/hooks.ts::sendPasswordResetForProvisionOrDefault` — fallback para `sendPasswordResetEmail` default se provision activation falhar (user nunca fica sem email)
+
+Helper usado com log type padronizado `<module>:<action>:failed` permitindo alerting Sentry uniforme:
+
+```ts
+await sendBestEffort(
+  () => sendPlanChangeExecutedEmail({ ... }),
+  { type: "plan-change:executed-email:failed", organizationId, ... }
+);
+```
+
+Validação: 262/262 tests afetados (auth + plan-change + admin-provision + jobs), bunx tsc + ultracite clean.
+
+**OQ-14 fechada** em `docs/improvements/open-questions.md`. Resta 7 OQs abertas aguardando análise do dono.
+
 ### 2026-04-23 — CP-53 Fase 2 entregue: 10 fixes objetivos em `src/lib/` (PR #271)
 
 Executa fixes de qualidade identificados na Fase 1 do CP-53 **que não dependem de Open Questions estratégicas**. Escopo disciplinado após pushback válido do dono:
