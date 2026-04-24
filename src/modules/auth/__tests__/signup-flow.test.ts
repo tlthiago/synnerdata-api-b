@@ -17,15 +17,16 @@ describe("Signup Use Case: Novo Usuário até Trial Ativo", () => {
   let userId: string;
   let organizationId: string;
 
-  let emailModule: typeof import("@/lib/email");
+  let emailDispatcher: typeof import("@/lib/email-dispatcher").EmailDispatcher;
   let sendWelcomeEmailSpy: ReturnType<typeof spyOn>;
 
   beforeAll(async () => {
     app = createTestApp();
     testEmail = `test-${crypto.randomUUID()}@example.com`;
-    emailModule = await import("@/lib/email");
+    const mod = await import("@/lib/email-dispatcher");
+    emailDispatcher = mod.EmailDispatcher;
     sendWelcomeEmailSpy = spyOn(
-      emailModule,
+      emailDispatcher,
       "sendWelcomeEmail"
     ).mockResolvedValue(undefined);
 
