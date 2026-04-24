@@ -154,9 +154,9 @@ Sequência formal decidida — priorizar isolamento de diagnóstico + destravar 
 | Prioridade | CP | Onda | Tamanho | Depende de | Racional |
 |---|---|---|---|---|---|
 | ✅ | ~~**Onda 6 batch** (CP-10/11/12/49)~~ | Onda 6 | 4×S | — | Entregue 2026-04-24 |
-| 🟡 1 | **Issue #269 tests 3+4** (DB state leak) | — | M/L | — | Pré-requisito de CP-47 e CP-2 — sem isso, PRs grandes reativam flakes em CI |
-| 🟡 2 | **Onda 7 seq** (CP-48 → 47 → 46 → 50) | Onda 7 | M→L→L→M | #269 resolvido | Tooling migrations por risco crescente: Zod → Better Auth → Ultracite → TS |
-| ⏸️ 3 | **CP-2** Emails consolidation | Onda 5 | XL | Onda 7 + #269 (parcialmente inline) | Inclui `EmailDispatcher` wrapper que resolve #269 tests 1+2. Fecha Onda 5 em 11/11 |
+| ✅ | ~~**Issue #269 tests 3+4** (DB state leak)~~ | — | M/L | — | Entregue 2026-04-24 em PR dedicado. Tests 1+2 (email spy race) ficam para CP-2 inline |
+| 🟡 1 | **Onda 7 seq** (CP-48 → 47 → 46 → 50) | Onda 7 | M→L→L→M | #269 tests 3+4 ✅ | Tooling migrations por risco crescente: Zod → Better Auth → Ultracite → TS |
+| ⏸️ 2 | **CP-2** Emails consolidation | Onda 5 | XL | Onda 7 | Inclui `EmailDispatcher` wrapper que resolve #269 tests 1+2 inline. Fecha Onda 5 em 11/11 |
 
 **Em paralelo (encaixa conforme bandwidth/dependências externas):**
 

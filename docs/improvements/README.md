@@ -50,7 +50,7 @@
 **🟡 Linha principal:**
 
 1. ~~**Onda 6 batch**~~ ✅ Entregue 2026-04-24 — CP-10 (Docker SHA pin) + CP-11 (HEALTHCHECK deep) + CP-12 (wait-for-db) + CP-49 (react/react-dom sync).
-2. **Issue #269 tests 3+4** (DB state leak) — audit de factories/fixtures + cleanup explícito. **Pré-requisito de CP-47 e CP-2** (sem isso, PRs grandes reativam flakes em CI). Efforte M/L.
+2. ~~**Issue #269 tests 3+4**~~ ✅ Entregue 2026-04-24 — trial constraint self-contained + cpf-analyses dates explícitas. Tests 1+2 (email spy race) para CP-2.
 3. **Onda 7 seq** (CP-48 → 47 → 46 → 50) — tooling migrations por ordem de risco crescente: Zod 4.3 → Better Auth 1.6 → Ultracite 7 → TS 6. Cada PR dedicado.
 4. **CP-2** (XL, Onda 5) — Emails consolidation. Inclui `EmailDispatcher` wrapper que resolve #269 tests 1+2 de graça. Fecha Onda 5 em 11/11.
 
@@ -70,6 +70,7 @@
 
 ### Histórico recente do bucket 🟡
 
+- ✅ **Issue #269 tests 3+4 fixados** (2026-04-24) — trial constraint self-contained + cpf-analyses dates explícitas. 14/14 pass local; CI valida em escopo grande. Tests 1+2 (email spy race) para CP-2.
 - ✅ **Onda 6 batch entregue** (2026-04-24) — 4 CPs em 5 commits atômicos: CP-10 (Docker SHA pin) + CP-11 (HEALTHCHECK deep com body check) + CP-12 (wait-for-db via `src/db/wait-for-db.ts`) + CP-49 (react-dom pin). Fecha débitos #87, #88, #89.
 - ✅ **CP-38 entregue** (2026-04-24) — 6 runbooks de oncall em `docs/runbooks/` + índice. Fecha débitos #90, #91, #93.
 - ~~**CP-44**~~ → **MP-27** (reclassificado 2026-04-24 — BOLA AST preventivo; solo dev + RU-9 limpo + testes cross-org já existentes tornam regressão improvável hoje)
@@ -129,6 +130,7 @@ Detalhes completos em [roadmap.md § Metodologia de execução](./roadmap.md).
 - **2026-04-23 (CP-53 Fase 2 — PR #271)** — 10 commits atômicos de fixes objetivos não-bloqueados por OQs. Destaques: PII redaction em logs/Sentry (LGPD), extração de 6 callbacks do auth.ts, admin allowlist normalize (whitespace/case bug), email env vars. 707/707 tests passando. Débitos #70 e #71 fechados.
 - **2026-04-24 (CP-38 + CP-44 reclass)** — 6 runbooks de oncall em `docs/runbooks/` (db-down, app-container, pagarme-webhook, smtp-down, 5xx-surge, migration-rollback) + índice `README.md` com decision tree. Débitos #90, #91, #93 fechados. CP-44 reclassificado para MP-27 no mesmo dia → Onda 5 ficou em **10/11 entregues (91%)**.
 - **2026-04-24 (Onda 6 batch)** — 4 CPs em 5 commits atômicos: Docker SHA pin, HEALTHCHECK deep com body check, wait-for-db script, react-dom pin. Débitos #87/#88/#89 fechados. Onda 6 ✅ concluída.
+- **2026-04-24 (Issue #269 tests 3+4)** — DB state leak fixado em 2 tests flaky: trial constraint test agora self-contained, cpf-analyses list usa datas explícitas. Tests 1+2 (email spy race) ficam para CP-2 via EmailDispatcher wrapper.
 
 
 Changelog completo: [changelog.md](./changelog.md).

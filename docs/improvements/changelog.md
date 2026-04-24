@@ -11,6 +11,23 @@
 
 Registro temporal das decisões e entregas desta iniciativa. **Toda atualização do documento deve adicionar uma entrada aqui** (data ISO + resumo).
 
+### 2026-04-24 — Issue #269 tests 3+4 fixados (DB state leak)
+
+Continuação da sequência revisada — segundo passo após Onda 6. Tests 3+4 do #269 fixados; tests 1+2 (ESM named-import spy race) ficam para CP-2 (emails consolidation) via `EmailDispatcher` wrapper inline.
+
+**Tests fixados** (2 commits atômicos):
+
+- **Test 3 — trial constraint** (`yearly-discount-and-trial-constraint.test.ts > should prevent creating a second active trial plan`). Root cause: `PlanFactory.archiveActiveTrial()` arquiva seed `plan-trial` sem restaurar. Outros tests na suite rodavam factory antes e o test assumia que seed estava ativo. Fix: test agora garante estado conhecido (arquiva trials existentes + insere 1 trial como precondição) antes de assertar a constraint.
+- **Test 4 — cpf-analyses list** (`list-cpf-analyses.test.ts > should list cpf analyses for the organization`). Root cause: `createTestCpfAnalysis` helper usa `faker.date.past({years:1})` — 2 chamadas consecutivas com mesmo employeeId tinham 1/365 chance de gerar mesma data, violando unique `(employeeId, analysisDate)`. Fix mínimo: passar dates explícitas e diferentes nas duas chamadas. Helper preservado (fix-on-demand).
+
+**Tests 1+2 pendentes** (welcome email spy): rastreados no próprio issue #269. Plano: CP-2 (emails consolidation) vai introduzir `EmailDispatcher` wrapper que resolve a ESM named-import spy race naturalmente — spyable via property access em vez de capturar binding no module load.
+
+**Validação local**: 14/14 pass nos 2 arquivos afetados. CI vai validar em escopo grande se flakes realmente sumiram (local não reproduz — só CI 2 vCPUs timing).
+
+**Princípio adotado**: fix minimal + pontual. Não refatorar factories proativamente — se outros tests mostrarem flakes similar, fix-on-demand.
+
+**Destrava**: Onda 7 seq (CP-48 → 47 → 46 → 50) pode avançar após #269 tests 3+4 mergeados; CP-2 quando chegar a vez.
+
 ### 2026-04-24 — Onda 6 batch entregue (infra hardening)
 
 Primeira execução da sequência revisada. 4 CPs em 5 commits atômicos (1 de docs da sequência + 4 de CPs):
