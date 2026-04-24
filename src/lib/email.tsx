@@ -21,15 +21,29 @@ import { TrialExpiringEmail } from "@/emails/templates/payments/trial-expiring";
 import { UpgradeConfirmationEmail } from "@/emails/templates/payments/upgrade-confirmation";
 import { env } from "@/env";
 
+const isProdEmail = env.NODE_ENV === "production";
+
 const transporter = createTransport({
   host: env.SMTP_HOST,
   port: env.SMTP_PORT,
   secure: env.SMTP_PORT === 465,
-  requireTLS: env.NODE_ENV === "production" && env.SMTP_PORT !== 465,
+  requireTLS: isProdEmail && env.SMTP_PORT !== 465,
   auth:
     env.SMTP_USER && env.SMTP_PASSWORD
       ? { user: env.SMTP_USER, pass: env.SMTP_PASSWORD }
       : undefined,
+  // Pool apenas em produção — Hostinger Business Email.
+  // Limites típicos: ~1000 emails/hora. Config conservadora permite reuso
+  // de conexão TLS (economia de ~200ms por envio) sem saturar o provedor.
+  // Dev usa MailHog sem pool (sem handshake TLS).
+  ...(isProdEmail && {
+    pool: true,
+    maxConnections: 3,
+    maxMessages: 100,
+    connectionTimeout: 10_000,
+    greetingTimeout: 10_000,
+    socketTimeout: 30_000,
+  }),
 });
 
 type SendEmailParams = {

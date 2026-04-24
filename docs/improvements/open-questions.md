@@ -6,9 +6,35 @@
 
 ---
 
+## Índice (por status)
+
+**📌 Rastreadas em GitHub issues** (decisão adiada com contexto preservado):
+- OQ-1 → Issue #273 (PII strategy)
+- OQ-9 → Issue #274 (CNPJ alfanumérico)
+- OQ-12/OQ-13 → Issue #275 (x-error-messages shape)
+
+**✅ Resolvidas** (decisão tomada, ação registrada):
+- OQ-7 (RateLimitedError) — keep scaffolding (PR #271 decidido)
+- OQ-8 (passwordComplexityRules export) — removed (commit `b4c5204`)
+- OQ-15 (SMTP pool) — Hostinger pool configurado (commit `b4c5204`)
+
+**⏸️ Aguardando análise/decisão do dono** (abertas, com sugestão do audit registrada):
+- OQ-2 (orgStatements dead resources)
+- OQ-3 (fire-and-forget em org effects)
+- OQ-4 (Timeout.withTimeout deletar?)
+- OQ-5 (apiKey.rateLimit parametrize?)
+- OQ-6 (super_admin vs admin consolidar?)
+- OQ-10 (retry jitter default?)
+- OQ-11 (deleteUser custom endpoint?)
+- OQ-14 (política de erro em emails)
+
+---
+
 ## 2026-04-23
 
 ### OQ-1 — Qual é nossa estratégia de proteção de PII em repouso?
+
+**📌 Status**: Decisão adiada. Rastreada em **[issue #273](https://github.com/tlthiago/synnerdata-api-b/issues/273)**. Confirmado que `PII.encrypt/decrypt/mask` tem **zero consumers em produção** — nada está sendo criptografado hoje. Módulo fica dormant até sinal externo (auditoria LGPD, exigência de cliente, incidente).
 
 **Origem**: review de `src/lib/pii.ts` (CP-53).
 
@@ -34,6 +60,8 @@
 
 ### OQ-2 — `member`, `invitation`, `billingProfile` em `orgStatements` são documentação viva ou futura checagem?
 
+**⏸️ Status**: Aguardando análise do dono. **Sugestão do audit**: manter — custo de remover 5 linhas agora > churn ao reintroduzir se precisar. Mas pode também argumentar pro lado oposto (menos dead declarations).
+
 **Origem**: review de `src/lib/auth/permissions.ts` (CP-53).
 
 **Contexto factual**:
@@ -53,6 +81,8 @@
 ---
 
 ### OQ-3 — `triggerAfterCreateOrganizationEffects` fire-and-forget em side-effects é intencional?
+
+**⏸️ Status**: Aguardando análise do dono. **Sugestão do audit**: aceitar silent-fail com log em MVP (evitar dead-letter queue / BullMQ = MP-4 YAGNI). Se aceitar, adicionar alerta Sentry para log types `organization:auto-profile:failed` e `audit:organization-create:failed` (infra operacional). Alternativa: uniformizar em `try/catch await` síncrono — bloqueia resposta mas garante consistência.
 
 **Origem**: review de `src/lib/auth/hooks.ts` (CP-53).
 
@@ -78,6 +108,8 @@
 
 ### OQ-4 — Algo em PR/branch não-merged usa `Timeout.withTimeout` antes de deletar?
 
+**⏸️ Status**: Aguardando análise do dono. **Sugestão do audit**: manter como scaffolding viável (mesma regra aplicada a `ValidationError`/`InternalError` no PR #271). Alternativa: deletar (71L código + 108L tests órfãos) — mais radical mas purista.
+
 **Origem**: review de `src/lib/utils/timeout.ts` (CP-53).
 
 **Contexto factual**:
@@ -97,6 +129,8 @@
 ---
 
 ### OQ-5 — `apiKey.rateLimit.maxRequests: 200/min` deveria ser documentado ou parametrizado por env?
+
+**⏸️ Status**: Aguardando análise do dono. **Sugestão do audit**: manter hardcoded — CLAUDE.md de api-keys já documenta o motivo. 1 cliente hoje não justifica env var. Alternativas: parametrizar por env (`API_KEY_RATE_LIMIT_PER_MINUTE`) ou por key (campo no DB, granularidade máxima).
 
 **Origem**: review de `src/lib/auth.ts` (CP-53).
 
@@ -120,6 +154,8 @@
 
 ### OQ-6 — `super_admin` e `admin` em `systemRoles` são idênticos. Intencional?
 
+**⏸️ Status**: Aguardando análise do dono. **Sugestão do audit**: provavelmente intencional — distinção vive em allowlists `SUPER_ADMIN_EMAILS` vs `ADMIN_EMAILS` + UI/rótulos, não em access control. Se confirmar, documentar em CLAUDE.md. Alternativa: restringir `admin` (ex: admin não cria/deleta plans, só lê) — exige validar impacto em rotas existentes.
+
 **Origem**: review de `src/lib/auth/permissions.ts` (CP-53).
 
 **Contexto factual**:
@@ -139,6 +175,8 @@
 ---
 
 ### OQ-7 — Quando rate-limiting for wired, `RateLimitedError` carrega `retryAfter` como `details` ou campo first-class?
+
+**✅ Status**: Resolvida no PR #271 (2026-04-23). Decisão: manter `RateLimitedError` como scaffolding da hierarquia HTTP completa, independente de estar em uso. Shape de `retryAfter` será decidido quando rate-limit próprio for wired (não hoje).
 
 **Origem**: review de `src/lib/errors/http-errors.ts` (CP-53).
 
@@ -160,6 +198,8 @@
 
 ### OQ-8 — `passwordComplexityRules` export é consumido por FE/OpenAPI?
 
+**✅ Status**: Resolvida (2026-04-23, commit `b4c5204`). Decisão: **FE não deve depender de const interna do back**. Se futuramente FE precisar das regras dinamicamente, criar endpoint dedicado (ex: `GET /v1/auth/password-rules`). `export` removido — `passwordComplexityRules` agora é const privada.
+
 **Origem**: review de `src/lib/auth/password-complexity.ts` (CP-53).
 
 **Contexto factual**:
@@ -179,6 +219,8 @@
 ---
 
 ### OQ-9 — Cliente tem CNPJ alfanumérico pós-julho/2026 no horizonte?
+
+**📌 Status**: Rastreada em **[issue #274](https://github.com/tlthiago/synnerdata-api-b/issues/274)** (2026-04-23). Decisão adiada até sinal concreto — cliente atual com CNPJ novo ou pipeline de clientes novos pós-jul/2026. Contexto preservado + plano de fix na issue.
 
 **Origem**: review de `src/lib/document-validators.ts` (CP-53).
 
@@ -201,6 +243,8 @@
 
 ### OQ-10 — Jitter default=true em `retry.ts` quebra determinismo dos testes existentes?
 
+**⏸️ Status**: Aguardando análise do dono. **Sugestão do audit**: não adicionar preventivamente — thundering herd não foi observado em produção, mudança quebra tests timing-based, 8 consumers internos usam config padrão. Alternativas: (a) adicionar como opcional `jitter?: boolean` default false; (b) adicionar default true + migrar tests para fake timers (esforço extra).
+
 **Origem**: review de `src/lib/utils/retry.ts` (CP-53).
 
 **Contexto factual**:
@@ -220,6 +264,8 @@
 ---
 
 ### OQ-11 — `deleteUser` via BA (`auth.api.deleteOrganization` self-reference em `lib/auth.ts`) deveria mover pra endpoint custom em `modules/auth/`?
+
+**⏸️ Status**: Aguardando análise do dono. **Sugestão do audit**: não mover agora — self-reference funciona, refactor só faz sentido junto com iniciativa "delete account robusto" (memória do projeto) que envolve grace period, soft delete e tratamento de membros. Prematuro mexer isolado.
 
 **Origem**: review de `src/lib/auth.ts` (CP-53).
 
@@ -242,6 +288,8 @@
 
 ### OQ-12 — FE espera `x-error-messages` com chaves semânticas ou Zod-internal?
 
+**📌 Status**: Rastreada em **[issue #275](https://github.com/tlthiago/synnerdata-api-b/issues/275)** (2026-04-23). Confirmado que funciona hoje, CP-53 Fase 2 não alterou comportamento. Decisão adiada até pesquisa com FE sobre shape esperado.
+
 **Origem**: review de `src/lib/openapi-helpers.ts` + `plugins/auth-guard/openapi-enhance.ts` (CP-53).
 
 **Contexto factual**:
@@ -262,6 +310,8 @@
 ---
 
 ### OQ-13 — Vale migrar pra `.meta({ errorMessages })` explícito nos schemas, deprecando extração por reflection?
+
+**📌 Status**: Consolidada em **[issue #275](https://github.com/tlthiago/synnerdata-api-b/issues/275)** junto com OQ-12 (2026-04-23). Opção B do fix de unificação. Decidir em conjunto quando OQ-12 for resolvida.
 
 **Origem**: review de `src/lib/openapi-helpers.ts` (CP-53).
 
@@ -284,6 +334,8 @@
 
 ### OQ-14 — Política de erro em emails: throw em críticos (verification/passwordReset), log-e-engole em notificações (admin/cancel)?
 
+**⏸️ Status**: Aguardando decisão do dono (2026-04-23). Proposta detalhada apresentada — ver resposta no chat. Current state não é "errado", é **inconsistente**. Fix simples (wrapper `dispatchEmail({ critical: boolean })`) cabe no CP-2.
+
 **Origem**: review de `src/lib/email.tsx` (CP-53).
 
 **Contexto factual**:
@@ -303,6 +355,8 @@
 ---
 
 ### OQ-15 — Pool SMTP dimensioning depende do provedor de produção. Qual vamos usar?
+
+**✅ Status**: Resolvida (2026-04-23, commit `b4c5204`). Provedor: **Hostinger Business Email** (mesmo provedor da VPS). Pool configurado: `maxConnections: 3`, `maxMessages: 100`, timeouts adequados (10s connection/greeting, 30s socket). Apenas em produção — dev (MailHog) mantém sem pool.
 
 **Origem**: review de `src/lib/email.tsx` (CP-53).
 
