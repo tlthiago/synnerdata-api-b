@@ -11,6 +11,29 @@
 
 Registro temporal das decisões e entregas desta iniciativa. **Toda atualização do documento deve adicionar uma entrada aqui** (data ISO + resumo).
 
+### 2026-04-24 — Reclassificação CP-44 → MP-27 (BOLA AST automation)
+
+Aplicando o mesmo critério usado em 2026-04-23 para CP-18/19 ("committed para 30-90d vs sinal-driven"), **CP-44** reclassificado para **MP-27**.
+
+**Contexto**: CP-44 era preventivo contra regressão de BOLA (OWASP API1) em multi-tenancy. Avaliando honestamente:
+
+- Solo dev escrevendo todos os services — sem drift de time.
+- RU-9 (2026-04-22) validou estado limpo: 29/29 services org-scoped filtram corretamente, 0/50 gaps. Pattern maduro.
+- Testes cross-org dinâmicos já existem em 3 módulos representativos (`employees`, `medical-certificates`, `cost-centers`), cobrindo verificação dinâmica nos caminhos críticos.
+- Custo de manter o AST scanner: ~2-3h de build + manutenção contínua (schema changes, falsos positivos, exemptions).
+- É defensive engineering contra cenário que não existe hoje.
+
+**Sinal para reativar MP-27**: equipe cresce (2+ devs, risco real de drift), onboarding de novo dev, near-miss real de BOLA em review/produção, ou refactor grande em `src/modules/` onde cobertura manual fica exaustiva.
+
+**Contadores atualizados**:
+
+- Bucket 🟡: 50 ações · **14 ativas** (era 15) · 32 concluídas · **3 reclassificadas** (CP-18/19/44) · 1 contenção
+- Bucket 🟢: **27 ações** monitoradas (era 26) — MP-27 formalizada com implementação-guia preservada para execução futura
+
+**Princípio reforçado**: distinguir "committed para 30-90d" (CP) de "sob demanda, sinal-driven" (MP) impede que o bucket 🟡 acumule trabalho de baixo ROI no contexto atual. Honestidade sobre scaffolding preventivo > completude defensiva.
+
+Cross-refs atualizadas em `roadmap.md`, `README.md`.
+
 ### 2026-04-23 — Wave governance: criar Onda 6/7 + reclassificação + formalização
 
 Revisão estrutural das Ondas após analisar CPs abertos. Dois achados:
