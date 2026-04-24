@@ -29,6 +29,10 @@ describe("Signup Use Case: Novo Usuário até Trial Ativo", () => {
       emailDispatcher,
       "sendWelcomeEmail"
     ).mockResolvedValue(undefined);
+    // Bun's spyOn returns the same mock if the property was already spied
+    // by another test file; clear accumulated calls to start from a clean
+    // baseline for this file's assertions.
+    sendWelcomeEmailSpy.mockClear();
 
     await PlanFactory.createTrial();
   });
