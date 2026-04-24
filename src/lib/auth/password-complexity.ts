@@ -1,6 +1,6 @@
 import { APIError } from "better-auth/api";
 
-export const passwordComplexityRules = [
+const passwordComplexityRules = [
   { key: "uppercase", label: "uma letra maiúscula", test: /[A-Z]/ },
   { key: "lowercase", label: "uma letra minúscula", test: /[a-z]/ },
   { key: "number", label: "um número", test: /\d/ },
