@@ -147,7 +147,7 @@ describe("Signup Use Case: Novo Usuário até Trial Ativo", () => {
       expect(response.status).not.toBe(200);
     });
 
-    test("should reject sign up with duplicate email", async () => {
+    test("should return silent 200 on duplicate email (enumeration protection)", async () => {
       const response = await app.handle(
         new Request(`${BASE_URL}/api/auth/sign-up/email`, {
           method: "POST",
@@ -160,7 +160,17 @@ describe("Signup Use Case: Novo Usuário até Trial Ativo", () => {
         })
       );
 
-      expect(response.status).not.toBe(200);
+      // Better Auth 1.5+ returns silent 200 on duplicate email when
+      // requireEmailVerification is true, to prevent email enumeration
+      // attacks. See: onExistingUserSignUp callback.
+      expect(response.status).toBe(200);
+
+      // Verify no duplicate user was created — integrity preserved.
+      const users = await db
+        .select({ id: schema.users.id })
+        .from(schema.users)
+        .where(eq(schema.users.email, testEmail));
+      expect(users.length).toBe(1);
     });
 
     test("should reject sign in with wrong password", async () => {
