@@ -60,9 +60,9 @@ Organizado em **5 PRs dedicados** (refactors grandes) + ações pontuais.
 | **CP-7** | ✅ **2026-04-22** — TruffleHog `secrets-scan` job em `security.yml` (com `--only-verified`, diff por PR ou full scan em schedule) | #84 | config | S | — |
 | **CP-8** | ✅ **2026-04-22** — SBOM CycloneDX gerado via `trivy-action` format=cyclonedx no job trivy-image, upload como artifact (90d retention) | #85 | config | S | — |
 | **CP-9** | ✅ **2026-04-22** — Job `trivy-fs` em `security.yml` com `scan-type: fs`, SARIF upload categorizado separadamente do container scan | #82 | config | S | — |
-| **CP-10** | Pin SHA do `oven/bun:1-alpine` no Dockerfile + atualização via Dependabot | #87 | config | S | — |
-| **CP-11** | HEALTHCHECK deep no Dockerfile (trocar `/health/live` por `/health` com `--retries=10`) | #88 | config | S | — |
-| **CP-12** | `wait-for-db` no `scripts/entrypoint.sh` antes de rodar migrations | #89 | new | S | — |
+| **CP-10** | ✅ **2026-04-24** — Dockerfile pinado `oven/bun:1-alpine@sha256:4de475...`. Dependabot ecossistema docker (já configurado) detecta novos digests semanalmente | #87 | config | S | — |
+| **CP-11** | ✅ **2026-04-24** — HEALTHCHECK troca `/health/live` por `/health` com body check `grep -q '"status":"healthy"'`. retries 5→10 (100s). Coolify reinicia container se DB morrer | #88 | config | S | — |
+| **CP-12** | ✅ **2026-04-24** — `src/db/wait-for-db.ts` tenta `SELECT 1` com retry (30×1s, 2s timeout, ~30s total) antes de migrate em `scripts/entrypoint.sh`. Log estruturado via Pino | #89 | new | S | — |
 | **CP-13** | ✅ **2026-04-22** — 8 secrets (BETTER_AUTH_SECRET, PAGARME_*, INTERNAL_API_KEY, PII_ENCRYPTION_KEY) movidos para step-level apenas nos 3 steps que executam código do projeto (migrations, affected tests, full suite) | #95 | config | S | — |
 
 ##### Cloudflare Free Tier (decisão 7.3 #1 — etapa final do early-stage)
@@ -119,10 +119,10 @@ Organizado em **5 PRs dedicados** (refactors grandes) + ações pontuais.
 | **CP-46** | Migração ultracite 6 → 7 (Biome → Oxc) — descoberto em CP-40. Ultracite 7 trocou o engine subjacente de Biome para Oxc (`oxlint` + `oxfmt`). Requer: remover `@biomejs/biome` das devDeps, validar `biome.json`/`biome.jsonc` → config equivalente em Oxc, rodar `ultracite check` + `ultracite fix` em todo o codebase, validar que pre-commit via `lint-staged` continua funcionando. Não é tooling crítico para segurança — espera janela dedicada | Descoberto em CP-40 | refactor | L | — |
 | **CP-47** | Migração better-auth 1.4 → 1.6 — descoberto em CP-40. Envolve: (a) adicionar coluna `verified` na tabela `twoFactor` (schema migration, default `true`, sem backfill necessário — run `npx @better-auth/cli generate` + drizzle-kit generate + migrate); (b) validar mudança de semântica de `session.freshAge` (agora calculado de `createdAt` em vez de `updatedAt`); (c) rodar suíte completa de auth + 2FA para detectar regressões em hooks, permissions, api-keys; (d) revisar release notes 1.5/1.6 para features opcionais úteis (OTel instrumentation, WeChat provider, etc.). Não é CVE — CVEs de `defu`/`kysely` foram resolvidas via overrides em CP-40 | Descoberto em CP-40 | refactor | L | — |
 | **CP-48** | Migração Zod 4.1 → 4.3 — descoberto em CP-40. Zod 4.3 proíbe `.partial()` em schemas com `.refine()` (antes permitia com comportamento indefinido). Afeta ~16 `.model.ts` em `src/modules/` (employees, occurrences/*, organizations/*, payments/billing, etc.). Fix padrão: extrair objeto base (sem refine), fazer `.partial().extend()` nele, aplicar refine depois. Zod está pinado em `~4.1.13` em CP-40 como contenção | Descoberto em CP-40 | refactor | M | — |
-| **CP-49** | Sync react/react-dom versions — descoberto em CP-40. `react-dom` não está nas devDeps diretas mas é pulled por `@react-email/components`, e fica desalinhado de `react` em patches (`bun update` bumpou react → 19.2.5 enquanto react-dom ficou em 19.2.4, causando runtime mismatch). Opções: (a) adicionar `react-dom` às devDeps pinado ao mesmo patch; (b) manter `react` pinado exato (feito em CP-40 como contenção); (c) override de `react-dom` matching `react`. Decidir quando for revisar deps novamente | Descoberto em CP-40 | config | S | — |
+| **CP-49** | ✅ **2026-04-24** — `react-dom: "19.2.5"` adicionado explicitamente em `dependencies` (mesma versão pinada de `react`). Garante sync no lockfile + visibilidade para Dependabot bumpar ambos juntos. Opção (a) do débito escolhida | Descoberto em CP-40 | config | S | — |
 | **CP-50** | Migração TypeScript 5.9 → 6.x — descoberto em CP-40 quando CI falhou ao puxar TS 6.0.3 ephemerally (TS não estava em devDeps). TS 6 transforma `moduleResolution=node` em erro deprecated (antes era warning). Requer: (a) alterar `tsconfig.json` de `"moduleResolution": "node"` para `"bundler"` (recomendado Elysia/Bun) ou `"node16"`; (b) auditar imports para compatibilidade com resolução nova (extensões obrigatórias em alguns casos); (c) remover o pin `~5.9.3` após migração validada. Contenção atual: TS pinado em devDeps `~5.9.3` | Descoberto em CP-40 | refactor | M | — |
 
-**Total bucket 🟡: 50 ações registradas · 13 ativas · 33 concluídas (CP-1, CP-3, CP-4, CP-5, CP-6, CP-7, CP-8, CP-9, CP-13, CP-20, CP-21, CP-22, CP-23, CP-24, CP-25, CP-26, CP-27, CP-28, CP-29, CP-30, CP-31, CP-32, CP-33, CP-34, CP-35, CP-36, CP-37, CP-38, CP-39, CP-40, CP-42, CP-43, CP-45) · 3 reclassificadas para MP (CP-18 → MP-24, CP-19 → MP-25 em 2026-04-23; CP-44 → MP-27 em 2026-04-24) · 1 contenção temporária (CP-50).**
+**Total bucket 🟡: 50 ações registradas · 9 ativas · 37 concluídas (CP-1, CP-3, CP-4, CP-5, CP-6, CP-7, CP-8, CP-9, CP-10, CP-11, CP-12, CP-13, CP-20, CP-21, CP-22, CP-23, CP-24, CP-25, CP-26, CP-27, CP-28, CP-29, CP-30, CP-31, CP-32, CP-33, CP-34, CP-35, CP-36, CP-37, CP-38, CP-39, CP-40, CP-42, CP-43, CP-45, CP-49) · 3 reclassificadas para MP (CP-18 → MP-24, CP-19 → MP-25 em 2026-04-23; CP-44 → MP-27 em 2026-04-24) · 1 contenção temporária (CP-50).**
 
 ##### Ordem de execução sugerida
 
@@ -135,7 +135,7 @@ Sequência proposta para extrair valor rápido antes de atacar os refactors gran
 | **Onda 3 — Qualidade pontual** | 🔄 Em progresso — **PRs A/B/C entregues 2026-04-22** (9 S's + CP-25 + CP-30). Resta apenas **CP-41** (M) como PR-D standalone | CP-24✅, CP-27✅, CP-29✅, CP-31✅, CP-34✅, CP-35✅, CP-36✅, CP-37✅, CP-39✅ (todos S); CP-25✅, CP-30✅, CP-41 (M) | PR-C: 5 S's de "Qualidade geral" em 5 commits. PR-B: 3 S's de "Error handling + env" em 3 commits. PR-A: 1 S + 2 M's de "Auth hardening" em 3 commits (log unauthorized, inheritRole, dynamic→static imports). CP-41 vale PR separada (workflow novo, requer secrets sandbox Pagar.me) |
 | **Onda 4 — Cloudflare + Observabilidade** | Depende de janela com o dono (CP-14 precisa alinhar DNS) | CP-14 → CP-15 → CP-16; CP-17 (inclui #43) | Cloudflare é sequencial (CP-14 destrava CP-15 destrava CP-16). CP-17 standalone. _Ex-CP-18/19 reclassificados para MP-24/25 em 2026-04-23._ |
 | **Onda 5 — Refactors grandes** | PRs dedicados, worktree obrigatório (XL), plan formal em `docs/plans/` | CP-2 (XL, bloqueado por #269) | CP-2 é último por design (toca auth). _CP-1/3/4/5/6/26/28/32/33/38 já concluídos 2026-04-22/24. CP-44 reclassificado para MP-27 em 2026-04-24._ |
-| **Onda 6 — Infra hardening pequeno** ⭐ criada 2026-04-23 | 1 PR batch com commits atômicos | CP-10 (S, Docker SHA pin), CP-11 (S, HEALTHCHECK deep), CP-12 (S, wait-for-db), CP-49 (S, react/react-dom sync) | 4 CPs órfãos (sem wave original) agrupados. Todos S, independentes, infra-only. ~2-3h total em PR único |
+| **Onda 6 — Infra hardening pequeno** ⭐ criada 2026-04-23 | ✅ **Concluída em 2026-04-24** — 1 PR batch (4 commits atômicos) | CP-10 ✅, CP-11 ✅, CP-12 ✅, CP-49 ✅ | 4 CPs órfãos agrupados. Zero dependência externa, zero break. Testes de email (25 assertions) passando após CP-49 |
 | **Onda 7 — Tooling migrations** ⭐ criada 2026-04-23 | PRs dedicados, um por migration, risco alto | CP-48 (M, Zod 4.1→4.3) → CP-47 (L, better-auth 1.4→1.6) → CP-46 (L, ultracite 6→7) → CP-50 (M, TypeScript 5.9→6.x, contenção atual) | Seguir ordem de risco crescente. Cada migration em worktree + PR próprio + janela de teste. Follow-ups do CP-40 (triagem de deps). Bloqueio externo mínimo; mais a estabilidade da suíte |
 
 **Notas operacionais:**
@@ -145,20 +145,28 @@ Sequência proposta para extrair valor rápido antes de atacar os refactors gran
 - **Ondas 6 e 7 criadas em 2026-04-23** durante sync de wave governance — realocam 8 CPs órfãos (CP-10/11/12/46/47/48/49/50) que nunca tinham sido mapeados em onda original.
 - Reavaliar ordem a cada 5 CPs concluídos — aprendizado do bucket 🔴 mostrou que prioridades mudam ao descobrir o escopo real.
 
-#### Ordem de execução recomendada (atualizada 2026-04-24)
+#### Ordem de execução recomendada (atualizada 2026-04-24, revisada)
 
-Sequência pragmática por **valor × custo × dependência**:
+Sequência formal decidida — priorizar isolamento de diagnóstico + destravar PRs grandes antes de escalar escopo. Ver [changelog 2026-04-24 "Sequência de execução revisada"](./changelog.md) para raciocínio completo.
+
+**Linha principal (sequencial):**
 
 | Prioridade | CP | Onda | Tamanho | Depende de | Racional |
 |---|---|---|---|---|---|
-| 🟡 1 | **CP-41** Pagarme integration tests workflow | Onda 3 | M | Secrets sandbox Pagar.me | Payments crítico; fecha Onda 3 (última ação restante) |
-| 🟡 2 | **Onda 6 batch** (CP-10/11/12/49) | Onda 6 | 4×S | — | Infra hardening quick wins em PR único |
-| 🟡 3 | **CP-17** Métricas OTel/Prometheus | Onda 4 | M | Decisão OTel vs Prometheus | Observability gap conhecido; inclui #43 agregado |
-| 🟢 4 | **CP-14 → 15 → 16** Cloudflare | Onda 4 | S→M→S | DNS do cliente (externo) | Sequencial, bloqueio externo |
-| 🟢 5 | **Onda 7 seq** (CP-48→47→46→50) | Onda 7 | M→L→L→M | Estabilidade da suíte | Tooling migrations em janela dedicada |
-| ⏸️ 6 | **CP-2** Emails consolidation | Onda 5 | XL | Issue #269 (flakes) | Último por design; worktree + plan formal obrigatórios |
+| ✅ | ~~**Onda 6 batch** (CP-10/11/12/49)~~ | Onda 6 | 4×S | — | Entregue 2026-04-24 |
+| 🟡 1 | **Issue #269 tests 3+4** (DB state leak) | — | M/L | — | Pré-requisito de CP-47 e CP-2 — sem isso, PRs grandes reativam flakes em CI |
+| 🟡 2 | **Onda 7 seq** (CP-48 → 47 → 46 → 50) | Onda 7 | M→L→L→M | #269 resolvido | Tooling migrations por risco crescente: Zod → Better Auth → Ultracite → TS |
+| ⏸️ 3 | **CP-2** Emails consolidation | Onda 5 | XL | Onda 7 + #269 (parcialmente inline) | Inclui `EmailDispatcher` wrapper que resolve #269 tests 1+2. Fecha Onda 5 em 11/11 |
 
-**Projeção**: completando priorities 1-4 (~8-12h), bucket 🟡 fica reduzido a CP-2 (bloqueado) + sequência Cloudflare (externo) + Onda 7 (janela dedicada). Pode-se afirmar que "trabalho planejável" acabou.
+**Em paralelo (encaixa conforme bandwidth/dependências externas):**
+
+| Prioridade | CP | Onda | Tamanho | Depende de | Racional |
+|---|---|---|---|---|---|
+| 🟡 | **CP-41** Pagarme integration tests workflow | Onda 3 | M | Secrets sandbox Pagar.me | Payments crítico; fecha Onda 3 |
+| 🟡 | **CP-17** Métricas OTel/Prometheus | Onda 4 | M | Decisão OTel vs Prometheus | Observability gap conhecido; inclui #43 |
+| 🟢 | **CP-14 → 15 → 16** Cloudflare | Onda 4 | S→M→S | DNS do cliente (externo) | Sequencial, bloqueio externo |
+
+**Projeção**: completando a linha principal (1 → 4), bucket 🟡 fica reduzido a trabalho em paralelo (CP-41, CP-17, Cloudflare) conforme bandwidth + dependências externas. Onda 5 chega a 11/11 (100%) com CP-2.
 
 #### 🟢 Bucket Médio Prazo / Sob Demanda (quando houver sinal real)
 
@@ -203,7 +211,7 @@ Não investir antes do sinal. Cada item lista o **sinal que justifica investir**
 | Bucket | Ações | Esforço consolidado | Prazo alvo | Estado |
 |---|---|---|---|---|
 | 🔴 Urgente | 10 | ~7 S/M + 1 L = 2-3 semanas com foco parcial | até 30 dias | ✅ Concluído em 2026-04-22 (1 dia de execução efetiva) |
-| 🟡 Curto prazo | 50 registradas (33 done · 13 ativas · 3 reclassificadas · 1 contenção) | 4 planos XL/L + ~25 S/M | 30-90 dias | 🔄 Em execução — Ondas 1/2/3 quase completas (resta CP-41); Onda 5 em 10/11 (91%): CP-1/3/4/5/6/26/28/32/33/38 concluídos, resta apenas CP-2 (bloqueado por #269). CP-44 reclassificado para MP-27 em 2026-04-24 |
+| 🟡 Curto prazo | 50 registradas (37 done · 9 ativas · 3 reclassificadas · 1 contenção) | 4 planos XL/L + ~25 S/M | 30-90 dias | 🔄 Em execução — Ondas 1/2/3/6 concluídas; Onda 5 em 10/11 (91%). Resta: Onda 6 ✅, #269, Onda 7, CP-2, CP-41, CP-17, Cloudflare |
 | 🟢 Médio prazo | 21 | Sob demanda | indefinido (monitorar sinais) | ⏸️ Sem investimento até sinal concreto |
 
 **Princípios de execução:**

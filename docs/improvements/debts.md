@@ -212,14 +212,14 @@ Dimensão "Qualidade da implementação" adicionada à metodologia após o Bloco
 
 | # | Débito | Severidade | Ação |
 |---|---|---|---|
-| 87 | **Base image `oven/bun:1-alpine` sem pin de SHA** | 🟡 supply chain | Tag `1-alpine` muda. Em scan reprodutível, pinar como `oven/bun:1-alpine@sha256:<digest>` e atualizar via Dependabot. Trade-off: mais manual, mais seguro |
-| 88 | **HEALTHCHECK só chama `/health/live`** | 🟡 robustez | Liveness não detecta DB morto. Considerar trocar para `/health` (deep check) com `--retries=10` — se DB down, container marcado unhealthy, Coolify reinicia |
+| 87 | ~~**Base image `oven/bun:1-alpine` sem pin de SHA**~~ | ✅ **Resolvido em CP-10 (2026-04-24)** — Dockerfile pinado com `oven/bun:1-alpine@sha256:4de475...`. Dependabot ecossistema docker já configurado no `.github/dependabot.yml` detecta novos digests semanalmente |
+| 88 | ~~**HEALTHCHECK só chama `/health/live`**~~ | ✅ **Resolvido em CP-11 (2026-04-24)** — trocado para `/health` com body check `grep -q '"status":"healthy"'` (endpoint sempre retorna 200, status vive no body via envelope). `retries` 5→10 (100s total). Coolify reinicia container se DB morrer |
 
 **Entrypoint e runtime:**
 
 | # | Débito | Severidade | Ação |
 |---|---|---|---|
-| 89 | **Migrations rodam a cada startup sem wait-for-db** | 🟡 robustez | Se Postgres não está pronto quando container sobe, `bun run src/db/migrate.ts` falha e container morre. Adicionar `wait-for-it.sh` ou loop simples: `until pg_isready -h $DB_HOST; do sleep 1; done` antes do migrate |
+| 89 | ~~**Migrations rodam a cada startup sem wait-for-db**~~ | ✅ **Resolvido em CP-12 (2026-04-24)** — `src/db/wait-for-db.ts` tenta `SELECT 1` com retry (30 attempts × 1s delay + 2s connection timeout, ~30s total) antes de `bun run src/db/migrate.ts` em `scripts/entrypoint.sh`. Falha hard com log estruturado via Pino |
 | 90 | ~~**Sem estratégia de migration em scale**~~ | ✅ **Resolvido em CP-38 (2026-04-24)** — runbook `docs/runbooks/migration-rollback.md` documenta nota de escala: quando escalar horizontalmente (2+ instâncias), mover migration para job one-shot separado (Coolify pre-deploy hook ou Kubernetes Job). Não investir antes do sinal de escala |
 | 91 | ~~**Sem rollback de migration**~~ | ✅ **Resolvido em CP-38 (2026-04-24)** — runbook `docs/runbooks/migration-rollback.md` documenta 3 caminhos (parcial/corrupt-registry/destruído) com comandos SQL concretos e fallback para restore via `database-backup.md` |
 
