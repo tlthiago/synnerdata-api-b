@@ -11,6 +11,265 @@
 
 Registro temporal das decisões e entregas desta iniciativa. **Toda atualização do documento deve adicionar uma entrada aqui** (data ISO + resumo).
 
+### 2026-04-23 — Wave governance: criar Onda 6/7 + reclassificação + formalização
+
+Revisão estrutural das Ondas após analisar CPs abertos. Dois achados:
+
+**1. Ondas 6 e 7 criadas** — havia 8 CPs órfãos sem wave original (adicionados depois das Ondas 1-5 serem propostas):
+
+- **Onda 6 — Infra hardening pequeno**: CP-10 (Docker SHA pin), CP-11 (HEALTHCHECK deep), CP-12 (wait-for-db), CP-49 (react/react-dom sync). Agrupar em 1 PR batch. Todos S, independentes, infra-only.
+- **Onda 7 — Tooling migrations**: CP-46 (ultracite 6→7, L), CP-47 (better-auth 1.4→1.6, L), CP-48 (Zod 4.1→4.3, M), CP-50 (TypeScript 5.9→6.x, M, contenção atual). PRs dedicados, ordem de risco crescente, janela de teste.
+
+**2. Ordem de execução atualizada** no `roadmap.md` § "Ordem de execução recomendada":
+
+| Prioridade | CP | Onda | Racional |
+|---|---|---|---|
+| 🔴 1 | CP-38 (runbook oncall) | 5 | Valor operacional imediato |
+| 🟡 2 | CP-44 (BOLA AST) | 5 | Security preventive |
+| 🟡 3 | CP-41 (Pagarme tests) | 3 | Fecha Onda 3 |
+| 🟡 4 | Onda 6 batch | 6 | Quick wins |
+| 🟡 5 | CP-17 (métricas) | 4 | Observability gap |
+| 🟢 6 | Cloudflare seq | 4 | Bloqueio externo |
+| 🟢 7 | Onda 7 seq | 7 | Janela dedicada |
+| ⏸️ 8 | CP-2 (emails) | 5 | Bloqueado #269 |
+
+Projeção: completando 1-5 (~12-16h), bucket 🟡 fica reduzido a itens externamente bloqueados ou em janela dedicada. "Trabalho planejável" termina.
+
+### 2026-04-23 — Reclassificação de CP→MP + formalização de candidatos
+
+Revisão honesta dos CPs abertos aplicando o critério "tem sinal pressing hoje vs esperando sinal futuro". Resultado: 2 CPs reclassificados para MP, 2 candidatos formalizados como MP.
+
+**Reclassificações CP → MP**:
+
+- **CP-18 → MP-24** (deprecation headers `Deprecation`/`Sunset`). Destravado por CP-3 mas preventivo para evento que não está no radar. Sinal para ativar: primeiro breaking change real planejado em endpoint público.
+- **CP-19 → MP-25** (Playwright E2E em CI). E2E é investimento caro de manter; `app.handle()` + factories cobrem fluxos integrados hoje. Sinal: 2+ regressões UX detectadas em prod (não em CI) OU equipe cresce.
+
+**Candidatos formalizados como MP**:
+
+- **MP-23** (field-level authz em responses) — era candidato no README desde sync pass do CP-53 Fase 1. Formalizado. Débito #98 coberto. Sinal: requisito concreto do cliente OU auditoria LGPD Art. 18 gap OU enterprise RBAC.
+- **MP-26** (paginação padronizada) — era candidato CP-51 no README. Agora MP formal. Débito #97. Sinal: 5+ endpoints paginados OU bug real de `.max()` esquecido OU planejamento de cursor pagination.
+
+**CP-2 (emails consolidation) mantido como CP** — usuário avaliou e preferiu manter. Segue bloqueado por issue #269 (flakes state leak).
+
+**Contadores atualizados**:
+- Bucket 🟡: 50 ações · 32 concluídas · **15 ativas** (era 17) · 2 reclassificadas · 1 contenção
+- Bucket 🟢: **26 ações** (era 22) · nenhuma investida · aguardar sinal
+
+**Princípio reforçado**: distinguir "committed para 30-90d" (CP) de "sob demanda, sinal-driven" (MP) mantém o bucket 🟡 focado em valor operacional pressing e dá honestidade sobre o que é scaffolding preventivo. Cross-refs atualizadas em `roadmap.md`, `principles.md`, `debts.md`, `README.md`.
+
+### 2026-04-23 — OQ-14 resolvida: política de 2 classes para erros de email (commit `42699a0`)
+
+Formalizada política de erro em emails, aplicada via novo helper `sendBestEffort` em `src/lib/email.tsx`:
+
+**Críticos** (propagam erro — user espera feedback):
+- `sendVerificationEmail`, `sendPasswordResetEmail`, `sendTwoFactorOTPEmail`, `sendOrganizationInvitationEmail`, `sendContactEmail`
+- Admin actions síncronas: `sendCheckoutLinkEmail` (self-service), `sendCancellationScheduledEmail`, `sendPriceAdjustmentEmail`, `sendUpgradeConfirmationEmail`
+
+**Best-effort** (log + swallow — operação principal já commitada):
+- Listeners de payments (já tinham `try/catch` individual — sem mudança)
+- Cron jobs em `jobs.service.ts` (já tinham `try/catch` — sem mudança)
+- **4 call sites convertidos neste commit**:
+  1. `plan-change.service.ts::sendPlanChangeEmail` — cron-triggered, email falhar antes quebrava o job impedindo outros scheduled changes
+  2. `admin-provision.service.ts::createCheckoutProvision` — admin triggered, email falhar dava 500 mesmo com org+checkout persistidos
+  3. `admin-provision.service.ts::sendRegenerationEmail` — regenerate checkout, mesma lógica
+  4. `lib/auth/hooks.ts::sendPasswordResetForProvisionOrDefault` — fallback para `sendPasswordResetEmail` default se provision activation falhar (user nunca fica sem email)
+
+Helper usado com log type padronizado `<module>:<action>:failed` permitindo alerting Sentry uniforme:
+
+```ts
+await sendBestEffort(
+  () => sendPlanChangeExecutedEmail({ ... }),
+  { type: "plan-change:executed-email:failed", organizationId, ... }
+);
+```
+
+Validação: 262/262 tests afetados (auth + plan-change + admin-provision + jobs), bunx tsc + ultracite clean.
+
+**OQ-14 fechada** em `docs/improvements/open-questions.md`. Resta 7 OQs abertas aguardando análise do dono.
+
+### 2026-04-23 — CP-53 Fase 2 entregue: 10 fixes objetivos em `src/lib/` (PR #271)
+
+Executa fixes de qualidade identificados na Fase 1 do CP-53 **que não dependem de Open Questions estratégicas**. Escopo disciplinado após pushback válido do dono:
+
+> "porque deletar ValidationError e InternalError, não iremos utilizar? algo que você está sugerindo é over engineering?"
+
+Cortados da proposta original (over-engineering detectado e removido):
+
+- **Reverted**: deletar `ValidationError`/`InternalError` — scaffolding coerente da hierarquia HTTP, custo de manter = 5 linhas, churn de deletar = iminente
+- **Dropped**: extrair helper `assertNoActiveSubscription` — duplicação em 2 lugares não justifica abstração (rule of three)
+- **Dropped**: estender `buildAuditEntry` com ipAddress/userAgent — YAGNI, nenhum caller passa
+- **Dropped**: derivar `SuccessResponse<T>` TS type via z.infer — duplicação mínima, risk de tipos estranhos
+- **Dropped**: exportar `RequestContext` type — "for extensibility" sem consumer = YAGNI
+- **Dropped**: narrow `AppError.status` para `HttpErrorStatus` — blast radius de 25 errors.ts. Type exportado, sweep fica pra futuro
+- **Dropped**: converter `beforeRemoveMember` para async — ultracite `useAwait` falha em async sem await; trade-off atual é o válido
+
+**10 commits atômicos** na branch `refactor/cp-53-lib-quality-fixes`:
+
+| # | Commit | Severidade | Escopo |
+|---|---|---|---|
+| 1 | `71c16fa` refactor(logger+sentry): redact PII in logs + Sentry event body (CP-54) | 🔴 LGPD | Pino `redact.paths` cobrindo auth headers, campos PII brasileiros (cpf, rg, pisPasep, ctps, salary, hourlyRate, birthDate, cid), `password`, `card.*`. Sentry `beforeSend` estendido para scrub recursivo de `event.request.data` via `PII_FIELDS` de `modules/audit/pii-redaction.ts` — single source of truth. |
+| 2 | `d34dcc3` refactor(auth/hooks): 6 code smells | 🔴 hygiene | Silent `.catch(() => {})` em `activateAdminProvisionOnLogin` → log estruturado com userId. URL token extraction em `sendPasswordResetForProvisionOrDefault` ganha fallback pro default reset se extraction falhar. Defensive `?.` em `db.query.adminOrgProvisions` removido (2 lugares). Cast `roleValues as readonly string[]` inline no use site. `UserCreateResult` union 3-variantes simplificado para shape único. Tipo `Record<string, unknown>` em `validateCanCreateOrganization` trocado por `User & { role?: string; email: string }`. |
+| 3 | `efbdf38` refactor(auth): extract 6 organization lifecycle callbacks to hooks.ts | 🟡 convention | 6 callbacks inline em `lib/auth.ts` (5-10 linhas cada) extraídos como `on<Event>` (`onOrganizationUpdated`, `onOrganizationDeleted`, `onInvitationAccepted`, `onMemberRoleUpdated`, `onMemberAdded`, `onMemberRemoved`). Alinha com convenção documentada em `lib/auth/CLAUDE.md`. `auth.ts` reduziu de 339→230 linhas. Comentário de `sendVerificationEmail` atualizado (antes falava só de admins, invitees também caem). |
+| 4 | `edfa6db` docs(audit-helpers): document why auditOrganizationUpdate lacks before state | 🟢 clarity | Comentário inline explica que BA's `afterUpdateOrganization` hook não expõe pre-update state. Para obter diff `before/after` seria preciso adicionar `beforeUpdateOrganization` hook + stash em ALS. Fora do escopo deste audit. |
+| 5 | `cc79fd5` refactor(email): extract hardcoded recipients to env + requireTLS in prod | 🟡 config | Débitos #70 (hardcoded `"contato@synnerdata.com.br"`) e #71 (SMTP_USER como destino admin) fechados. Novas env vars: `CONTACT_INBOX_EMAIL` (default preserva comportamento), `ADMIN_NOTIFICATION_EMAIL` (opcional). `requireTLS: env.NODE_ENV === "production" && env.SMTP_PORT !== 465` explícito — STARTTLS garantido em SMTP 587 prod. |
+| 6 | `3793320` fix(auth/admin-helpers): normalize admin allowlist | 🔴 silent bug | `env.SUPER_ADMIN_EMAILS` / `ADMIN_EMAILS` agora são normalizados (trim + lowercase). `applyAdminRolesBeforeUserCreate` também lowercase `user.email` antes de comparar. Antes: `"Admin@X.com"` no env não batia com user.email `"admin@x.com"` — signup não atribuía role admin, sem erro visível. |
+| 7 | `9d23a4c` refactor(date-helpers): validate inputs + document semantics | 🟢 robustness | `isFutureDate`/`isFutureDatetime` agora explicit `Number.isNaN(getTime())` check. `calculateDaysBetween` throw `RangeError` em input inválido (era NaN silencioso). JSDoc documenta timezone (server-local em `isFutureDate`, UTC em `calculateDaysBetween`) e `+1` inclusive count. |
+| 8 | `4dcc171` refactor(shutdown): portable sleep + exit code + pool.end timeout | 🟡 resilience | `Bun.sleep` → wrapper `setTimeout`-Promise (portabilidade — `type ElysiaLike` sugeria abstração). `process.exit(0)` hardcoded → `exit(dbClosedCleanly ? 0 : 1)` — supervisor (Docker/k8s) detecta falha de teardown. Novo `withTimeout(pool.end(), dbCloseTimeoutMs)` — evita hang indefinido em pool travado. |
+| 9 | `b2384de` docs(zod-config): document side-effect contract | 🟢 clarity | JSDoc header em arquivo de 3 linhas. Documenta: side-effect, import once no bootstrap, locale pt-BR global, override per-schema. |
+| 10 | `cb61820` refactor(base-error+responses): tighten types and add HttpErrorStatus alias | 🟡 types | Type `HttpErrorStatus = 400 \| 401 \| 403 \| 404 \| 409 \| 422 \| 429 \| 500` exportado de `base-error.ts`. Não aplicado a `AppError.status` agora (blast radius de 25 errors.ts em modules/). Disponível para sweep futuro. `paginationMetaSchema` campos agora `z.number().int().nonnegative()` — OpenAPI gera `type: integer, minimum: 0` ao invés de `type: number`. |
+
+**Validação consolidada**:
+- `bunx tsc --noEmit` clean após cada commit
+- `npx ultracite check` clean (583 files)
+- 707/707 tests afetados passam (lib/* + plugins/* + auth + admin/api-keys + payments/webhook + organizations/profile + employees + medical-certificates)
+
+**Débitos fechados**: #70 (hardcoded contact email), #71 (SMTP_USER misuso como admin). #73 (transporter conditional) parcialmente endereçado via `requireTLS`.
+
+**Blocked**: fixes que dependem de OQs permanecem pendentes (Fase 3). Ver [open-questions.md](./open-questions.md) para as 15 questões.
+
+### 2026-04-23 — CP-53 Fase 1: auditoria de qualidade de `src/lib/` (25 arquivos)
+
+Auditoria completa de todos os arquivos de `src/lib/` focada em **qualidade de implementação** (idiomatic patterns, bad patterns, code smells, dead code, duplications, type safety). Feita após CP-52 (reorganização estrutural) — agora que a organização está firmada, revisar o que está dentro.
+
+**Método:**
+- 8 arquivos triviais (<20L ou óbvios) auditados pelo parent diretamente (`cors.ts`, `zod-config.ts`, `request-context.ts`, `schemas/*`, `responses/envelope.ts`, `sentry/*`).
+- 17 arquivos restantes (2328L) distribuídos em **8 agentes `general-purpose` em paralelo**, cada um com prompt triangulando 3-4 fontes:
+  1. Docs oficiais via `context7` (Elysia, Better Auth, Zod, Pino, Nodemailer)
+  2. Community via `WebSearch` (GitHub discussions, OWASP, best practices 2025)
+  3. `avocado-hp` pareado em `~/Documentos/avocado-hp/avocado-hp/apps/server/src/lib/`
+  4. Julgamento próprio do agente (sem tomar nenhuma fonte como verdade única)
+- Formato de output fixo por arquivo: Implementation quality + Real issues + Matters of taste (skip) + Preservar + Action proposta + Open Questions.
+
+**Disciplina aplicada**: focus em qualidade de código, perguntas estratégicas ("deveria existir?", "qual é a política?") vão pra `open-questions.md` em vez de virar fixes por conta própria.
+
+**Categorias de code smells detectadas** (inventário, não exaustivo):
+
+| Categoria | Exemplos |
+|---|---|
+| Dead code | `plan` resource sem macro, 3 errors unused, `Timeout.withTimeout` zero consumers, `passwordComplexityRules` export órfão |
+| Duplicação de source of truth | `ownerPerms` vs `orgStatements`, `ErrorResponse` TS type vs `errorSchema<C>()` Zod, `PII_FIELDS` duas listas |
+| Silent error swallowing | `.catch(() => {})` em admin-provision, empty `catch {}` em extractErrorMessages, welcome email sem contexto |
+| Defensive noise | `?.` em `db.query.adminOrgProvisions` (sempre existe), `UserCreateResult` union 3-variantes |
+| Magic numbers | `apiKey.rateLimit.maxRequests: 200`, `gracePeriodMs = 5000` sem justificativa |
+| Type safety violations | `as any`, cast derruba enum (`roleValues`), `User & Record<string, unknown>` |
+| Inconsistent conventions | Params `email:` vs `to:` em email senders, positional vs object-params em audit wrappers |
+| Over-coupling | `Bun.sleep` em shutdown quando tipo sugere abstração |
+| Missing defense-in-depth | Sem `AbortSignal` em retry, sem `maxDelayMs`, sem jitter (thundering herd), sem `redact` PII em Pino, sem scrub body em Sentry, sem `requireTLS` em SMTP prod |
+| Fragile implementations | URL `split("/")` pra extrair reset token, Zod v4 internals walk, reflection em private APIs |
+| Race conditions | `validateUniqueRole` findFirst → insert sem unique partial index |
+| Async anti-patterns | `Promise.resolve()` em função não-async, 19 `sendMail` sem error handling |
+| Standards drift | OWASP ASVS 2023+ deprecou composition rules em password, CNPJ alfanumérico julho/2026 não suportado |
+| Testing smells | Tautologias em `timeout.test.ts`, timing-bound flaky em `retry.test.ts` |
+
+**Resultado consolidado:**
+
+- **🔴 4 itens de alta prioridade** (fix agora):
+  1. PII redaction em Pino + Sentry scrub body (LGPD gap) — CP-54 (S)
+  2. Dead code sweep (3 errors + Timeout + permissions dead resources) — CP-55 (S+M)
+  3. `auth/hooks.ts` cleanup batch de 8 smells — CP-56 (M)
+  4. CNPJ alfanumérico (Receita Federal jul/2026) — CP-57 (M, tracking)
+
+- **🟡 6 itens de média prioridade** (fix quando tocar):
+  - `utils/retry.ts` gaps (jitter, AbortSignal, maxDelayMs, 429, network detect) — CP-58 (M)
+  - `auth/audit-helpers.ts` inconsistências (shape, params) — S
+  - `lib/auth.ts` cleanup (`beforeRemoveMember` async, mover 6 callbacks) — S
+  - `openapi-helpers.ts` + `openapi-enhance.ts` contrato divergente — CP-59 (M)
+  - `email.tsx` 3 fixes independentes (hardcoded contact, SMTP_USER misuso, requireTLS) — S pré-CP-2
+  - `responses/response.types.ts` + `errors/base-error.ts` double-source-of-truth — S
+
+- **🟢 6 itens de baixa prioridade** (nice-to-have)
+- **✅ 5 arquivos limpos** — não tocar
+
+**Open Questions identificadas** (15 totais) — registradas em [open-questions.md](./open-questions.md):
+
+- OQ-1 (pré-existente): Estratégia de proteção PII em repouso (wire-up, deletar, ou documentar status quo)
+- OQ-2: `member`/`invitation`/`billingProfile` em orgStatements — docs ou macro?
+- OQ-3: `triggerAfterCreateOrganizationEffects` fire-and-forget intencional?
+- OQ-4: Algo não-merged usa `Timeout.withTimeout`?
+- OQ-5: `apiKey.rateLimit: 200` documentado ou parametrizado por env?
+- OQ-6: `super_admin` vs `admin` idênticos — intencional?
+- OQ-7: `RateLimitedError` retryAfter: details ou first-class?
+- OQ-8: `passwordComplexityRules` consumido por FE?
+- OQ-9: Cliente com CNPJ alfanumérico pós-julho/2026?
+- OQ-10: Jitter default=true quebra testes timing-based?
+- OQ-11: `deleteUser` self-reference deveria virar endpoint custom em modules/auth/?
+- OQ-12: `x-error-messages` FE espera semântico ou Zod-internal?
+- OQ-13: Migrar pra `.meta({ errorMessages })` vs reflection?
+- OQ-14: Política de erro em emails: throw crítico vs engole notificação?
+- OQ-15: SMTP pool — qual provedor de produção + volume projetado?
+
+**Próximo passo**: consolidar OQs com o dono em batch (1 reunião pra desbloquear 15 perguntas), então executar CPs 54-60 em ondas conforme decisões. Arquivos em `🟢 baixa prioridade` esperam próxima onda.
+
+**Validação do método** (meta):
+- Zero agente mergeou código ou fez push — audit-only preservado.
+- Nenhuma fonte foi tomada como verdade única — triangulação efetiva em todos os agentes.
+- Descobertas extras além do escopo inicial: `lib/pii.ts` zero consumers (descoberto antes de dispatching), `Timeout.withTimeout` zero consumers (agent 6), dead resources em permissions (agent 2), CNPJ alfanumérico (agent 7).
+- Custo: ~8 spawns paralelos + ~5 min wall clock vs ~2-3h sequencial.
+
+### 2026-04-23 — CP-52 entregue: reorganização interna de `src/lib/` (Opção B)
+
+Audit pontual disparado pelo dono após o sync pass de `principles.md` — preocupação válida com organização interna de `lib/` (27 arquivos misturados, alguns subdirs single-file com overhead sem payoff, concerns de Better Auth espalhados em 4 lugares). Executado como **pure move** — zero mudança de comportamento. Observações de qualidade foram anotadas mas **não fixadas** neste PR (serão o próximo CP de code review por arquivo).
+
+**3 commits atômicos por concern:**
+
+**Commit 1 — `refactor(lib): flatten single-file subdirs + dedup isFutureDate`**
+
+Achatados 4 subdirs que tinham 1 arquivo só (`crypto/`, `openapi/`, `shutdown/`, `validation/`):
+
+- `src/lib/crypto/pii.ts` → `src/lib/pii.ts`
+- `src/lib/openapi/error-messages.ts` → `src/lib/openapi-helpers.ts`
+- `src/lib/shutdown/shutdown.ts` → `src/lib/shutdown.ts`
+- `src/lib/validation/documents.ts` → `src/lib/document-validators.ts`
+
+Tests movidos para `src/lib/__tests__/` (colocalizados com os arquivos no root de lib/).
+
+**Dedup silencioso**: `src/modules/employees/employee.model.ts:6-11` declarava `isFutureDate` inline — idêntico ao helper em `lib/schemas/date-helpers.ts` que todos os outros occurrences importam. Removido o inline; passa a importar do helper.
+
+**Observação de qualidade anotada (não fix)**: `src/lib/pii.ts` tem **zero consumidores em produção**. `env.PII_ENCRYPTION_KEY` está validado e o util tem 155 linhas com 186 linhas de teste, mas `PII.encrypt/decrypt/mask` não são usados em lugar nenhum. Ou é infraestrutura pronta para futuro uso, ou alguém esqueceu de wire-up em campos sensíveis do DB. Candidato a investigar em CP-52 follow-up.
+
+**Commit 2 — `refactor(lib): group Better Auth concerns under lib/auth/`**
+
+- `src/lib/permissions.ts` → `src/lib/auth/permissions.ts`
+- `src/lib/password-complexity.ts` → `src/lib/auth/password-complexity.ts`
+- `src/lib/__tests__/permissions.test.ts` → `src/lib/auth/__tests__/permissions.test.ts`
+
+Raciocínio: ambos eram concerns exclusivos do Better Auth (access control statements + hook de senha), mas viviam soltos no topo de `lib/`. Mantenedor novo olhando `lib/auth/` não encontrava esses arquivos. 5 import sites atualizados. `lib/auth/CLAUDE.md` atualizado com inventário + consumers.
+
+Consumers confirmados — todos no universo auth:
+- `permissions`: `api-key.service` (DEFAULT_API_KEY_PERMISSIONS), `auth-guard/options` (types), test helpers, `lib/auth.ts`
+- `password-complexity`: só `lib/auth.ts` (hook `emailAndPassword.password.hash`)
+
+**Commit 3 — `refactor(lib): group Sentry concerns under lib/sentry/`**
+
+- `src/lib/sentry.ts` → `src/lib/sentry/init.ts`
+- `src/lib/error-reporter.ts` → `src/lib/sentry/reporter.ts`
+
+4 import sites atualizados. Novo `src/lib/sentry/CLAUDE.md` documentando: (a) `init.ts` é side-effect, importado no bootstrap via `import "@/lib/sentry/init"`; (b) `reporter.ts` existe por causa de ESM hoisting em Bun (mock.module não intercepta named imports — ver CP-6 follow-up); (c) **nunca** importar `captureException` direto do `@sentry/bun` em código de produção.
+
+**Débitos fechados:**
+
+- **#4** — `lib/request-context.ts` + `lib/request-context/` convivendo → verificado que dir não existe mais (resolvido em CP-1 sem marcação)
+- **#6** — `lib/__tests__/` inconsistente → agora contém apenas tests de arquivos no root de `lib/`, que é colocalização válida (test ao lado do código, mesmo nível). Subdir files têm tests no próprio subdir. Padrão consistente
+
+**Estado final de `src/lib/`:**
+
+Antes: 10 arquivos soltos + 9 subdirs (4 com 1 arquivo só) = 19 entries no topo.
+Depois: 9 arquivos + 6 subdirs = 15 entries no topo, cada subdir justifica sua existência (≥2 arquivos OU agrupamento semântico forte tipo `lib/auth/`).
+
+**Validação:**
+- `bunx tsc --noEmit` clean em todos os 3 commits
+- `npx ultracite check` clean em todos os 3 commits (4 auto-fixes de ordem de imports entre commits 2 e 3)
+- 278+ tests afetados rodaram verdes (pii, shutdown, document-validators, employees, branches, organizations/profile, auth hooks, api-keys, error-handler, webhook)
+
+**Observações de qualidade anotadas para CP-53 (pass futuro de code review por arquivo):**
+
+1. `lib/pii.ts` — 155 linhas de código + 186 linhas de teste, zero consumidores em produção. Investigar wire-up ou considerar deletar.
+2. `lib/auth/hooks.ts` — 368 linhas (maior arquivo de `lib/`). 11 callbacks extraídos de `auth.ts` em CP-4. Não revisados criticamente — são mix de auth + organization + provision + subscription concerns.
+3. `lib/auth/audit-helpers.ts` — 200 linhas. 10 wrappers `auditXxx` + `buildAuditEntry`. Já consolidado em CP-33 mas não auditado por qualidade.
+4. `lib/email.tsx` — 479 linhas, sabido (#8/#9/CP-2, bloqueado por issue #269).
+
+**Próximo passo sugerido**: CP-53 (candidato) — pass de qualidade por arquivo em `src/lib/` após CP-52, com foco em "é o padrão idiomático do Elysia?" + "existe simplificação sem perda de feature?". Use Compozy pipeline para ações M.
+
 ### 2026-04-23 — Doc sync pass: `principles.md` alinhado com realidade
 
 Revisão pós-Onda 5 para consolidar o estado da documentação antes de avançar para CP-38/CP-44/CP-2. Tabela de audit da Fase 1 nunca tinha sido atualizada após as 54 resoluções; itens `?` ficaram pendurados sem classificação. Aproveitada também a oportunidade para arquivar legados e fechar inconsistências de path pós-PR #268.

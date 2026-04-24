@@ -20,24 +20,22 @@ src/
 │
 ├── lib/                      # Utilities puras (NÃO são plugins Elysia)
 │   ├── auth.ts               #   Better Auth config (consumido por auth-guard)
-│   ├── auth/                 #   audit-helpers, validators, hooks, admin-helpers
+│   ├── auth/                 #   universo Better Auth: hooks, audit-helpers, validators,
+│   │                         #   admin-helpers, permissions (roles/statements), password-complexity
 │   ├── cors.ts               #   parseOrigins util
-│   ├── crypto/               #   PII encrypt/decrypt (branded EncryptedString)
+│   ├── document-validators.ts #  CPF/CNPJ check digits
 │   ├── email.tsx             #   Nodemailer senders (CP-2 vai reestruturar)
 │   ├── emails/               #   (futuro, pós CP-2)
-│   ├── error-reporter.ts     #   ErrorReporter.capture wrapper (Sentry, testable)
 │   ├── errors/               #   AppError hierarchy — lançada por services (base-error, http-errors)
 │   ├── logger.ts             #   Pino instance bruto (consumido por request-logger E por services)
-│   ├── openapi/              #   error-messages util (consumido pelo openapi() config)
-│   ├── password-complexity.ts
-│   ├── permissions.ts        #   inheritRole + orgRoles (Better Auth)
+│   ├── openapi-helpers.ts    #   extractErrorMessages util (consumido pelo openapi() config)
+│   ├── pii.ts                #   encrypt/decrypt/mask PII (scrypt KDF + AES-256-GCM)
 │   ├── request-context.ts    #   AsyncLocalStorage + getRequestId
 │   ├── responses/            #   envelope wrappers + response schemas
-│   ├── schemas/              #   Zod helpers compartilhados
-│   ├── sentry.ts             #   Sentry init (side-effect only; consumers usam error-reporter)
-│   ├── shutdown/             #   setupGracefulShutdown
+│   ├── schemas/              #   Zod helpers compartilhados (date, relationships)
+│   ├── sentry/               #   init.ts (side-effect) + reporter.ts (ErrorReporter wrapper)
+│   ├── shutdown.ts           #   setupGracefulShutdown
 │   ├── utils/                #   retry, timeout
-│   ├── validation/           #   CPF/CNPJ check digits
 │   └── zod-config.ts         #   z.config(z.locales.pt()) side-effect
 │
 ├── routes/

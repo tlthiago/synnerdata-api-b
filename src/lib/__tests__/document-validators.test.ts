@@ -1,5 +1,5 @@
 import { describe, expect, test } from "bun:test";
-import { isValidCNPJ, isValidCPF, isValidTaxId } from "../documents";
+import { isValidCNPJ, isValidCPF, isValidTaxId } from "../document-validators";
 
 describe("isValidCPF", () => {
   test("returns true for valid CPF", () => {

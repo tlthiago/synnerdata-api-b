@@ -1,12 +1,24 @@
 import { APIError } from "better-auth/api";
-import type { Organization } from "better-auth/plugins/organization";
+import type {
+  Invitation,
+  Member,
+  Organization,
+} from "better-auth/plugins/organization";
 import type { User } from "better-auth/types";
 import { and, eq } from "drizzle-orm";
 import { db } from "@/db";
 import { roleValues, schema } from "@/db/schema";
 import { env } from "@/env";
 import { getAdminEmails } from "@/lib/auth/admin-helpers";
-import { auditOrganizationCreate } from "@/lib/auth/audit-helpers";
+import {
+  auditInvitationAccept,
+  auditMemberAdd,
+  auditMemberRemove,
+  auditMemberRoleUpdate,
+  auditOrganizationCreate,
+  auditOrganizationDelete,
+  auditOrganizationUpdate,
+} from "@/lib/auth/audit-helpers";
 import { validateUniqueRole } from "@/lib/auth/validators";
 import {
   sendOrganizationInvitationEmail,
@@ -14,6 +26,7 @@ import {
   sendProvisionActivationEmail,
 } from "@/lib/email";
 import { logger } from "@/lib/logger";
+import { ErrorReporter } from "@/lib/sentry/reporter";
 import { OrganizationService } from "@/modules/organizations/profile/organization.service";
 import { SubscriptionService } from "@/modules/payments/subscription/subscription.service";
 
@@ -24,7 +37,7 @@ export async function sendPasswordResetForProvisionOrDefault({
   user: { id: string; email: string; name: string };
   url: string;
 }): Promise<void> {
-  const provision = await db.query.adminOrgProvisions?.findFirst({
+  const provision = await db.query.adminOrgProvisions.findFirst({
     where: and(
       eq(schema.adminOrgProvisions.userId, user.id),
       eq(schema.adminOrgProvisions.status, "pending_activation")
@@ -43,6 +56,7 @@ export async function sendPasswordResetForProvisionOrDefault({
         url,
         userId: user.id,
       });
+      await sendPasswordResetEmail({ email: user.email, url });
       return;
     }
 
@@ -55,13 +69,27 @@ export async function sendPasswordResetForProvisionOrDefault({
       .where(eq(schema.organizations.id, provision.organizationId))
       .limit(1);
 
-    await sendProvisionActivationEmail({
-      email: user.email,
-      url: activationUrl,
-      userName: user.name,
-      organizationName: org?.name ?? "sua organização",
-      isTrial: provision.type === "trial",
-    });
+    try {
+      await sendProvisionActivationEmail({
+        email: user.email,
+        url: activationUrl,
+        userName: user.name,
+        organizationName: org?.name ?? "sua organização",
+        isTrial: provision.type === "trial",
+      });
+    } catch (error) {
+      // Provision activation falhou (SMTP down ou template erro) — cai no fluxo
+      // default de reset para não deixar o user sem email. activationSentAt não
+      // é gravado nesse caso, permitindo reenvio posterior.
+      logger.error({
+        type: "admin-provision:activation:email-failed",
+        userId: user.id,
+        provisionId: provision.id,
+        error: error instanceof Error ? error.message : String(error),
+      });
+      await sendPasswordResetEmail({ email: user.email, url });
+      return;
+    }
     await db
       .update(schema.adminOrgProvisions)
       .set({ activationUrl, activationSentAt: new Date() })
@@ -74,7 +102,7 @@ export async function sendPasswordResetForProvisionOrDefault({
 export async function activateProvisionOnPasswordReset(user: {
   id: string;
 }): Promise<void> {
-  const provision = await db.query.adminOrgProvisions?.findFirst({
+  const provision = await db.query.adminOrgProvisions.findFirst({
     where: and(
       eq(schema.adminOrgProvisions.userId, user.id),
       eq(schema.adminOrgProvisions.status, "pending_activation")
@@ -149,18 +177,16 @@ export async function validateUserBeforeDelete(user: {
 
 type UserCreatePayload = User & { email: string };
 type UserCreateResult = {
-  data:
-    | UserCreatePayload
-    | (UserCreatePayload & { role: string; emailVerified: true })
-    | (UserCreatePayload & { emailVerified: true });
+  data: UserCreatePayload & { role?: string; emailVerified?: boolean };
 };
 
 export async function applyAdminRolesBeforeUserCreate(
   user: UserCreatePayload
 ): Promise<UserCreateResult> {
   const { superAdmins, admins } = getAdminEmails();
+  const normalizedEmail = user.email.toLowerCase();
 
-  if (superAdmins.includes(user.email)) {
+  if (superAdmins.includes(normalizedEmail)) {
     return {
       data: {
         ...user,
@@ -170,7 +196,7 @@ export async function applyAdminRolesBeforeUserCreate(
     };
   }
 
-  if (admins.includes(user.email)) {
+  if (admins.includes(normalizedEmail)) {
     return {
       data: {
         ...user,
@@ -222,13 +248,17 @@ export async function activateAdminProvisionOnLogin(session: {
         eq(schema.adminOrgProvisions.status, "pending_activation")
       )
     )
-    .catch(() => {
-      // Silently ignore — should not affect normal login flow
+    .catch((error) => {
+      logger.error({
+        type: "admin-provision:login-activation:failed",
+        userId: session.userId,
+        error: error instanceof Error ? error.message : String(error),
+      });
     });
 }
 
 export async function validateCanCreateOrganization(
-  user: User & Record<string, unknown>
+  user: User & { role?: string; email: string }
 ): Promise<boolean> {
   if (user.role !== "user") {
     return false;
@@ -279,8 +309,7 @@ export async function validateBeforeCreateInvitation({
   invitation: { role: string; email: string };
   organization: Organization;
 }): Promise<void> {
-  const validRoles = roleValues as readonly string[];
-  if (!validRoles.includes(invitation.role)) {
+  if (!(roleValues as readonly string[]).includes(invitation.role)) {
     throw new APIError("BAD_REQUEST", {
       code: "INVALID_ORGANIZATION_ROLE",
       message: `Role inválida: "${invitation.role}". Roles válidas: ${roleValues.join(", ")}`,
@@ -302,6 +331,37 @@ export async function validateBeforeCreateInvitation({
   }
 }
 
+/**
+ * Reports a post-organization-create side-effect failure.
+ *
+ * These side-effects are best-effort — signup must succeed even if one
+ * or more of them fail. Each failure gets logged + Sentry captured so the
+ * operator can alert on the structured `type` tag and fix manually.
+ *
+ * Recovery paths (documented for future operators):
+ * - `organization:trial-creation:failed` → org sem subscription. User vê "sem
+ *   plano". Admin pode criar trial manualmente via POST /admin/provisions/trial.
+ * - `organization:auto-profile:failed` → org sem profile. GET /organizations/
+ *   profile retorna null. Admin pode completar via UI/endpoint de update.
+ * - `audit:organization-create:failed` → sem entry de audit. Sem impacto
+ *   funcional, gap de compliance. Insert manual em audit_logs se necessário.
+ */
+function reportOrgEffectFailure(
+  error: unknown,
+  context: { type: string; organizationId: string; userId?: string }
+): void {
+  logger.error({
+    ...context,
+    error: error instanceof Error ? error.message : String(error),
+  });
+  ErrorReporter.capture(error, {
+    tags: {
+      type: context.type,
+      organizationId: context.organizationId,
+    },
+  });
+}
+
 export async function triggerAfterCreateOrganizationEffects({
   organization: org,
   member,
@@ -312,30 +372,123 @@ export async function triggerAfterCreateOrganizationEffects({
   try {
     await SubscriptionService.createTrial(org.id);
   } catch (error) {
-    logger.error({
+    reportOrgEffectFailure(error, {
       type: "organization:trial-creation:failed",
       organizationId: org.id,
       userId: member.userId,
-      error: error instanceof Error ? error.message : String(error),
     });
   }
 
-  OrganizationService.createMinimalProfile(org.id, org.name).catch((error) => {
-    logger.error({
+  try {
+    await OrganizationService.createMinimalProfile(org.id, org.name);
+  } catch (error) {
+    reportOrgEffectFailure(error, {
       type: "organization:auto-profile:failed",
       organizationId: org.id,
-      error: error instanceof Error ? error.message : String(error),
     });
-  });
+  }
 
-  auditOrganizationCreate(org, member.userId).catch((error) => {
-    logger.error({
+  try {
+    await auditOrganizationCreate(org, member.userId);
+  } catch (error) {
+    reportOrgEffectFailure(error, {
       type: "audit:organization-create:failed",
       organizationId: org.id,
       userId: member.userId,
-      error: error instanceof Error ? error.message : String(error),
     });
+  }
+}
+
+export async function onOrganizationUpdated({
+  organization: org,
+  user,
+}: {
+  organization: Organization | null;
+  user: User;
+}): Promise<void> {
+  if (org) {
+    await auditOrganizationUpdate(org, user.id);
+  }
+}
+
+export async function onOrganizationDeleted({
+  organization: org,
+  user,
+}: {
+  organization: Organization | null;
+  user: User;
+}): Promise<void> {
+  if (org) {
+    await auditOrganizationDelete(org, user.id);
+  }
+}
+
+export async function onInvitationAccepted({
+  invitation,
+  member,
+  organization: org,
+}: {
+  invitation: Invitation;
+  member: Member;
+  organization: Organization;
+}): Promise<void> {
+  await auditInvitationAccept(
+    { id: invitation.id, email: invitation.email, role: invitation.role },
+    { id: member.id, userId: member.userId },
+    org.id
+  );
+}
+
+export async function onMemberRoleUpdated({
+  member,
+  previousRole,
+  user,
+  organization: org,
+}: {
+  member: Member;
+  previousRole: string;
+  user: User;
+  organization: Organization;
+}): Promise<void> {
+  await auditMemberRoleUpdate({
+    member: { id: member.id, userId: member.userId },
+    previousRole,
+    newRole: member.role,
+    organizationId: org.id,
+    updatedByUserId: user.id,
   });
+}
+
+export async function onMemberAdded({
+  member,
+  user,
+  organization: org,
+}: {
+  member: Member;
+  user: User;
+  organization: Organization;
+}): Promise<void> {
+  await auditMemberAdd(
+    { id: member.id, userId: member.userId, role: member.role },
+    org.id,
+    user.id
+  );
+}
+
+export async function onMemberRemoved({
+  member,
+  user,
+  organization: org,
+}: {
+  member: Member;
+  user: User;
+  organization: Organization;
+}): Promise<void> {
+  await auditMemberRemove(
+    { id: member.id, userId: member.userId, role: member.role },
+    org.id,
+    user.id
+  );
 }
 
 export async function validateBeforeDeleteOrganization({

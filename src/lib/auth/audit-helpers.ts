@@ -95,6 +95,9 @@ export async function auditOrganizationUpdate(
   org: { id: string; name: string },
   userId: string
 ): Promise<void> {
+  // Better Auth's afterUpdateOrganization hook does not provide the pre-update
+  // state — only `after` is recorded. To produce a diff, BA would need to
+  // expose beforeUpdateOrganization or pass previousOrganization alongside.
   await AuditService.log(
     buildAuditEntry({
       action: "update",

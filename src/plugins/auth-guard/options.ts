@@ -1,4 +1,4 @@
-import type { OrgPermissions } from "@/lib/permissions";
+import type { OrgPermissions } from "@/lib/auth/permissions";
 
 export type AuthOptions =
   | true

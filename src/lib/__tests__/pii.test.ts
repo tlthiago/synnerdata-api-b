@@ -1,5 +1,5 @@
 import { describe, expect, test } from "bun:test";
-import { type EncryptedString, PII } from "@/lib/crypto/pii";
+import { type EncryptedString, PII } from "@/lib/pii";
 
 describe("PII", () => {
   describe("encrypt", () => {

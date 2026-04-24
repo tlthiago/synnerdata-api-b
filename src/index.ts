@@ -1,5 +1,5 @@
 import "@/lib/zod-config";
-import "@/lib/sentry";
+import "@/lib/sentry/init";
 import { cors } from "@elysiajs/cors";
 import { openapi } from "@elysiajs/openapi";
 import { Elysia } from "elysia";
@@ -9,8 +9,8 @@ import { pool } from "./db";
 import { env, isProduction } from "./env";
 import { parseOrigins } from "./lib/cors";
 import { logger } from "./lib/logger";
-import { extractErrorMessages } from "./lib/openapi/error-messages";
-import { setupGracefulShutdown } from "./lib/shutdown/shutdown";
+import { extractErrorMessages } from "./lib/openapi-helpers";
+import { setupGracefulShutdown } from "./lib/shutdown";
 import { registerEmployeeListeners } from "./modules/employees/hooks/listeners";
 import { registerPaymentListeners } from "./modules/payments/hooks/listeners";
 import { betterAuthPlugin } from "./plugins/auth-guard/auth-plugin";

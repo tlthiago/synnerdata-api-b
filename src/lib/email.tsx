@@ -20,15 +20,31 @@ import { TrialExpiredEmail } from "@/emails/templates/payments/trial-expired";
 import { TrialExpiringEmail } from "@/emails/templates/payments/trial-expiring";
 import { UpgradeConfirmationEmail } from "@/emails/templates/payments/upgrade-confirmation";
 import { env } from "@/env";
+import { logger } from "@/lib/logger";
+
+const isProdEmail = env.NODE_ENV === "production";
 
 const transporter = createTransport({
   host: env.SMTP_HOST,
   port: env.SMTP_PORT,
   secure: env.SMTP_PORT === 465,
+  requireTLS: isProdEmail && env.SMTP_PORT !== 465,
   auth:
     env.SMTP_USER && env.SMTP_PASSWORD
       ? { user: env.SMTP_USER, pass: env.SMTP_PASSWORD }
       : undefined,
+  // Pool apenas em produção — Hostinger Business Email.
+  // Limites típicos: ~1000 emails/hora. Config conservadora permite reuso
+  // de conexão TLS (economia de ~200ms por envio) sem saturar o provedor.
+  // Dev usa MailHog sem pool (sem handshake TLS).
+  ...(isProdEmail && {
+    pool: true,
+    maxConnections: 3,
+    maxMessages: 100,
+    connectionTimeout: 10_000,
+    greetingTimeout: 10_000,
+    socketTimeout: 30_000,
+  }),
 });
 
 type SendEmailParams = {
@@ -50,6 +66,30 @@ export async function sendEmail({ to, subject, html, text }: SendEmailParams) {
     html,
     ...(text && { text }),
   });
+}
+
+/**
+ * Wraps a best-effort email send — logs failures but never propagates them.
+ * Use in system/cron-initiated flows where the primary operation (subscription
+ * cancel, plan change, provision creation, etc.) already succeeded and the
+ * email is purely a notification. Failing the email must not fail the parent.
+ *
+ * Critical user-initiated emails (verification, password reset, 2FA, invitation,
+ * contact form, user-facing admin actions like checkout link) keep throwing —
+ * user needs feedback when retries are their only recourse.
+ */
+export async function sendBestEffort(
+  send: () => Promise<void>,
+  context: { type: string; [key: string]: unknown }
+): Promise<void> {
+  try {
+    await send();
+  } catch (error) {
+    logger.error({
+      ...context,
+      error: error instanceof Error ? error.message : String(error),
+    });
+  }
 }
 
 // ============================================================
@@ -426,7 +466,7 @@ export async function sendAdminCancellationNoticeEmail(params: {
   reason?: string;
   comment?: string;
 }) {
-  if (!env.SMTP_USER) {
+  if (!env.ADMIN_NOTIFICATION_EMAIL) {
     return;
   }
 
@@ -441,7 +481,7 @@ export async function sendAdminCancellationNoticeEmail(params: {
     />
   );
   await sendEmail({
-    to: env.SMTP_USER,
+    to: env.ADMIN_NOTIFICATION_EMAIL,
     subject: `[Cancelamento] ${params.organizationName} — Plano ${params.planName}`,
     html,
     text,
@@ -471,7 +511,7 @@ export async function sendContactEmail(params: {
     />
   );
   await sendEmail({
-    to: "contato@synnerdata.com.br",
+    to: env.CONTACT_INBOX_EMAIL,
     subject: `[Contato Site] ${params.subject}`,
     html,
     text,

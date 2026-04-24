@@ -24,9 +24,9 @@ export type PaginatedResponse<T> = {
 
 /** Schema Zod para metadados de paginação */
 export const paginationMetaSchema = z.object({
-  total: z.number(),
-  limit: z.number(),
-  offset: z.number(),
+  total: z.number().int().nonnegative(),
+  limit: z.number().int().nonnegative(),
+  offset: z.number().int().nonnegative(),
 });
 
 /** Cria um schema Zod para resposta de sucesso com envelope */

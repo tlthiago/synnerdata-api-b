@@ -12,7 +12,7 @@ import {
   getShutdownState,
   resetShutdownState,
   setupGracefulShutdown,
-} from "@/lib/shutdown/shutdown";
+} from "@/lib/shutdown";
 
 type SignalHandler = () => void;
 

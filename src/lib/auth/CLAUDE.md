@@ -7,6 +7,8 @@ Sub-arquivos internos usados por `src/lib/auth.ts` (entry-point do Better Auth).
 - **`admin-helpers.ts`** — `getAdminEmails()` lê `env.SUPER_ADMIN_EMAILS` / `env.ADMIN_EMAILS`; `handleWelcomeEmail(user)` envia welcome com error-handling local. Chamadas por `databaseHooks.user.create.before` (via `applyAdminRolesBeforeUserCreate`) e por `emailVerification.afterEmailVerification`.
 - **`audit-helpers.ts`** — `buildAuditEntry(params)` constrói `AuditLogEntry` tipado (enums `AuditAction`/`AuditResource`) a partir de params flat (`before`/`after` em vez de `changes: {...}`). 10 wrappers `auditXxx` chamam `AuditService.log(buildAuditEntry({...}))` — shape single-source: `auditUserCreate`, `auditUserDelete`, `auditLogin`, `auditOrganizationCreate`/`Update`/`Delete`, `auditMemberAdd`/`Remove`/`RoleUpdate`, `auditInvitationAccept`.
 - **`validators.ts`** — `validateUniqueRole(role, organizationId)` garante role única por org (checa `members` + invitations `pending`). Lança `APIError("BAD_REQUEST", ...)`.
+- **`permissions.ts`** — access control do Better Auth: `systemAc`/`systemRoles` (super_admin/admin/user), `orgAc`/`orgRoles` (owner/manager/supervisor/viewer) com `inheritRole()` helper (CP-25), `apiKeyStatements` + `DEFAULT_API_KEY_PERMISSIONS`. Types exportados: `OrgPermissions`, `ApiKeyPermissions`. Consumido por `lib/auth.ts` (config), `plugins/auth-guard/options.ts` (macro auth), `modules/admin/api-keys/` (CRUD de keys) e test helpers.
+- **`password-complexity.ts`** — `validatePasswordComplexity(password)` verifica regras (uppercase/lowercase/number/special) e lança `APIError("BAD_REQUEST", { code: "PASSWORD_TOO_WEAK" })`. Chamado pelo hook `emailAndPassword.password.hash` em `lib/auth.ts`. Usa `APIError` do Better Auth (convenção para hooks), não `AppError` do projeto.
 - **`hooks.ts`** — callbacks maiores dos hooks do Better Auth extraídos como funções nomeadas:
   - `sendPasswordResetForProvisionOrDefault({ user, url })` — roteia para fluxo de admin-provision ou reset padrão.
   - `activateProvisionOnPasswordReset(user)` — marca provision ativada após reset.
@@ -31,6 +33,8 @@ Não há `index.ts`. Imports são sempre diretos para o sub-arquivo:
 ```ts
 import { getAdminEmails } from "@/lib/auth/admin-helpers";
 import { auditUserCreate } from "@/lib/auth/audit-helpers";
+import { orgRoles, type OrgPermissions } from "@/lib/auth/permissions";
+import { validatePasswordComplexity } from "@/lib/auth/password-complexity";
 ```
 
 O entry-point `@/lib/auth` (ex: `import { auth, AuthSession, AuthUser } from "@/lib/auth"`) permanece como antes — é o arquivo `lib/auth.ts`, que coexiste com este diretório.

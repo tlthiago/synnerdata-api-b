@@ -13,14 +13,14 @@
 | Bucket | Total | Done | Active | Progresso |
 |---|---|---|---|---|
 | 🔴 **Urgente** (MVP-bloqueante) | 10 | 10 | 0 | ✅ **Completo** em 2026-04-22 |
-| 🟡 **Curto prazo** (hardening, 30-90d) | 50 | 32 | 17 | **64%** · Ondas 1/2 completas, Onda 5 em 9/12 |
-| 🟢 **Médio prazo** (sob demanda) | 22 | 0 | 22 | sinal-driven — sem investimento ativo |
+| 🟡 **Curto prazo** (hardening, 30-90d) | 50 | 32 | 15 | **64%** · 2 reclassificadas para MP em 2026-04-23 (CP-18→MP-24, CP-19→MP-25) |
+| 🟢 **Médio prazo** (sob demanda) | 26 | 0 | 26 | +4 em 2026-04-23 (MP-23 formalizado + MP-24/25 ex-CP + MP-26 ex-candidato CP-51) |
 
 ### Saúde do codebase
 
 - ✅ **854 tests pass** (suíte afetada + smoke tests novos do `routes/v1/`)
 - ✅ **Ultracite clean** em 582 files
-- ✅ **54/98 débitos resolvidos** em `debts.md` (+ 2 reavaliados como não-débito) — 42 abertos (+#97 #98 identificados no sync de 2026-04-23)
+- ✅ **60/98 débitos resolvidos** em `debts.md` (+ 2 reavaliados como não-débito) — 38 abertos (+2 fechados em CP-53: #70 + #71 via PR #271)
 - ✅ **Zero débito 🔴** pendente
 - ✅ **Onda 5 (refactors grandes)**: 9/12 entregues (75%) — restam CP-38 (M), CP-44 (M), CP-2 (XL — bloqueado por issue [#269](https://github.com/tlthiago/synnerdata-api-b/issues/269))
 
@@ -30,7 +30,7 @@
 - **`lib/auth.ts`** 856→339 linhas (CP-4 L) + auth-plugin 396→79 linhas, split em `lib/auth/*` + `plugins/auth-guard/*`.
 - **`lib/errors/`** depurado (CP-5 L): só erros HTTP universais. Errors de domínio em `modules/<X>/errors.ts`. Factory `errorSchema<C>`.
 - **Webhook Pagar.me hardened** (CP-6 M): Zod validation declarativa + observability logs + Sentry via `ErrorReporter` wrapper (CP-6 follow-up).
-- **`src/routes/v1/`** composer centralizando `/v1` (CP-3 L): 25 controllers perderam `/v1` dos próprios `prefix:`; versão é responsabilidade única do composer. Destrava **CP-18** (deprecation headers).
+- **`src/routes/v1/`** composer centralizando `/v1` (CP-3 L): 25 controllers perderam `/v1` dos próprios `prefix:`; versão é responsabilidade única do composer. Destrava **MP-24** (deprecation headers, ex-CP-18 reclassificado em 2026-04-23).
 - **Permissions inheritance** (CP-25 M): `inheritRole` helper reduz ~112 linhas de duplicação; matrix test 109 assertions preservado.
 - **LGPD 100% endereçado** (CP-42 + CP-43 M): `buildAuditChanges` com PII redaction + `auditPlugin` mountado em 4 GET handlers sensíveis.
 
@@ -43,27 +43,38 @@
 
 ## Próxima ação
 
-### Concluir Onda 5 (3 CPs restantes)
+### Ordem de execução recomendada (2026-04-23)
 
-1. **CP-38 (M)** — runbook de oncall em `docs/runbooks/` (DB down, webhook Pagar.me falhando, SMTP caído, Sentry em massa). **Docs-heavy**, branch simples. Pronto pra atacar.
-2. **CP-44 (M)** — audit BOLA automatizado em CI (AST-scan de queries sem `organizationId`). Preventivo — follow-up de RU-9. Branch simples. Pronto pra atacar.
-3. **CP-2 (XL)** — consolidar emails em `src/lib/emails/`. **Último por design** — toca fluxos críticos de auth (signup/reset/2FA/invitation). Worktree + plano formal obrigatórios.
-   - 🔴 **BLOQUEADO por issue [#269](https://github.com/tlthiago/synnerdata-api-b/issues/269)** — flakes não-determinísticos em suite grande (state leak: signup welcome email + trial constraint + cpf-analyses list). Descoberto no CI do PR #268. Resolver #269 antes de iniciar CP-2 — ou os testes do refactor de emails serão não-confiáveis.
+Por **valor × custo × dependência** — ver tabela completa em [`roadmap.md § Ordem de execução`](./roadmap.md).
 
-### Paralelizável (agora destravado)
+**🔴 Próximo agora:**
 
-- **CP-18 (M)** — deprecation headers `Deprecation`/`Sunset`. Destravado por CP-3. Pode rodar com Onda 4 Observabilidade.
+1. **CP-38** (M, Onda 5) — Runbook oncall em `docs/runbooks/`. Valor operacional imediato (1 cliente em prod). Fecha débito #93 + cobre migration rollback (#90/91). Docs-heavy, branch simples.
 
-### Candidatos pós-sync (2026-04-23)
+**🟡 Alta prioridade:**
 
-- **CP-51 (S, candidato)** — extrair `paginationQuerySchema` para `lib/schemas/pagination.ts` e migrar 4 callsites (débito #97). Fecha gap de §4.1 #11 + §4.2 #6 do `principles.md`.
-- **MP-23 (candidato)** — field-level authorization em responses (débito #98). Sinal: requisito concreto do cliente ou auditoria LGPD Art. 18.
+2. **CP-44** (M, Onda 5) — BOLA AST automation. Security preventive, follow-up RU-9.
+3. **CP-41** (M, Onda 3) — Workflow Pagarme integration tests. Fecha Onda 3.
+4. **Onda 6 batch** (4×S) — CP-10/11/12/49 em PR único: Docker SHA pin + HEALTHCHECK deep + wait-for-db + react/react-dom sync.
+5. **CP-17** (M, Onda 4) — Métricas básicas OTel/Prometheus. Gap operacional conhecido. Inclui #43 agregado.
 
-### Onda 4 (pós-Onda 5) — requer brainstorm
+**🟢 Condicional / bloqueio externo:**
 
-- **CP-17 (M)** — métricas básicas (OTel/Prometheus). Gap operacional conhecido: "Sem métricas ainda".
-- **CP-19 (M)** — Playwright E2E em CI.
-- **Cloudflare Free Tier** — CP-14 → 15 → 16 (blocked pelo cliente: DNS registro.br).
+6. **CP-14 → 15 → 16** (Cloudflare Free Tier) — bloqueado pelo cliente (DNS registro.br).
+7. **Onda 7 seq** (CP-48 → 47 → 46 → 50) — Tooling migrations em janela dedicada.
+8. **CP-2** (XL, Onda 5) — Emails consolidation. **Bloqueado por [#269](https://github.com/tlthiago/synnerdata-api-b/issues/269)**. Último por design.
+
+### Ondas novas criadas em 2026-04-23
+
+- **Onda 6 — Infra hardening pequeno**: 4 CPs órfãos agrupados (CP-10/11/12/49)
+- **Onda 7 — Tooling migrations**: 4 CPs órfãos (CP-46/47/48/50, follow-ups de CP-40)
+
+### Histórico recente do bucket 🟡
+
+- ~~**CP-18/19**~~ → **MP-24/25** (reclassificados 2026-04-23 — sinal-driven, não pressing)
+- ~~**CP-51 candidato**~~ → **MP-26** (paginação schema, mesma lógica)
+- ✅ **CP-52 entregue** (2026-04-23) — reorganização interna de `src/lib/` (Opção B): débitos #4 e #6 fechados.
+- ✅ **CP-53 Fase 1+2 entregues** (2026-04-23, PRs #271 e #276) — audit de qualidade + 10 fixes objetivos + 10 OQs resolvidas (ver [open-questions.md](./open-questions.md)).
 
 ---
 
@@ -74,7 +85,8 @@
 | [principles.md](./principles.md) | Padrões agnósticos (qualquer API): princípios de priorização, MVP/Early/Scale, OWASP | Primeira leitura, referência teórica |
 | [project.md](./project.md) | Contexto do projeto, compliance, decisões arquiteturais, audit da Fase 1, organização semântica | Entender o projeto especificamente |
 | [roadmap.md](./roadmap.md) | CPs/RUs/MPs priorizados em 3 buckets + 5 ondas, metodologia Fase 3, política de testes | Ver o que vem agora + como executar |
-| [debts.md](./debts.md) | 98 débitos catalogados — 54 resolvidos, 42 abertos (+2 reavaliados como não-débito) | Rastrear débito específico |
+| [debts.md](./debts.md) | 98 débitos catalogados — 60 resolvidos, 38 abertos (+2 reavaliados como não-débito) | Rastrear débito específico |
+| [open-questions.md](./open-questions.md) | 15 perguntas estratégicas a discutir (OQ-1 a OQ-15) — surgidas no audit CP-53 | Decisões pendentes antes de virar CP |
 | [changelog.md](./changelog.md) | Registro temporal de decisões e entregas (40+ entries) | Saber quando algo foi feito e porquê |
 | [legacy/](./legacy/) | Documentos pré-audit mantidos para referência histórica (`api-maturity-plan.md`, `deployment.md`) — **não atualizar** | Pesquisa histórica somente |
 
@@ -110,5 +122,8 @@ Detalhes completos em [roadmap.md § Metodologia de execução](./roadmap.md).
 - **2026-04-22** — Bucket 🔴 fechado (10/10). Ondas 1/2 concluídas. Onda 3 (PRs A/B/C) entregue. Onda 5 iniciada com CP-1 (XL).
 - **2026-04-23** — Onda 5: CP-6 follow-up (ErrorReporter), CP-3 (routes/v1). PR #267 sweep de 46 débitos §7.7. PR #268 split da doc em 6 arquivos + rename de plugins (`plugins/auth→auth-guard`, `errors→error-handler`, `logger→request-logger`).
 - **2026-04-23 (sync pass)** — Doc audit: `principles.md` sincronizado com realidade (9 Status ⚠️/❌ → ✅ + 7 `?` classificados). `api-maturity-plan.md` + `deployment.md` arquivados em `legacy/`. Débitos novos #97 (paginação schema) e #98 (field-level authz) registrados. `bun pm audit` → `bun audit`.
+- **2026-04-23 (CP-52)** — Reorganização interna de `src/lib/`: achatamento de 4 subdirs single-file, agrupamento de Better Auth (`permissions` + `password-complexity` → `lib/auth/`), agrupamento de Sentry (`sentry.ts` + `error-reporter.ts` → `lib/sentry/`). Débitos #4 e #6 fechados.
+- **2026-04-23 (CP-53 Fase 1)** — Auditoria de qualidade de 25 arquivos em `src/lib/` (8 agentes paralelos + 8 arquivos triviais auditados pelo parent). 15 Open Questions registradas. Matriz consolidada em changelog.
+- **2026-04-23 (CP-53 Fase 2 — PR #271)** — 10 commits atômicos de fixes objetivos não-bloqueados por OQs. Destaques: PII redaction em logs/Sentry (LGPD), extração de 6 callbacks do auth.ts, admin allowlist normalize (whitespace/case bug), email env vars. 707/707 tests passando. Débitos #70 e #71 fechados.
 
 Changelog completo: [changelog.md](./changelog.md).

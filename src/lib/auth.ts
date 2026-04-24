@@ -4,12 +4,7 @@ import { APIError } from "better-auth/api";
 import { hashPassword, verifyPassword } from "better-auth/crypto";
 import { apiKey, openAPI } from "better-auth/plugins";
 import { admin } from "better-auth/plugins/admin";
-import {
-  type Invitation,
-  type Member,
-  type Organization,
-  organization,
-} from "better-auth/plugins/organization";
+import { organization } from "better-auth/plugins/organization";
 import { twoFactor } from "better-auth/plugins/two-factor";
 import type { Session, User } from "better-auth/types";
 import { localization } from "better-auth-localization";
@@ -18,13 +13,7 @@ import { fullSchema } from "@/db/schema";
 import { env, isTest } from "@/env";
 import { handleWelcomeEmail } from "@/lib/auth/admin-helpers";
 import {
-  auditInvitationAccept,
   auditLogin,
-  auditMemberAdd,
-  auditMemberRemove,
-  auditMemberRoleUpdate,
-  auditOrganizationDelete,
-  auditOrganizationUpdate,
   auditUserCreate,
   auditUserDelete,
 } from "@/lib/auth/audit-helpers";
@@ -33,6 +22,12 @@ import {
   activateProvisionOnPasswordReset,
   applyAdminRolesBeforeUserCreate,
   assignInitialActiveOrganizationId,
+  onInvitationAccepted,
+  onMemberAdded,
+  onMemberRemoved,
+  onMemberRoleUpdated,
+  onOrganizationDeleted,
+  onOrganizationUpdated,
   sendOrganizationInvitationForHook,
   sendPasswordResetForProvisionOrDefault,
   triggerAfterCreateOrganizationEffects,
@@ -43,12 +38,12 @@ import {
 } from "@/lib/auth/hooks";
 import { validateUniqueRole } from "@/lib/auth/validators";
 import { parseOrigins } from "@/lib/cors";
+import { validatePasswordComplexity } from "./auth/password-complexity";
+import { orgAc, orgRoles, systemAc, systemRoles } from "./auth/permissions";
 import {
   sendTwoFactorOTPEmail,
   sendVerificationEmail as sendVerificationEmailFn,
 } from "./email";
-import { validatePasswordComplexity } from "./password-complexity";
-import { orgAc, orgRoles, systemAc, systemRoles } from "./permissions";
 
 const trustedOrigins = parseOrigins(env.CORS_ORIGIN);
 
@@ -88,7 +83,8 @@ export const auth = betterAuth({
   },
   emailVerification: {
     async sendVerificationEmail({ user, url }) {
-      // Admin/super_admin já são criados com emailVerified: true — não enviar
+      // Skip quando user já está verified (admins, super_admins e invitees
+      // são criados com emailVerified: true em applyAdminRolesBeforeUserCreate)
       if (user.emailVerified) {
         return;
       }
@@ -191,113 +187,23 @@ export const auth = betterAuth({
       organizationHooks: {
         beforeCreateInvitation: validateBeforeCreateInvitation,
         afterCreateOrganization: triggerAfterCreateOrganizationEffects,
-        afterUpdateOrganization: async ({
-          organization: org,
-          user,
-        }: {
-          organization: Organization | null;
-          user: User;
-        }) => {
-          if (org) {
-            await auditOrganizationUpdate(org, user.id);
-          }
-        },
+        afterUpdateOrganization: onOrganizationUpdated,
         beforeDeleteOrganization: validateBeforeDeleteOrganization,
-        afterDeleteOrganization: async ({
-          organization: org,
-          user,
-        }: {
-          organization: Organization | null;
-          user: User;
-        }) => {
-          if (org) {
-            await auditOrganizationDelete(org, user.id);
-          }
+        afterDeleteOrganization: onOrganizationDeleted,
+        afterAcceptInvitation: onInvitationAccepted,
+        afterUpdateMemberRole: onMemberRoleUpdated,
+        afterAddMember: onMemberAdded,
+        afterRemoveMember: onMemberRemoved,
+        beforeAddMember: async ({ member, organization: org }) => {
+          await validateUniqueRole(member.role, org.id);
         },
-        afterAcceptInvitation: async ({
-          invitation,
-          member,
-          organization: org,
-        }: {
-          invitation: Invitation;
-          member: Member;
-          organization: Organization;
-        }) => {
-          await auditInvitationAccept(
-            {
-              id: invitation.id,
-              email: invitation.email,
-              role: invitation.role,
-            },
-            { id: member.id, userId: member.userId },
-            org.id
-          );
-        },
-        beforeRemoveMember: ({ member }: { member: Member }) => {
+        beforeRemoveMember: ({ member }) => {
           if (member.role === "owner") {
             throw new APIError("FORBIDDEN", {
               message: "O proprietário da organização não pode ser removido.",
             });
           }
           return Promise.resolve();
-        },
-        afterUpdateMemberRole: async ({
-          member,
-          previousRole,
-          user,
-          organization: org,
-        }: {
-          member: Member;
-          previousRole: string;
-          user: User;
-          organization: Organization;
-        }) => {
-          await auditMemberRoleUpdate({
-            member: { id: member.id, userId: member.userId },
-            previousRole,
-            newRole: member.role,
-            organizationId: org.id,
-            updatedByUserId: user.id,
-          });
-        },
-        beforeAddMember: async ({
-          member,
-          organization: org,
-        }: {
-          member: { role: string };
-          organization: Organization;
-        }) => {
-          await validateUniqueRole(member.role, org.id);
-        },
-        afterAddMember: async ({
-          member,
-          user,
-          organization: org,
-        }: {
-          member: Member;
-          user: User;
-          organization: Organization;
-        }) => {
-          await auditMemberAdd(
-            { id: member.id, userId: member.userId, role: member.role },
-            org.id,
-            user.id
-          );
-        },
-        afterRemoveMember: async ({
-          member,
-          user,
-          organization: org,
-        }: {
-          member: Member;
-          user: User;
-          organization: Organization;
-        }) => {
-          await auditMemberRemove(
-            { id: member.id, userId: member.userId, role: member.role },
-            org.id,
-            user.id
-          );
         },
       },
     }),
