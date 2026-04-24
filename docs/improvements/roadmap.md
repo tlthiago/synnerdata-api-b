@@ -114,7 +114,7 @@ Organizado em **5 PRs dedicados** (refactors grandes) + ações pontuais.
 | **CP-41** | Workflow dedicado para integration tests externos (Pagar.me) — novo `.github/workflows/test-integration.yml` com `workflow_dispatch` + schedule semanal, secrets de sandbox Pagar.me configurados, rodando apenas testes gated por `skipIntegration`. Destrava cobertura real dos módulos `src/modules/payments/*` em CI (hoje só rodam em máquina de dev) | Follow-up de RU-5 | new | M | — |
 | **CP-42** | ✅ **2026-04-22** — Helper `buildAuditChanges(before, after)` em `src/modules/audit/pii-redaction.ts` com 25 unit tests. Redação automática de 11 campos PII (CPF, RG, pisPasep, CTPS, email, phone, mobile, salary, hourlyRate, CID, birthDate) e exclusão de metadata (createdAt/updatedAt/createdBy/updatedBy/deletedAt/deletedBy). Convenção documentada em `src/modules/audit/CLAUDE.md`. Aplicado em employees (create/update/updateStatus/delete), medical-certificates (create/update/delete) e subscription (cancel/restore). Enum `auditResourceSchema` alinhado com a spec: renomeado `medical_leave` → `medical_certificate`, adicionado `labor_lawsuit` | #96 (parcial), LGPD Art. 18/48 | refactor | M | — |
 | **CP-43** | ✅ **2026-04-22** — `auditPlugin` mountado nos 4 controllers (`employee`, `medical_certificate`, `cpf_analysis`, `labor_lawsuit`). GET `/:id` emite `audit({ action: "read", resource, resourceId })` após resolve bem-sucedido. Listagens **não** auditam (ruído). Fix no plugin: destructure movido pra dentro do `audit()` (derive rodava antes do macro auth resolver user/session). Enum `auditResourceSchema` ganhou `cpf_analysis`. Integration test em `medical-certificates/__tests__/get-medical-certificate.test.ts`. Convenção documentada em `src/modules/audit/CLAUDE.md` seção "Read Audit (CP-43)" | #96 (complementa), LGPD Art. 11/48 | new | M | RU-7 |
-| **CP-44** | Audit BOLA automatizado em CI — script que AST-scan `src/modules/**/*.service.ts` identificando queries `db.select/update/delete` em tabelas org-scoped sem filtro `organizationId`. Falha PR se gap novo introduzido. Preventivo contra regressão após RU-9 ter validado o estado limpo atual | Follow-up de RU-9 | new | M | — |
+| ~~**CP-44**~~ | ~~Audit BOLA automatizado em CI~~ → **Reclassificado para MP-27 em 2026-04-24** — preventivo contra regressão que não tem sinal hoje: solo dev + pattern bem estabelecido + RU-9 validou estado limpo (0/50 gaps) + testes cross-org dinâmicos já existem em 3 módulos representativos. Sinal para reativar: equipe cresce (2+ devs), onboarding de novo dev, near-miss real de BOLA, ou refactor grande em `src/modules/` | — | — | — | — |
 | **CP-45** | ✅ **2026-04-22** — Local Backup Retention ajustado para 7 backups / 7 dias / 2 GB no Coolify (R2 inalterado em 30/30/8). Ação operacional pura na UI, sem código. Runbook atualizado | Follow-up de RU-10 | config | S | — |
 | **CP-46** | Migração ultracite 6 → 7 (Biome → Oxc) — descoberto em CP-40. Ultracite 7 trocou o engine subjacente de Biome para Oxc (`oxlint` + `oxfmt`). Requer: remover `@biomejs/biome` das devDeps, validar `biome.json`/`biome.jsonc` → config equivalente em Oxc, rodar `ultracite check` + `ultracite fix` em todo o codebase, validar que pre-commit via `lint-staged` continua funcionando. Não é tooling crítico para segurança — espera janela dedicada | Descoberto em CP-40 | refactor | L | — |
 | **CP-47** | Migração better-auth 1.4 → 1.6 — descoberto em CP-40. Envolve: (a) adicionar coluna `verified` na tabela `twoFactor` (schema migration, default `true`, sem backfill necessário — run `npx @better-auth/cli generate` + drizzle-kit generate + migrate); (b) validar mudança de semântica de `session.freshAge` (agora calculado de `createdAt` em vez de `updatedAt`); (c) rodar suíte completa de auth + 2FA para detectar regressões em hooks, permissions, api-keys; (d) revisar release notes 1.5/1.6 para features opcionais úteis (OTel instrumentation, WeChat provider, etc.). Não é CVE — CVEs de `defu`/`kysely` foram resolvidas via overrides em CP-40 | Descoberto em CP-40 | refactor | L | — |
@@ -122,7 +122,7 @@ Organizado em **5 PRs dedicados** (refactors grandes) + ações pontuais.
 | **CP-49** | Sync react/react-dom versions — descoberto em CP-40. `react-dom` não está nas devDeps diretas mas é pulled por `@react-email/components`, e fica desalinhado de `react` em patches (`bun update` bumpou react → 19.2.5 enquanto react-dom ficou em 19.2.4, causando runtime mismatch). Opções: (a) adicionar `react-dom` às devDeps pinado ao mesmo patch; (b) manter `react` pinado exato (feito em CP-40 como contenção); (c) override de `react-dom` matching `react`. Decidir quando for revisar deps novamente | Descoberto em CP-40 | config | S | — |
 | **CP-50** | Migração TypeScript 5.9 → 6.x — descoberto em CP-40 quando CI falhou ao puxar TS 6.0.3 ephemerally (TS não estava em devDeps). TS 6 transforma `moduleResolution=node` em erro deprecated (antes era warning). Requer: (a) alterar `tsconfig.json` de `"moduleResolution": "node"` para `"bundler"` (recomendado Elysia/Bun) ou `"node16"`; (b) auditar imports para compatibilidade com resolução nova (extensões obrigatórias em alguns casos); (c) remover o pin `~5.9.3` após migração validada. Contenção atual: TS pinado em devDeps `~5.9.3` | Descoberto em CP-40 | refactor | M | — |
 
-**Total bucket 🟡: 50 ações registradas · 14 ativas · 33 concluídas (CP-1, CP-3, CP-4, CP-5, CP-6, CP-7, CP-8, CP-9, CP-13, CP-20, CP-21, CP-22, CP-23, CP-24, CP-25, CP-26, CP-27, CP-28, CP-29, CP-30, CP-31, CP-32, CP-33, CP-34, CP-35, CP-36, CP-37, CP-38, CP-39, CP-40, CP-42, CP-43, CP-45) · 2 reclassificadas para MP (CP-18 → MP-24, CP-19 → MP-25 em 2026-04-23) · 1 contenção temporária (CP-50).**
+**Total bucket 🟡: 50 ações registradas · 13 ativas · 33 concluídas (CP-1, CP-3, CP-4, CP-5, CP-6, CP-7, CP-8, CP-9, CP-13, CP-20, CP-21, CP-22, CP-23, CP-24, CP-25, CP-26, CP-27, CP-28, CP-29, CP-30, CP-31, CP-32, CP-33, CP-34, CP-35, CP-36, CP-37, CP-38, CP-39, CP-40, CP-42, CP-43, CP-45) · 3 reclassificadas para MP (CP-18 → MP-24, CP-19 → MP-25 em 2026-04-23; CP-44 → MP-27 em 2026-04-24) · 1 contenção temporária (CP-50).**
 
 ##### Ordem de execução sugerida
 
@@ -134,7 +134,7 @@ Sequência proposta para extrair valor rápido antes de atacar os refactors gran
 | **Onda 2 — Compliance LGPD (débito #96)** | ✅ **Concluída em 2026-04-22** | CP-42 (M) → CP-43 (M) | CP-42 entregou a convenção (`buildAuditChanges` + redação PII); CP-43 aplicou `auditPlugin` nos 4 GET handlers sensíveis. Débito #96 100% endereçado |
 | **Onda 3 — Qualidade pontual** | 🔄 Em progresso — **PRs A/B/C entregues 2026-04-22** (9 S's + CP-25 + CP-30). Resta apenas **CP-41** (M) como PR-D standalone | CP-24✅, CP-27✅, CP-29✅, CP-31✅, CP-34✅, CP-35✅, CP-36✅, CP-37✅, CP-39✅ (todos S); CP-25✅, CP-30✅, CP-41 (M) | PR-C: 5 S's de "Qualidade geral" em 5 commits. PR-B: 3 S's de "Error handling + env" em 3 commits. PR-A: 1 S + 2 M's de "Auth hardening" em 3 commits (log unauthorized, inheritRole, dynamic→static imports). CP-41 vale PR separada (workflow novo, requer secrets sandbox Pagar.me) |
 | **Onda 4 — Cloudflare + Observabilidade** | Depende de janela com o dono (CP-14 precisa alinhar DNS) | CP-14 → CP-15 → CP-16; CP-17 (inclui #43) | Cloudflare é sequencial (CP-14 destrava CP-15 destrava CP-16). CP-17 standalone. _Ex-CP-18/19 reclassificados para MP-24/25 em 2026-04-23._ |
-| **Onda 5 — Refactors grandes** | PRs dedicados, worktree obrigatório (XL), plan formal em `docs/plans/` | CP-2 (XL, bloqueado por #269); CP-44 (M, BOLA AST) | CP-2 é último por design (toca auth). CP-44 é tooling preventivo — atacar após CP-38. _CP-1/3/4/5/6/26/28/32/33/38 já concluídos 2026-04-22/24._ |
+| **Onda 5 — Refactors grandes** | PRs dedicados, worktree obrigatório (XL), plan formal em `docs/plans/` | CP-2 (XL, bloqueado por #269) | CP-2 é último por design (toca auth). _CP-1/3/4/5/6/26/28/32/33/38 já concluídos 2026-04-22/24. CP-44 reclassificado para MP-27 em 2026-04-24._ |
 | **Onda 6 — Infra hardening pequeno** ⭐ criada 2026-04-23 | 1 PR batch com commits atômicos | CP-10 (S, Docker SHA pin), CP-11 (S, HEALTHCHECK deep), CP-12 (S, wait-for-db), CP-49 (S, react/react-dom sync) | 4 CPs órfãos (sem wave original) agrupados. Todos S, independentes, infra-only. ~2-3h total em PR único |
 | **Onda 7 — Tooling migrations** ⭐ criada 2026-04-23 | PRs dedicados, um por migration, risco alto | CP-48 (M, Zod 4.1→4.3) → CP-47 (L, better-auth 1.4→1.6) → CP-46 (L, ultracite 6→7) → CP-50 (M, TypeScript 5.9→6.x, contenção atual) | Seguir ordem de risco crescente. Cada migration em worktree + PR próprio + janela de teste. Follow-ups do CP-40 (triagem de deps). Bloqueio externo mínimo; mais a estabilidade da suíte |
 
@@ -145,21 +145,20 @@ Sequência proposta para extrair valor rápido antes de atacar os refactors gran
 - **Ondas 6 e 7 criadas em 2026-04-23** durante sync de wave governance — realocam 8 CPs órfãos (CP-10/11/12/46/47/48/49/50) que nunca tinham sido mapeados em onda original.
 - Reavaliar ordem a cada 5 CPs concluídos — aprendizado do bucket 🔴 mostrou que prioridades mudam ao descobrir o escopo real.
 
-#### Ordem de execução recomendada (atualizada 2026-04-23)
+#### Ordem de execução recomendada (atualizada 2026-04-24)
 
 Sequência pragmática por **valor × custo × dependência**:
 
 | Prioridade | CP | Onda | Tamanho | Depende de | Racional |
 |---|---|---|---|---|---|
-| 🟡 1 | **CP-44** BOLA AST automation | Onda 5 | M | — | Security preventive LGPD + multi-tenant; follow-up RU-9 |
-| 🟡 3 | **CP-41** Pagarme integration tests workflow | Onda 3 | M | Secrets sandbox Pagar.me | Payments crítico; fecha Onda 3 (última ação restante) |
-| 🟡 4 | **Onda 6 batch** (CP-10/11/12/49) | Onda 6 | 4×S | — | Infra hardening quick wins em PR único |
-| 🟡 5 | **CP-17** Métricas OTel/Prometheus | Onda 4 | M | Decisão OTel vs Prometheus | Observability gap conhecido; inclui #43 agregado |
-| 🟢 6 | **CP-14 → 15 → 16** Cloudflare | Onda 4 | S→M→S | DNS do cliente (externo) | Sequencial, bloqueio externo |
-| 🟢 7 | **Onda 7 seq** (CP-48→47→46→50) | Onda 7 | M→L→L→M | Estabilidade da suíte | Tooling migrations em janela dedicada |
-| ⏸️ 8 | **CP-2** Emails consolidation | Onda 5 | XL | Issue #269 (flakes) | Último por design; worktree + plan formal obrigatórios |
+| 🟡 1 | **CP-41** Pagarme integration tests workflow | Onda 3 | M | Secrets sandbox Pagar.me | Payments crítico; fecha Onda 3 (última ação restante) |
+| 🟡 2 | **Onda 6 batch** (CP-10/11/12/49) | Onda 6 | 4×S | — | Infra hardening quick wins em PR único |
+| 🟡 3 | **CP-17** Métricas OTel/Prometheus | Onda 4 | M | Decisão OTel vs Prometheus | Observability gap conhecido; inclui #43 agregado |
+| 🟢 4 | **CP-14 → 15 → 16** Cloudflare | Onda 4 | S→M→S | DNS do cliente (externo) | Sequencial, bloqueio externo |
+| 🟢 5 | **Onda 7 seq** (CP-48→47→46→50) | Onda 7 | M→L→L→M | Estabilidade da suíte | Tooling migrations em janela dedicada |
+| ⏸️ 6 | **CP-2** Emails consolidation | Onda 5 | XL | Issue #269 (flakes) | Último por design; worktree + plan formal obrigatórios |
 
-**Projeção**: completando priorities 1-5 (~12-16h), bucket 🟡 fica reduzido a CP-2 (bloqueado) + sequência Cloudflare (externo) + Onda 7 (janela dedicada). Pode-se afirmar que "trabalho planejável" acabou.
+**Projeção**: completando priorities 1-4 (~8-12h), bucket 🟡 fica reduzido a CP-2 (bloqueado) + sequência Cloudflare (externo) + Onda 7 (janela dedicada). Pode-se afirmar que "trabalho planejável" acabou.
 
 #### 🟢 Bucket Médio Prazo / Sob Demanda (quando houver sinal real)
 
@@ -193,8 +192,9 @@ Não investir antes do sinal. Cada item lista o **sinal que justifica investir**
 | **MP-24** | Política de deprecation com headers `Deprecation` / `Sunset` — documentar em `docs/api-versioning.md` + helper em `lib/responses/` para injetar headers. Destravado por CP-3 (src/routes/v1/ composer) | Ex-CP-18, reclassificado 2026-04-23; Early #9 | Primeiro breaking change real sendo planejado em endpoint público (ex: mover rota, mudar schema de response, remover campo) |
 | **MP-25** | Playwright E2E em workflow CI — novo workflow ou step em `test.yml` (pelo menos no schedule diário) | Ex-CP-19, reclassificado 2026-04-23; #78 | 2+ regressões de UX detectadas em produção (não em CI) OU crescimento da equipe torna integration tests insuficientes para cobrir fluxos críticos |
 | **MP-26** | Paginação padronizada — extrair `paginationQuerySchema` para `src/lib/schemas/pagination.ts` e migrar 4 callsites (`price-adjustment`, `admin-provision`, `cbo-occupations`, `admin/organizations`). Fecha gap de §4.1 #11 + §4.2 #6 do `principles.md` | #97; ex-CP-51 candidato, criado formalmente como MP em 2026-04-23 | 5+ endpoints com paginação (aumenta risco de inconsistência) OU bug real de esquecimento de `.max()` em novo endpoint OU planejamento de cursor pagination (MP-1) exigir helper compartilhado |
+| **MP-27** | Audit BOLA automatizado em CI — script AST-scan `src/modules/**/*.service.ts` identificando queries `db.select/update/delete` em tabelas org-scoped sem filtro `organizationId`. Falha PR se gap novo introduzido. Preventivo contra regressão. Implementação-guia: TS compiler API + parse do schema Drizzle (auto-descoberta de tabelas com `organizationId`) + exemption via comentário `// bola-ok: <motivo>` para o pattern "read-then-operate-by-id". Allowlist: `modules/admin/*` (cross-org deliberado) | Ex-CP-44, reclassificado 2026-04-24; Follow-up de RU-9 | Equipe cresce (2+ devs) OU onboarding de novo dev (risco de drift do pattern) OU near-miss real de BOLA em review/produção OU refactor grande em `src/modules/` onde cobertura manual fica exaustiva |
 
-**Total bucket 🟢: 26 ações monitoradas (+2 reclassificadas de CP-18/CP-19 + MP-23/MP-26 formalizados em 2026-04-23). Nenhuma investida agora — aguardar sinal.**
+**Total bucket 🟢: 27 ações monitoradas (+3 reclassificadas de CP-18/CP-19/CP-44 + MP-23/MP-26 formalizados). Nenhuma investida agora — aguardar sinal.**
 
 ---
 
@@ -203,7 +203,7 @@ Não investir antes do sinal. Cada item lista o **sinal que justifica investir**
 | Bucket | Ações | Esforço consolidado | Prazo alvo | Estado |
 |---|---|---|---|---|
 | 🔴 Urgente | 10 | ~7 S/M + 1 L = 2-3 semanas com foco parcial | até 30 dias | ✅ Concluído em 2026-04-22 (1 dia de execução efetiva) |
-| 🟡 Curto prazo | 50 registradas (33 done · 14 ativas · 2 reclassificadas · 1 contenção) | 4 planos XL/L + ~25 S/M | 30-90 dias | 🔄 Em execução — Ondas 1/2/3 quase completas (resta CP-41); Onda 5 em andamento (10 CPs + 1 follow-up entregues, CP-38 runbooks 2026-04-24) |
+| 🟡 Curto prazo | 50 registradas (33 done · 13 ativas · 3 reclassificadas · 1 contenção) | 4 planos XL/L + ~25 S/M | 30-90 dias | 🔄 Em execução — Ondas 1/2/3 quase completas (resta CP-41); Onda 5 em 10/11 (91%): CP-1/3/4/5/6/26/28/32/33/38 concluídos, resta apenas CP-2 (bloqueado por #269). CP-44 reclassificado para MP-27 em 2026-04-24 |
 | 🟢 Médio prazo | 21 | Sob demanda | indefinido (monitorar sinais) | ⏸️ Sem investimento até sinal concreto |
 
 **Princípios de execução:**
