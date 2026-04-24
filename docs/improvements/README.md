@@ -13,8 +13,8 @@
 | Bucket | Total | Done | Active | Progresso |
 |---|---|---|---|---|
 | 🔴 **Urgente** (MVP-bloqueante) | 10 | 10 | 0 | ✅ **Completo** em 2026-04-22 |
-| 🟡 **Curto prazo** (hardening, 30-90d) | 50 | 32 | 17 | **64%** · Ondas 1/2 completas, Onda 5 em 9/12 |
-| 🟢 **Médio prazo** (sob demanda) | 22 | 0 | 22 | sinal-driven — sem investimento ativo |
+| 🟡 **Curto prazo** (hardening, 30-90d) | 50 | 32 | 15 | **64%** · 2 reclassificadas para MP em 2026-04-23 (CP-18→MP-24, CP-19→MP-25) |
+| 🟢 **Médio prazo** (sob demanda) | 26 | 0 | 26 | +4 em 2026-04-23 (MP-23 formalizado + MP-24/25 ex-CP + MP-26 ex-candidato CP-51) |
 
 ### Saúde do codebase
 
@@ -30,7 +30,7 @@
 - **`lib/auth.ts`** 856→339 linhas (CP-4 L) + auth-plugin 396→79 linhas, split em `lib/auth/*` + `plugins/auth-guard/*`.
 - **`lib/errors/`** depurado (CP-5 L): só erros HTTP universais. Errors de domínio em `modules/<X>/errors.ts`. Factory `errorSchema<C>`.
 - **Webhook Pagar.me hardened** (CP-6 M): Zod validation declarativa + observability logs + Sentry via `ErrorReporter` wrapper (CP-6 follow-up).
-- **`src/routes/v1/`** composer centralizando `/v1` (CP-3 L): 25 controllers perderam `/v1` dos próprios `prefix:`; versão é responsabilidade única do composer. Destrava **CP-18** (deprecation headers).
+- **`src/routes/v1/`** composer centralizando `/v1` (CP-3 L): 25 controllers perderam `/v1` dos próprios `prefix:`; versão é responsabilidade única do composer. Destrava **MP-24** (deprecation headers, ex-CP-18 reclassificado em 2026-04-23).
 - **Permissions inheritance** (CP-25 M): `inheritRole` helper reduz ~112 linhas de duplicação; matrix test 109 assertions preservado.
 - **LGPD 100% endereçado** (CP-42 + CP-43 M): `buildAuditChanges` com PII redaction + `auditPlugin` mountado em 4 GET handlers sensíveis.
 
@@ -52,21 +52,21 @@
 
 ### Paralelizável (agora destravado)
 
-- **CP-18 (M)** — deprecation headers `Deprecation`/`Sunset`. Destravado por CP-3. Pode rodar com Onda 4 Observabilidade.
+- ~~**CP-18**~~ → **MP-24** (reclassificado 2026-04-23) — deprecation headers ficam no bucket 🟢, sinal para reativar é primeiro breaking change real.
 
 ### Candidatos pós-sync (2026-04-23)
 
-- **CP-51 (S, candidato)** — extrair `paginationQuerySchema` para `lib/schemas/pagination.ts` e migrar 4 callsites (débito #97). Fecha gap de §4.1 #11 + §4.2 #6 do `principles.md`.
+- ~~**CP-51 (candidato)**~~ → **MP-26** (formalizado 2026-04-23). Paginação schema compartilhado ficou no bucket 🟢 — sinal para ativar: 5+ endpoints paginados OU bug real de `.max()` esquecido.
 - ✅ **CP-52 entregue (2026-04-23)** — reorganização interna de `src/lib/` (Opção B): 3 commits atômicos, achatamento de 4 subdirs single-file + agrupamento de Better Auth + agrupamento de Sentry. Débitos #4 e #6 fechados.
 - ✅ **CP-53 Fase 1 entregue (2026-04-23)** — auditoria de qualidade de 25 arquivos em `src/lib/`, 15 Open Questions registradas em [`open-questions.md`](./open-questions.md). Matriz de ações consolidada.
 - ✅ **CP-53 Fase 2 entregue (2026-04-23, PR #271)** — 10 commits atômicos de fixes objetivos (não-bloqueados por OQs): PII redaction em logs + Sentry, auth/hooks 6 smells, extração de 6 callbacks pra hooks.ts, email env vars + requireTLS, admin allowlist normalize, date-helpers validation, shutdown portability, types tightening. Débitos #70 e #71 fechados, #73 parcial.
 - **CP-53 Fase 3 (pendente)** — fixes bloqueados por OQs (1-15). Destravam conforme OQs forem respondidas.
-- **MP-23 (candidato)** — field-level authorization em responses (débito #98). Sinal: requisito concreto do cliente ou auditoria LGPD Art. 18.
+- ~~**MP-23 (candidato)**~~ → formalizado no roadmap.md como **MP-23** (field-level authorization em responses, débito #98). Sinal: requisito concreto do cliente ou auditoria LGPD Art. 18.
 
 ### Onda 4 (pós-Onda 5) — requer brainstorm
 
 - **CP-17 (M)** — métricas básicas (OTel/Prometheus). Gap operacional conhecido: "Sem métricas ainda".
-- **CP-19 (M)** — Playwright E2E em CI.
+- ~~**CP-19**~~ → **MP-25** (reclassificado 2026-04-23) — Playwright E2E em bucket 🟢, sinal é regressão UX não-pega-em-CI ou crescimento da equipe.
 - **Cloudflare Free Tier** — CP-14 → 15 → 16 (blocked pelo cliente: DNS registro.br).
 
 ---

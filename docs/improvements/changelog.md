@@ -11,6 +11,28 @@
 
 Registro temporal das decisões e entregas desta iniciativa. **Toda atualização do documento deve adicionar uma entrada aqui** (data ISO + resumo).
 
+### 2026-04-23 — Reclassificação de CP→MP + formalização de candidatos
+
+Revisão honesta dos CPs abertos aplicando o critério "tem sinal pressing hoje vs esperando sinal futuro". Resultado: 2 CPs reclassificados para MP, 2 candidatos formalizados como MP.
+
+**Reclassificações CP → MP**:
+
+- **CP-18 → MP-24** (deprecation headers `Deprecation`/`Sunset`). Destravado por CP-3 mas preventivo para evento que não está no radar. Sinal para ativar: primeiro breaking change real planejado em endpoint público.
+- **CP-19 → MP-25** (Playwright E2E em CI). E2E é investimento caro de manter; `app.handle()` + factories cobrem fluxos integrados hoje. Sinal: 2+ regressões UX detectadas em prod (não em CI) OU equipe cresce.
+
+**Candidatos formalizados como MP**:
+
+- **MP-23** (field-level authz em responses) — era candidato no README desde sync pass do CP-53 Fase 1. Formalizado. Débito #98 coberto. Sinal: requisito concreto do cliente OU auditoria LGPD Art. 18 gap OU enterprise RBAC.
+- **MP-26** (paginação padronizada) — era candidato CP-51 no README. Agora MP formal. Débito #97. Sinal: 5+ endpoints paginados OU bug real de `.max()` esquecido OU planejamento de cursor pagination.
+
+**CP-2 (emails consolidation) mantido como CP** — usuário avaliou e preferiu manter. Segue bloqueado por issue #269 (flakes state leak).
+
+**Contadores atualizados**:
+- Bucket 🟡: 50 ações · 32 concluídas · **15 ativas** (era 17) · 2 reclassificadas · 1 contenção
+- Bucket 🟢: **26 ações** (era 22) · nenhuma investida · aguardar sinal
+
+**Princípio reforçado**: distinguir "committed para 30-90d" (CP) de "sob demanda, sinal-driven" (MP) mantém o bucket 🟡 focado em valor operacional pressing e dá honestidade sobre o que é scaffolding preventivo. Cross-refs atualizadas em `roadmap.md`, `principles.md`, `debts.md`, `README.md`.
+
 ### 2026-04-23 — OQ-14 resolvida: política de 2 classes para erros de email (commit `42699a0`)
 
 Formalizada política de erro em emails, aplicada via novo helper `sendBestEffort` em `src/lib/email.tsx`:
