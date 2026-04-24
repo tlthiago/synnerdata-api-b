@@ -203,7 +203,7 @@ Não investir antes do sinal. Cada item lista o **sinal que justifica investir**
 | Bucket | Ações | Esforço consolidado | Prazo alvo | Estado |
 |---|---|---|---|---|
 | 🔴 Urgente | 10 | ~7 S/M + 1 L = 2-3 semanas com foco parcial | até 30 dias | ✅ Concluído em 2026-04-22 (1 dia de execução efetiva) |
-| 🟡 Curto prazo | 50 registradas (33 done · 16 ativas · 1 contenção) | 4 planos XL/L + ~25 S/M | 30-90 dias | 🔄 Em execução — Ondas 1/2/3 quase completas (resta CP-41); Onda 5 em andamento (9 CPs + 1 follow-up entregues, CP-38 runbooks 2026-04-24) |
+| 🟡 Curto prazo | 50 registradas (33 done · 14 ativas · 2 reclassificadas · 1 contenção) | 4 planos XL/L + ~25 S/M | 30-90 dias | 🔄 Em execução — Ondas 1/2/3 quase completas (resta CP-41); Onda 5 em andamento (10 CPs + 1 follow-up entregues, CP-38 runbooks 2026-04-24) |
 | 🟢 Médio prazo | 21 | Sob demanda | indefinido (monitorar sinais) | ⏸️ Sem investimento até sinal concreto |
 
 **Princípios de execução:**
