@@ -35,8 +35,8 @@ describe("Delete Account", () => {
     app = createTestApp();
     await PlanFactory.createTrial();
 
-    const emailModule = await import("@/lib/email");
-    spyOn(emailModule, "sendWelcomeEmail").mockResolvedValue(undefined);
+    const { EmailDispatcher } = await import("@/lib/email-dispatcher");
+    spyOn(EmailDispatcher, "sendWelcomeEmail").mockResolvedValue(undefined);
   });
 
   describe("user without organization", () => {

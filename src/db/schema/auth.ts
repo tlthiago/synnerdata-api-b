@@ -110,6 +110,7 @@ export const twoFactors = pgTable(
     userId: text("user_id")
       .notNull()
       .references(() => users.id, { onDelete: "cascade" }),
+    verified: boolean("verified").default(true),
   },
   (table) => [
     index("twoFactors_secret_idx").on(table.secret),
@@ -258,9 +259,10 @@ export const apikeys = pgTable(
     start: text("start"),
     prefix: text("prefix"),
     key: text("key").notNull(),
-    userId: text("user_id")
+    referenceId: text("reference_id")
       .notNull()
       .references(() => users.id, { onDelete: "cascade" }),
+    configId: text("config_id").default("default").notNull(),
     refillInterval: integer("refill_interval"),
     refillAmount: integer("refill_amount"),
     lastRefillAt: timestamp("last_refill_at"),
@@ -279,12 +281,12 @@ export const apikeys = pgTable(
     permissions: text("permissions"),
     metadata: text("metadata"),
   },
-  (table) => [index("apikeys_userId_idx").on(table.userId)]
+  (table) => [index("apikeys_referenceId_idx").on(table.referenceId)]
 );
 
 export const apikeysRelations = relations(apikeys, ({ one }) => ({
   user: one(users, {
-    fields: [apikeys.userId],
+    fields: [apikeys.referenceId],
     references: [users.id],
   }),
 }));

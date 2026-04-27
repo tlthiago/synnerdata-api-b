@@ -1,5 +1,5 @@
 import { env } from "@/env";
-import { sendWelcomeEmail } from "@/lib/email";
+import { EmailDispatcher } from "@/lib/email-dispatcher";
 import { logger } from "@/lib/logger";
 
 function normalizeEmailList(raw: string): string[] {
@@ -24,7 +24,7 @@ export async function handleWelcomeEmail(user: {
   name: string;
 }): Promise<void> {
   try {
-    await sendWelcomeEmail({
+    await EmailDispatcher.sendWelcomeEmail({
       to: user.email,
       userName: user.name,
     });
