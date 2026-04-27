@@ -13,7 +13,7 @@
 | Bucket | Total | Done | Active | Progresso |
 |---|---|---|---|---|
 | 🔴 **Urgente** (MVP-bloqueante) | 10 | 10 | 0 | ✅ **Completo** em 2026-04-22 |
-| 🟡 **Curto prazo** (hardening, 30-90d) | 50 | 39 | 6 | **78%** · 4 reclassificadas para MP (CP-18→MP-24, CP-19→MP-25 em 2026-04-23; CP-44→MP-27, CP-46→MP-28 em 2026-04-24) · Onda 6/7 + CP-38 + #269 parcial entregues 2026-04-24 |
+| 🟡 **Curto prazo** (hardening, 30-90d) | 50 | 40 | 5 | **80%** · 4 reclassificadas para MP (CP-18→MP-24, CP-19→MP-25 em 2026-04-23; CP-44→MP-27, CP-46→MP-28 em 2026-04-24) · Onda 5 fechada em 11/11 + Onda 6/7 + CP-38 + #269 entregues 2026-04-24 |
 | 🟢 **Médio prazo** (sob demanda) | 28 | 0 | 28 | +2 em 2026-04-24 (MP-27 ex-CP-44, MP-28 ex-CP-46); +4 em 2026-04-23 (MP-23 + MP-24/25 ex-CP + MP-26 ex-candidato CP-51) |
 
 ### Saúde do codebase
@@ -22,7 +22,7 @@
 - ✅ **Ultracite clean** em 582 files
 - ✅ **66/98 débitos resolvidos** em `debts.md` (+ 2 reavaliados como não-débito) — 32 abertos (+3 fechados na Onda 6 batch: #87, #88, #89)
 - ✅ **Zero débito 🔴** pendente
-- ✅ **Onda 5 (refactors grandes)**: 10/11 entregues (91%) — resta apenas CP-2 (XL — bloqueado por issue [#269](https://github.com/tlthiago/synnerdata-api-b/issues/269)). CP-44 reclassificado para MP-27 em 2026-04-24
+- ✅ **Onda 5 (refactors grandes)**: **11/11 entregues (100%) ✅ — fechada em 2026-04-24** com CP-2 (emails consolidation). CP-44 reclassificado para MP-27
 
 ### Conquistas arquiteturais (Onda 5 — 2026-04-22/23)
 
@@ -52,7 +52,7 @@
 1. ~~**Onda 6 batch**~~ ✅ Entregue 2026-04-24 — CP-10 (Docker SHA pin) + CP-11 (HEALTHCHECK deep) + CP-12 (wait-for-db) + CP-49 (react/react-dom sync).
 2. ~~**Issue #269 tests 3+4**~~ ✅ Entregue 2026-04-24 — trial constraint self-contained + cpf-analyses dates explícitas. Tests 1+2 (email spy race) para CP-2.
 3. ~~**Onda 7 seq**~~ ✅ Encerrada 2026-04-24 — CP-48 ✅ + CP-47 ✅; CP-46 reclassificado → MP-28; CP-50 (TS 6) segue contenção.
-4. **CP-2** (XL, Onda 5) — Emails consolidation. Inclui `EmailDispatcher` wrapper que resolve #269 tests 1+2 de graça. Fecha Onda 5 em 11/11.
+4. ~~**CP-2**~~ ✅ Entregue 2026-04-24 — `src/lib/emails/` consolidado (mailer + 4 senders por domínio + components/templates movidos). Onda 5 fechada em 11/11.
 
 **🟡 Em paralelo (encaixa onde convier):**
 
@@ -70,6 +70,7 @@
 
 ### Histórico recente do bucket 🟡
 
+- ✅ **CP-2 entregue** (2026-04-24) — `src/lib/emails/` consolidado: `mailer.ts` + `senders/{auth,payments,admin,contact}.tsx` (19 senders splittados). `src/emails/` + `src/lib/email.tsx` deletados. Onda 5 fechada em 11/11.
 - ~~**CP-46**~~ → **MP-28** (reclassificado 2026-04-24 — Ultracite 6→7 / Biome→Oxc; upgrade-by-inertia, zero CVE/deprecation/feature necessária. Mesmo critério de CP-44)
 - ✅ **CP-47 entregue** (2026-04-24) — Better Auth `~1.4.22` → `~1.6.9`. apiKey movido para `@better-auth/api-key`, 2 migrations (two_factors.verified, apikeys reference_id/config_id), test de duplicate signup adaptado para nova enumeration protection. 2453+ tests passando.
 - ✅ **CP-48 entregue** (2026-04-24) — Zod `~4.1.13` → `~4.3.6`. Fix do `.partial() + refine` afetou apenas 1 arquivo (`medical-certificates.model.ts`). 1709+ tests passando em escopo grande.

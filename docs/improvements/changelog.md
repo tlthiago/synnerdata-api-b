@@ -11,6 +11,34 @@
 
 Registro temporal das decisões e entregas desta iniciativa. **Toda atualização do documento deve adicionar uma entrada aqui** (data ISO + resumo).
 
+### 2026-04-24 — CP-2 entregue: emails consolidados (Onda 5 fechada em 11/11)
+
+Último CP da Onda 5. Resolve débitos #8 e #9 (duplicação `src/emails/` vs `src/lib/email.tsx` + arquivo de 520 linhas concentrando transporter + 19 senders).
+
+**Estrutura nova** em `src/lib/emails/`:
+
+- `mailer.ts` — transporter Nodemailer + helpers `sendEmail` / `sendBestEffort` + `FROM_ADDRESS`
+- `senders/auth.tsx` — 7 senders (verification, reset, 2FA OTP, welcome, account-activation, provision-activation, organization-invitation)
+- `senders/payments.tsx` — 10 senders (upgrade, trial-expiring/expired, cancellation-scheduled, subscription-canceled, price-adjustment, plan-change, payment-failed, checkout-link, provision-checkout-link)
+- `senders/admin.tsx` — 1 sender (admin-cancellation-notice)
+- `senders/contact.tsx` — 1 sender (contact-message)
+- `components/`, `templates/`, `render.ts`, `constants.ts`, `__tests__/` — movidos de `src/emails/` via `git mv` (history preservada)
+
+**Consumers atualizados** (10 arquivos):
+
+- `src/lib/auth.ts`, `src/lib/auth/hooks.ts`, `src/lib/email-dispatcher.ts` (auth senders)
+- `src/modules/payments/{plan-change,admin-provision,checkout,jobs}/*.service.ts`, `src/modules/payments/hooks/listeners.ts`
+- `src/modules/public/contact/contact.service.ts`
+- 2 test files: `mock.module()` path atualizado para split (`@/lib/emails/senders/payments` + `@/lib/emails/senders/admin`); `spyOn` em `invitation-hooks.test.ts` aponta para `@/lib/emails/senders/auth`
+
+**Deletados**: `src/lib/email.tsx` (520 linhas), `src/emails/` (diretório).
+
+**Validação**: 1425 tests pass em escopo amplo (auth + admin + payments + public + lib + plugins). 2 fails são pré-existentes (subscription `TrialPlanMisconfiguredError` + orphaned pagarme cleanup), confirmados via stash em `preview`.
+
+**Estado final do bucket 🟡**: 40 done · 5 ativas · 4 reclassificadas · 1 contenção = 50. **Onda 5: 11/11 (100%)** ✅. Resta apenas trabalho paralelo: CP-41 (Pagarme tests, dep secrets), CP-17 (métricas), Cloudflare seq (DNS cliente), CP-50 (contenção TS 6).
+
+**Princípio confirmado**: refactor de organização XL bem delimitado entrega valor real (compreensão + manutenibilidade), e o EmailDispatcher do CP-47 já tinha eliminado o bloqueio do #269 antecipadamente.
+
 ### 2026-04-24 — Reclassificação CP-46 → MP-28 (Ultracite 6 → 7)
 
 Após executar CP-48 e CP-47 (que tinham breaking changes reais e exigiram trabalho efetivo), reavaliação honesta de CP-46 revelou perfil diferente:
