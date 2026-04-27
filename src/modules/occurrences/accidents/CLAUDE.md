@@ -10,6 +10,7 @@ Registro de acidentes de trabalho e incidentes.
 - `cat` (max 25 chars) opcional — número da CAT (Comunicação de Acidente de Trabalho)
 - CAT number deve ser único por organização (validado apenas quando fornecido)
 - Employee deve estar ativo no create (`ensureEmployeeActive` — rejeita TERMINATED e ON_VACATION)
+- `employeeId` é imutável após criação — para reatribuir, criar nova ocorrência e deletar a original
 - Listagem ordenada por `date`
 
 ## Audit logging

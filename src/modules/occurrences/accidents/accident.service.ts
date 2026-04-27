@@ -270,13 +270,6 @@ export abstract class AccidentService {
       throw new AccidentNotFoundError(id);
     }
 
-    if (data.employeeId && data.employeeId !== existing.employee.id) {
-      await AccidentService.getEmployeeReference(
-        data.employeeId,
-        organizationId
-      );
-    }
-
     if (data.cat !== undefined && data.cat !== existing.cat) {
       await AccidentService.ensureCatNotExists(organizationId, data.cat, id);
     }
@@ -285,9 +278,6 @@ export abstract class AccidentService {
       updatedBy: userId,
     };
 
-    if (data.employeeId !== undefined) {
-      updateData.employeeId = data.employeeId;
-    }
     if (data.date !== undefined) {
       updateData.date = data.date;
     }

@@ -147,41 +147,6 @@ describe("PUT /v1/accidents/:id", () => {
     expect(response.status).toBe(422);
   });
 
-  test("should reject invalid employee on update", async () => {
-    const { headers, organizationId, user } =
-      await createTestUserWithOrganization({
-        emailVerified: true,
-      });
-
-    const { employee } = await createTestEmployee({
-      organizationId,
-      userId: user.id,
-    });
-
-    const accident = await createTestAccident({
-      organizationId,
-      userId: user.id,
-      employeeId: employee.id,
-    });
-
-    const response = await app.handle(
-      new Request(`${BASE_URL}/v1/accidents/${accident.id}`, {
-        method: "PUT",
-        headers: {
-          ...headers,
-          "Content-Type": "application/json",
-        },
-        body: JSON.stringify({
-          employeeId: "invalid-employee-id",
-        }),
-      })
-    );
-
-    expect(response.status).toBe(404);
-    const body = await response.json();
-    expect(body.error.code).toBe("ACCIDENT_INVALID_EMPLOYEE");
-  });
-
   test("should clear nullable fields when null is sent", async () => {
     const { headers, organizationId, user } =
       await createTestUserWithOrganization({

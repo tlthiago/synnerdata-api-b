@@ -11,6 +11,7 @@ Registro de promoções com mudança de cargo e salário. Sincroniza automaticam
 - Salários: numbers na API, strings no banco, comparados como numbers internamente
 - Duplicate check no create: mesmo employee + mesma `promotionDate` lança `PromotionDuplicateDateError`
 - Employee deve estar ativo no create (`ensureEmployeeActive` — rejeita TERMINATED e ON_VACATION)
+- `employeeId` é imutável após criação — para reatribuir, criar nova ocorrência e deletar a original
 - Permissão usa resource específico `promotion`
 - Listagem ordenada por `promotionDate`
 

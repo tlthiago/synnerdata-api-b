@@ -210,9 +210,6 @@ export abstract class PromotionService {
       updatedBy: userId,
     };
 
-    if (data.employeeId !== undefined) {
-      updateData.employeeId = data.employeeId;
-    }
     if (data.promotionDate !== undefined) {
       updateData.promotionDate = data.promotionDate;
     }
@@ -548,10 +545,6 @@ export abstract class PromotionService {
     const existing = await PromotionService.findById(id, organizationId);
     if (!existing) {
       throw new PromotionNotFoundError(id);
-    }
-
-    if (data.employeeId) {
-      await EmployeeService.findByIdOrThrow(data.employeeId, organizationId);
     }
 
     if (data.previousJobPositionId) {

@@ -361,17 +361,7 @@ export abstract class WarningService {
       });
     }
 
-    if (data.employeeId !== undefined) {
-      await WarningService.getEmployeeReference(
-        data.employeeId,
-        organizationId
-      );
-    }
-
     const updateData = WarningService.buildUpdateData(data, userId);
-    if (data.employeeId !== undefined) {
-      updateData.employeeId = data.employeeId;
-    }
 
     const [updated] = await db
       .update(schema.warnings)

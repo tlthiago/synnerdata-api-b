@@ -246,15 +246,11 @@ export abstract class CpfAnalysisService {
     organizationId: string,
     input: UpdateCpfAnalysisInput
   ): Promise<CpfAnalysisData> {
-    const { userId, employeeId, ...data } = input;
+    const { userId, ...data } = input;
 
     const existing = await CpfAnalysisService.findById(id, organizationId);
     if (!existing) {
       throw new CpfAnalysisNotFoundError(id);
-    }
-
-    if (employeeId) {
-      await CpfAnalysisService.getEmployeeReference(employeeId, organizationId);
     }
 
     if (
@@ -263,7 +259,7 @@ export abstract class CpfAnalysisService {
     ) {
       await CpfAnalysisService.ensureNoDuplicateDate({
         organizationId,
-        employeeId: employeeId ?? existing.employee.id,
+        employeeId: existing.employee.id,
         analysisDate: data.analysisDate,
         excludeId: id,
       });
@@ -273,7 +269,6 @@ export abstract class CpfAnalysisService {
       .update(schema.cpfAnalyses)
       .set({
         ...data,
-        employeeId: employeeId ?? undefined,
         updatedBy: userId,
       })
       .where(

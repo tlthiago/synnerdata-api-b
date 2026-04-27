@@ -12,6 +12,7 @@ Registro de advertências e suspensões disciplinares.
 - `acknowledgedAt` convertido de string para Date no service
 - Duplicate check no create: mesmo employee + mesma `date` + mesmo `type` lança `WarningDuplicateError`
 - Employee deve estar ativo no create (`ensureEmployeeActive` — rejeita TERMINATED e ON_VACATION)
+- `employeeId` é imutável após criação — para reatribuir, criar nova ocorrência e deletar a original
 - Listagem ordenada por `date`
 
 ## Audit logging
