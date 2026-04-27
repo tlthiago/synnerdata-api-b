@@ -11,6 +11,24 @@
 
 Registro temporal das decisões e entregas desta iniciativa. **Toda atualização do documento deve adicionar uma entrada aqui** (data ISO + resumo).
 
+### 2026-04-24 — Reclassificação CP-46 → MP-28 (Ultracite 6 → 7)
+
+Após executar CP-48 e CP-47 (que tinham breaking changes reais e exigiram trabalho efetivo), reavaliação honesta de CP-46 revelou perfil diferente:
+
+- **Zero CVE** em Biome 2.x.
+- **Zero deprecation** anunciada.
+- **Zero feature** específica do Oxc necessária no projeto.
+- Biome 2.x roda lint/format clean em 600+ arquivos hoje.
+- Custo real: configurar Oxc equivalente, rodar `ultracite fix` em todo codebase, validar que nenhum auto-fix introduziu break, ajustar pre-commit hooks. ~4-8h com break risk alto.
+
+CP-46 é exatamente "upgrade by inertia" — o caso que o critério de reclassificação foi feito para capturar. Mesmo critério aplicado em CP-44 → MP-27 e CP-18/19 → MP-24/25.
+
+**Sinal para ativar MP-28**: Biome 2.x deprecated/EOL, CVE em Biome, performance de lint/format virou problema mensurável, ou feature específica do Oxc necessária.
+
+**Onda 7 efetivamente encerrada**: CP-48 ✅ + CP-47 ✅ (breaking changes reais entregues), CP-46 → MP-28, CP-50 (TS 6) segue contenção até virar necessidade.
+
+**Bucket 🟡**: 50 ações · 39 done · **6 ativas** (era 7) · **4 reclassificadas** (CP-18/19/44/46) · 1 contenção. **Bucket 🟢**: **28 ações** monitoradas (era 27).
+
 ### 2026-04-24 — CP-47 entregue: migração Better Auth 1.4 → 1.6 (Onda 7)
 
 Segundo passo da Onda 7. Migração de `better-auth` de `~1.4.22` para `~1.6.9`.
