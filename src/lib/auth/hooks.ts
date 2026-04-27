@@ -24,7 +24,7 @@ import {
   sendOrganizationInvitationEmail,
   sendPasswordResetEmail,
   sendProvisionActivationEmail,
-} from "@/lib/email";
+} from "@/lib/emails/senders/auth";
 import { logger } from "@/lib/logger";
 import { ErrorReporter } from "@/lib/sentry/reporter";
 import { OrganizationService } from "@/modules/organizations/profile/organization.service";

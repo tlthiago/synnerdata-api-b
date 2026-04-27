@@ -44,7 +44,7 @@ import { orgAc, orgRoles, systemAc, systemRoles } from "./auth/permissions";
 import {
   sendTwoFactorOTPEmail,
   sendVerificationEmail as sendVerificationEmailFn,
-} from "./email";
+} from "./emails/senders/auth";
 
 const trustedOrigins = parseOrigins(env.CORS_ORIGIN);
 

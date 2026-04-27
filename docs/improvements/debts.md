@@ -31,8 +31,8 @@ Pré-audit — itens de **organização semântica** detectados no `src/` atual.
 
 | # | Débito | Ação |
 |---|---|---|
-| 8 | **`src/emails/` e `src/lib/email.tsx` convivendo** — duas "fontes de email" no código | Consolidar em `src/lib/emails/`. Movimentação: `src/emails/components/` (5 arquivos) → `src/lib/emails/components/`; `src/emails/templates/{auth,contact,payments}/` (19 templates) → `src/lib/emails/templates/{auth,contact,payments}/`; `src/emails/render.ts` → `src/lib/emails/render.ts`; `src/emails/constants.ts` → `src/lib/emails/constants.ts`; `src/emails/__tests__/` → `src/lib/emails/__tests__/`. Remover `src/emails/` vazio |
-| 9 | **`src/lib/email.tsx` com 476 linhas** concentra transporter Nodemailer + 19 senders (7 auth + 9 payments + 1 admin + 1 contact) | Dividir em: `src/lib/emails/mailer.ts` (transporter + helper `sendEmail`, ~40 linhas); `src/lib/emails/senders/auth.tsx` (7 senders); `src/lib/emails/senders/payments.tsx` (9 senders); `src/lib/emails/senders/admin.tsx` (1 sender); `src/lib/emails/senders/contact.tsx` (1 sender). Remover `src/lib/email.tsx` |
+| 8 | ~~**`src/emails/` e `src/lib/email.tsx` convivendo**~~ | ✅ **Resolvido em CP-2 (2026-04-24)** — `src/emails/` movido para `src/lib/emails/` via `git mv` (history preservada): components, templates/{auth,contact,payments}, render.ts, constants.ts, __tests__/ |
+| 9 | ~~**`src/lib/email.tsx` com 520 linhas**~~ | ✅ **Resolvido em CP-2 (2026-04-24)** — split em `src/lib/emails/mailer.ts` (transporter + sendEmail + sendBestEffort) + `senders/{auth,payments,admin,contact}.tsx` (19 senders por domínio: 7 auth + 10 payments + 1 admin + 1 contact). `src/lib/email.tsx` deletado |
 
 **Impacto real mapeado via `grep` (bom — muito menor do que estimado):**
 

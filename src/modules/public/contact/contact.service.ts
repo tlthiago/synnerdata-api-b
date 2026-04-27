@@ -1,4 +1,4 @@
-import { sendContactEmail } from "@/lib/email";
+import { sendContactEmail } from "@/lib/emails/senders/contact";
 import type { ContactBody } from "./contact.model";
 
 export abstract class ContactService {

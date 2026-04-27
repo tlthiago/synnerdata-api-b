@@ -20,13 +20,16 @@ const mockSendSubscriptionCanceledEmail = mock(() => Promise.resolve());
 const mockSendPaymentFailedEmail = mock(() => Promise.resolve());
 const mockSendAdminCancellationNoticeEmail = mock(() => Promise.resolve());
 
-mock.module("@/lib/email", () => ({
+mock.module("@/lib/emails/senders/payments", () => ({
   sendTrialExpiringEmail: mockSendTrialExpiringEmail,
   sendTrialExpiredEmail: mockSendTrialExpiredEmail,
   sendUpgradeConfirmationEmail: mockSendUpgradeConfirmationEmail,
   sendCancellationScheduledEmail: mockSendCancellationScheduledEmail,
   sendSubscriptionCanceledEmail: mockSendSubscriptionCanceledEmail,
   sendPaymentFailedEmail: mockSendPaymentFailedEmail,
+}));
+
+mock.module("@/lib/emails/senders/admin", () => ({
   sendAdminCancellationNoticeEmail: mockSendAdminCancellationNoticeEmail,
 }));
 
