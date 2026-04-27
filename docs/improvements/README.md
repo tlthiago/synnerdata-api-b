@@ -43,7 +43,18 @@
 
 ## Próxima ação
 
-### Ordem de execução recomendada (2026-04-24, revisada)
+### ⏸️ Iniciativa pausada em 2026-04-24
+
+**Decisão do dono**: pausar a iniciativa de infra após fechar 80% do bucket 🟡 + 100% do urgente, e voltar a features de produto. Retomar depois para fechar os pontos de curto prazo restantes antes de avaliar os de médio prazo.
+
+**5 ações ativas permanecem registradas (NÃO reclassificadas)** — vão ser retomadas quando o dono priorizar:
+
+- **CP-41** (M, Onda 3) — Pagarme integration tests workflow. Dep: secrets sandbox Pagar.me no GitHub Actions.
+- **CP-17** (M, Onda 4) — Métricas. Dep: decisão de escopo (Prometheus completo vs. leve Pino latency logs + `/metrics` via OTel API).
+- **CP-14 → 15 → 16** (S→M→S, Onda 4) — Cloudflare Free Tier. Dep: alinhamento de DNS registro.br com o cliente.
+- **CP-50** (M, Onda 7, contenção temporária) — TypeScript 5.9 → 6.x. Pin `~5.9.3` ativo até TS 6 virar adoção majoritária ou trazer feature/CVE necessária.
+
+### Ordem de execução recomendada (2026-04-24, revisada — congelada na pausa)
 
 **Sequência formal decidida** — priorizar isolamento de diagnóstico + destravar PRs grandes antes de escalar escopo. Ver [changelog 2026-04-24 "Sequência de execução revisada"](./changelog.md) para raciocínio completo.
 

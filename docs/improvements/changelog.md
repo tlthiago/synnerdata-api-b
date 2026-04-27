@@ -11,6 +11,37 @@
 
 Registro temporal das decisões e entregas desta iniciativa. **Toda atualização do documento deve adicionar uma entrada aqui** (data ISO + resumo).
 
+### 2026-04-24 — Iniciativa pausada (volta a features de produto)
+
+Decisão do dono após fechar 80% do bucket 🟡 + 100% do urgente: pausar iniciativa de infra e voltar a features de produto. Retomar depois para fechar pontos de curto prazo restantes antes de avaliar os de médio prazo.
+
+**Estado consolidado da iniciativa (snapshot da pausa)**:
+
+| Bucket | Total | Done | Active | Reclass | Contenção | % |
+|---|---|---|---|---|---|---|
+| 🔴 Urgente | 10 | 10 | 0 | 0 | 0 | 100% ✅ |
+| 🟡 Curto prazo | 50 | 40 | 5 | 4 | 1 | 80% |
+| 🟢 Médio prazo | 28 | 0 | 28 | — | — | sob demanda |
+
+**Ondas concluídas**: 1, 2, 5 (11/11), 6, 7. **Ondas com ativos pausados**: 3 (CP-41), 4 (CP-14/15/16, CP-17).
+
+**5 ações ativas permanecem registradas — NÃO reclassificadas como MP**:
+
+- **CP-41** (Pagarme integration tests workflow) — dep secrets sandbox Pagar.me.
+- **CP-17** (Métricas) — dep decisão de escopo entre Prometheus completo vs. Pino logs + `/metrics` leve.
+- **CP-14 → 15 → 16** (Cloudflare Free Tier) — dep alinhamento DNS registro.br com cliente.
+- **CP-50** (TS 5.9→6.x, contenção temporária) — pin `~5.9.3` ativo até TS 6 virar adoção majoritária ou trazer feature/CVE necessária.
+
+**Princípio**: pausa ≠ reclassificação. Esses CPs continuam committed para 30-90d quando dono retomar; reclassificações anteriores (CP-18/19/44/46 → MP) foram baseadas em "upgrade-by-inertia/sem sinal" e não se aplicam aqui (cada um dos 5 ativos tem dependência externa concreta ou decisão pendente).
+
+**Quando retomar**: dono prioriza um dos 5 conforme dependência externa for resolvida (secrets configurados, DNS alinhado, decisão de escopo em CP-17, etc.).
+
+**Próximas sessões da iniciativa devem**:
+1. Ler este snapshot.
+2. Identificar qual dos 5 ativos tem dependência destravada.
+3. Atacar com o mesmo padrão de execução enxuto adotado.
+4. NÃO atacar trabalho de bucket 🟢 sem sinal explícito do dono.
+
 ### 2026-04-24 — CP-2 entregue: emails consolidados (Onda 5 fechada em 11/11)
 
 Último CP da Onda 5. Resolve débitos #8 e #9 (duplicação `src/emails/` vs `src/lib/email.tsx` + arquivo de 520 linhas concentrando transporter + 19 senders).

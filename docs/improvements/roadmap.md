@@ -8,6 +8,17 @@
 
 ---
 
+### ⏸️ Status da iniciativa: pausada em 2026-04-24
+
+Após fechar 80% do bucket 🟡 + 100% do urgente, dono decidiu pausar e voltar a features de produto. **5 ações ativas permanecem committed** (NÃO reclassificadas) — vão ser retomadas quando dependências externas forem resolvidas:
+
+- **CP-41** — dep secrets sandbox Pagar.me
+- **CP-17** — dep decisão de escopo (Prometheus full vs. Pino logs + `/metrics` leve)
+- **CP-14 → 15 → 16** — dep DNS registro.br alinhado com cliente
+- **CP-50** — contenção válida até TS 6 virar adoção majoritária
+
+Detalhes da decisão em [changelog 2026-04-24 "Iniciativa pausada"](./changelog.md).
+
 ### 7.5 Roadmap priorizado
 
 **Consolidado na Fase 2 (2026-04-21)** a partir do audit da Fase 1 e do relatório em `docs/reports/2026-04-21-api-infrastructure-audit.md`.
