@@ -291,6 +291,15 @@ export abstract class PpeItemService {
       })
       .returning();
 
+    await AuditService.log({
+      action: "create",
+      resource: "ppe_job_position",
+      resourceId: association.id,
+      userId,
+      organizationId,
+      changes: buildAuditChanges({}, association),
+    });
+
     return {
       ppeItemId: association.ppeItemId,
       jobPositionId: association.jobPositionId,
@@ -326,13 +335,23 @@ export abstract class PpeItemService {
     }
 
     // Soft delete the association
-    await db
+    const [removed] = await db
       .update(schema.ppeJobPositions)
       .set({
         deletedAt: new Date(),
         deletedBy: userId,
       })
-      .where(eq(schema.ppeJobPositions.id, association.id));
+      .where(eq(schema.ppeJobPositions.id, association.id))
+      .returning();
+
+    await AuditService.log({
+      action: "delete",
+      resource: "ppe_job_position",
+      resourceId: removed.id,
+      userId,
+      organizationId,
+      changes: buildAuditChanges(association, {}),
+    });
   }
 
   static async getJobPositions(
