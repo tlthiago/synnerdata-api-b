@@ -1,6 +1,11 @@
 import { and, eq, isNull } from "drizzle-orm";
 import { db } from "@/db";
 import { schema } from "@/db/schema";
+import { AuditService } from "@/modules/audit/audit.service";
+import {
+  buildAuditChanges,
+  IGNORED_AUDIT_FIELDS,
+} from "@/modules/audit/pii-redaction";
 import {
   TerminationAlreadyDeletedError,
   TerminationAlreadyExistsError,
@@ -13,6 +18,12 @@ import type {
   TerminationData,
   UpdateTerminationInput,
 } from "./termination.model";
+
+const TERMINATION_IGNORED_FIELDS = new Set([
+  ...IGNORED_AUDIT_FIELDS,
+  "employee",
+  "employeeId",
+]);
 
 export abstract class TerminationService {
   private static async findById(
@@ -176,6 +187,17 @@ export abstract class TerminationService {
       })
       .returning();
 
+    await AuditService.log({
+      action: "create",
+      resource: "termination",
+      resourceId: termination.id,
+      userId,
+      organizationId,
+      changes: buildAuditChanges({}, termination, {
+        ignoredFields: TERMINATION_IGNORED_FIELDS,
+      }),
+    });
+
     await db
       .update(schema.employees)
       .set({ status: "TERMINATED", updatedBy: userId })
@@ -260,7 +282,7 @@ export abstract class TerminationService {
       throw new TerminationNotFoundError(id);
     }
 
-    await db
+    const [updated] = await db
       .update(schema.terminations)
       .set({
         ...data,
@@ -271,7 +293,19 @@ export abstract class TerminationService {
           eq(schema.terminations.id, id),
           eq(schema.terminations.organizationId, organizationId)
         )
-      );
+      )
+      .returning();
+
+    await AuditService.log({
+      action: "update",
+      resource: "termination",
+      resourceId: id,
+      userId,
+      organizationId,
+      changes: buildAuditChanges(existing, updated, {
+        ignoredFields: TERMINATION_IGNORED_FIELDS,
+      }),
+    });
 
     return TerminationService.findByIdOrThrow(id, organizationId);
   }
@@ -307,6 +341,19 @@ export abstract class TerminationService {
         )
       )
       .returning();
+
+    await AuditService.log({
+      action: "delete",
+      resource: "termination",
+      resourceId: id,
+      userId,
+      organizationId,
+      changes: buildAuditChanges(
+        existing,
+        {},
+        { ignoredFields: TERMINATION_IGNORED_FIELDS }
+      ),
+    });
 
     await db
       .update(schema.employees)

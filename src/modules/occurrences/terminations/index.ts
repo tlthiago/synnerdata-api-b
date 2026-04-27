@@ -8,6 +8,7 @@ import {
   unauthorizedErrorSchema,
   validationErrorSchema,
 } from "@/lib/responses/response.types";
+import { auditPlugin } from "@/plugins/audit/audit-plugin";
 import { betterAuthPlugin } from "@/plugins/auth-guard/auth-plugin";
 import {
   createTerminationResponseSchema,
@@ -27,6 +28,7 @@ export const terminationController = new Elysia({
   detail: { tags: ["Occurrences - Terminations"] },
 })
   .use(betterAuthPlugin)
+  .use(auditPlugin)
   .post(
     "/",
     async ({ session, body, user }) =>
@@ -85,13 +87,18 @@ export const terminationController = new Elysia({
   )
   .get(
     "/:id",
-    async ({ session, params }) =>
-      wrapSuccess(
-        await TerminationService.findByIdOrThrow(
-          params.id,
-          session.activeOrganizationId as string
-        )
-      ),
+    async ({ session, params, audit }) => {
+      const data = await TerminationService.findByIdOrThrow(
+        params.id,
+        session.activeOrganizationId as string
+      );
+      await audit({
+        action: "read",
+        resource: "termination",
+        resourceId: params.id,
+      });
+      return wrapSuccess(data);
+    },
     {
       auth: {
         permissions: { termination: ["read"] },
