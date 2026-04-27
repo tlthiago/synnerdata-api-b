@@ -318,6 +318,19 @@ export abstract class PromotionService {
     jobPositionId: string;
     userId: string;
   }): Promise<void> {
+    const [employeeBefore] = await db
+      .select({
+        salary: schema.employees.salary,
+        jobPositionId: schema.employees.jobPositionId,
+      })
+      .from(schema.employees)
+      .where(
+        and(
+          eq(schema.employees.id, params.employeeId),
+          eq(schema.employees.organizationId, params.organizationId)
+        )
+      );
+
     await db
       .update(schema.employees)
       .set({
@@ -331,6 +344,27 @@ export abstract class PromotionService {
           eq(schema.employees.organizationId, params.organizationId)
         )
       );
+
+    if (
+      employeeBefore &&
+      (employeeBefore.salary !== params.salary ||
+        employeeBefore.jobPositionId !== params.jobPositionId)
+    ) {
+      await AuditService.log({
+        action: "update",
+        resource: "employee",
+        resourceId: params.employeeId,
+        userId: params.userId,
+        organizationId: params.organizationId,
+        changes: buildAuditChanges(
+          {
+            salary: employeeBefore.salary,
+            jobPositionId: employeeBefore.jobPositionId,
+          },
+          { salary: params.salary, jobPositionId: params.jobPositionId }
+        ),
+      });
+    }
   }
 
   private static async ensureIsLatestPromotion(

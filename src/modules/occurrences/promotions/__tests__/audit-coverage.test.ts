@@ -1,4 +1,5 @@
 import { afterEach, beforeAll, describe, expect, test } from "bun:test";
+import { and, eq } from "drizzle-orm";
 import { db } from "@/db";
 import { schema } from "@/db/schema";
 import { env } from "@/env";
@@ -234,5 +235,154 @@ describe("audit coverage — promotions", () => {
       organizationId,
     });
     expect(entry.changes).toBeNull();
+  });
+});
+
+describe("audit coverage — promotion side effects on employee", () => {
+  test("POST /v1/promotions emits audit_logs update entry for employee salary + jobPosition", async () => {
+    const { headers, organizationId, user, userId } =
+      await createTestUserWithOrganization({ emailVerified: true });
+    const { employee, dependencies } = await createTestEmployee({
+      organizationId,
+      userId,
+    });
+    const newPos = await createTestJobPosition({ organizationId, userId });
+    await db.delete(schema.auditLogs);
+
+    const resp = await app.handle(
+      new Request(`${BASE_URL}/v1/promotions`, {
+        method: "POST",
+        headers: { ...headers, "Content-Type": "application/json" },
+        body: JSON.stringify({
+          employeeId: employee.id,
+          promotionDate: "2024-06-01",
+          previousJobPositionId: dependencies.jobPositionId,
+          newJobPositionId: newPos.id,
+          previousSalary: 5000,
+          newSalary: 7000,
+        }),
+      })
+    );
+    expect(resp.status).toBe(200);
+
+    const entry = await expectAuditEntry({
+      resourceId: employee.id,
+      action: "update",
+      resource: "employee",
+      userId: user.id,
+      organizationId,
+    });
+    expect(entry.changes?.before).toMatchObject({ salary: "<redacted>" });
+    expect(entry.changes?.after).toMatchObject({ salary: "<redacted>" });
+    expect(entry.changes?.before).toMatchObject({
+      jobPositionId: dependencies.jobPositionId,
+    });
+    expect(entry.changes?.after).toMatchObject({ jobPositionId: newPos.id });
+  });
+
+  test("DELETE /v1/promotions/:id emits audit_logs update entry reverting employee salary + jobPosition", async () => {
+    const { headers, organizationId, user, userId } =
+      await createTestUserWithOrganization({ emailVerified: true });
+    const { employee, dependencies } = await createTestEmployee({
+      organizationId,
+      userId,
+    });
+    const newPos = await createTestJobPosition({ organizationId, userId });
+
+    const createResp = await app.handle(
+      new Request(`${BASE_URL}/v1/promotions`, {
+        method: "POST",
+        headers: { ...headers, "Content-Type": "application/json" },
+        body: JSON.stringify({
+          employeeId: employee.id,
+          promotionDate: "2024-06-01",
+          previousJobPositionId: dependencies.jobPositionId,
+          newJobPositionId: newPos.id,
+          previousSalary: 5000,
+          newSalary: 7000,
+        }),
+      })
+    );
+    const created = (await createResp.json()).data;
+    await db.delete(schema.auditLogs);
+
+    const resp = await app.handle(
+      new Request(`${BASE_URL}/v1/promotions/${created.id}`, {
+        method: "DELETE",
+        headers,
+      })
+    );
+    expect(resp.status).toBe(200);
+
+    const entry = await expectAuditEntry({
+      resourceId: employee.id,
+      action: "update",
+      resource: "employee",
+      userId: user.id,
+      organizationId,
+    });
+    expect(entry.changes?.before).toMatchObject({
+      salary: "<redacted>",
+      jobPositionId: newPos.id,
+    });
+    expect(entry.changes?.after).toMatchObject({
+      salary: "<redacted>",
+      jobPositionId: dependencies.jobPositionId,
+    });
+  });
+
+  test("retroactive promotion (not latest) does NOT emit employee audit", async () => {
+    const { headers, organizationId, userId } =
+      await createTestUserWithOrganization({ emailVerified: true });
+    const { employee, dependencies } = await createTestEmployee({
+      organizationId,
+      userId,
+    });
+    const pos2 = await createTestJobPosition({ organizationId, userId });
+    const pos3 = await createTestJobPosition({ organizationId, userId });
+
+    await app.handle(
+      new Request(`${BASE_URL}/v1/promotions`, {
+        method: "POST",
+        headers: { ...headers, "Content-Type": "application/json" },
+        body: JSON.stringify({
+          employeeId: employee.id,
+          promotionDate: "2024-06-01",
+          previousJobPositionId: dependencies.jobPositionId,
+          newJobPositionId: pos2.id,
+          previousSalary: 5000,
+          newSalary: 7000,
+        }),
+      })
+    );
+
+    await db.delete(schema.auditLogs);
+
+    const resp = await app.handle(
+      new Request(`${BASE_URL}/v1/promotions`, {
+        method: "POST",
+        headers: { ...headers, "Content-Type": "application/json" },
+        body: JSON.stringify({
+          employeeId: employee.id,
+          promotionDate: "2023-01-01",
+          previousJobPositionId: dependencies.jobPositionId,
+          newJobPositionId: pos3.id,
+          previousSalary: 4000,
+          newSalary: 5000,
+        }),
+      })
+    );
+    expect(resp.status).toBe(200);
+
+    const employeeEntries = await db
+      .select()
+      .from(schema.auditLogs)
+      .where(
+        and(
+          eq(schema.auditLogs.resource, "employee"),
+          eq(schema.auditLogs.resourceId, employee.id)
+        )
+      );
+    expect(employeeEntries).toHaveLength(0);
   });
 });

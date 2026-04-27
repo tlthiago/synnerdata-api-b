@@ -39,7 +39,7 @@ Registro de promoções com mudança de cargo e salário. Sincroniza automaticam
 - Mutations logged: create, update, delete (via `AuditService.log` + `buildAuditChanges`)
 - PII set extended with `previousSalary` and `newSalary` (default `salary` doesn't match these column names)
 - Ignored fields: `employee`, `employeeId`, `previousJobPosition`, `previousJobPositionId`, `newJobPosition`, `newJobPositionId` — JOIN-shaped nested objects and their FK columns; audit focuses on the mutable content fields (`promotionDate`, salaries, `reason`, `notes`)
-- The `syncEmployeeFromPromotion` side-effect UPDATE on `employees` is NOT audited as part of this resource — promotion audit covers the promotion row only
+- Side effects via `syncEmployeeFromPromotion` (employee `salary` + `jobPositionId` transitions) ARE audited as `resource: "employee"` entries — only when at least one of the two fields actually changes. Salary is redacted via default `PII_FIELDS`; `jobPositionId` appears as actual ID.
 - **Read audit enabled** on `GET /:id` — promotion records include salary information; LGPD financial PII
 
 ## Errors
