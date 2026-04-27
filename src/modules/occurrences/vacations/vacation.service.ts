@@ -21,6 +21,7 @@ import {
   VacationInvalidEmployeeError,
   VacationNotFoundError,
   VacationOverlapError,
+  VacationStartDateBeforeConcessiveError,
 } from "./errors";
 import type {
   CreateVacationInput,
@@ -236,6 +237,18 @@ export abstract class VacationService {
     }
   }
 
+  private static validateStartDateNotBeforeConcessive(
+    startDate: string,
+    cycle: { concessivePeriodStart: string }
+  ): void {
+    if (startDate < cycle.concessivePeriodStart) {
+      throw new VacationStartDateBeforeConcessiveError({
+        startDate,
+        concessivePeriodStart: cycle.concessivePeriodStart,
+      });
+    }
+  }
+
   private static async resolveCycleForEmployee(
     employeeId: string,
     organizationId: string,
@@ -399,6 +412,11 @@ export abstract class VacationService {
       data.employeeId,
       organizationId,
       employee.hireDate
+    );
+
+    VacationService.validateStartDateNotBeforeConcessive(
+      data.startDate,
+      activeCycle
     );
 
     VacationService.validateDays(
