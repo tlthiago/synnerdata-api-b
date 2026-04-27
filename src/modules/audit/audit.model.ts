@@ -40,6 +40,10 @@ export const auditResourceSchema = z.enum([
   "termination",
   "warning",
   "ppe_delivery",
+  // PRD #1.5 — junction tables
+  "project_employee",
+  "ppe_job_position",
+  "ppe_delivery_item",
 ]);
 
 export const auditChangesSchema = z

@@ -219,3 +219,13 @@ describe("auditResourceSchema — expanded coverage", () => {
     expect(() => auditResourceSchema.parse(resource)).not.toThrow();
   });
 });
+
+describe("auditResourceSchema — M2M coverage (PRD #1.5)", () => {
+  test.each([
+    "project_employee",
+    "ppe_job_position",
+    "ppe_delivery_item",
+  ])("accepts new resource key '%s'", (resource) => {
+    expect(auditResourceSchema.parse(resource)).toBe(resource);
+  });
+});
