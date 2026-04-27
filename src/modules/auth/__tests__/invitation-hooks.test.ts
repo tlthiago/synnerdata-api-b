@@ -203,7 +203,7 @@ describe("Invitation Hooks", () => {
 
   describe("#129: sendInvitationEmail — incluir email no link do convite", () => {
     test("should include encoded email in invitation link", async () => {
-      const emailModule = await import("@/lib/email");
+      const emailModule = await import("@/lib/emails/senders/auth");
       const spy = spyOn(
         emailModule,
         "sendOrganizationInvitationEmail"

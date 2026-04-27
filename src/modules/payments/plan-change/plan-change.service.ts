@@ -1,11 +1,11 @@
 import { and, eq, isNotNull, isNull, lte } from "drizzle-orm";
 import { db } from "@/db";
 import { schema } from "@/db/schema";
+import { sendBestEffort } from "@/lib/emails/mailer";
 import {
-  sendBestEffort,
   sendCheckoutLinkEmail,
   sendPlanChangeExecutedEmail,
-} from "@/lib/email";
+} from "@/lib/emails/senders/payments";
 import { Retry } from "@/lib/utils/retry";
 import { CustomerService } from "@/modules/payments/customer/customer.service";
 import {
