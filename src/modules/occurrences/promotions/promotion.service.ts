@@ -2,6 +2,12 @@ import { aliasedTable, and, eq, isNull } from "drizzle-orm";
 import { db } from "@/db";
 import { schema } from "@/db/schema";
 import type { EntityReference } from "@/lib/schemas/relationships";
+import { AuditService } from "@/modules/audit/audit.service";
+import {
+  buildAuditChanges,
+  IGNORED_AUDIT_FIELDS,
+  PII_FIELDS,
+} from "@/modules/audit/pii-redaction";
 import { EmployeeService } from "@/modules/employees/employee.service";
 import { ensureEmployeeActive } from "@/modules/employees/status";
 import { JobPositionService } from "@/modules/organizations/job-positions/job-position.service";
@@ -29,6 +35,22 @@ const newJobPositionTable = aliasedTable(
   schema.jobPositions,
   "new_job_position"
 );
+
+const PROMOTION_PII_FIELDS = new Set([
+  ...PII_FIELDS,
+  "previousSalary",
+  "newSalary",
+]);
+
+const PROMOTION_IGNORED_FIELDS = new Set([
+  ...IGNORED_AUDIT_FIELDS,
+  "employee",
+  "employeeId",
+  "previousJobPosition",
+  "previousJobPositionId",
+  "newJobPosition",
+  "newJobPositionId",
+]);
 
 export abstract class PromotionService {
   private static async getEmployeeReference(
@@ -389,6 +411,18 @@ export abstract class PromotionService {
       })
       .returning();
 
+    await AuditService.log({
+      action: "create",
+      resource: "promotion",
+      resourceId: promotion.id,
+      userId,
+      organizationId,
+      changes: buildAuditChanges({}, promotion, {
+        piiFields: PROMOTION_PII_FIELDS,
+        ignoredFields: PROMOTION_IGNORED_FIELDS,
+      }),
+    });
+
     // Sync employee if this is the latest promotion
     const latestPromotion = await PromotionService.findLatestPromotionRaw(
       employeeId,
@@ -595,6 +629,18 @@ export abstract class PromotionService {
       throw new PromotionNotFoundError(id);
     }
 
+    await AuditService.log({
+      action: "update",
+      resource: "promotion",
+      resourceId: id,
+      userId,
+      organizationId,
+      changes: buildAuditChanges(existing, updatedPromotion, {
+        piiFields: PROMOTION_PII_FIELDS,
+        ignoredFields: PROMOTION_IGNORED_FIELDS,
+      }),
+    });
+
     await PromotionService.syncEmployeeFromPromotion({
       employeeId: existing.employee.id,
       organizationId,
@@ -654,6 +700,22 @@ export abstract class PromotionService {
         )
       )
       .returning();
+
+    await AuditService.log({
+      action: "delete",
+      resource: "promotion",
+      resourceId: id,
+      userId,
+      organizationId,
+      changes: buildAuditChanges(
+        existing,
+        {},
+        {
+          piiFields: PROMOTION_PII_FIELDS,
+          ignoredFields: PROMOTION_IGNORED_FIELDS,
+        }
+      ),
+    });
 
     // Revert employee to previous promotion or pre-promotion values
     const previousPromotion = await PromotionService.findLatestPromotionRaw(

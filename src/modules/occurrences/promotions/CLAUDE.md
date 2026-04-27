@@ -31,6 +31,16 @@ Registro de promoções com mudança de cargo e salário. Sincroniza automaticam
 - `previousSalary`, `newSalary` (strings numéricas)
 - `reason` (max 500, opcional), `notes` (max 1000, opcional)
 
+## Audit logging
+
+- Plugin: `auditPlugin` registered in controller
+- Resource key: `promotion`
+- Mutations logged: create, update, delete (via `AuditService.log` + `buildAuditChanges`)
+- PII set extended with `previousSalary` and `newSalary` (default `salary` doesn't match these column names)
+- Ignored fields: `employee`, `employeeId`, `previousJobPosition`, `previousJobPositionId`, `newJobPosition`, `newJobPositionId` — JOIN-shaped nested objects and their FK columns; audit focuses on the mutable content fields (`promotionDate`, salaries, `reason`, `notes`)
+- The `syncEmployeeFromPromotion` side-effect UPDATE on `employees` is NOT audited as part of this resource — promotion audit covers the promotion row only
+- **Read audit enabled** on `GET /:id` — promotion records include salary information; LGPD financial PII
+
 ## Errors
 
 - `PromotionNotFoundError` (404)
