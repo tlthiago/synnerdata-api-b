@@ -1,6 +1,11 @@
 import { and, eq, isNull } from "drizzle-orm";
 import { db } from "@/db";
 import { schema } from "@/db/schema";
+import { AuditService } from "@/modules/audit/audit.service";
+import {
+  buildAuditChanges,
+  IGNORED_AUDIT_FIELDS,
+} from "@/modules/audit/pii-redaction";
 import { ensureEmployeeActive } from "@/modules/employees/status";
 import {
   PpeDeliveryAlreadyDeletedError,
@@ -16,6 +21,12 @@ import type {
   PpeDeliveryData,
   UpdatePpeDeliveryInput,
 } from "./ppe-delivery.model";
+
+const PPE_DELIVERY_IGNORED_FIELDS = new Set([
+  ...IGNORED_AUDIT_FIELDS,
+  "employee",
+  "employeeId",
+]);
 
 type PpeDeliveryRaw = typeof schema.ppeDeliveries.$inferSelect;
 type EmployeeData = { id: string; name: string; cpf: string };
@@ -199,6 +210,17 @@ export abstract class PpeDeliveryService {
       })
       .returning();
 
+    await AuditService.log({
+      action: "create",
+      resource: "ppe_delivery",
+      resourceId: delivery.id,
+      userId,
+      organizationId,
+      changes: buildAuditChanges({}, delivery, {
+        ignoredFields: PPE_DELIVERY_IGNORED_FIELDS,
+      }),
+    });
+
     // Add PPE Items if provided
     if (ppeItemIds && ppeItemIds.length > 0) {
       for (const ppeItemId of ppeItemIds) {
@@ -290,6 +312,17 @@ export abstract class PpeDeliveryService {
         )
       )
       .returning();
+
+    await AuditService.log({
+      action: "update",
+      resource: "ppe_delivery",
+      resourceId: id,
+      userId,
+      organizationId,
+      changes: buildAuditChanges(existing, updated, {
+        ignoredFields: PPE_DELIVERY_IGNORED_FIELDS,
+      }),
+    });
 
     if (ppeItemIds !== undefined) {
       await PpeDeliveryService.replacePpeItems(
@@ -414,6 +447,19 @@ export abstract class PpeDeliveryService {
         )
       )
       .returning();
+
+    await AuditService.log({
+      action: "delete",
+      resource: "ppe_delivery",
+      resourceId: id,
+      userId,
+      organizationId,
+      changes: buildAuditChanges(
+        existing,
+        {},
+        { ignoredFields: PPE_DELIVERY_IGNORED_FIELDS }
+      ),
+    });
 
     const enriched = await PpeDeliveryService.enrichDelivery(
       deleted,

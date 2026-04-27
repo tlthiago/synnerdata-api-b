@@ -15,6 +15,15 @@ Registro de entregas de Equipamentos de Proteção Individual com controle item-
 - Response do employee inclui `cpf` além de id/name
 - Listagem suporta filtro opcional por `employeeId` e ordenada por `deliveryDate`
 
+## Audit logging
+
+- Plugin: `auditPlugin` registered in controller
+- Resource key: `ppe_delivery`
+- Mutations logged: create, update, delete (via `AuditService.log` + `buildAuditChanges`)
+- Ignored fields: `employee` (defensive — service uses raw rows; not present) + `employeeId` (immutable FK; resource identity is captured via `resourceId`)
+- M2M item operations (`addPpeItem`, `removePpeItem`, `replacePpeItems`) NOT audited as part of this resource — those continue to write the existing domain log at `ppeDeliveryLogs`
+- Read audit: not enabled (no LGPD Art. 11/18 PII on the delivery record itself)
+
 ## Unique in this module
 
 - Único sub-módulo de occurrences com relação M2M
