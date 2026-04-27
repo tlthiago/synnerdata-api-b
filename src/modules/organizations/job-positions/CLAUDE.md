@@ -8,6 +8,13 @@ Cargos da organização. Referenciado por employees (FK obrigatória) e por prom
 - M2M com PPE items via `ppeJobPositions`
 - CRUD com soft delete
 
+## Audit logging
+
+- Plugin: `auditPlugin` registered in controller
+- Resource key: `job_position`
+- Mutations logged: create, update, delete (via `AuditService.log` + `buildAuditChanges`)
+- Read audit: not enabled (data is not LGPD Art. 11/18 sensitive)
+
 ## Permissions
 
 - `jobPosition:create` | `jobPosition:read` | `jobPosition:update` | `jobPosition:delete`
