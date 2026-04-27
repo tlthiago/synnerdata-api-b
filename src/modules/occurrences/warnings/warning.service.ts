@@ -1,6 +1,11 @@
 import { and, eq, isNull } from "drizzle-orm";
 import { db } from "@/db";
 import { schema } from "@/db/schema";
+import { AuditService } from "@/modules/audit/audit.service";
+import {
+  buildAuditChanges,
+  IGNORED_AUDIT_FIELDS,
+} from "@/modules/audit/pii-redaction";
 import { ensureEmployeeActive } from "@/modules/employees/status";
 import {
   WarningAcknowledgedBeforeDateError,
@@ -15,6 +20,12 @@ import type {
   UpdateWarningInput,
   WarningData,
 } from "./warning.model";
+
+const WARNING_IGNORED_FIELDS = new Set([
+  ...IGNORED_AUDIT_FIELDS,
+  "employee",
+  "employeeId",
+]);
 
 export abstract class WarningService {
   private static async findById(
@@ -241,6 +252,17 @@ export abstract class WarningService {
       })
       .returning();
 
+    await AuditService.log({
+      action: "create",
+      resource: "warning",
+      resourceId: warning.id,
+      userId,
+      organizationId,
+      changes: buildAuditChanges({}, warning, {
+        ignoredFields: WARNING_IGNORED_FIELDS,
+      }),
+    });
+
     return {
       id: warning.id,
       organizationId: warning.organizationId,
@@ -351,7 +373,7 @@ export abstract class WarningService {
       updateData.employeeId = data.employeeId;
     }
 
-    await db
+    const [updated] = await db
       .update(schema.warnings)
       .set(updateData)
       .where(
@@ -359,7 +381,19 @@ export abstract class WarningService {
           eq(schema.warnings.id, id),
           eq(schema.warnings.organizationId, organizationId)
         )
-      );
+      )
+      .returning();
+
+    await AuditService.log({
+      action: "update",
+      resource: "warning",
+      resourceId: id,
+      userId,
+      organizationId,
+      changes: buildAuditChanges(existing, updated, {
+        ignoredFields: WARNING_IGNORED_FIELDS,
+      }),
+    });
 
     return WarningService.findByIdOrThrow(id, organizationId);
   }
@@ -395,6 +429,19 @@ export abstract class WarningService {
         )
       )
       .returning();
+
+    await AuditService.log({
+      action: "delete",
+      resource: "warning",
+      resourceId: id,
+      userId,
+      organizationId,
+      changes: buildAuditChanges(
+        existing,
+        {},
+        { ignoredFields: WARNING_IGNORED_FIELDS }
+      ),
+    });
 
     return {
       ...existing,

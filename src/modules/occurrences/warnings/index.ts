@@ -8,6 +8,7 @@ import {
   unauthorizedErrorSchema,
   validationErrorSchema,
 } from "@/lib/responses/response.types";
+import { auditPlugin } from "@/plugins/audit/audit-plugin";
 import { betterAuthPlugin } from "@/plugins/auth-guard/auth-plugin";
 import {
   createWarningResponseSchema,
@@ -27,6 +28,7 @@ export const warningController = new Elysia({
   detail: { tags: ["Occurrences - Warnings"] },
 })
   .use(betterAuthPlugin)
+  .use(auditPlugin)
   .post(
     "/",
     async ({ session, body, user }) =>
@@ -83,13 +85,18 @@ export const warningController = new Elysia({
   )
   .get(
     "/:id",
-    async ({ session, params }) =>
-      wrapSuccess(
-        await WarningService.findByIdOrThrow(
-          params.id,
-          session.activeOrganizationId as string
-        )
-      ),
+    async ({ session, params, audit }) => {
+      const data = await WarningService.findByIdOrThrow(
+        params.id,
+        session.activeOrganizationId as string
+      );
+      await audit({
+        action: "read",
+        resource: "warning",
+        resourceId: params.id,
+      });
+      return wrapSuccess(data);
+    },
     {
       auth: {
         permissions: { warning: ["read"] },
