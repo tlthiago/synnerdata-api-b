@@ -11,6 +11,13 @@ Codigos CBO para compliance trabalhista brasileiro. Referenciado por employees (
 - If both provided, uses the user-provided `name` (override)
 - Setting `cboOccupationId` to `null` on update clears the CBO reference
 
+## Audit logging
+
+- Plugin: `auditPlugin` registered in controller
+- Resource key: `job_classification`
+- Mutations logged: create, update, delete (via `AuditService.log` + `buildAuditChanges`)
+- Read audit: not enabled (data is not LGPD Art. 11/18 sensitive)
+
 ## Permissions
 
 - `jobClassification:create` | `jobClassification:read` | `jobClassification:update` | `jobClassification:delete`
