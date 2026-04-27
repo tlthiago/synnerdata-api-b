@@ -8,6 +8,14 @@ Unidades/filiais da organização.
 - `foundedAt` não pode ser no futuro
 - `cno` obrigatório (Cadastro Nacional de Obras)
 
+## Audit logging
+
+- Plugin: `auditPlugin` registered in controller
+- Resource key: `branch`
+- Mutations logged: create, update, delete (via `AuditService.log` + `buildAuditChanges`)
+- PII set extended with `taxId` (CNPJ) — phone/mobile already in default set
+- Read audit: not enabled
+
 ## Required Fields
 
 - `name` (max 255), `taxId` (14 dígitos), `cno`
