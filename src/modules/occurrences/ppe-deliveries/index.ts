@@ -7,7 +7,6 @@ import {
   unauthorizedErrorSchema,
   validationErrorSchema,
 } from "@/lib/responses/response.types";
-import { auditPlugin } from "@/plugins/audit/audit-plugin";
 import { betterAuthPlugin } from "@/plugins/auth-guard/auth-plugin";
 import {
   addPpeItemResponseSchema,
@@ -33,7 +32,6 @@ export const ppeDeliveryController = new Elysia({
   detail: { tags: ["Occurrences - PPE Deliveries"] },
 })
   .use(betterAuthPlugin)
-  .use(auditPlugin)
   .post(
     "/",
     async ({ session, body, user }) =>

@@ -10,7 +10,6 @@ Unidades/filiais da organização.
 
 ## Audit logging
 
-- Plugin: `auditPlugin` registered in controller
 - Resource key: `branch`
 - Mutations logged: create, update, delete (via `AuditService.log` + `buildAuditChanges`)
 - PII set extended with `taxId` (CNPJ) — phone/mobile already in default set

@@ -16,7 +16,6 @@ Projetos com alocação de funcionários (M2M).
 
 ## Audit logging
 
-- Plugin: `auditPlugin` registered in controller
 - Resource key: `project`
 - Mutations logged: create, update, delete (via `AuditService.log` + `buildAuditChanges`)
 - Ignored fields: `employees` (M2M virtual column excluded from diff — M2M associations are not audited as part of the project resource; out of scope for this task)

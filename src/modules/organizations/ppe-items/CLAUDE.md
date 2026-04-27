@@ -12,7 +12,6 @@ Catálogo de Equipamentos de Proteção Individual com associação a cargos.
 
 ## Audit logging
 
-- Plugin: `auditPlugin` registered in controller
 - Resource key: `ppe_item`
 - Mutations logged: create, update, delete (via `AuditService.log` + `buildAuditChanges`)
 - M2M associations (`ppeJobPositions`) not audited as part of this resource — out of scope for this task

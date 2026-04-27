@@ -13,7 +13,6 @@ Codigos CBO para compliance trabalhista brasileiro. Referenciado por employees (
 
 ## Audit logging
 
-- Plugin: `auditPlugin` registered in controller
 - Resource key: `job_classification`
 - Mutations logged: create, update, delete (via `AuditService.log` + `buildAuditChanges`)
 - Read audit: not enabled (data is not LGPD Art. 11/18 sensitive)

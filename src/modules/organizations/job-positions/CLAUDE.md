@@ -10,7 +10,6 @@ Cargos da organização. Referenciado por employees (FK obrigatória) e por prom
 
 ## Audit logging
 
-- Plugin: `auditPlugin` registered in controller
 - Resource key: `job_position`
 - Mutations logged: create, update, delete (via `AuditService.log` + `buildAuditChanges`)
 - Read audit: not enabled (data is not LGPD Art. 11/18 sensitive)

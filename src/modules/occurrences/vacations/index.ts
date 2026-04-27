@@ -8,7 +8,6 @@ import {
   unauthorizedErrorSchema,
   validationErrorSchema,
 } from "@/lib/responses/response.types";
-import { auditPlugin } from "@/plugins/audit/audit-plugin";
 import { betterAuthPlugin } from "@/plugins/auth-guard/auth-plugin";
 import {
   createVacationResponseSchema,
@@ -30,7 +29,6 @@ export const vacationController = new Elysia({
   detail: { tags: ["Occurrences - Vacations"] },
 })
   .use(betterAuthPlugin)
-  .use(auditPlugin)
   .post(
     "/",
     async ({ session, body, user }) =>

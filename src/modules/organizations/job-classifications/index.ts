@@ -8,7 +8,6 @@ import {
   unauthorizedErrorSchema,
   validationErrorSchema,
 } from "@/lib/responses/response.types";
-import { auditPlugin } from "@/plugins/audit/audit-plugin";
 import { betterAuthPlugin } from "@/plugins/auth-guard/auth-plugin";
 import {
   createJobClassificationResponseSchema,
@@ -28,7 +27,6 @@ export const jobClassificationController = new Elysia({
   detail: { tags: ["Organizations - Job Classifications"] },
 })
   .use(betterAuthPlugin)
-  .use(auditPlugin)
   .post(
     "/",
     async ({ session, body, user }) =>

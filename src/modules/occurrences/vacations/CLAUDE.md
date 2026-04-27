@@ -48,7 +48,6 @@ Prioridade: `in_progress` > `scheduled` > `ACTIVE`. O helper consulta todas as f
 
 ## Audit logging
 
-- Plugin: `auditPlugin` registered in controller
 - Resource key: `vacation`
 - Mutations logged: create, update, delete (via `AuditService.log` + `buildAuditChanges`)
 - Ignored fields: `employee` (JOIN-shaped virtual nested object) + `employeeId` (immutable FK; resource identity is captured via `resourceId`)

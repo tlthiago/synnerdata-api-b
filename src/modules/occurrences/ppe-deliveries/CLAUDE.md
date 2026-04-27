@@ -17,7 +17,6 @@ Registro de entregas de Equipamentos de Proteção Individual com controle item-
 
 ## Audit logging
 
-- Plugin: `auditPlugin` registered in controller
 - Resource key: `ppe_delivery`
 - Mutations logged: create, update, delete (via `AuditService.log` + `buildAuditChanges`)
 - Ignored fields: `employee` (defensive — service uses raw rows; not present) + `employeeId` (immutable FK; resource identity is captured via `resourceId`)
