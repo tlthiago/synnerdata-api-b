@@ -174,7 +174,36 @@ PRDs #1 and #2 are independent — they may run in parallel. PRD #3 starts only 
 
 **Risk**: low per PRD — pattern is established; copy-and-adapt with module-specific business rules preserved.
 
-**Sequencing**: prioritization is a product decision. Strong candidates per the original PRD: `employees`, `vacations`, `branches`, `sectors`. Each module gets its own PRD spawned via `cy-create-prd` that references this design as input.
+**Sequencing**: prioritization is a product decision. Strong candidates per the original PRD: `employees`, `vacations`, `branches`, `sectors`.
+
+## Execution strategy per PRD
+
+Not every PRD warrants the full Compozy ceremony (`cy-create-prd` → `cy-create-techspec` → `cy-create-tasks` → `compozy start`). The PRDs in this roadmap have heterogeneous shapes: some are genuinely novel features with stakeholder coordination, others are mechanical replications of an established pattern. Matching tool to scope unlocks meaningful velocity.
+
+| PRD | Tool | Rationale |
+|---|---|---|
+| **#1 Audit Coverage** | Superpowers `writing-plans` + `subagent-driven-development` | Mechanical: ~13 modules receive the same `auditPlugin` wiring + `audit()` calls. Pattern is established by `medical-certificates`/`employees`/`cpf-analyses`. Subagents process modules in parallel; one structured plan governs the work. |
+| **#2 Anonymization** | Compozy (full pipeline) | Genuine novel feature with non-trivial edge cases (admin block, owner-with-subscription block, owner-with-members block, transactional cleanup). Requires DPO/jurídico sign-off + frontend coordination — PRD as deliverable artifact justifies the ceremony. |
+| **#3 Schema FK + NOT NULL** | Hybrid: Superpowers `writing-plans` for the migration design, subagent dispatch for the mechanical schema/service updates | Migration with production risk warrants careful design (backfill order, NOT VALID timing, orphan handling). Schema/service updates across 26 tables are copy-paste of established pattern — subagent-friendly. |
+| **#4 Cost-Centers Pilot** | Superpowers `writing-plans` + `executing-plans` | Single module, pattern fully specified by this design. PRD ceremony adds overhead without proportional value. |
+| **#5+ Phase 3 Rollout** | Subagent dispatch (`subagent-driven-development`) | 23 modules replicate the cost-centers canonical pattern. Independent, parallelizable, mechanical. PRD-per-module would multiply ceremony 23 times for no design benefit. |
+
+**Trade-offs accepted by this strategy:**
+
+- Subagent dispatch is less deterministic than Compozy — quality gate must be the human review at the end of each batch.
+- Without a formal PRD, decisions rely on `writing-plans` (technical audience) rather than a product-readable artifact. Acceptable when the audience is engineering only.
+- Compozy's per-task workflow memory is more robust than Superpowers across multi-week work; PRD #2 retains it where it matters.
+
+**Estimated calendar impact** (baseline: original "all Compozy" plan ~4-5 months end-to-end):
+
+- PRD #1: ~3-5 days (was ~2 weeks)
+- PRD #2: ~1-2 weeks (unchanged — Compozy retained)
+- PRD #3: ~1 week (was ~2 weeks)
+- PRD #4: ~1-2 days (was ~1 week)
+- PRD #5+ (23 modules): ~1-2 weeks (was ~3 months)
+- **Total**: ~5-7 weeks delivered end-to-end, vs ~4-5 months with uniform Compozy.
+
+The strategy may evolve as PRDs land — if PRD #1 reveals more design ambiguity than anticipated, escalating to Compozy mid-flight is acceptable.
 
 ## Out of scope across all PRDs
 
