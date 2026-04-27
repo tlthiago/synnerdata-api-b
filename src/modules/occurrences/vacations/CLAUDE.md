@@ -51,7 +51,7 @@ Prioridade: `in_progress` > `scheduled` > `ACTIVE`. O helper consulta todas as f
 - Resource key: `vacation`
 - Mutations logged: create, update, delete (via `AuditService.log` + `buildAuditChanges`)
 - Ignored fields: `employee` (JOIN-shaped virtual nested object) + `employeeId` (immutable FK; resource identity is captured via `resourceId`)
-- The `syncEmployeeStatus` side-effect UPDATE on `employees` is NOT audited as part of this resource — vacation audit covers the vacation row only
+- Side effects via `syncEmployeeStatus` (employee status transitions: ACTIVE / VACATION_SCHEDULED / ON_VACATION) ARE audited as `resource: "employee"` entries — only when status actually changes (no-op syncs produce no audit entry)
 - Read audit: not enabled
 
 ## Enums

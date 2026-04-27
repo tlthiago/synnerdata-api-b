@@ -297,6 +297,16 @@ export abstract class VacationService {
     organizationId: string,
     userId: string
   ): Promise<void> {
+    const [employeeBefore] = await db
+      .select({ status: schema.employees.status })
+      .from(schema.employees)
+      .where(
+        and(
+          eq(schema.employees.id, employeeId),
+          eq(schema.employees.organizationId, organizationId)
+        )
+      );
+
     const activeVacations = await db
       .select({ status: schema.vacations.status })
       .from(schema.vacations)
@@ -327,6 +337,20 @@ export abstract class VacationService {
           eq(schema.employees.organizationId, organizationId)
         )
       );
+
+    if (employeeBefore && employeeBefore.status !== employeeStatus) {
+      await AuditService.log({
+        action: "update",
+        resource: "employee",
+        resourceId: employeeId,
+        userId,
+        organizationId,
+        changes: buildAuditChanges(
+          { status: employeeBefore.status },
+          { status: employeeStatus }
+        ),
+      });
+    }
   }
 
   private static async ensureNoOverlap(params: {
