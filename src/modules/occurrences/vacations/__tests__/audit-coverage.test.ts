@@ -163,7 +163,11 @@ describe("audit coverage — vacation side effects on employee status", () => {
   test("POST /v1/vacations emits audit_logs update entry for employee status (ACTIVE → VACATION_SCHEDULED)", async () => {
     const { headers, organizationId, user, userId } =
       await createTestUserWithOrganization({ emailVerified: true });
-    const { employee } = await createTestEmployee({ organizationId, userId });
+    const { employee } = await createTestEmployee({
+      organizationId,
+      userId,
+      hireDate: "2020-01-01",
+    });
     await db.delete(schema.auditLogs);
 
     const resp = await app.handle(
@@ -198,7 +202,11 @@ describe("audit coverage — vacation side effects on employee status", () => {
   test("DELETE /v1/vacations/:id emits audit_logs update entry for employee status reverting to ACTIVE", async () => {
     const { headers, organizationId, user, userId } =
       await createTestUserWithOrganization({ emailVerified: true });
-    const { employee } = await createTestEmployee({ organizationId, userId });
+    const { employee } = await createTestEmployee({
+      organizationId,
+      userId,
+      hireDate: "2020-01-01",
+    });
 
     const createResp = await app.handle(
       new Request(`${BASE_URL}/v1/vacations`, {
@@ -241,7 +249,11 @@ describe("audit coverage — vacation side effects on employee status", () => {
   test("PUT /v1/vacations/:id changing status to canceled does NOT emit redundant employee audit when status doesn't change", async () => {
     const { headers, organizationId, userId } =
       await createTestUserWithOrganization({ emailVerified: true });
-    const { employee } = await createTestEmployee({ organizationId, userId });
+    const { employee } = await createTestEmployee({
+      organizationId,
+      userId,
+      hireDate: "2020-01-01",
+    });
 
     const v1Resp = await app.handle(
       new Request(`${BASE_URL}/v1/vacations`, {
