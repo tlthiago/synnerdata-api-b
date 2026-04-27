@@ -226,13 +226,16 @@ export abstract class PpeDeliveryService {
       for (const ppeItemId of ppeItemIds) {
         const itemId = `ppe-delivery-item-${crypto.randomUUID()}`;
 
-        await db.insert(schema.ppeDeliveryItems).values({
-          id: itemId,
-          organizationId,
-          ppeDeliveryId,
-          ppeItemId,
-          createdBy: userId,
-        });
+        const [association] = await db
+          .insert(schema.ppeDeliveryItems)
+          .values({
+            id: itemId,
+            organizationId,
+            ppeDeliveryId,
+            ppeItemId,
+            createdBy: userId,
+          })
+          .returning();
 
         // Create log for each item added
         await PpeDeliveryService.createLog({
@@ -241,6 +244,15 @@ export abstract class PpeDeliveryService {
           action: "ADDED",
           userId,
           description: "Adicionado na criação da entrega",
+        });
+
+        await AuditService.log({
+          action: "create",
+          resource: "ppe_delivery_item",
+          resourceId: association.id,
+          userId,
+          organizationId,
+          changes: buildAuditChanges({}, association),
         });
       }
     }
@@ -379,10 +391,11 @@ export abstract class PpeDeliveryService {
     // Soft delete items that are no longer in the list
     for (const item of currentItems) {
       if (!newIds.has(item.ppeItemId)) {
-        await db
+        const [removed] = await db
           .update(schema.ppeDeliveryItems)
           .set({ deletedAt: new Date(), deletedBy: userId })
-          .where(eq(schema.ppeDeliveryItems.id, item.id));
+          .where(eq(schema.ppeDeliveryItems.id, item.id))
+          .returning();
 
         await PpeDeliveryService.createLog({
           ppeDeliveryId,
@@ -391,19 +404,31 @@ export abstract class PpeDeliveryService {
           userId,
           description: "Removido via atualização da entrega",
         });
+
+        await AuditService.log({
+          action: "delete",
+          resource: "ppe_delivery_item",
+          resourceId: removed.id,
+          userId,
+          organizationId,
+          changes: buildAuditChanges(item, {}),
+        });
       }
     }
 
     // Add new items that don't exist yet
     for (const ppeItemId of newPpeItemIds) {
       if (!currentIds.has(ppeItemId)) {
-        await db.insert(schema.ppeDeliveryItems).values({
-          id: `ppe-delivery-item-${crypto.randomUUID()}`,
-          organizationId,
-          ppeDeliveryId,
-          ppeItemId,
-          createdBy: userId,
-        });
+        const [association] = await db
+          .insert(schema.ppeDeliveryItems)
+          .values({
+            id: `ppe-delivery-item-${crypto.randomUUID()}`,
+            organizationId,
+            ppeDeliveryId,
+            ppeItemId,
+            createdBy: userId,
+          })
+          .returning();
 
         await PpeDeliveryService.createLog({
           ppeDeliveryId,
@@ -411,6 +436,15 @@ export abstract class PpeDeliveryService {
           action: "ADDED",
           userId,
           description: "Adicionado via atualização da entrega",
+        });
+
+        await AuditService.log({
+          action: "create",
+          resource: "ppe_delivery_item",
+          resourceId: association.id,
+          userId,
+          organizationId,
+          changes: buildAuditChanges({}, association),
         });
       }
     }
@@ -546,6 +580,15 @@ export abstract class PpeDeliveryService {
       description: "Adicionado manualmente à entrega",
     });
 
+    await AuditService.log({
+      action: "create",
+      resource: "ppe_delivery_item",
+      resourceId: association.id,
+      userId,
+      organizationId,
+      changes: buildAuditChanges({}, association),
+    });
+
     return {
       ppeDeliveryId: association.ppeDeliveryId,
       ppeItemId: association.ppeItemId,
@@ -596,13 +639,23 @@ export abstract class PpeDeliveryService {
     });
 
     // Soft delete the association
-    await db
+    const [removed] = await db
       .update(schema.ppeDeliveryItems)
       .set({
         deletedAt: new Date(),
         deletedBy: userId,
       })
-      .where(eq(schema.ppeDeliveryItems.id, association.id));
+      .where(eq(schema.ppeDeliveryItems.id, association.id))
+      .returning();
+
+    await AuditService.log({
+      action: "delete",
+      resource: "ppe_delivery_item",
+      resourceId: removed.id,
+      userId,
+      organizationId,
+      changes: buildAuditChanges(association, {}),
+    });
   }
 
   static async getItemsForDelivery(

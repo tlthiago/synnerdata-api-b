@@ -20,8 +20,15 @@ Registro de entregas de Equipamentos de Proteção Individual com controle item-
 - Resource key: `ppe_delivery`
 - Mutations logged: create, update, delete (via `AuditService.log` + `buildAuditChanges`)
 - Ignored fields: `employee` (defensive — service uses raw rows; not present) + `employeeId` (immutable FK; resource identity is captured via `resourceId`)
-- M2M item operations (`addPpeItem`, `removePpeItem`, `replacePpeItems`) NOT audited as part of this resource — those continue to write the existing domain log at `ppeDeliveryLogs`
 - Read audit: not enabled (no LGPD Art. 11/18 PII on the delivery record itself)
+
+### M2M associations (`ppe_delivery_items`)
+
+- Resource key: `ppe_delivery_item`
+- Mutations logged: `create` (via `addPpeItem`, `replacePpeItems` adds, or inline `create` loop), `delete` (via `removePpeItem` or `replacePpeItems` removes)
+- Diff fields: `ppeDeliveryId`, `ppeItemId` (junction columns)
+- Coexists with the module-specific `ppeDeliveryLogs` domain log — `audit_logs` is the cross-cutting compliance trail; `ppeDeliveryLogs` is the module's own historical record (kept as-is)
+- Why audited separately: junction has its own lifecycle; PRD #3 will drop `deletedBy` from `ppe_delivery_items`, so `audit_logs` becomes the deletion attribution source
 
 ## Unique in this module
 
