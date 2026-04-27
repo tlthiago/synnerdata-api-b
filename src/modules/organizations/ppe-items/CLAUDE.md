@@ -10,6 +10,14 @@ Catálogo de Equipamentos de Proteção Individual com associação a cargos.
 - Não pode associar mesmo cargo duas vezes (409)
 - Não pode associar/desassociar de item deletado
 
+## Audit logging
+
+- Plugin: `auditPlugin` registered in controller
+- Resource key: `ppe_item`
+- Mutations logged: create, update, delete (via `AuditService.log` + `buildAuditChanges`)
+- M2M associations (`ppeJobPositions`) not audited as part of this resource — out of scope for this task
+- Read audit: not enabled
+
 ## Endpoints M2M
 
 - `GET /:id/job-positions` — lista cargos associados
