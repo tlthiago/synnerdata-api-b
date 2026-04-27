@@ -249,12 +249,24 @@ export abstract class ProjectService {
     // Add employees to the project
     if (employeeIds && employeeIds.length > 0) {
       for (const employeeId of employeeIds) {
-        await db.insert(schema.projectEmployees).values({
-          id: `project-employee-${crypto.randomUUID()}`,
+        const [association] = await db
+          .insert(schema.projectEmployees)
+          .values({
+            id: `project-employee-${crypto.randomUUID()}`,
+            organizationId,
+            projectId,
+            employeeId,
+            createdBy: userId,
+          })
+          .returning();
+
+        await AuditService.log({
+          action: "create",
+          resource: "project_employee",
+          resourceId: association.id,
+          userId,
           organizationId,
-          projectId,
-          employeeId,
-          createdBy: userId,
+          changes: buildAuditChanges({}, association),
         });
       }
     }
@@ -504,6 +516,15 @@ export abstract class ProjectService {
       })
       .returning();
 
+    await AuditService.log({
+      action: "create",
+      resource: "project_employee",
+      resourceId: association.id,
+      userId,
+      organizationId,
+      changes: buildAuditChanges({}, association),
+    });
+
     return {
       projectId: association.projectId,
       employeeId: association.employeeId,
@@ -542,12 +563,22 @@ export abstract class ProjectService {
     }
 
     // Soft delete the association
-    await db
+    const [removed] = await db
       .update(schema.projectEmployees)
       .set({
         deletedAt: new Date(),
         deletedBy: userId,
       })
-      .where(eq(schema.projectEmployees.id, association.id));
+      .where(eq(schema.projectEmployees.id, association.id))
+      .returning();
+
+    await AuditService.log({
+      action: "delete",
+      resource: "project_employee",
+      resourceId: removed.id,
+      userId,
+      organizationId,
+      changes: buildAuditChanges(association, {}),
+    });
   }
 }

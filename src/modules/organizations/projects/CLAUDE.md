@@ -18,8 +18,15 @@ Projetos com alocação de funcionários (M2M).
 
 - Resource key: `project`
 - Mutations logged: create, update, delete (via `AuditService.log` + `buildAuditChanges`)
-- Ignored fields: `employees` (M2M virtual column excluded from diff — M2M associations are not audited as part of the project resource; out of scope for this task)
+- Ignored fields: `employees` (M2M virtual column excluded from diff — M2M associations are audited separately as `project_employee`)
 - Read audit: not enabled
+
+### M2M associations (`project_employees`)
+
+- Resource key: `project_employee`
+- Mutations logged: `create` (via `addEmployee` or inline `create` loop), `delete` (via `removeEmployee`)
+- Diff fields: `projectId`, `employeeId` (junction columns)
+- Why audited separately: junction table has its own lifecycle; PRD #3 will drop `deletedBy` from `project_employees`, so `audit_logs` becomes the deletion attribution source for these associations
 
 ## Endpoints M2M
 
