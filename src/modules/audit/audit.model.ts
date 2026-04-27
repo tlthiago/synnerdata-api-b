@@ -26,6 +26,20 @@ export const auditResourceSchema = z.enum([
   "export",
   "api_key",
   "invitation",
+  "cost_center",
+  "branch",
+  "sector",
+  "job_position",
+  "job_classification",
+  "project",
+  "ppe_item",
+  "absence",
+  "accident",
+  "vacation",
+  "promotion",
+  "termination",
+  "warning",
+  "ppe_delivery",
 ]);
 
 export const auditChangesSchema = z

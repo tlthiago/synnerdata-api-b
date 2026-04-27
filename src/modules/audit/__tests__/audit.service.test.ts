@@ -2,6 +2,7 @@ import { afterAll, describe, expect, test } from "bun:test";
 import { eq } from "drizzle-orm";
 import { db } from "@/db";
 import { schema } from "@/db/schema";
+import { auditResourceSchema } from "@/modules/audit/audit.model";
 import { AuditService } from "@/modules/audit/audit.service";
 import { createTestOrganization } from "@/test/helpers/organization";
 
@@ -195,5 +196,26 @@ describe("AuditService", () => {
       expect(logs.length).toBe(2);
       expect(logs.every((l) => l.resourceId === resourceId)).toBe(true);
     });
+  });
+});
+
+describe("auditResourceSchema — expanded coverage", () => {
+  test.each([
+    "cost_center",
+    "branch",
+    "sector",
+    "job_position",
+    "job_classification",
+    "project",
+    "ppe_item",
+    "absence",
+    "accident",
+    "vacation",
+    "promotion",
+    "termination",
+    "warning",
+    "ppe_delivery",
+  ])("accepts new resource key '%s'", (resource) => {
+    expect(() => auditResourceSchema.parse(resource)).not.toThrow();
   });
 });
