@@ -46,6 +46,15 @@ Criar, atualizar status ou deletar ferias sincroniza automaticamente o status do
 
 Prioridade: `in_progress` > `scheduled` > `ACTIVE`. O helper consulta todas as ferias ativas (nao deletadas, nao canceladas, nao completadas) do funcionario para determinar o status correto.
 
+## Audit logging
+
+- Plugin: `auditPlugin` registered in controller
+- Resource key: `vacation`
+- Mutations logged: create, update, delete (via `AuditService.log` + `buildAuditChanges`)
+- Ignored fields: `employee` (JOIN-shaped virtual nested object) + `employeeId` (immutable FK; resource identity is captured via `resourceId`)
+- The `syncEmployeeStatus` side-effect UPDATE on `employees` is NOT audited as part of this resource — vacation audit covers the vacation row only
+- Read audit: not enabled
+
 ## Enums
 
 - status: definido via `vacationStatusEnum` no DB (default: `scheduled`)
