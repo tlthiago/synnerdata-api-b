@@ -1,6 +1,11 @@
 import { and, eq, isNull, sql } from "drizzle-orm";
 import { db } from "@/db";
 import { schema } from "@/db/schema";
+import { AuditService } from "@/modules/audit/audit.service";
+import {
+  buildAuditChanges,
+  IGNORED_AUDIT_FIELDS,
+} from "@/modules/audit/pii-redaction";
 import { ensureEmployeeActive } from "@/modules/employees/status";
 import type {
   AbsenceData,
@@ -15,6 +20,12 @@ import {
   AbsenceNotFoundError,
   AbsenceOverlapError,
 } from "./errors";
+
+const ABSENCE_IGNORED_FIELDS = new Set([
+  ...IGNORED_AUDIT_FIELDS,
+  "employee",
+  "employeeId",
+]);
 
 export abstract class AbsenceService {
   private static async findById(
@@ -199,6 +210,17 @@ export abstract class AbsenceService {
       })
       .returning();
 
+    await AuditService.log({
+      action: "create",
+      resource: "absence",
+      resourceId: absence.id,
+      userId,
+      organizationId,
+      changes: buildAuditChanges({}, absence, {
+        ignoredFields: ABSENCE_IGNORED_FIELDS,
+      }),
+    });
+
     return {
       id: absence.id,
       organizationId: absence.organizationId,
@@ -292,7 +314,7 @@ export abstract class AbsenceService {
       });
     }
 
-    await db
+    const [updated] = await db
       .update(schema.absences)
       .set({
         ...data,
@@ -305,7 +327,19 @@ export abstract class AbsenceService {
           eq(schema.absences.id, id),
           eq(schema.absences.organizationId, organizationId)
         )
-      );
+      )
+      .returning();
+
+    await AuditService.log({
+      action: "update",
+      resource: "absence",
+      resourceId: id,
+      userId,
+      organizationId,
+      changes: buildAuditChanges(existing, updated, {
+        ignoredFields: ABSENCE_IGNORED_FIELDS,
+      }),
+    });
 
     return AbsenceService.findByIdOrThrow(id, organizationId);
   }
@@ -341,6 +375,19 @@ export abstract class AbsenceService {
         )
       )
       .returning();
+
+    await AuditService.log({
+      action: "delete",
+      resource: "absence",
+      resourceId: id,
+      userId,
+      organizationId,
+      changes: buildAuditChanges(
+        existing,
+        {},
+        { ignoredFields: ABSENCE_IGNORED_FIELDS }
+      ),
+    });
 
     return {
       ...existing,

@@ -296,7 +296,7 @@ export abstract class MedicalCertificateService {
     organizationId: string,
     input: UpdateMedicalCertificateInput
   ): Promise<MedicalCertificateData> {
-    const { userId, employeeId, ...data } = input;
+    const { userId, ...data } = input;
 
     const existing = await MedicalCertificateService.findById(
       id,
@@ -334,15 +334,8 @@ export abstract class MedicalCertificateService {
       });
     }
 
-    if (employeeId !== undefined) {
-      await MedicalCertificateService.getEmployeeReference(
-        employeeId,
-        organizationId
-      );
-    }
-
     const definedFields = Object.fromEntries(
-      Object.entries({ ...data, employeeId }).filter(([, v]) => v !== undefined)
+      Object.entries(data).filter(([, v]) => v !== undefined)
     );
 
     await db

@@ -62,13 +62,13 @@ describe("POST /v1/cpf-analyses", () => {
     const { addMemberToOrganization } = await import(
       "@/test/helpers/organization"
     );
-    const { organizationId } = await createTestUserWithOrganization({
+    const { organizationId, userId } = await createTestUserWithOrganization({
       emailVerified: true,
     });
 
     const { employee } = await createTestEmployee({
       organizationId,
-      userId: organizationId,
+      userId,
     });
 
     const memberResult = await createTestUser({ emailVerified: true });

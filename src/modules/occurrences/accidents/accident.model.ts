@@ -39,14 +39,17 @@ const accidentFieldsSchema = z.object({
 
 export const createAccidentSchema = accidentFieldsSchema;
 
-export const updateAccidentSchema = accidentFieldsSchema.partial().extend({
-  cat: z
-    .string()
-    .max(25, "CAT deve ter no máximo 25 caracteres")
-    .nullable()
-    .optional(),
-  notes: z.string().nullable().optional(),
-});
+export const updateAccidentSchema = accidentFieldsSchema
+  .partial()
+  .omit({ employeeId: true })
+  .extend({
+    cat: z
+      .string()
+      .max(25, "CAT deve ter no máximo 25 caracteres")
+      .nullable()
+      .optional(),
+    notes: z.string().nullable().optional(),
+  });
 
 export const idParamSchema = z.object({
   id: z.string().min(1).describe("ID do acidente"),

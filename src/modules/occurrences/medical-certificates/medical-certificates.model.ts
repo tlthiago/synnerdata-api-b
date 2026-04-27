@@ -53,6 +53,7 @@ export const createMedicalCertificateSchema =
 
 export const updateMedicalCertificateSchema = medicalCertificateFieldsSchema
   .partial()
+  .omit({ employeeId: true })
   .extend({
     cid: z
       .string()

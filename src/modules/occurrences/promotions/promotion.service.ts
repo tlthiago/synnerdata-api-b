@@ -2,6 +2,12 @@ import { aliasedTable, and, eq, isNull } from "drizzle-orm";
 import { db } from "@/db";
 import { schema } from "@/db/schema";
 import type { EntityReference } from "@/lib/schemas/relationships";
+import { AuditService } from "@/modules/audit/audit.service";
+import {
+  buildAuditChanges,
+  IGNORED_AUDIT_FIELDS,
+  PII_FIELDS,
+} from "@/modules/audit/pii-redaction";
 import { EmployeeService } from "@/modules/employees/employee.service";
 import { ensureEmployeeActive } from "@/modules/employees/status";
 import { JobPositionService } from "@/modules/organizations/job-positions/job-position.service";
@@ -29,6 +35,22 @@ const newJobPositionTable = aliasedTable(
   schema.jobPositions,
   "new_job_position"
 );
+
+const PROMOTION_PII_FIELDS = new Set([
+  ...PII_FIELDS,
+  "previousSalary",
+  "newSalary",
+]);
+
+const PROMOTION_IGNORED_FIELDS = new Set([
+  ...IGNORED_AUDIT_FIELDS,
+  "employee",
+  "employeeId",
+  "previousJobPosition",
+  "previousJobPositionId",
+  "newJobPosition",
+  "newJobPositionId",
+]);
 
 export abstract class PromotionService {
   private static async getEmployeeReference(
@@ -188,9 +210,6 @@ export abstract class PromotionService {
       updatedBy: userId,
     };
 
-    if (data.employeeId !== undefined) {
-      updateData.employeeId = data.employeeId;
-    }
     if (data.promotionDate !== undefined) {
       updateData.promotionDate = data.promotionDate;
     }
@@ -299,6 +318,19 @@ export abstract class PromotionService {
     jobPositionId: string;
     userId: string;
   }): Promise<void> {
+    const [employeeBefore] = await db
+      .select({
+        salary: schema.employees.salary,
+        jobPositionId: schema.employees.jobPositionId,
+      })
+      .from(schema.employees)
+      .where(
+        and(
+          eq(schema.employees.id, params.employeeId),
+          eq(schema.employees.organizationId, params.organizationId)
+        )
+      );
+
     await db
       .update(schema.employees)
       .set({
@@ -312,6 +344,27 @@ export abstract class PromotionService {
           eq(schema.employees.organizationId, params.organizationId)
         )
       );
+
+    if (
+      employeeBefore &&
+      (employeeBefore.salary !== params.salary ||
+        employeeBefore.jobPositionId !== params.jobPositionId)
+    ) {
+      await AuditService.log({
+        action: "update",
+        resource: "employee",
+        resourceId: params.employeeId,
+        userId: params.userId,
+        organizationId: params.organizationId,
+        changes: buildAuditChanges(
+          {
+            salary: employeeBefore.salary,
+            jobPositionId: employeeBefore.jobPositionId,
+          },
+          { salary: params.salary, jobPositionId: params.jobPositionId }
+        ),
+      });
+    }
   }
 
   private static async ensureIsLatestPromotion(
@@ -388,6 +441,18 @@ export abstract class PromotionService {
         createdBy: userId,
       })
       .returning();
+
+    await AuditService.log({
+      action: "create",
+      resource: "promotion",
+      resourceId: promotion.id,
+      userId,
+      organizationId,
+      changes: buildAuditChanges({}, promotion, {
+        piiFields: PROMOTION_PII_FIELDS,
+        ignoredFields: PROMOTION_IGNORED_FIELDS,
+      }),
+    });
 
     // Sync employee if this is the latest promotion
     const latestPromotion = await PromotionService.findLatestPromotionRaw(
@@ -516,10 +581,6 @@ export abstract class PromotionService {
       throw new PromotionNotFoundError(id);
     }
 
-    if (data.employeeId) {
-      await EmployeeService.findByIdOrThrow(data.employeeId, organizationId);
-    }
-
     if (data.previousJobPositionId) {
       await JobPositionService.findByIdOrThrow(
         data.previousJobPositionId,
@@ -595,6 +656,18 @@ export abstract class PromotionService {
       throw new PromotionNotFoundError(id);
     }
 
+    await AuditService.log({
+      action: "update",
+      resource: "promotion",
+      resourceId: id,
+      userId,
+      organizationId,
+      changes: buildAuditChanges(existing, updatedPromotion, {
+        piiFields: PROMOTION_PII_FIELDS,
+        ignoredFields: PROMOTION_IGNORED_FIELDS,
+      }),
+    });
+
     await PromotionService.syncEmployeeFromPromotion({
       employeeId: existing.employee.id,
       organizationId,
@@ -654,6 +727,22 @@ export abstract class PromotionService {
         )
       )
       .returning();
+
+    await AuditService.log({
+      action: "delete",
+      resource: "promotion",
+      resourceId: id,
+      userId,
+      organizationId,
+      changes: buildAuditChanges(
+        existing,
+        {},
+        {
+          piiFields: PROMOTION_PII_FIELDS,
+          ignoredFields: PROMOTION_IGNORED_FIELDS,
+        }
+      ),
+    });
 
     // Revert employee to previous promotion or pre-promotion values
     const previousPromotion = await PromotionService.findLatestPromotionRaw(

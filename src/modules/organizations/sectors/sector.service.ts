@@ -1,6 +1,8 @@
 import { and, eq, isNull, sql } from "drizzle-orm";
 import { db } from "@/db";
 import { schema } from "@/db/schema";
+import { AuditService } from "@/modules/audit/audit.service";
+import { buildAuditChanges } from "@/modules/audit/pii-redaction";
 import {
   SectorAlreadyDeletedError,
   SectorAlreadyExistsError,
@@ -90,6 +92,15 @@ export abstract class SectorService {
       })
       .returning();
 
+    await AuditService.log({
+      action: "create",
+      resource: "sector",
+      resourceId: sector.id,
+      userId,
+      organizationId,
+      changes: buildAuditChanges({}, sector),
+    });
+
     return sector as SectorData;
   }
 
@@ -149,6 +160,15 @@ export abstract class SectorService {
       )
       .returning();
 
+    await AuditService.log({
+      action: "update",
+      resource: "sector",
+      resourceId: id,
+      userId,
+      organizationId,
+      changes: buildAuditChanges(existing, updated),
+    });
+
     return updated as SectorData;
   }
 
@@ -183,6 +203,15 @@ export abstract class SectorService {
         )
       )
       .returning();
+
+    await AuditService.log({
+      action: "delete",
+      resource: "sector",
+      resourceId: id,
+      userId,
+      organizationId,
+      changes: buildAuditChanges(existing, {}),
+    });
 
     return deleted as DeletedSectorData;
   }

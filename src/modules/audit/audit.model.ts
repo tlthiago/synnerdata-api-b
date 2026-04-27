@@ -26,6 +26,24 @@ export const auditResourceSchema = z.enum([
   "export",
   "api_key",
   "invitation",
+  "cost_center",
+  "branch",
+  "sector",
+  "job_position",
+  "job_classification",
+  "project",
+  "ppe_item",
+  "absence",
+  "accident",
+  "vacation",
+  "promotion",
+  "termination",
+  "warning",
+  "ppe_delivery",
+  // PRD #1.5 — junction tables
+  "project_employee",
+  "ppe_job_position",
+  "ppe_delivery_item",
 ]);
 
 export const auditChangesSchema = z

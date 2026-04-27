@@ -10,6 +10,13 @@ Registro de faltas de funcionários (justificadas ou injustificadas).
 - Overlap check no create: mesmo employee + mesmo type + datas sobrepostas lança `AbsenceOverlapError`
 - Listagem ordenada por `startDate`
 
+## Audit logging
+
+- Resource key: `absence`
+- Mutations logged: create, update, delete (via `AuditService.log` + `buildAuditChanges`)
+- Ignored fields: `employee` (JOIN-shaped virtual nested object) + `employeeId` (immutable FK; resource identity is captured via `resourceId`)
+- Read audit: not enabled (no LGPD Art. 11/18 PII on the absence record itself; sensitivity sits with the employee)
+
 ## Enums
 
 - type: `justified` | `unjustified`

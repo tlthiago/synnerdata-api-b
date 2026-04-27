@@ -12,7 +12,7 @@ Log de ações para compliance. Registra quem fez o quê, quando e onde.
 ## Enums
 
 - action: `create` | `read` | `update` | `delete` | `export` | `login` | `logout` | `accept`
-- resource: `user` | `session` | `organization` | `member` | `employee` | `document` | `medical_certificate` | `labor_lawsuit` | `cpf_analysis` | `subscription` | `export` | `api_key` | `invitation`
+- resource: `user` | `session` | `organization` | `member` | `employee` | `document` | `medical_certificate` | `labor_lawsuit` | `cpf_analysis` | `subscription` | `export` | `api_key` | `invitation` | `cost_center` | `branch` | `sector` | `job_position` | `job_classification` | `project` | `ppe_item` | `absence` | `accident` | `vacation` | `promotion` | `termination` | `warning` | `ppe_delivery` | `project_employee` | `ppe_job_position` | `ppe_delivery_item`
 
 ## Fields
 

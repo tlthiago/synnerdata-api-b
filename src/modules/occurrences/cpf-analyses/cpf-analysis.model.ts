@@ -45,6 +45,7 @@ export const createCpfAnalysisSchema = z.object({
 
 export const updateCpfAnalysisSchema = createCpfAnalysisSchema
   .partial()
+  .omit({ employeeId: true })
   .extend({
     score: z
       .number()

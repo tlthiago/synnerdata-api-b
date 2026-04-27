@@ -2,6 +2,11 @@ import { and, eq, isNull, sql } from "drizzle-orm";
 import { db } from "@/db";
 import { schema } from "@/db/schema";
 import { calculateDaysBetween } from "@/lib/schemas/date-helpers";
+import { AuditService } from "@/modules/audit/audit.service";
+import {
+  buildAuditChanges,
+  IGNORED_AUDIT_FIELDS,
+} from "@/modules/audit/pii-redaction";
 import { ensureEmployeeNotTerminated } from "@/modules/employees/status";
 import {
   resolveNextCycle,
@@ -30,6 +35,12 @@ type CycleWithBalance = VacationPeriods & {
 };
 
 const MAX_VACATION_DAYS_PER_AQUISITIVO = 30;
+
+const VACATION_IGNORED_FIELDS = new Set([
+  ...IGNORED_AUDIT_FIELDS,
+  "employee",
+  "employeeId",
+]);
 
 const SELECT_FIELDS = {
   id: schema.vacations.id,
@@ -286,6 +297,16 @@ export abstract class VacationService {
     organizationId: string,
     userId: string
   ): Promise<void> {
+    const [employeeBefore] = await db
+      .select({ status: schema.employees.status })
+      .from(schema.employees)
+      .where(
+        and(
+          eq(schema.employees.id, employeeId),
+          eq(schema.employees.organizationId, organizationId)
+        )
+      );
+
     const activeVacations = await db
       .select({ status: schema.vacations.status })
       .from(schema.vacations)
@@ -316,6 +337,20 @@ export abstract class VacationService {
           eq(schema.employees.organizationId, organizationId)
         )
       );
+
+    if (employeeBefore && employeeBefore.status !== employeeStatus) {
+      await AuditService.log({
+        action: "update",
+        resource: "employee",
+        resourceId: employeeId,
+        userId,
+        organizationId,
+        changes: buildAuditChanges(
+          { status: employeeBefore.status },
+          { status: employeeStatus }
+        ),
+      });
+    }
   }
 
   private static async ensureNoOverlap(params: {
@@ -390,21 +425,35 @@ export abstract class VacationService {
 
     const vacationId = `vacation-${crypto.randomUUID()}`;
 
-    await db.insert(schema.vacations).values({
-      id: vacationId,
+    const [vacation] = await db
+      .insert(schema.vacations)
+      .values({
+        id: vacationId,
+        organizationId,
+        employeeId: data.employeeId,
+        startDate: data.startDate,
+        endDate: data.endDate,
+        acquisitionPeriodStart: activeCycle.acquisitionPeriodStart,
+        acquisitionPeriodEnd: activeCycle.acquisitionPeriodEnd,
+        concessivePeriodStart: activeCycle.concessivePeriodStart,
+        concessivePeriodEnd: activeCycle.concessivePeriodEnd,
+        daysEntitled: data.daysEntitled,
+        daysUsed: data.daysUsed,
+        status: data.status,
+        notes: data.notes,
+        createdBy: userId,
+      })
+      .returning();
+
+    await AuditService.log({
+      action: "create",
+      resource: "vacation",
+      resourceId: vacation.id,
+      userId,
       organizationId,
-      employeeId: data.employeeId,
-      startDate: data.startDate,
-      endDate: data.endDate,
-      acquisitionPeriodStart: activeCycle.acquisitionPeriodStart,
-      acquisitionPeriodEnd: activeCycle.acquisitionPeriodEnd,
-      concessivePeriodStart: activeCycle.concessivePeriodStart,
-      concessivePeriodEnd: activeCycle.concessivePeriodEnd,
-      daysEntitled: data.daysEntitled,
-      daysUsed: data.daysUsed,
-      status: data.status,
-      notes: data.notes,
-      createdBy: userId,
+      changes: buildAuditChanges({}, vacation, {
+        ignoredFields: VACATION_IGNORED_FIELDS,
+      }),
     });
 
     await VacationService.syncEmployeeStatus(
@@ -594,7 +643,7 @@ export abstract class VacationService {
 
     await VacationService.validateUpdate(data, existing, organizationId, id);
 
-    await db
+    const [updated] = await db
       .update(schema.vacations)
       .set({
         ...data,
@@ -605,7 +654,19 @@ export abstract class VacationService {
           eq(schema.vacations.id, id),
           eq(schema.vacations.organizationId, organizationId)
         )
-      );
+      )
+      .returning();
+
+    await AuditService.log({
+      action: "update",
+      resource: "vacation",
+      resourceId: id,
+      userId,
+      organizationId,
+      changes: buildAuditChanges(existing, updated, {
+        ignoredFields: VACATION_IGNORED_FIELDS,
+      }),
+    });
 
     if (data.status !== undefined) {
       await VacationService.syncEmployeeStatus(
@@ -649,6 +710,21 @@ export abstract class VacationService {
         )
       )
       .returning();
+
+    await AuditService.log({
+      action: "delete",
+      resource: "vacation",
+      resourceId: id,
+      userId,
+      organizationId,
+      changes: buildAuditChanges(
+        existing,
+        {},
+        {
+          ignoredFields: VACATION_IGNORED_FIELDS,
+        }
+      ),
+    });
 
     await VacationService.syncEmployeeStatus(
       existing.employee.id,
