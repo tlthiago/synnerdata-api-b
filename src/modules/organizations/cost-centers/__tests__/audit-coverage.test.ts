@@ -1,12 +1,12 @@
 import { afterEach, beforeAll, describe, expect, test } from "bun:test";
-import { eq } from "drizzle-orm";
 import { db } from "@/db";
 import { schema } from "@/db/schema";
 import { env } from "@/env";
 import { createTestApp, type TestApp } from "@/test/helpers/app";
+import { expectAuditEntry } from "@/test/helpers/audit";
 import { createTestUserWithOrganization } from "@/test/helpers/user";
 
-const BASE_URL = env.APP_URL;
+const BASE_URL = env.API_URL;
 let app: TestApp;
 
 beforeAll(() => {
@@ -29,18 +29,16 @@ describe("audit coverage — cost-centers", () => {
         body: JSON.stringify({ name: "Centro Audit Test" }),
       })
     );
-    const body = await response.json();
     expect(response.status).toBe(200);
+    const body = await response.json();
 
-    const [entry] = await db
-      .select()
-      .from(schema.auditLogs)
-      .where(eq(schema.auditLogs.resourceId, body.data.id));
-    expect(entry).toBeDefined();
-    expect(entry.action).toBe("create");
-    expect(entry.resource).toBe("cost_center");
-    expect(entry.userId).toBe(user.id);
-    expect(entry.organizationId).toBe(organizationId);
+    const entry = await expectAuditEntry({
+      resourceId: body.data.id,
+      action: "create",
+      resource: "cost_center",
+      userId: user.id,
+      organizationId,
+    });
     expect(entry.changes?.after).toMatchObject({ name: "Centro Audit Test" });
   });
 
@@ -56,7 +54,6 @@ describe("audit coverage — cost-centers", () => {
       })
     );
     const created = (await createResp.json()).data;
-    await db.delete(schema.auditLogs);
 
     const updateResp = await app.handle(
       new Request(`${BASE_URL}/v1/cost-centers/${created.id}`, {
@@ -67,14 +64,13 @@ describe("audit coverage — cost-centers", () => {
     );
     expect(updateResp.status).toBe(200);
 
-    const [entry] = await db
-      .select()
-      .from(schema.auditLogs)
-      .where(eq(schema.auditLogs.resourceId, created.id));
-    expect(entry.action).toBe("update");
-    expect(entry.resource).toBe("cost_center");
-    expect(entry.userId).toBe(user.id);
-    expect(entry.organizationId).toBe(organizationId);
+    const entry = await expectAuditEntry({
+      resourceId: created.id,
+      action: "update",
+      resource: "cost_center",
+      userId: user.id,
+      organizationId,
+    });
     expect(entry.changes?.before).toMatchObject({ name: "Antes" });
     expect(entry.changes?.after).toMatchObject({ name: "Depois" });
   });
@@ -91,7 +87,6 @@ describe("audit coverage — cost-centers", () => {
       })
     );
     const created = (await createResp.json()).data;
-    await db.delete(schema.auditLogs);
 
     const deleteResp = await app.handle(
       new Request(`${BASE_URL}/v1/cost-centers/${created.id}`, {
@@ -101,14 +96,13 @@ describe("audit coverage — cost-centers", () => {
     );
     expect(deleteResp.status).toBe(200);
 
-    const [entry] = await db
-      .select()
-      .from(schema.auditLogs)
-      .where(eq(schema.auditLogs.resourceId, created.id));
-    expect(entry.action).toBe("delete");
-    expect(entry.resource).toBe("cost_center");
-    expect(entry.userId).toBe(user.id);
-    expect(entry.organizationId).toBe(organizationId);
+    const entry = await expectAuditEntry({
+      resourceId: created.id,
+      action: "delete",
+      resource: "cost_center",
+      userId: user.id,
+      organizationId,
+    });
     expect(entry.changes?.before).toMatchObject({ name: "ParaDeletar" });
   });
 });
