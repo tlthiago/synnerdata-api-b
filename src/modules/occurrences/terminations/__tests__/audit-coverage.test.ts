@@ -190,3 +190,65 @@ describe("audit coverage — terminations", () => {
     expect(entry.changes).toBeNull();
   });
 });
+
+describe("audit coverage — termination side effects on employee", () => {
+  test("POST /v1/terminations emits audit_logs update entry for employee status (ACTIVE → TERMINATED)", async () => {
+    const { headers, organizationId, user, userId } =
+      await createTestUserWithOrganization({ emailVerified: true });
+    const { employee } = await createTestEmployee({ organizationId, userId });
+    await db.delete(schema.auditLogs);
+
+    const resp = await app.handle(
+      new Request(`${BASE_URL}/v1/terminations`, {
+        method: "POST",
+        headers: { ...headers, "Content-Type": "application/json" },
+        body: JSON.stringify(buildTerminationPayload(employee.id)),
+      })
+    );
+    expect(resp.status).toBe(200);
+
+    const entry = await expectAuditEntry({
+      resourceId: employee.id,
+      action: "update",
+      resource: "employee",
+      userId: user.id,
+      organizationId,
+    });
+    expect(entry.changes?.before).toMatchObject({ status: "ACTIVE" });
+    expect(entry.changes?.after).toMatchObject({ status: "TERMINATED" });
+  });
+
+  test("DELETE /v1/terminations/:id emits audit_logs update entry for employee status (TERMINATED → ACTIVE)", async () => {
+    const { headers, organizationId, user, userId } =
+      await createTestUserWithOrganization({ emailVerified: true });
+    const { employee } = await createTestEmployee({ organizationId, userId });
+
+    const createResp = await app.handle(
+      new Request(`${BASE_URL}/v1/terminations`, {
+        method: "POST",
+        headers: { ...headers, "Content-Type": "application/json" },
+        body: JSON.stringify(buildTerminationPayload(employee.id)),
+      })
+    );
+    const created = (await createResp.json()).data;
+    await db.delete(schema.auditLogs);
+
+    const resp = await app.handle(
+      new Request(`${BASE_URL}/v1/terminations/${created.id}`, {
+        method: "DELETE",
+        headers,
+      })
+    );
+    expect(resp.status).toBe(200);
+
+    const entry = await expectAuditEntry({
+      resourceId: employee.id,
+      action: "update",
+      resource: "employee",
+      userId: user.id,
+      organizationId,
+    });
+    expect(entry.changes?.before).toMatchObject({ status: "TERMINATED" });
+    expect(entry.changes?.after).toMatchObject({ status: "ACTIVE" });
+  });
+});

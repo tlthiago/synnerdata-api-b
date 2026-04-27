@@ -20,7 +20,7 @@ Registro de desligamentos de funcionários.
 - Resource key: `termination`
 - Mutations logged: create, update, delete (via `AuditService.log` + `buildAuditChanges`)
 - Ignored fields: `employee` (JOIN-shaped virtual nested object) + `employeeId` (immutable FK; resource identity is captured via `resourceId`)
-- The side-effect UPDATEs on `employees.status` (TERMINATED on create, ACTIVE on delete) are NOT audited as part of this resource — termination audit covers the termination row only
+- Side effects on `employees.status` (TERMINATED on create, ACTIVE on delete) ARE audited as `resource: "employee"` entries — captures the cross-module status transition for compliance trails
 - **Read audit enabled** on `GET /:id` — termination records include rescission/dismissal context (LGPD-sensitive)
 
 ## Enums

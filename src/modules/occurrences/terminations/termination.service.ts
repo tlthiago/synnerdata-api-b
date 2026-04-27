@@ -198,6 +198,16 @@ export abstract class TerminationService {
       }),
     });
 
+    const [employeeBefore] = await db
+      .select({ status: schema.employees.status })
+      .from(schema.employees)
+      .where(
+        and(
+          eq(schema.employees.id, employeeId),
+          eq(schema.employees.organizationId, organizationId)
+        )
+      );
+
     await db
       .update(schema.employees)
       .set({ status: "TERMINATED", updatedBy: userId })
@@ -207,6 +217,18 @@ export abstract class TerminationService {
           eq(schema.employees.organizationId, organizationId)
         )
       );
+
+    await AuditService.log({
+      action: "update",
+      resource: "employee",
+      resourceId: employeeId,
+      userId,
+      organizationId,
+      changes: buildAuditChanges(
+        { status: employeeBefore?.status ?? null },
+        { status: "TERMINATED" }
+      ),
+    });
 
     return {
       id: termination.id,
@@ -355,6 +377,16 @@ export abstract class TerminationService {
       ),
     });
 
+    const [employeeBefore] = await db
+      .select({ status: schema.employees.status })
+      .from(schema.employees)
+      .where(
+        and(
+          eq(schema.employees.id, existing.employee.id),
+          eq(schema.employees.organizationId, organizationId)
+        )
+      );
+
     await db
       .update(schema.employees)
       .set({ status: "ACTIVE", updatedBy: userId })
@@ -364,6 +396,18 @@ export abstract class TerminationService {
           eq(schema.employees.organizationId, organizationId)
         )
       );
+
+    await AuditService.log({
+      action: "update",
+      resource: "employee",
+      resourceId: existing.employee.id,
+      userId,
+      organizationId,
+      changes: buildAuditChanges(
+        { status: employeeBefore?.status ?? null },
+        { status: "ACTIVE" }
+      ),
+    });
 
     return {
       ...existing,
