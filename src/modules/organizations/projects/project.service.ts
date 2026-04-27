@@ -1,6 +1,11 @@
 import { and, desc, eq, isNull, sql } from "drizzle-orm";
 import { db } from "@/db";
 import { schema } from "@/db/schema";
+import { AuditService } from "@/modules/audit/audit.service";
+import {
+  buildAuditChanges,
+  IGNORED_AUDIT_FIELDS,
+} from "@/modules/audit/pii-redaction";
 import {
   ProjectAlreadyDeletedError,
   ProjectCnoAlreadyExistsError,
@@ -18,6 +23,8 @@ import type {
   ProjectData,
   UpdateProjectInput,
 } from "./project.model";
+
+const PROJECT_IGNORED_FIELDS = new Set([...IGNORED_AUDIT_FIELDS, "employees"]);
 
 export abstract class ProjectService {
   private static async ensureNameNotExists(
@@ -252,6 +259,17 @@ export abstract class ProjectService {
       }
     }
 
+    await AuditService.log({
+      action: "create",
+      resource: "project",
+      resourceId: project.id,
+      userId,
+      organizationId,
+      changes: buildAuditChanges({}, project, {
+        ignoredFields: PROJECT_IGNORED_FIELDS,
+      }),
+    });
+
     return ProjectService.enrichProject(
       {
         id: project.id,
@@ -332,7 +350,7 @@ export abstract class ProjectService {
 
     const updateData = ProjectService.buildUpdateData(data, userId);
 
-    await db
+    const [updated] = await db
       .update(schema.projects)
       .set(updateData)
       .where(
@@ -340,7 +358,19 @@ export abstract class ProjectService {
           eq(schema.projects.id, id),
           eq(schema.projects.organizationId, organizationId)
         )
-      );
+      )
+      .returning();
+
+    await AuditService.log({
+      action: "update",
+      resource: "project",
+      resourceId: id,
+      userId,
+      organizationId,
+      changes: buildAuditChanges(existing, updated, {
+        ignoredFields: PROJECT_IGNORED_FIELDS,
+      }),
+    });
 
     return ProjectService.findByIdOrThrow(id, organizationId);
   }
@@ -393,6 +423,21 @@ export abstract class ProjectService {
         )
       )
       .returning();
+
+    await AuditService.log({
+      action: "delete",
+      resource: "project",
+      resourceId: id,
+      userId,
+      organizationId,
+      changes: buildAuditChanges(
+        existing,
+        {},
+        {
+          ignoredFields: PROJECT_IGNORED_FIELDS,
+        }
+      ),
+    });
 
     return {
       ...existing,

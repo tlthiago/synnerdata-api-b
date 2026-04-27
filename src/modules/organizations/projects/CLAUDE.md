@@ -14,6 +14,14 @@ Projetos com alocação de funcionários (M2M).
 - Delete do projeto não cascateia para associações
 - Listagem ordenada por `startDate` DESC
 
+## Audit logging
+
+- Plugin: `auditPlugin` registered in controller
+- Resource key: `project`
+- Mutations logged: create, update, delete (via `AuditService.log` + `buildAuditChanges`)
+- Ignored fields: `employees` (M2M virtual column excluded from diff — M2M associations are not audited as part of the project resource; out of scope for this task)
+- Read audit: not enabled
+
 ## Endpoints M2M
 
 - `GET /:id/employees` — lista employees do projeto
