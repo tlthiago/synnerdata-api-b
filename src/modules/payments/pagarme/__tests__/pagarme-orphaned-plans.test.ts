@@ -1,4 +1,5 @@
 import { beforeAll, describe, expect, test } from "bun:test";
+import { eq } from "drizzle-orm";
 import { db } from "@/db";
 import { schema } from "@/db/schema";
 import { env } from "@/env";
@@ -92,6 +93,16 @@ describe("Orphaned Pagarme Plans", () => {
   });
 
   describe("POST /payments/admin/pagarme/orphaned-plans/cleanup", () => {
+    beforeAll(async () => {
+      // Reset orphan history accumulated from previous runs of this file.
+      // Cleanup iterates over every isActive=false row calling Pagar.me real
+      // for each — without isolation, hundreds of synthetic plan_test_* IDs
+      // accumulate over time and the test exceeds the 30s timeout.
+      await db
+        .delete(schema.pagarmePlanHistory)
+        .where(eq(schema.pagarmePlanHistory.isActive, false));
+    });
+
     test("should reject unauthenticated requests", async () => {
       const response = await app.handle(
         new Request(CLEANUP_URL, { method: "POST" })
