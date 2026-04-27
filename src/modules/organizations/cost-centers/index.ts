@@ -8,6 +8,7 @@ import {
   unauthorizedErrorSchema,
   validationErrorSchema,
 } from "@/lib/responses/response.types";
+import { auditPlugin } from "@/plugins/audit/audit-plugin";
 import { betterAuthPlugin } from "@/plugins/auth-guard/auth-plugin";
 import {
   createCostCenterResponseSchema,
@@ -27,6 +28,7 @@ export const costCenterController = new Elysia({
   detail: { tags: ["Organizations - Cost Centers"] },
 })
   .use(betterAuthPlugin)
+  .use(auditPlugin)
   .post(
     "/",
     async ({ session, body, user }) =>
