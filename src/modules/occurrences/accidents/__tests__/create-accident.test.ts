@@ -171,6 +171,48 @@ describe("POST /v1/accidents", () => {
     expect(response.status).toBe(422);
   });
 
+  test.each([
+    { label: "omitted", build: () => ({}) },
+    { label: "null", build: () => ({ date: null }) },
+    { label: "empty string", build: () => ({ date: "" }) },
+  ])("should reject create when date is $label", async ({ build }) => {
+    const { headers, organizationId, user } =
+      await createTestUserWithOrganization({
+        emailVerified: true,
+      });
+
+    const { employee } = await createTestEmployee({
+      organizationId,
+      userId: user.id,
+    });
+
+    const { date: _omit, ...rest } = validAccidentData;
+    const payload = {
+      ...rest,
+      employeeId: employee.id,
+      ...build(),
+    };
+
+    const response = await app.handle(
+      new Request(`${BASE_URL}/v1/accidents`, {
+        method: "POST",
+        headers: {
+          ...headers,
+          "Content-Type": "application/json",
+        },
+        body: JSON.stringify(payload),
+      })
+    );
+
+    expect(response.status).toBe(422);
+    const body = await response.json();
+    expect(body.error.code).toBe("VALIDATION_ERROR");
+    const dateIssue = body.error.details.find(
+      (d: { path: string }) => d.path === "date" || d.path.endsWith("/date")
+    );
+    expect(dateIssue).toBeDefined();
+  });
+
   test("should reject invalid employee", async () => {
     const { headers } = await createTestUserWithOrganization({
       emailVerified: true,

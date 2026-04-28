@@ -1,6 +1,8 @@
 import { and, eq, isNull, sql } from "drizzle-orm";
 import { db } from "@/db";
 import { schema } from "@/db/schema";
+import { AuditService } from "@/modules/audit/audit.service";
+import { buildAuditChanges } from "@/modules/audit/pii-redaction";
 import {
   JobPositionAlreadyDeletedError,
   JobPositionAlreadyExistsError,
@@ -91,6 +93,15 @@ export abstract class JobPositionService {
       })
       .returning();
 
+    await AuditService.log({
+      action: "create",
+      resource: "job_position",
+      resourceId: jobPosition.id,
+      userId,
+      organizationId,
+      changes: buildAuditChanges({}, jobPosition),
+    });
+
     return jobPosition as JobPositionData;
   }
 
@@ -154,6 +165,15 @@ export abstract class JobPositionService {
       )
       .returning();
 
+    await AuditService.log({
+      action: "update",
+      resource: "job_position",
+      resourceId: id,
+      userId,
+      organizationId,
+      changes: buildAuditChanges(existing, updated),
+    });
+
     return updated as JobPositionData;
   }
 
@@ -188,6 +208,15 @@ export abstract class JobPositionService {
         )
       )
       .returning();
+
+    await AuditService.log({
+      action: "delete",
+      resource: "job_position",
+      resourceId: id,
+      userId,
+      organizationId,
+      changes: buildAuditChanges(existing, {}),
+    });
 
     return deleted as DeletedJobPositionData;
   }

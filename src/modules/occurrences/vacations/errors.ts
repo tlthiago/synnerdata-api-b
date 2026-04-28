@@ -74,14 +74,14 @@ export class VacationDateBeforeHireError extends VacationError {
   }
 }
 
-export class VacationConcessiveBeforeAcquisitionError extends VacationError {
+export class VacationStartDateBeforeConcessiveError extends VacationError {
   status = 422;
 
-  constructor(concessivePeriodStart: string, acquisitionPeriodEnd: string) {
+  constructor(args: { startDate: string; concessivePeriodStart: string }) {
     super(
-      `Início do período concessivo (${concessivePeriodStart}) deve ser posterior ao fim do período aquisitivo (${acquisitionPeriodEnd})`,
-      "VACATION_CONCESSIVE_BEFORE_ACQUISITION",
-      { concessivePeriodStart, acquisitionPeriodEnd }
+      "Data de início anterior ao início do período concessivo do ciclo. Funcionário não pode gozar férias antes de adquirir o direito.",
+      "VACATION_START_DATE_BEFORE_CONCESSIVE",
+      args
     );
   }
 }
@@ -94,6 +94,36 @@ export class VacationOverlapError extends VacationError {
       "Funcionário já possui férias sobrepondo este período",
       "VACATION_OVERLAP",
       { employeeId, startDate, endDate }
+    );
+  }
+}
+
+export class VacationNoRightsError extends VacationError {
+  status = 422;
+
+  constructor(hireDate: string, referenceDate: string) {
+    super(
+      "Funcionário ainda não tem direito a férias (menos de 12 meses desde a admissão)",
+      "VACATION_NO_RIGHTS",
+      { hireDate, referenceDate }
+    );
+  }
+}
+
+export class VacationAquisitivoExceededError extends VacationError {
+  status = 422;
+
+  constructor(args: {
+    acquisitionPeriodStart: string;
+    acquisitionPeriodEnd: string;
+    currentTotal: number;
+    requestedDays: number;
+    daysRemaining: number;
+  }) {
+    super(
+      `Soma de dias no aquisitivo (${args.acquisitionPeriodStart} a ${args.acquisitionPeriodEnd}) excede o limite de 30 (CLT art. 130). Saldo disponível: ${args.daysRemaining} dias.`,
+      "VACATION_AQUISITIVO_EXCEEDED",
+      { ...args, maxAllowed: 30 }
     );
   }
 }

@@ -1,6 +1,5 @@
 import { Elysia } from "elysia";
 import { isProduction } from "@/env";
-import { betterAuthPlugin } from "@/lib/auth-plugin";
 import { wrapSuccess } from "@/lib/responses/envelope";
 import {
   conflictErrorSchema,
@@ -9,6 +8,8 @@ import {
   unauthorizedErrorSchema,
   validationErrorSchema,
 } from "@/lib/responses/response.types";
+import { auditPlugin } from "@/plugins/audit/audit-plugin";
+import { betterAuthPlugin } from "@/plugins/auth-guard/auth-plugin";
 import {
   createLaborLawsuitResponseSchema,
   createLaborLawsuitSchema,
@@ -24,10 +25,11 @@ import { LaborLawsuitService } from "./labor-lawsuit.service";
 
 export const laborLawsuitController = new Elysia({
   name: "labor-lawsuits",
-  prefix: "/v1/labor-lawsuits",
+  prefix: "/labor-lawsuits",
   detail: { tags: ["Occurrences - Labor Lawsuits"] },
 })
   .use(betterAuthPlugin)
+  .use(auditPlugin)
   .post(
     "/",
     async ({ session, body, user }) =>
@@ -89,13 +91,18 @@ export const laborLawsuitController = new Elysia({
   )
   .get(
     "/:id",
-    async ({ session, params }) =>
-      wrapSuccess(
-        await LaborLawsuitService.findByIdOrThrow(
-          params.id,
-          session.activeOrganizationId as string
-        )
-      ),
+    async ({ session, params, audit }) => {
+      const data = await LaborLawsuitService.findByIdOrThrow(
+        params.id,
+        session.activeOrganizationId as string
+      );
+      await audit({
+        action: "read",
+        resource: "labor_lawsuit",
+        resourceId: params.id,
+      });
+      return wrapSuccess(data);
+    },
     {
       auth: {
         permissions: { laborLawsuit: ["read"] },

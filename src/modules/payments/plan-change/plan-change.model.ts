@@ -1,7 +1,6 @@
 import { z } from "zod";
+import { isProduction } from "@/env";
 import { successResponseSchema } from "@/lib/responses/response.types";
-
-const isProduction = process.env.NODE_ENV === "production";
 
 const planInfoSchema = z.object({
   id: z.string().describe("Plan ID"),

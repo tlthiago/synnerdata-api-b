@@ -9,7 +9,7 @@ import {
 
 const BASE_URL = env.API_URL;
 
-describe("GET /audit-logs", () => {
+describe("GET /v1/audit-logs", () => {
   let app: TestApp;
 
   beforeAll(() => {
@@ -18,7 +18,7 @@ describe("GET /audit-logs", () => {
 
   test("should reject unauthenticated requests", async () => {
     const response = await app.handle(
-      new Request(`${BASE_URL}/audit-logs`, {
+      new Request(`${BASE_URL}/v1/audit-logs`, {
         method: "GET",
       })
     );
@@ -30,7 +30,7 @@ describe("GET /audit-logs", () => {
     const { headers } = await createTestUser({ emailVerified: true });
 
     const response = await app.handle(
-      new Request(`${BASE_URL}/audit-logs`, {
+      new Request(`${BASE_URL}/v1/audit-logs`, {
         method: "GET",
         headers,
       })
@@ -67,7 +67,7 @@ describe("GET /audit-logs", () => {
     });
 
     const response = await app.handle(
-      new Request(`${BASE_URL}/audit-logs`, {
+      new Request(`${BASE_URL}/v1/audit-logs`, {
         method: "GET",
         headers,
       })
@@ -104,7 +104,7 @@ describe("GET /audit-logs", () => {
     });
 
     const response = await app.handle(
-      new Request(`${BASE_URL}/audit-logs?resource=document`, {
+      new Request(`${BASE_URL}/v1/audit-logs?resource=document`, {
         method: "GET",
         headers,
       })
@@ -130,7 +130,7 @@ describe("GET /audit-logs", () => {
     for (let i = 0; i < 5; i++) {
       await AuditService.log({
         action: "create",
-        resource: "pagination-test",
+        resource: "user",
         resourceId: `pt-${i}`,
         userId: user.id,
         organizationId,
@@ -138,13 +138,10 @@ describe("GET /audit-logs", () => {
     }
 
     const response = await app.handle(
-      new Request(
-        `${BASE_URL}/audit-logs?resource=pagination-test&limit=2&offset=0`,
-        {
-          method: "GET",
-          headers,
-        }
-      )
+      new Request(`${BASE_URL}/v1/audit-logs?resource=user&limit=2&offset=0`, {
+        method: "GET",
+        headers,
+      })
     );
 
     expect(response.status).toBe(200);
@@ -173,7 +170,7 @@ describe("GET /audit-logs", () => {
     });
 
     const response = await app.handle(
-      new Request(`${BASE_URL}/audit-logs`, {
+      new Request(`${BASE_URL}/v1/audit-logs`, {
         method: "GET",
         headers: memberResult.headers,
       })
@@ -185,7 +182,7 @@ describe("GET /audit-logs", () => {
   });
 });
 
-describe("GET /audit-logs/:resource/:resourceId", () => {
+describe("GET /v1/audit-logs/:resource/:resourceId", () => {
   let app: TestApp;
 
   beforeAll(() => {
@@ -194,7 +191,7 @@ describe("GET /audit-logs/:resource/:resourceId", () => {
 
   test("should reject unauthenticated requests", async () => {
     const response = await app.handle(
-      new Request(`${BASE_URL}/audit-logs/employee/emp-123`, {
+      new Request(`${BASE_URL}/v1/audit-logs/employee/emp-123`, {
         method: "GET",
       })
     );
@@ -230,7 +227,7 @@ describe("GET /audit-logs/:resource/:resourceId", () => {
     });
 
     const response = await app.handle(
-      new Request(`${BASE_URL}/audit-logs/employee/${resourceId}`, {
+      new Request(`${BASE_URL}/v1/audit-logs/employee/${resourceId}`, {
         method: "GET",
         headers,
       })
@@ -254,7 +251,7 @@ describe("GET /audit-logs/:resource/:resourceId", () => {
     });
 
     const response = await app.handle(
-      new Request(`${BASE_URL}/audit-logs/employee/non-existent-id`, {
+      new Request(`${BASE_URL}/v1/audit-logs/employee/non-existent-id`, {
         method: "GET",
         headers,
       })
@@ -286,7 +283,7 @@ describe("GET /audit-logs/:resource/:resourceId", () => {
     });
 
     const response = await app.handle(
-      new Request(`${BASE_URL}/audit-logs/employee/emp-123`, {
+      new Request(`${BASE_URL}/v1/audit-logs/employee/emp-123`, {
         method: "GET",
         headers: memberResult.headers,
       })

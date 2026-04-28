@@ -1,17 +1,11 @@
 import { cors } from "@elysiajs/cors";
 import { Elysia } from "elysia";
 import { env } from "@/env";
-import { betterAuthPlugin } from "@/lib/auth-plugin";
-import { errorPlugin } from "@/lib/errors/error-plugin";
-import { healthPlugin } from "@/lib/health";
-import { loggerPlugin } from "@/lib/logger";
-import { adminController } from "@/modules/admin";
-import { auditController } from "@/modules/audit";
-import { employeeController } from "@/modules/employees";
-import { occurrencesController } from "@/modules/occurrences";
-import { organizationController } from "@/modules/organizations";
-import { paymentsController } from "@/modules/payments";
-import { publicController } from "@/modules/public";
+import { betterAuthPlugin } from "@/plugins/auth-guard/auth-plugin";
+import { errorPlugin } from "@/plugins/error-handler/error-plugin";
+import { healthPlugin } from "@/plugins/health/health-plugin";
+import { loggerPlugin } from "@/plugins/request-logger/logger-plugin";
+import { routesV1 } from "@/routes/v1";
 
 /**
  * Creates a test application instance with all controllers registered.
@@ -34,13 +28,7 @@ export function createTestApp() {
       })
     )
     .use(betterAuthPlugin)
-    .use(adminController)
-    .use(organizationController)
-    .use(employeeController)
-    .use(occurrencesController)
-    .use(paymentsController)
-    .use(auditController)
-    .use(publicController)
+    .use(routesV1)
     .get("/", ({ redirect }) => redirect("/health"));
 }
 

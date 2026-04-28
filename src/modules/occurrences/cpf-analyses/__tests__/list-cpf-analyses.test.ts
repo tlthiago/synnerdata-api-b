@@ -74,6 +74,7 @@ describe("GET /v1/cpf-analyses", () => {
       organizationId,
       userId,
       employeeId: employee.id,
+      analysisDate: "2025-06-15",
       status: "approved",
     });
 
@@ -81,6 +82,7 @@ describe("GET /v1/cpf-analyses", () => {
       organizationId,
       userId,
       employeeId: employee.id,
+      analysisDate: "2025-06-16",
       status: "pending",
     });
 

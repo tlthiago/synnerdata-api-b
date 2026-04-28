@@ -10,7 +10,7 @@ import { ContactService } from "./contact.service";
 
 export const contactController = new Elysia({
   name: "contact",
-  prefix: "/v1/public/contact",
+  prefix: "/public/contact",
   detail: { tags: ["Public - Contact"] },
 }).post(
   "/",

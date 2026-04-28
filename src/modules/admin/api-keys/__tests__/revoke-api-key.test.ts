@@ -1,6 +1,7 @@
 import { beforeAll, describe, expect, test } from "bun:test";
 import { env } from "@/env";
 import { ApiKeyService } from "@/modules/admin/api-keys/api-key.service";
+import { AuditService } from "@/modules/audit/audit.service";
 import { createTestApp, type TestApp } from "@/test/helpers/app";
 import {
   createTestAdminUser,
@@ -72,5 +73,35 @@ describe("POST /v1/admin/api-keys/:id/revoke", () => {
 
     const getBody = await getResponse.json();
     expect(getBody.data.enabled).toBe(false);
+  });
+
+  describe("audit trail (RU-6)", () => {
+    test("records revoke as an update with before/after enabled flip", async () => {
+      const { headers, user } = await createTestAdminUser();
+
+      const createResult = await ApiKeyService.create(user.id, {
+        name: "audit-revoke-key",
+      });
+
+      const response = await app.handle(
+        new Request(`${BASE_URL}/v1/admin/api-keys/${createResult.id}/revoke`, {
+          method: "POST",
+          headers,
+        })
+      );
+
+      expect(response.status).toBe(200);
+
+      const logs = await AuditService.getByResource("api_key", createResult.id);
+      const updateEntry = logs.find((log) => log.action === "update");
+      expect(updateEntry).toBeDefined();
+      expect(updateEntry?.resource).toBe("api_key");
+      expect(updateEntry?.resourceId).toBe(createResult.id);
+      expect(updateEntry?.userId).toBe(user.id);
+      expect(updateEntry?.changes).toMatchObject({
+        before: { enabled: true },
+        after: { enabled: false },
+      });
+    });
   });
 });

@@ -2,6 +2,8 @@ import { and, eq, isNull, ne } from "drizzle-orm";
 import { db } from "@/db";
 import { schema } from "@/db/schema";
 import type { EntityReference } from "@/lib/schemas/relationships";
+import { AuditService } from "@/modules/audit/audit.service";
+import { buildAuditChanges } from "@/modules/audit/pii-redaction";
 import { computeProbationDates } from "@/modules/employees/probation";
 import type {
   CreateEmployeeInput,
@@ -113,7 +115,7 @@ export abstract class EmployeeService {
     return costCenter ?? null;
   }
 
-  private static async getLastAcquisitionPeriod(
+  static async getLastAcquisitionPeriod(
     employeeId: string,
     employee: EmployeeRaw
   ): Promise<{ start: string; end: string } | null> {
@@ -591,6 +593,15 @@ export abstract class EmployeeService {
       hireDate: data.hireDate,
     });
 
+    await AuditService.log({
+      action: "create",
+      resource: "employee",
+      resourceId: employee.id,
+      userId,
+      organizationId,
+      changes: buildAuditChanges({}, employee),
+    });
+
     return EmployeeService.enrichEmployee(employee, organizationId);
   }
 
@@ -821,6 +832,15 @@ export abstract class EmployeeService {
       });
     }
 
+    await AuditService.log({
+      action: "update",
+      resource: "employee",
+      resourceId: id,
+      userId,
+      organizationId,
+      changes: buildAuditChanges(existingRaw, updated),
+    });
+
     return EmployeeService.enrichEmployee(updated, organizationId);
   }
 
@@ -849,6 +869,18 @@ export abstract class EmployeeService {
         )
       )
       .returning();
+
+    await AuditService.log({
+      action: "update",
+      resource: "employee",
+      resourceId: id,
+      userId,
+      organizationId,
+      changes: buildAuditChanges(
+        { status: existing.status },
+        { status: updated.status }
+      ),
+    });
 
     return EmployeeService.enrichEmployee(updated, organizationId);
   }
@@ -889,6 +921,15 @@ export abstract class EmployeeService {
       deleted,
       organizationId
     );
+
+    await AuditService.log({
+      action: "delete",
+      resource: "employee",
+      resourceId: id,
+      userId,
+      organizationId,
+      changes: buildAuditChanges(existing, {}),
+    });
 
     return {
       ...enriched,

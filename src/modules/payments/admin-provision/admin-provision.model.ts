@@ -1,10 +1,10 @@
 import { z } from "zod";
+import { isValidCNPJ } from "@/lib/document-validators";
 import {
   paginatedResponseSchema,
   successResponseSchema,
 } from "@/lib/responses/response.types";
 import { entityReferenceSchema } from "@/lib/schemas/relationships";
-import { isValidCNPJ } from "@/lib/validation/documents";
 
 const SLUG_REGEX = /^[a-z0-9-]+$/;
 

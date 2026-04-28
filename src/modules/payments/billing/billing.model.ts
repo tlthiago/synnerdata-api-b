@@ -1,6 +1,6 @@
 import { z } from "zod";
+import { isValidCNPJ } from "@/lib/document-validators";
 import { successResponseSchema } from "@/lib/responses/response.types";
-import { isValidCNPJ } from "@/lib/validation/documents";
 
 export const listInvoicesQuerySchema = z.object({
   page: z.coerce

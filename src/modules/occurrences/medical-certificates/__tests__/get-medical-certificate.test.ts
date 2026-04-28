@@ -121,4 +121,47 @@ describe("GET /v1/medical-certificates/:id", () => {
     expect(body.data.employee.id).toBe(employee.id);
     expect(body.data.employee.name).toBeString();
   });
+
+  test("should emit a read audit log on successful GET (CP-43)", async () => {
+    const { db } = await import("@/db");
+    const { schema } = await import("@/db/schema");
+    const { and, eq } = await import("drizzle-orm");
+
+    const { headers, organizationId, userId } =
+      await createTestUserWithOrganization({
+        emailVerified: true,
+      });
+
+    const { employee } = await createTestEmployee({ organizationId, userId });
+    const certificate = await createTestMedicalCertificate({
+      organizationId,
+      userId,
+      employeeId: employee.id,
+    });
+
+    const response = await app.handle(
+      new Request(`${BASE_URL}/v1/medical-certificates/${certificate.id}`, {
+        method: "GET",
+        headers,
+      })
+    );
+
+    expect(response.status).toBe(200);
+
+    const logs = await db
+      .select()
+      .from(schema.auditLogs)
+      .where(
+        and(
+          eq(schema.auditLogs.organizationId, organizationId),
+          eq(schema.auditLogs.resource, "medical_certificate"),
+          eq(schema.auditLogs.action, "read")
+        )
+      );
+
+    const readLog = logs.find((log) => log.resourceId === certificate.id);
+    expect(readLog).toBeDefined();
+    expect(readLog?.userId).toBe(userId);
+    expect(readLog?.changes).toBeNull();
+  });
 });

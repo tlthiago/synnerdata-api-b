@@ -1,7 +1,7 @@
 import { and, desc, eq, isNull } from "drizzle-orm";
 import { db } from "@/db";
 import { schema } from "@/db/schema";
-import { ensureEmployeeNotTerminated } from "@/lib/helpers/employee-status";
+import { ensureEmployeeNotTerminated } from "@/modules/employees/status";
 import {
   LaborLawsuitAlreadyDeletedError,
   LaborLawsuitEmployeeNotFoundError,

@@ -1,6 +1,6 @@
 import { z } from "zod";
+import { isValidTaxId } from "@/lib/document-validators";
 import { successResponseSchema } from "@/lib/responses/response.types";
-import { isValidTaxId } from "@/lib/validation/documents";
 
 const updateProfileFieldsSchema = z.object({
   tradeName: z

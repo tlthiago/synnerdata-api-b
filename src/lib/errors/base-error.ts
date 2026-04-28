@@ -1,8 +1,17 @@
+/**
+ * Valid HTTP error status codes used by AppError subclasses.
+ * Exported for future narrowing of domain error base classes (today they
+ * declare `status: number`, widening back to number — tracked for a
+ * follow-up sweep).
+ */
+export type HttpErrorStatus = 400 | 401 | 403 | 404 | 409 | 422 | 429 | 500;
+
 export type ErrorResponse = {
   success: false;
   error: {
     code: string;
     message: string;
+    requestId?: string;
     details?: unknown;
   };
 };
@@ -18,7 +27,7 @@ export abstract class AppError extends Error {
     this.details = details;
   }
 
-  toResponse(): ErrorResponse {
+  toResponse(requestId?: string): ErrorResponse {
     const response: ErrorResponse = {
       success: false,
       error: {
@@ -26,6 +35,10 @@ export abstract class AppError extends Error {
         message: this.message,
       },
     };
+
+    if (requestId !== undefined) {
+      response.error.requestId = requestId;
+    }
 
     if (this.details !== undefined) {
       response.error.details = this.details;

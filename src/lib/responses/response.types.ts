@@ -24,9 +24,9 @@ export type PaginatedResponse<T> = {
 
 /** Schema Zod para metadados de paginação */
 export const paginationMetaSchema = z.object({
-  total: z.number(),
-  limit: z.number(),
-  offset: z.number(),
+  total: z.number().int().nonnegative(),
+  limit: z.number().int().nonnegative(),
+  offset: z.number().int().nonnegative(),
 });
 
 /** Cria um schema Zod para resposta de sucesso com envelope */
@@ -58,78 +58,48 @@ export function paginatedResponseSchema<T extends z.ZodTypeAny>(itemSchema: T) {
 // ERROR RESPONSE SCHEMAS
 // ============================================================
 
-/** Schema base para resposta de erro */
-export const errorResponseSchema = z.object({
-  success: z.literal(false),
-  error: z.object({
-    code: z.string().describe("Error code identifier"),
-    message: z.string().describe("Human-readable error message"),
-    details: z.unknown().optional().describe("Additional error details"),
-  }),
-});
+/**
+ * Cria um schema Zod para resposta de erro com `code` literal.
+ * Passe `detailsSchema` para incluir o campo `details` (obrigatório ou opcional
+ * conforme o próprio schema).
+ */
+export function errorSchema<C extends string>(
+  code: C,
+  detailsSchema?: z.ZodTypeAny
+) {
+  const errorShape = detailsSchema
+    ? { code: z.literal(code), message: z.string(), details: detailsSchema }
+    : { code: z.literal(code), message: z.string() };
+  return z.object({
+    success: z.literal(false),
+    error: z.object(errorShape),
+  });
+}
 
-/** Schema para erro de validação (400) */
-export const validationErrorSchema = z.object({
-  success: z.literal(false),
-  error: z.object({
-    code: z.literal("VALIDATION_ERROR"),
-    message: z.string(),
-    details: z.array(
-      z.object({
-        path: z.string().describe("Field path that failed validation"),
-        message: z.string().describe("Validation error message"),
-      })
-    ),
-  }),
-});
+export const validationErrorSchema = errorSchema(
+  "VALIDATION_ERROR",
+  z.array(
+    z.object({
+      path: z.string().describe("Field path that failed validation"),
+      message: z.string().describe("Validation error message"),
+    })
+  )
+);
 
-/** Schema para erro de autenticação (401) */
-export const unauthorizedErrorSchema = z.object({
-  success: z.literal(false),
-  error: z.object({
-    code: z.literal("UNAUTHORIZED"),
-    message: z.string(),
-  }),
-});
+export const unauthorizedErrorSchema = errorSchema("UNAUTHORIZED");
+export const forbiddenErrorSchema = errorSchema("FORBIDDEN");
+export const notFoundErrorSchema = errorSchema("NOT_FOUND");
+export const internalErrorSchema = errorSchema("INTERNAL_ERROR");
+export const conflictErrorSchema = errorSchema(
+  "CONFLICT",
+  z.unknown().optional()
+);
 
-/** Schema para erro de permissão (403) */
-export const forbiddenErrorSchema = z.object({
-  success: z.literal(false),
-  error: z.object({
-    code: z.literal("FORBIDDEN"),
-    message: z.string(),
-  }),
-});
-
-/** Schema para erro de recurso não encontrado (404) */
-export const notFoundErrorSchema = z.object({
-  success: z.literal(false),
-  error: z.object({
-    code: z.literal("NOT_FOUND"),
-    message: z.string(),
-  }),
-});
-
-/** Schema para erro interno (500) */
-export const internalErrorSchema = z.object({
-  success: z.literal(false),
-  error: z.object({
-    code: z.literal("INTERNAL_ERROR"),
-    message: z.string(),
-  }),
-});
-
-/** Schema para erro de conflito (409) */
-export const conflictErrorSchema = z.object({
-  success: z.literal(false),
-  error: z.object({
-    code: z.literal("CONFLICT"),
-    message: z.string(),
-    details: z.unknown().optional(),
-  }),
-});
-
-/** Schema para erro de requisição inválida (400) */
+/**
+ * Schema para erros 400 cujo `code` varia (ex.: regras de negócio específicas).
+ * Mantido fora do factory `errorSchema` porque o contrato da factory assume
+ * `code` literal — aqui `code` é `z.string()` genérico.
+ */
 export const badRequestErrorSchema = z.object({
   success: z.literal(false),
   error: z.object({

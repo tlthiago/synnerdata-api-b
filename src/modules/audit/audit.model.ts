@@ -9,6 +9,7 @@ export const auditActionSchema = z.enum([
   "export",
   "login",
   "logout",
+  "accept",
 ]);
 
 export const auditResourceSchema = z.enum([
@@ -18,9 +19,31 @@ export const auditResourceSchema = z.enum([
   "member",
   "employee",
   "document",
-  "medical_leave",
+  "medical_certificate",
+  "labor_lawsuit",
+  "cpf_analysis",
   "subscription",
   "export",
+  "api_key",
+  "invitation",
+  "cost_center",
+  "branch",
+  "sector",
+  "job_position",
+  "job_classification",
+  "project",
+  "ppe_item",
+  "absence",
+  "accident",
+  "vacation",
+  "promotion",
+  "termination",
+  "warning",
+  "ppe_delivery",
+  // PRD #1.5 — junction tables
+  "project_employee",
+  "ppe_job_position",
+  "ppe_delivery_item",
 ]);
 
 export const auditChangesSchema = z
@@ -92,8 +115,8 @@ export type AuditQueryOptions = {
 
 // Input type for service layer
 export type AuditLogEntry = {
-  action: AuditAction | string;
-  resource: AuditResource | string;
+  action: AuditAction;
+  resource: AuditResource;
   resourceId?: string;
   userId: string;
   organizationId?: string | null;

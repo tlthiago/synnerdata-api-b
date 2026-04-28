@@ -1,5 +1,6 @@
 import { auth } from "@/lib/auth";
-import { DEFAULT_API_KEY_PERMISSIONS } from "@/lib/permissions";
+import { DEFAULT_API_KEY_PERMISSIONS } from "@/lib/auth/permissions";
+import { AuditService } from "@/modules/audit/audit.service";
 import type {
   CreateApiKeyData,
   CreateApiKeyInput,
@@ -12,10 +13,33 @@ import { ApiKeyNotFoundError } from "./errors";
 
 type AuthHeaders = Headers | Record<string, string>;
 
+function extractAuditMetadata(headers: AuthHeaders | undefined): {
+  ipAddress: string | null;
+  userAgent: string | null;
+} {
+  if (!headers) {
+    return { ipAddress: null, userAgent: null };
+  }
+  const getHeader = (name: string): string | null => {
+    if (headers instanceof Headers) {
+      return headers.get(name);
+    }
+    const value = headers[name] ?? headers[name.toLowerCase()];
+    return value ?? null;
+  };
+  const forwarded = getHeader("x-forwarded-for");
+  return {
+    ipAddress:
+      forwarded?.split(",")[0]?.trim() ?? getHeader("x-real-ip") ?? null,
+    userAgent: getHeader("user-agent"),
+  };
+}
+
 export abstract class ApiKeyService {
   static async create(
     createdByUserId: string,
-    data: CreateApiKeyInput
+    data: CreateApiKeyInput,
+    headers?: AuthHeaders
   ): Promise<CreateApiKeyData> {
     const result = await auth.api.createApiKey({
       body: {
@@ -36,11 +60,33 @@ export abstract class ApiKeyService {
       },
     });
 
+    const prefix = result.start ?? result.key.slice(0, 12);
+    const name = result.name ?? data.name;
+    const metadata = extractAuditMetadata(headers);
+
+    await AuditService.log({
+      action: "create",
+      resource: "api_key",
+      resourceId: result.id,
+      userId: createdByUserId,
+      organizationId: data.organizationId ?? null,
+      changes: {
+        after: {
+          prefix,
+          name,
+          organizationId: data.organizationId ?? null,
+          isGlobal: !data.organizationId,
+        },
+      },
+      ipAddress: metadata.ipAddress,
+      userAgent: metadata.userAgent,
+    });
+
     return {
       id: result.id,
       key: result.key,
-      name: result.name ?? data.name,
-      prefix: result.start ?? result.key.slice(0, 12),
+      name,
+      prefix,
       expiresAt: result.expiresAt?.toISOString() ?? null,
     };
   }
@@ -89,11 +135,8 @@ export abstract class ApiKeyService {
     });
   }
 
-  static async getById(
-    headers: AuthHeaders,
-    keyId: string
-  ): Promise<GetApiKeyData> {
-    try {
+  static getById(headers: AuthHeaders, keyId: string): Promise<GetApiKeyData> {
+    return withApiKeyNotFoundFallback(keyId, async () => {
       const result = await auth.api.getApiKey({
         query: { id: keyId },
         headers,
@@ -125,19 +168,15 @@ export abstract class ApiKeyService {
         lastUsedAt: result.lastRequest?.toISOString() ?? null,
         createdAt: result.createdAt.toISOString(),
       };
-    } catch (error) {
-      if (isBetterAuthNotFound(error)) {
-        throw new ApiKeyNotFoundError(keyId);
-      }
-      throw error;
-    }
+    });
   }
 
-  static async revoke(
+  static revoke(
+    userId: string,
     headers: AuthHeaders,
     keyId: string
   ): Promise<RevokeApiKeyData> {
-    try {
+    return withApiKeyNotFoundFallback(keyId, async () => {
       await auth.api.updateApiKey({
         body: {
           keyId,
@@ -146,36 +185,51 @@ export abstract class ApiKeyService {
         headers,
       });
 
+      const metadata = extractAuditMetadata(headers);
+      await AuditService.log({
+        action: "update",
+        resource: "api_key",
+        resourceId: keyId,
+        userId,
+        changes: {
+          before: { enabled: true },
+          after: { enabled: false },
+        },
+        ipAddress: metadata.ipAddress,
+        userAgent: metadata.userAgent,
+      });
+
       return {
         revoked: true,
       };
-    } catch (error) {
-      if (isBetterAuthNotFound(error)) {
-        throw new ApiKeyNotFoundError(keyId);
-      }
-      throw error;
-    }
+    });
   }
 
-  static async delete(
+  static delete(
+    userId: string,
     headers: AuthHeaders,
     keyId: string
   ): Promise<DeleteApiKeyData> {
-    try {
+    return withApiKeyNotFoundFallback(keyId, async () => {
       await auth.api.deleteApiKey({
         body: { keyId },
         headers,
       });
 
+      const metadata = extractAuditMetadata(headers);
+      await AuditService.log({
+        action: "delete",
+        resource: "api_key",
+        resourceId: keyId,
+        userId,
+        ipAddress: metadata.ipAddress,
+        userAgent: metadata.userAgent,
+      });
+
       return {
         deleted: true,
       };
-    } catch (error) {
-      if (isBetterAuthNotFound(error)) {
-        throw new ApiKeyNotFoundError(keyId);
-      }
-      throw error;
-    }
+    });
   }
 }
 
@@ -185,4 +239,18 @@ function isBetterAuthNotFound(error: unknown): boolean {
     error.name === "APIError" &&
     (error as unknown as { statusCode: number }).statusCode === 404
   );
+}
+
+async function withApiKeyNotFoundFallback<T>(
+  keyId: string,
+  fn: () => Promise<T>
+): Promise<T> {
+  try {
+    return await fn();
+  } catch (error) {
+    if (isBetterAuthNotFound(error)) {
+      throw new ApiKeyNotFoundError(keyId);
+    }
+    throw error;
+  }
 }

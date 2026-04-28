@@ -50,54 +50,61 @@ describe("SubscriptionMutationService.createTrial", () => {
     expect(subscriptions).toHaveLength(1);
   });
 
-  test("should throw TrialPlanMisconfiguredError when trial plan has no tiers", async () => {
-    const org = await OrganizationFactory.create();
+  test(
+    "should throw TrialPlanMisconfiguredError when trial plan has no tiers",
+    async () => {
+      const org = await OrganizationFactory.create();
 
-    // Disable all existing trial plans
-    const existingTrialPlans = await db
-      .select({ id: schema.subscriptionPlans.id })
-      .from(schema.subscriptionPlans)
-      .where(eq(schema.subscriptionPlans.isTrial, true));
+      // Disable all existing trial plans
+      const existingTrialPlans = await db
+        .select({ id: schema.subscriptionPlans.id })
+        .from(schema.subscriptionPlans)
+        .where(eq(schema.subscriptionPlans.isTrial, true));
 
-    for (const plan of existingTrialPlans) {
-      await db
-        .update(schema.subscriptionPlans)
-        .set({ isTrial: false })
-        .where(eq(schema.subscriptionPlans.id, plan.id));
-    }
-
-    // Create a trial plan without tiers
-    const [misconfiguredPlan] = await db
-      .insert(schema.subscriptionPlans)
-      .values({
-        id: `plan-${crypto.randomUUID()}`,
-        name: `Misconfigured Trial ${crypto.randomUUID().slice(0, 8)}`,
-        displayName: "Misconfigured Trial",
-        isTrial: true,
-        trialDays: 14,
-        isActive: true,
-        isPublic: false,
-        sortOrder: 999,
-      })
-      .returning();
-
-    try {
-      await expect(
-        SubscriptionMutationService.createTrial(org.id)
-      ).rejects.toBeInstanceOf(TrialPlanMisconfiguredError);
-    } finally {
-      // Clean up the misconfigured plan first (unique trial constraint)
-      await db
-        .delete(schema.subscriptionPlans)
-        .where(eq(schema.subscriptionPlans.id, misconfiguredPlan.id));
-
-      // Restore all original trial plans
       for (const plan of existingTrialPlans) {
         await db
           .update(schema.subscriptionPlans)
-          .set({ isTrial: true })
+          .set({ isTrial: false })
           .where(eq(schema.subscriptionPlans.id, plan.id));
       }
-    }
-  });
+
+      // Create a trial plan without tiers
+      const [misconfiguredPlan] = await db
+        .insert(schema.subscriptionPlans)
+        .values({
+          id: `plan-${crypto.randomUUID()}`,
+          name: `Misconfigured Trial ${crypto.randomUUID().slice(0, 8)}`,
+          displayName: "Misconfigured Trial",
+          isTrial: true,
+          trialDays: 14,
+          isActive: true,
+          isPublic: false,
+          sortOrder: 999,
+        })
+        .returning();
+
+      try {
+        await expect(
+          SubscriptionMutationService.createTrial(org.id)
+        ).rejects.toBeInstanceOf(TrialPlanMisconfiguredError);
+      } finally {
+        // Clean up the misconfigured plan first (unique trial constraint)
+        await db
+          .delete(schema.subscriptionPlans)
+          .where(eq(schema.subscriptionPlans.id, misconfiguredPlan.id));
+
+        // Restore all original trial plans
+        for (const plan of existingTrialPlans) {
+          await db
+            .update(schema.subscriptionPlans)
+            .set({ isTrial: true })
+            .where(eq(schema.subscriptionPlans.id, plan.id));
+        }
+      }
+    },
+    // Setup pesado (arquiva todos os trials + cria misconfigured + cleanup)
+    // extrapola o default 5000ms em ~600ms. 10s dá folga sem mascarar
+    // regressões reais.
+    { timeout: 10_000 }
+  );
 });

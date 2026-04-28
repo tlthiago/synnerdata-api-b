@@ -1,7 +1,6 @@
 import { z } from "zod";
+import { isProduction } from "@/env";
 import { successResponseSchema } from "@/lib/responses/response.types";
-
-const isProduction = process.env.NODE_ENV === "production";
 
 export const createCheckoutSchema = z.object({
   planId: z.string().min(1).describe("ID of the plan to checkout"),

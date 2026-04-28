@@ -45,8 +45,15 @@ yarn-error.log*
 package-lock.json
 **/*.bun
 
-# docs
-/docs
+# docs — por padrão ignorado; exceções explícitas para pastas versionáveis.
+# Usa `/docs/*` (não `/docs`) para que padrões `!` funcionem em filhos específicos.
+/docs/*
+!/docs/improvements/
+!/docs/improvements/**
+!/docs/reports/
+!/docs/reports/**
+!/docs/runbooks/
+!/docs/runbooks/**
 
 # worktrees
 .worktrees/

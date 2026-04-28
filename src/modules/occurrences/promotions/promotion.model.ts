@@ -43,18 +43,21 @@ export const createPromotionSchema = z.object({
     .describe("Observações adicionais"),
 });
 
-export const updatePromotionSchema = createPromotionSchema.partial().extend({
-  reason: z
-    .string()
-    .max(500, "Motivo deve ter no máximo 500 caracteres")
-    .nullable()
-    .optional(),
-  notes: z
-    .string()
-    .max(1000, "Observações devem ter no máximo 1000 caracteres")
-    .nullable()
-    .optional(),
-});
+export const updatePromotionSchema = createPromotionSchema
+  .partial()
+  .omit({ employeeId: true })
+  .extend({
+    reason: z
+      .string()
+      .max(500, "Motivo deve ter no máximo 500 caracteres")
+      .nullable()
+      .optional(),
+    notes: z
+      .string()
+      .max(1000, "Observações devem ter no máximo 1000 caracteres")
+      .nullable()
+      .optional(),
+  });
 
 export const idParamSchema = z.object({
   id: z.string().min(1).describe("ID da promoção"),

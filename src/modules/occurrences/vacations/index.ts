@@ -1,6 +1,5 @@
 import { Elysia } from "elysia";
 import { isProduction } from "@/env";
-import { betterAuthPlugin } from "@/lib/auth-plugin";
 import { wrapSuccess } from "@/lib/responses/envelope";
 import {
   conflictErrorSchema,
@@ -9,11 +8,13 @@ import {
   unauthorizedErrorSchema,
   validationErrorSchema,
 } from "@/lib/responses/response.types";
+import { betterAuthPlugin } from "@/plugins/auth-guard/auth-plugin";
 import {
   createVacationResponseSchema,
   createVacationSchema,
   deleteVacationResponseSchema,
   employeeIdParamSchema,
+  getNextCycleResponseSchema,
   getVacationResponseSchema,
   idParamSchema,
   listVacationsResponseSchema,
@@ -24,7 +25,7 @@ import { VacationService } from "./vacation.service";
 
 export const vacationController = new Elysia({
   name: "vacations",
-  prefix: "/v1/vacations",
+  prefix: "/vacations",
   detail: { tags: ["Occurrences - Vacations"] },
 })
   .use(betterAuthPlugin)
@@ -104,6 +105,35 @@ export const vacationController = new Elysia({
         summary: "List vacations by employee",
         description:
           "Lists all vacations for a specific employee in the active organization",
+      },
+    }
+  )
+  .get(
+    "/employee/:employeeId/next-cycle",
+    async ({ session, params }) =>
+      wrapSuccess(
+        await VacationService.getNextCycle(
+          params.employeeId,
+          session.activeOrganizationId as string
+        )
+      ),
+    {
+      auth: {
+        permissions: { vacation: ["read"] },
+        requireOrganization: true,
+      },
+      params: employeeIdParamSchema,
+      response: {
+        200: getNextCycleResponseSchema,
+        401: unauthorizedErrorSchema,
+        403: forbiddenErrorSchema,
+        404: notFoundErrorSchema,
+        422: validationErrorSchema,
+      },
+      detail: {
+        summary: "Obter próximo ciclo de férias do funcionário",
+        description:
+          "Retorna o próximo período aquisitivo/concessivo a ser cadastrado, baseado no histórico de férias registradas. Sem histórico → ciclo 1 derivado da admissão. Com histórico → próximo contíguo após o último aquisitivo com 30/30 dias.",
       },
     }
   )

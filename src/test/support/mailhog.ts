@@ -28,7 +28,7 @@ type MailHogSearchResponse = {
   items: MailHogMessage[];
 };
 
-const MAILHOG_API_URL = "http://localhost:8025";
+const MAILHOG_API_URL = "http://localhost:8027";
 const DEFAULT_MAX_RETRIES = 30;
 const DEFAULT_RETRY_DELAY_MS = 300;
 
@@ -81,7 +81,7 @@ function throwMailHogUnavailableError(): never {
 
 function throwNoEmailsError(email: string, maxRetries: number): never {
   throw new Error(
-    `No emails found for ${email} after ${maxRetries} attempts. Is MailHog running on port 8025?`
+    `No emails found for ${email} after ${maxRetries} attempts. Is MailHog running on port 8027?`
   );
 }
 

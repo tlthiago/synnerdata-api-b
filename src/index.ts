@@ -1,5 +1,5 @@
 import "@/lib/zod-config";
-import "@/lib/sentry";
+import "@/lib/sentry/init";
 import { cors } from "@elysiajs/cors";
 import { openapi } from "@elysiajs/openapi";
 import { Elysia } from "elysia";
@@ -7,59 +7,30 @@ import { rateLimit } from "elysia-rate-limit";
 import { z } from "zod";
 import { pool } from "./db";
 import { env, isProduction } from "./env";
-import { betterAuthPlugin, OpenAPI } from "./lib/auth-plugin";
 import { parseOrigins } from "./lib/cors";
-import { cronPlugin } from "./lib/cron-plugin";
-import { errorPlugin } from "./lib/errors/error-plugin";
-import { healthPlugin } from "./lib/health";
-import { logger, loggerPlugin } from "./lib/logger";
-import { setupGracefulShutdown } from "./lib/shutdown/shutdown";
-import { adminController } from "./modules/admin";
-import { auditController } from "./modules/audit";
-import { employeeController } from "./modules/employees";
+import { logger } from "./lib/logger";
+import { extractErrorMessages } from "./lib/openapi-helpers";
+import { setupGracefulShutdown } from "./lib/shutdown";
 import { registerEmployeeListeners } from "./modules/employees/hooks/listeners";
-import { occurrencesController } from "./modules/occurrences";
-import { organizationController } from "./modules/organizations";
-import { paymentsController } from "./modules/payments";
 import { registerPaymentListeners } from "./modules/payments/hooks/listeners";
-import { publicController } from "./modules/public";
+import { betterAuthPlugin } from "./plugins/auth-guard/auth-plugin";
+import { OpenAPI } from "./plugins/auth-guard/openapi-enhance";
+import { cronPlugin } from "./plugins/cron/cron-plugin";
+import { errorPlugin } from "./plugins/error-handler/error-plugin";
+import { healthPlugin } from "./plugins/health/health-plugin";
+import { loggerPlugin } from "./plugins/request-logger/logger-plugin";
+import { routesV1 } from "./routes/v1";
 
 const corsOrigins = parseOrigins(env.CORS_ORIGIN);
 
 const RATE_LIMIT_SKIP_PATHS = ["/health", "/health/live", "/api/auth"];
 
-// biome-ignore lint/suspicious/noExplicitAny: Zod v4 internal API for extracting check error messages
-function extractErrorMessages(zodDef: any): Record<string, string> | null {
-  const { checks } = zodDef;
-  if (!(checks && Array.isArray(checks))) {
-    return null;
-  }
-
-  const errorMessages: Record<string, string> = {};
-  for (const check of checks) {
-    const checkDef = check._zod?.def;
-    if (!checkDef?.error || typeof checkDef.error !== "function") {
-      continue;
-    }
-    try {
-      const msg = checkDef.error({ input: "" });
-      if (typeof msg === "string") {
-        const key = checkDef.format
-          ? `${checkDef.check}:${checkDef.format}`
-          : checkDef.check;
-        errorMessages[key] = msg;
-      }
-    } catch {
-      // Skip checks that can't produce a message
-    }
-  }
-
-  return Object.keys(errorMessages).length > 0 ? errorMessages : null;
-}
+const REQUEST_IDLE_TIMEOUT_SECONDS = 30;
 
 const app = new Elysia({
   serve: {
     maxRequestBodySize: 1024 * 1024 * 10,
+    idleTimeout: REQUEST_IDLE_TIMEOUT_SECONDS,
   },
 })
   .headers({
@@ -72,9 +43,11 @@ const app = new Elysia({
       "Strict-Transport-Security": "max-age=31536000; includeSubDomains",
     }),
   })
+  // --- Core infra: error handling, logs, health ---
   .use(errorPlugin)
   .use(loggerPlugin)
   .use(healthPlugin)
+  // --- HTTP middleware: CORS, rate limit ---
   .use(
     cors({
       origin: corsOrigins,
@@ -103,6 +76,7 @@ const app = new Elysia({
       },
     })
   )
+  // --- Auth + API docs ---
   .use(betterAuthPlugin)
   .use(
     openapi({
@@ -133,27 +107,23 @@ const app = new Elysia({
       },
     })
   )
+  // --- Background jobs ---
   .use(cronPlugin)
-  .use(organizationController)
-  .use(employeeController)
-  .use(occurrencesController)
-  .use(paymentsController)
-  .use(auditController)
-  .use(adminController)
-  .use(publicController)
-  .get("/", ({ redirect }) => redirect("/health"))
-  .listen(env.PORT, ({ hostname, port }) => {
-    // Application initialization
-    registerPaymentListeners();
-    registerEmployeeListeners();
+  // --- Versioned API routes ---
+  .use(routesV1)
+  .get("/", ({ redirect }) => redirect("/health"));
 
-    logger.info({
-      type: "app:start",
-      message: `🦊 Elysia is running at ${hostname}:${port}`,
-      host: hostname,
-      port,
-    });
+registerPaymentListeners();
+registerEmployeeListeners();
+
+app.listen(env.PORT, ({ hostname, port }) => {
+  logger.info({
+    type: "app:start",
+    message: `🦊 Elysia is running at ${hostname}:${port}`,
+    host: hostname,
+    port,
   });
+});
 
 setupGracefulShutdown({
   app,

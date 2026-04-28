@@ -4,7 +4,8 @@ import type { AdminOrgProvision } from "@/db/schema";
 import { schema } from "@/db/schema";
 import { env } from "@/env";
 import { auth } from "@/lib/auth";
-import { sendProvisionCheckoutLinkEmail } from "@/lib/email";
+import { sendBestEffort } from "@/lib/emails/mailer";
+import { sendProvisionCheckoutLinkEmail } from "@/lib/emails/senders/payments";
 import { logger } from "@/lib/logger";
 import { AdminCheckoutService } from "@/modules/payments/admin-checkout/admin-checkout.service";
 import { PlansService } from "@/modules/payments/plans/plans.service";
@@ -408,14 +409,26 @@ export abstract class AdminProvisionService {
         .where(eq(schema.subscriptionPlans.id, basePlanId))
         .limit(1);
 
-      await sendProvisionCheckoutLinkEmail({
-        to: ownerEmail,
-        userName: ownerName,
-        organizationName: organization.name,
-        planName: plan?.displayName ?? "Plano Customizado",
-        checkoutUrl: checkoutResult.checkoutUrl,
-        expiresAt,
-      });
+      // Admin-triggered provision já persistida em DB — email falhar não pode
+      // reverter a criação da org+user. Admin vê 200 e pode reenviar o email
+      // via /admin/provisions/:id/resend-activation.
+      await sendBestEffort(
+        () =>
+          sendProvisionCheckoutLinkEmail({
+            to: ownerEmail,
+            userName: ownerName,
+            organizationName: organization.name,
+            planName: plan?.displayName ?? "Plano Customizado",
+            checkoutUrl: checkoutResult.checkoutUrl,
+            expiresAt,
+          }),
+        {
+          type: "admin-provision:checkout-link-email:failed",
+          organizationId: createdOrg.id,
+          provisionId,
+          ownerEmail,
+        }
+      );
 
       // 11. Return provision data (show contracted plan, not interim trial)
       const [provision] = await db
@@ -841,14 +854,25 @@ export abstract class AdminProvisionService {
       .where(eq(schema.organizations.id, provision.organizationId))
       .limit(1);
 
-    await sendProvisionCheckoutLinkEmail({
-      to: user.email,
-      userName: user.name,
-      organizationName: org?.name ?? "",
-      planName: planDisplayName,
-      checkoutUrl,
-      expiresAt,
-    });
+    // Regenerate checkout — admin action de retry. Checkout link já foi gerado
+    // e salvo; email falhar não pode reverter a regeneração. Admin pode chamar
+    // resend-activation se precisar.
+    await sendBestEffort(
+      () =>
+        sendProvisionCheckoutLinkEmail({
+          to: user.email,
+          userName: user.name,
+          organizationName: org?.name ?? "",
+          planName: planDisplayName,
+          checkoutUrl,
+          expiresAt,
+        }),
+      {
+        type: "admin-provision:regenerate-email:failed",
+        provisionId: provision.id,
+        userEmail: user.email,
+      }
+    );
   }
 
   private static async fetchProvisionData(

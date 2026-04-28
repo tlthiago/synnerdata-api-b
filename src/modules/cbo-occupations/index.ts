@@ -1,11 +1,11 @@
 import { Elysia } from "elysia";
-import { betterAuthPlugin } from "@/lib/auth-plugin";
 import { wrapSuccess } from "@/lib/responses/envelope";
 import {
   notFoundErrorSchema,
   unauthorizedErrorSchema,
   validationErrorSchema,
 } from "@/lib/responses/response.types";
+import { betterAuthPlugin } from "@/plugins/auth-guard/auth-plugin";
 import {
   cboOccupationIdParamSchema,
   getCboOccupationResponseSchema,
@@ -16,7 +16,7 @@ import { CboOccupationService } from "./cbo-occupation.service";
 
 export const cboOccupationController = new Elysia({
   name: "cbo-occupations",
-  prefix: "/v1/cbo-occupations",
+  prefix: "/cbo-occupations",
   detail: { tags: ["CBO Occupations"] },
 })
   .use(betterAuthPlugin)

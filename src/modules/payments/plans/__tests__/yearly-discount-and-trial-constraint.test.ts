@@ -1,5 +1,5 @@
 import { describe, expect, test } from "bun:test";
-import { eq, sql } from "drizzle-orm";
+import { and, eq, isNull, sql } from "drizzle-orm";
 import { db } from "@/db";
 import { subscriptionPlans } from "@/db/schema/payments";
 
@@ -98,8 +98,32 @@ describe("yearly_discount_percent column and unique trial constraint", () => {
 
   describe("unique trial constraint", () => {
     test("should prevent creating a second active trial plan", async () => {
-      const duplicateTrialId = `plan-dup-trial-${crypto.randomUUID()}`;
+      // Self-contained precondition: ensure exactly one active public trial
+      // exists before asserting the constraint. Factories like PlanFactory
+      // may archive the seed trial and not restore it, so we reset state here.
+      await db
+        .update(subscriptionPlans)
+        .set({ archivedAt: new Date() })
+        .where(
+          and(
+            eq(subscriptionPlans.isTrial, true),
+            isNull(subscriptionPlans.archivedAt),
+            isNull(subscriptionPlans.organizationId)
+          )
+        );
 
+      const firstTrialId = `plan-first-trial-${crypto.randomUUID()}`;
+      await db.insert(subscriptionPlans).values({
+        id: firstTrialId,
+        name: `first-trial-${firstTrialId.slice(-8)}`,
+        displayName: "First Trial",
+        isActive: true,
+        isPublic: false,
+        isTrial: true,
+        sortOrder: 99,
+      });
+
+      const duplicateTrialId = `plan-dup-trial-${crypto.randomUUID()}`;
       await expect(async () => {
         await db.insert(subscriptionPlans).values({
           id: duplicateTrialId,

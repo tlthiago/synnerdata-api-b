@@ -1,6 +1,8 @@
 import { and, eq, isNull, sql } from "drizzle-orm";
 import { db } from "@/db";
 import { schema } from "@/db/schema";
+import { AuditService } from "@/modules/audit/audit.service";
+import { buildAuditChanges } from "@/modules/audit/pii-redaction";
 import { CboOccupationService } from "@/modules/cbo-occupations/cbo-occupation.service";
 import { CboOccupationNotFoundError } from "@/modules/cbo-occupations/errors";
 import {
@@ -126,6 +128,15 @@ export abstract class JobClassificationService {
       })
       .returning();
 
+    await AuditService.log({
+      action: "create",
+      resource: "job_classification",
+      resourceId: jobClassification.id,
+      userId,
+      organizationId,
+      changes: buildAuditChanges({}, jobClassification),
+    });
+
     return jobClassification as JobClassificationData;
   }
 
@@ -208,6 +219,15 @@ export abstract class JobClassificationService {
       )
       .returning();
 
+    await AuditService.log({
+      action: "update",
+      resource: "job_classification",
+      resourceId: id,
+      userId,
+      organizationId,
+      changes: buildAuditChanges(existing, updated),
+    });
+
     return updated as JobClassificationData;
   }
 
@@ -242,6 +262,15 @@ export abstract class JobClassificationService {
         )
       )
       .returning();
+
+    await AuditService.log({
+      action: "delete",
+      resource: "job_classification",
+      resourceId: id,
+      userId,
+      organizationId,
+      changes: buildAuditChanges(existing, {}),
+    });
 
     return deleted as DeletedJobClassificationData;
   }

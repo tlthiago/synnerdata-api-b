@@ -1,6 +1,5 @@
 import { Elysia } from "elysia";
 import { isProduction } from "@/env";
-import { betterAuthPlugin } from "@/lib/auth-plugin";
 import { wrapSuccess } from "@/lib/responses/envelope";
 import {
   conflictErrorSchema,
@@ -9,6 +8,7 @@ import {
   unauthorizedErrorSchema,
   validationErrorSchema,
 } from "@/lib/responses/response.types";
+import { betterAuthPlugin } from "@/plugins/auth-guard/auth-plugin";
 import {
   createJobClassificationResponseSchema,
   createJobClassificationSchema,
@@ -23,7 +23,7 @@ import { JobClassificationService } from "./job-classification.service";
 
 export const jobClassificationController = new Elysia({
   name: "job-classifications",
-  prefix: "/v1/job-classifications",
+  prefix: "/job-classifications",
   detail: { tags: ["Organizations - Job Classifications"] },
 })
   .use(betterAuthPlugin)

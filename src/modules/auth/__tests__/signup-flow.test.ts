@@ -17,17 +17,22 @@ describe("Signup Use Case: Novo Usuário até Trial Ativo", () => {
   let userId: string;
   let organizationId: string;
 
-  let emailModule: typeof import("@/lib/email");
+  let emailDispatcher: typeof import("@/lib/email-dispatcher").EmailDispatcher;
   let sendWelcomeEmailSpy: ReturnType<typeof spyOn>;
 
   beforeAll(async () => {
     app = createTestApp();
     testEmail = `test-${crypto.randomUUID()}@example.com`;
-    emailModule = await import("@/lib/email");
+    const mod = await import("@/lib/email-dispatcher");
+    emailDispatcher = mod.EmailDispatcher;
     sendWelcomeEmailSpy = spyOn(
-      emailModule,
+      emailDispatcher,
       "sendWelcomeEmail"
     ).mockResolvedValue(undefined);
+    // Bun's spyOn returns the same mock if the property was already spied
+    // by another test file; clear accumulated calls to start from a clean
+    // baseline for this file's assertions.
+    sendWelcomeEmailSpy.mockClear();
 
     await PlanFactory.createTrial();
   });
@@ -147,7 +152,7 @@ describe("Signup Use Case: Novo Usuário até Trial Ativo", () => {
       expect(response.status).not.toBe(200);
     });
 
-    test("should reject sign up with duplicate email", async () => {
+    test("should return silent 200 on duplicate email (enumeration protection)", async () => {
       const response = await app.handle(
         new Request(`${BASE_URL}/api/auth/sign-up/email`, {
           method: "POST",
@@ -160,7 +165,17 @@ describe("Signup Use Case: Novo Usuário até Trial Ativo", () => {
         })
       );
 
-      expect(response.status).not.toBe(200);
+      // Better Auth 1.5+ returns silent 200 on duplicate email when
+      // requireEmailVerification is true, to prevent email enumeration
+      // attacks. See: onExistingUserSignUp callback.
+      expect(response.status).toBe(200);
+
+      // Verify no duplicate user was created — integrity preserved.
+      const users = await db
+        .select({ id: schema.users.id })
+        .from(schema.users)
+        .where(eq(schema.users.email, testEmail));
+      expect(users.length).toBe(1);
     });
 
     test("should reject sign in with wrong password", async () => {

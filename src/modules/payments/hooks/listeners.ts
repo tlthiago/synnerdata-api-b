@@ -1,8 +1,8 @@
 import { and, eq } from "drizzle-orm";
 import { db } from "@/db";
 import { schema } from "@/db/schema";
+import { sendAdminCancellationNoticeEmail } from "@/lib/emails/senders/admin";
 import {
-  sendAdminCancellationNoticeEmail,
   sendCancellationScheduledEmail,
   sendPaymentFailedEmail,
   sendPriceAdjustmentEmail,
@@ -10,7 +10,7 @@ import {
   sendTrialExpiredEmail,
   sendTrialExpiringEmail,
   sendUpgradeConfirmationEmail,
-} from "@/lib/email";
+} from "@/lib/emails/senders/payments";
 import { logger } from "@/lib/logger";
 import { PaymentHooks } from "./index";
 

@@ -1,8 +1,10 @@
 import { and, eq, isNull, sql } from "drizzle-orm";
 import { db } from "@/db";
 import { schema } from "@/db/schema";
-import { ensureEmployeeActive } from "@/lib/helpers/employee-status";
 import { calculateDaysBetween } from "@/lib/schemas/date-helpers";
+import { AuditService } from "@/modules/audit/audit.service";
+import { buildAuditChanges } from "@/modules/audit/pii-redaction";
+import { ensureEmployeeActive } from "@/modules/employees/status";
 import {
   MedicalCertificateAlreadyDeletedError,
   MedicalCertificateInvalidDaysOffError,
@@ -213,6 +215,15 @@ export abstract class MedicalCertificateService {
       })
       .returning();
 
+    await AuditService.log({
+      action: "create",
+      resource: "medical_certificate",
+      resourceId: medicalCertificate.id,
+      userId,
+      organizationId,
+      changes: buildAuditChanges({}, medicalCertificate),
+    });
+
     return {
       id: medicalCertificate.id,
       organizationId: medicalCertificate.organizationId,
@@ -285,7 +296,7 @@ export abstract class MedicalCertificateService {
     organizationId: string,
     input: UpdateMedicalCertificateInput
   ): Promise<MedicalCertificateData> {
-    const { userId, employeeId, ...data } = input;
+    const { userId, ...data } = input;
 
     const existing = await MedicalCertificateService.findById(
       id,
@@ -323,15 +334,8 @@ export abstract class MedicalCertificateService {
       });
     }
 
-    if (employeeId !== undefined) {
-      await MedicalCertificateService.getEmployeeReference(
-        employeeId,
-        organizationId
-      );
-    }
-
     const definedFields = Object.fromEntries(
-      Object.entries({ ...data, employeeId }).filter(([, v]) => v !== undefined)
+      Object.entries(data).filter(([, v]) => v !== undefined)
     );
 
     await db
@@ -344,7 +348,21 @@ export abstract class MedicalCertificateService {
         )
       );
 
-    return MedicalCertificateService.findByIdOrThrow(id, organizationId);
+    const updated = await MedicalCertificateService.findByIdOrThrow(
+      id,
+      organizationId
+    );
+
+    await AuditService.log({
+      action: "update",
+      resource: "medical_certificate",
+      resourceId: id,
+      userId,
+      organizationId,
+      changes: buildAuditChanges(existing, updated),
+    });
+
+    return updated;
   }
 
   static async delete(
@@ -378,6 +396,15 @@ export abstract class MedicalCertificateService {
         )
       )
       .returning();
+
+    await AuditService.log({
+      action: "delete",
+      resource: "medical_certificate",
+      resourceId: id,
+      userId,
+      organizationId,
+      changes: buildAuditChanges(existing, {}),
+    });
 
     return {
       ...existing,

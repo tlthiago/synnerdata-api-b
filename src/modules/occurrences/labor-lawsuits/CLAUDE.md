@@ -25,4 +25,4 @@ Registro e acompanhamento de processos trabalhistas.
 - `LaborLawsuitEmployeeNotFoundError` (404)
 - `LaborLawsuitInvalidDateOrderError` (422)
 - `LaborLawsuitProcessNumberAlreadyExistsError` (409) — processNumber globally unique
-- `EmployeeTerminatedError` (422) — shared, from `src/lib/errors/employee-status-errors.ts`
+- `EmployeeTerminatedError` (422) — shared, from `src/modules/employees/errors.ts`

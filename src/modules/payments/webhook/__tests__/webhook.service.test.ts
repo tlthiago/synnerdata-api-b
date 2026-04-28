@@ -38,7 +38,7 @@ describe("WebhookService", () => {
       const payload = new WebhookPayloadBuilder().chargePaid().build();
 
       await expect(
-        WebhookService.process(payload, null, JSON.stringify(payload))
+        WebhookService.process(payload, null)
       ).rejects.toBeInstanceOf(WebhookValidationError);
     });
 
@@ -47,11 +47,7 @@ describe("WebhookService", () => {
       const payload = new WebhookPayloadBuilder().chargePaid().build();
 
       await expect(
-        WebhookService.process(
-          payload,
-          "Basic aW52YWxpZDppbnZhbGlk",
-          JSON.stringify(payload)
-        )
+        WebhookService.process(payload, "Basic aW52YWxpZDppbnZhbGlk")
       ).rejects.toBeInstanceOf(WebhookValidationError);
     });
 
@@ -60,11 +56,7 @@ describe("WebhookService", () => {
       const payload = new WebhookPayloadBuilder().chargePaid().build();
 
       await expect(
-        WebhookService.process(
-          payload,
-          "Bearer token123",
-          JSON.stringify(payload)
-        )
+        WebhookService.process(payload, "Bearer token123")
       ).rejects.toBeInstanceOf(WebhookValidationError);
     });
 
@@ -72,11 +64,7 @@ describe("WebhookService", () => {
       const payload = new WebhookPayloadBuilder().chargePaid().build();
 
       await expect(
-        WebhookService.process(
-          payload,
-          createValidAuthHeader(),
-          JSON.stringify(payload)
-        )
+        WebhookService.process(payload, createValidAuthHeader())
       ).resolves.toBeUndefined();
     });
 
@@ -87,11 +75,7 @@ describe("WebhookService", () => {
         .withEventId(eventId)
         .build();
 
-      await WebhookService.process(
-        payload,
-        createValidAuthHeader(),
-        JSON.stringify(payload)
-      );
+      await WebhookService.process(payload, createValidAuthHeader());
 
       const [event] = await db
         .select()
@@ -120,11 +104,7 @@ describe("WebhookService", () => {
         .build();
 
       await expect(
-        WebhookService.process(
-          payload,
-          createValidAuthHeader(),
-          JSON.stringify(payload)
-        )
+        WebhookService.process(payload, createValidAuthHeader())
       ).resolves.toBeUndefined();
     });
   });
@@ -140,11 +120,7 @@ describe("WebhookService", () => {
         .withSubscriptionId("sub_test_123")
         .build();
 
-      await WebhookService.process(
-        payload,
-        createValidAuthHeader(),
-        JSON.stringify(payload)
-      );
+      await WebhookService.process(payload, createValidAuthHeader());
 
       const [subscription] = await db
         .select()
@@ -170,11 +146,7 @@ describe("WebhookService", () => {
         .withPeriod(startAt, endAt)
         .build();
 
-      await WebhookService.process(
-        payload,
-        createValidAuthHeader(),
-        JSON.stringify(payload)
-      );
+      await WebhookService.process(payload, createValidAuthHeader());
 
       const [subscription] = await db
         .select()
@@ -193,11 +165,7 @@ describe("WebhookService", () => {
         .build();
 
       await expect(
-        WebhookService.process(
-          payload,
-          createValidAuthHeader(),
-          JSON.stringify(payload)
-        )
+        WebhookService.process(payload, createValidAuthHeader())
       ).resolves.toBeUndefined();
     });
   });
@@ -212,11 +180,7 @@ describe("WebhookService", () => {
         .withOrganizationId(org.id)
         .build();
 
-      await WebhookService.process(
-        payload,
-        createValidAuthHeader(),
-        JSON.stringify(payload)
-      );
+      await WebhookService.process(payload, createValidAuthHeader());
 
       const [subscription] = await db
         .select()
@@ -231,11 +195,7 @@ describe("WebhookService", () => {
       const payload = new WebhookPayloadBuilder().chargePaymentFailed().build();
 
       await expect(
-        WebhookService.process(
-          payload,
-          createValidAuthHeader(),
-          JSON.stringify(payload)
-        )
+        WebhookService.process(payload, createValidAuthHeader())
       ).resolves.toBeUndefined();
     });
 
@@ -254,11 +214,7 @@ describe("WebhookService", () => {
         .withGatewayResponse("Insufficient funds")
         .build();
 
-      await WebhookService.process(
-        payload,
-        createValidAuthHeader(),
-        JSON.stringify(payload)
-      );
+      await WebhookService.process(payload, createValidAuthHeader());
 
       // Verify subscription is past_due
       const [subscription] = await db
@@ -289,11 +245,7 @@ describe("WebhookService", () => {
         .withOrganizationId(org.id)
         .build();
 
-      await WebhookService.process(
-        payload,
-        createValidAuthHeader(),
-        JSON.stringify(payload)
-      );
+      await WebhookService.process(payload, createValidAuthHeader());
 
       const [subscription] = await db
         .select()
@@ -321,11 +273,7 @@ describe("WebhookService", () => {
         .withSubscriptionId(pagarmeSubId)
         .build();
 
-      await WebhookService.process(
-        payload,
-        createValidAuthHeader(),
-        JSON.stringify(payload)
-      );
+      await WebhookService.process(payload, createValidAuthHeader());
 
       const [subscription] = await db
         .select()
@@ -343,11 +291,7 @@ describe("WebhookService", () => {
         .build();
 
       await expect(
-        WebhookService.process(
-          payload,
-          createValidAuthHeader(),
-          JSON.stringify(payload)
-        )
+        WebhookService.process(payload, createValidAuthHeader())
       ).resolves.toBeUndefined();
     });
 
@@ -368,11 +312,7 @@ describe("WebhookService", () => {
 
       // Should complete without error (email sent to Mailhog)
       await expect(
-        WebhookService.process(
-          payload,
-          createValidAuthHeader(),
-          JSON.stringify(payload)
-        )
+        WebhookService.process(payload, createValidAuthHeader())
       ).resolves.toBeUndefined();
 
       // Verify subscription was canceled
@@ -409,11 +349,7 @@ describe("WebhookService", () => {
 
       // Should complete without error (email sent to Mailhog)
       await expect(
-        WebhookService.process(
-          payload,
-          createValidAuthHeader(),
-          JSON.stringify(payload)
-        )
+        WebhookService.process(payload, createValidAuthHeader())
       ).resolves.toBeUndefined();
 
       // Verify subscription was canceled
@@ -438,11 +374,7 @@ describe("WebhookService", () => {
 
       // Should complete without error (no email sent, but no error either)
       await expect(
-        WebhookService.process(
-          payload,
-          createValidAuthHeader(),
-          JSON.stringify(payload)
-        )
+        WebhookService.process(payload, createValidAuthHeader())
       ).resolves.toBeUndefined();
 
       // Verify subscription was still canceled
@@ -470,11 +402,7 @@ describe("WebhookService", () => {
         .withPaymentLinkCode(checkout.paymentLinkId)
         .build();
 
-      await WebhookService.process(
-        payload,
-        createValidAuthHeader(),
-        JSON.stringify(payload)
-      );
+      await WebhookService.process(payload, createValidAuthHeader());
 
       const [subscription] = await db
         .select()
@@ -499,11 +427,7 @@ describe("WebhookService", () => {
         .withPaymentLinkCode(checkout.paymentLinkId)
         .build();
 
-      await WebhookService.process(
-        payload,
-        createValidAuthHeader(),
-        JSON.stringify(payload)
-      );
+      await WebhookService.process(payload, createValidAuthHeader());
 
       const [updatedCheckout] = await db
         .select()
@@ -528,11 +452,7 @@ describe("WebhookService", () => {
         .withPlanId(diamondPlanResult.plan.id)
         .build();
 
-      await WebhookService.process(
-        payload,
-        createValidAuthHeader(),
-        JSON.stringify(payload)
-      );
+      await WebhookService.process(payload, createValidAuthHeader());
 
       const [subscription] = await db
         .select()
@@ -550,11 +470,7 @@ describe("WebhookService", () => {
         .build();
 
       await expect(
-        WebhookService.process(
-          payload,
-          createValidAuthHeader(),
-          JSON.stringify(payload)
-        )
+        WebhookService.process(payload, createValidAuthHeader())
       ).resolves.toBeUndefined();
     });
 
@@ -578,11 +494,7 @@ describe("WebhookService", () => {
         })
         .build();
 
-      await WebhookService.process(
-        payload,
-        createValidAuthHeader(),
-        JSON.stringify(payload)
-      );
+      await WebhookService.process(payload, createValidAuthHeader());
 
       const [subscription] = await db
         .select()
@@ -606,11 +518,7 @@ describe("WebhookService", () => {
         .withAmount(9900)
         .build();
 
-      await WebhookService.process(
-        payload,
-        createValidAuthHeader(),
-        JSON.stringify(payload)
-      );
+      await WebhookService.process(payload, createValidAuthHeader());
 
       const [subscription] = await db
         .select()
@@ -639,11 +547,7 @@ describe("WebhookService", () => {
         .withAmount(9900)
         .build();
 
-      await WebhookService.process(
-        payload,
-        createValidAuthHeader(),
-        JSON.stringify(payload)
-      );
+      await WebhookService.process(payload, createValidAuthHeader());
 
       const [subscription] = await db
         .select()
@@ -663,11 +567,7 @@ describe("WebhookService", () => {
         .build();
 
       await expect(
-        WebhookService.process(
-          payload,
-          createValidAuthHeader(),
-          JSON.stringify(payload)
-        )
+        WebhookService.process(payload, createValidAuthHeader())
       ).resolves.toBeUndefined();
     });
 
@@ -683,11 +583,7 @@ describe("WebhookService", () => {
         .withAmount(9900)
         .build();
 
-      await WebhookService.process(
-        payload,
-        createValidAuthHeader(),
-        JSON.stringify(payload)
-      );
+      await WebhookService.process(payload, createValidAuthHeader());
 
       const [event] = await db
         .select()
@@ -711,11 +607,7 @@ describe("WebhookService", () => {
         .withGatewayResponse("Customer requested refund")
         .build();
 
-      await WebhookService.process(
-        payload,
-        createValidAuthHeader(),
-        JSON.stringify(payload)
-      );
+      await WebhookService.process(payload, createValidAuthHeader());
 
       const [subscription] = await db
         .select()
@@ -745,11 +637,7 @@ describe("WebhookService", () => {
         .withStatus("canceled")
         .build();
 
-      await WebhookService.process(
-        payload,
-        createValidAuthHeader(),
-        JSON.stringify(payload)
-      );
+      await WebhookService.process(payload, createValidAuthHeader());
 
       const [subscription] = await db
         .select()
@@ -782,11 +670,7 @@ describe("WebhookService", () => {
         .withPeriod(newPeriodStart, newPeriodEnd)
         .build();
 
-      await WebhookService.process(
-        payload,
-        createValidAuthHeader(),
-        JSON.stringify(payload)
-      );
+      await WebhookService.process(payload, createValidAuthHeader());
 
       const [subscription] = await db
         .select()
@@ -809,11 +693,7 @@ describe("WebhookService", () => {
         .withOrganizationId(org.id)
         .build();
 
-      await WebhookService.process(
-        payload,
-        createValidAuthHeader(),
-        JSON.stringify(payload)
-      );
+      await WebhookService.process(payload, createValidAuthHeader());
 
       const [subscription] = await db
         .select()
@@ -832,11 +712,7 @@ describe("WebhookService", () => {
         .build();
 
       await expect(
-        WebhookService.process(
-          payload,
-          createValidAuthHeader(),
-          JSON.stringify(payload)
-        )
+        WebhookService.process(payload, createValidAuthHeader())
       ).resolves.toBeUndefined();
     });
 
@@ -857,11 +733,7 @@ describe("WebhookService", () => {
         .withStatus("active")
         .build();
 
-      await WebhookService.process(
-        payload,
-        createValidAuthHeader(),
-        JSON.stringify(payload)
-      );
+      await WebhookService.process(payload, createValidAuthHeader());
 
       const [subscription] = await db
         .select()
@@ -890,11 +762,7 @@ describe("WebhookService", () => {
         .withStatus("pending")
         .build();
 
-      await WebhookService.process(
-        payload,
-        createValidAuthHeader(),
-        JSON.stringify(payload)
-      );
+      await WebhookService.process(payload, createValidAuthHeader());
 
       const [subscription] = await db
         .select()
@@ -922,11 +790,7 @@ describe("WebhookService", () => {
         .withStatus("failed")
         .build();
 
-      await WebhookService.process(
-        payload,
-        createValidAuthHeader(),
-        JSON.stringify(payload)
-      );
+      await WebhookService.process(payload, createValidAuthHeader());
 
       const [subscription] = await db
         .select()
@@ -956,11 +820,7 @@ describe("WebhookService", () => {
         .withCard({ id: "card_new_123" })
         .build();
 
-      await WebhookService.process(
-        payload,
-        createValidAuthHeader(),
-        JSON.stringify(payload)
-      );
+      await WebhookService.process(payload, createValidAuthHeader());
 
       const [event] = await db
         .select()

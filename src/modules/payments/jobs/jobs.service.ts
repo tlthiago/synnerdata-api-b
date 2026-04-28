@@ -1,7 +1,7 @@
 import { and, between, eq, lt } from "drizzle-orm";
 import { db } from "@/db";
 import { schema } from "@/db/schema";
-import { sendTrialExpiringEmail } from "@/lib/email";
+import { sendTrialExpiringEmail } from "@/lib/emails/senders/payments";
 import { logger } from "@/lib/logger";
 import { PaymentHooks } from "@/modules/payments/hooks";
 import { PlanChangeService } from "@/modules/payments/plan-change/plan-change.service";

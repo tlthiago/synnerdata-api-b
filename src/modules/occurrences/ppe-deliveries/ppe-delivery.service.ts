@@ -1,7 +1,12 @@
 import { and, eq, isNull } from "drizzle-orm";
 import { db } from "@/db";
 import { schema } from "@/db/schema";
-import { ensureEmployeeActive } from "@/lib/helpers/employee-status";
+import { AuditService } from "@/modules/audit/audit.service";
+import {
+  buildAuditChanges,
+  IGNORED_AUDIT_FIELDS,
+} from "@/modules/audit/pii-redaction";
+import { ensureEmployeeActive } from "@/modules/employees/status";
 import {
   PpeDeliveryAlreadyDeletedError,
   PpeDeliveryEmployeeNotFoundError,
@@ -16,6 +21,12 @@ import type {
   PpeDeliveryData,
   UpdatePpeDeliveryInput,
 } from "./ppe-delivery.model";
+
+const PPE_DELIVERY_IGNORED_FIELDS = new Set([
+  ...IGNORED_AUDIT_FIELDS,
+  "employee",
+  "employeeId",
+]);
 
 type PpeDeliveryRaw = typeof schema.ppeDeliveries.$inferSelect;
 type EmployeeData = { id: string; name: string; cpf: string };
@@ -199,18 +210,32 @@ export abstract class PpeDeliveryService {
       })
       .returning();
 
+    await AuditService.log({
+      action: "create",
+      resource: "ppe_delivery",
+      resourceId: delivery.id,
+      userId,
+      organizationId,
+      changes: buildAuditChanges({}, delivery, {
+        ignoredFields: PPE_DELIVERY_IGNORED_FIELDS,
+      }),
+    });
+
     // Add PPE Items if provided
     if (ppeItemIds && ppeItemIds.length > 0) {
       for (const ppeItemId of ppeItemIds) {
         const itemId = `ppe-delivery-item-${crypto.randomUUID()}`;
 
-        await db.insert(schema.ppeDeliveryItems).values({
-          id: itemId,
-          organizationId,
-          ppeDeliveryId,
-          ppeItemId,
-          createdBy: userId,
-        });
+        const [association] = await db
+          .insert(schema.ppeDeliveryItems)
+          .values({
+            id: itemId,
+            organizationId,
+            ppeDeliveryId,
+            ppeItemId,
+            createdBy: userId,
+          })
+          .returning();
 
         // Create log for each item added
         await PpeDeliveryService.createLog({
@@ -219,6 +244,15 @@ export abstract class PpeDeliveryService {
           action: "ADDED",
           userId,
           description: "Adicionado na criação da entrega",
+        });
+
+        await AuditService.log({
+          action: "create",
+          resource: "ppe_delivery_item",
+          resourceId: association.id,
+          userId,
+          organizationId,
+          changes: buildAuditChanges({}, association),
         });
       }
     }
@@ -291,6 +325,17 @@ export abstract class PpeDeliveryService {
       )
       .returning();
 
+    await AuditService.log({
+      action: "update",
+      resource: "ppe_delivery",
+      resourceId: id,
+      userId,
+      organizationId,
+      changes: buildAuditChanges(existing, updated, {
+        ignoredFields: PPE_DELIVERY_IGNORED_FIELDS,
+      }),
+    });
+
     if (ppeItemIds !== undefined) {
       await PpeDeliveryService.replacePpeItems(
         id,
@@ -346,10 +391,11 @@ export abstract class PpeDeliveryService {
     // Soft delete items that are no longer in the list
     for (const item of currentItems) {
       if (!newIds.has(item.ppeItemId)) {
-        await db
+        const [removed] = await db
           .update(schema.ppeDeliveryItems)
           .set({ deletedAt: new Date(), deletedBy: userId })
-          .where(eq(schema.ppeDeliveryItems.id, item.id));
+          .where(eq(schema.ppeDeliveryItems.id, item.id))
+          .returning();
 
         await PpeDeliveryService.createLog({
           ppeDeliveryId,
@@ -358,19 +404,31 @@ export abstract class PpeDeliveryService {
           userId,
           description: "Removido via atualização da entrega",
         });
+
+        await AuditService.log({
+          action: "delete",
+          resource: "ppe_delivery_item",
+          resourceId: removed.id,
+          userId,
+          organizationId,
+          changes: buildAuditChanges(item, {}),
+        });
       }
     }
 
     // Add new items that don't exist yet
     for (const ppeItemId of newPpeItemIds) {
       if (!currentIds.has(ppeItemId)) {
-        await db.insert(schema.ppeDeliveryItems).values({
-          id: `ppe-delivery-item-${crypto.randomUUID()}`,
-          organizationId,
-          ppeDeliveryId,
-          ppeItemId,
-          createdBy: userId,
-        });
+        const [association] = await db
+          .insert(schema.ppeDeliveryItems)
+          .values({
+            id: `ppe-delivery-item-${crypto.randomUUID()}`,
+            organizationId,
+            ppeDeliveryId,
+            ppeItemId,
+            createdBy: userId,
+          })
+          .returning();
 
         await PpeDeliveryService.createLog({
           ppeDeliveryId,
@@ -378,6 +436,15 @@ export abstract class PpeDeliveryService {
           action: "ADDED",
           userId,
           description: "Adicionado via atualização da entrega",
+        });
+
+        await AuditService.log({
+          action: "create",
+          resource: "ppe_delivery_item",
+          resourceId: association.id,
+          userId,
+          organizationId,
+          changes: buildAuditChanges({}, association),
         });
       }
     }
@@ -414,6 +481,19 @@ export abstract class PpeDeliveryService {
         )
       )
       .returning();
+
+    await AuditService.log({
+      action: "delete",
+      resource: "ppe_delivery",
+      resourceId: id,
+      userId,
+      organizationId,
+      changes: buildAuditChanges(
+        existing,
+        {},
+        { ignoredFields: PPE_DELIVERY_IGNORED_FIELDS }
+      ),
+    });
 
     const enriched = await PpeDeliveryService.enrichDelivery(
       deleted,
@@ -500,6 +580,15 @@ export abstract class PpeDeliveryService {
       description: "Adicionado manualmente à entrega",
     });
 
+    await AuditService.log({
+      action: "create",
+      resource: "ppe_delivery_item",
+      resourceId: association.id,
+      userId,
+      organizationId,
+      changes: buildAuditChanges({}, association),
+    });
+
     return {
       ppeDeliveryId: association.ppeDeliveryId,
       ppeItemId: association.ppeItemId,
@@ -550,13 +639,23 @@ export abstract class PpeDeliveryService {
     });
 
     // Soft delete the association
-    await db
+    const [removed] = await db
       .update(schema.ppeDeliveryItems)
       .set({
         deletedAt: new Date(),
         deletedBy: userId,
       })
-      .where(eq(schema.ppeDeliveryItems.id, association.id));
+      .where(eq(schema.ppeDeliveryItems.id, association.id))
+      .returning();
+
+    await AuditService.log({
+      action: "delete",
+      resource: "ppe_delivery_item",
+      resourceId: removed.id,
+      userId,
+      organizationId,
+      changes: buildAuditChanges(association, {}),
+    });
   }
 
   static async getItemsForDelivery(

@@ -1,6 +1,5 @@
 import { Elysia } from "elysia";
 import { isProduction } from "@/env";
-import { betterAuthPlugin } from "@/lib/auth-plugin";
 import { wrapSuccess, wrapSuccessWithMessage } from "@/lib/responses/envelope";
 import {
   conflictErrorSchema,
@@ -9,6 +8,8 @@ import {
   unauthorizedErrorSchema,
   validationErrorSchema,
 } from "@/lib/responses/response.types";
+import { auditPlugin } from "@/plugins/audit/audit-plugin";
+import { betterAuthPlugin } from "@/plugins/auth-guard/auth-plugin";
 import {
   createPromotionResponseSchema,
   createPromotionSchema,
@@ -28,10 +29,11 @@ const EMPLOYEE_REVERTED_MESSAGE =
 
 export const promotionController = new Elysia({
   name: "promotions",
-  prefix: "/v1/promotions",
+  prefix: "/promotions",
   detail: { tags: ["Occurrences - Promotions"] },
 })
   .use(betterAuthPlugin)
+  .use(auditPlugin)
   .post(
     "/",
     async ({ session, body, user }) => {
@@ -91,13 +93,18 @@ export const promotionController = new Elysia({
   )
   .get(
     "/:id",
-    async ({ session, params }) =>
-      wrapSuccess(
-        await PromotionService.findByIdOrThrow(
-          params.id,
-          session.activeOrganizationId as string
-        )
-      ),
+    async ({ session, params, audit }) => {
+      const data = await PromotionService.findByIdOrThrow(
+        params.id,
+        session.activeOrganizationId as string
+      );
+      await audit({
+        action: "read",
+        resource: "promotion",
+        resourceId: params.id,
+      });
+      return wrapSuccess(data);
+    },
     {
       auth: {
         permissions: { promotion: ["read"] },
