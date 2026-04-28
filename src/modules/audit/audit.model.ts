@@ -10,6 +10,7 @@ export const auditActionSchema = z.enum([
   "login",
   "logout",
   "accept",
+  "anonymize",
 ]);
 
 export const auditResourceSchema = z.enum([

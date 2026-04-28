@@ -6,6 +6,8 @@ import { auditResourceSchema } from "@/modules/audit/audit.model";
 import { AuditService } from "@/modules/audit/audit.service";
 import { createTestOrganization } from "@/test/helpers/organization";
 
+const AUDIT_ID_PREFIX_REGEX = /^audit-/;
+
 describe("AuditService", () => {
   const testOrgIds: string[] = [];
 
@@ -62,6 +64,93 @@ describe("AuditService", () => {
           // organizationId intentionally omitted (nullable)
         })
       ).resolves.toBeUndefined();
+    });
+
+    test("should swallow insert errors when called without a transaction", async () => {
+      // userId column is NOT NULL — passing nullish userId triggers a constraint error
+      // The fire-and-forget contract requires this error to be logged, not thrown
+      await expect(
+        AuditService.log({
+          action: "create",
+          resource: "employee",
+          userId: null as unknown as string,
+        })
+      ).resolves.toBeUndefined();
+    });
+
+    test("should propagate insert errors when called with a transaction", async () => {
+      // Same NOT NULL violation, but inside a transaction the error must surface
+      // so the caller's transaction can roll back
+      await expect(
+        db.transaction(async (tx) => {
+          await AuditService.log(
+            {
+              action: "create",
+              resource: "employee",
+              userId: null as unknown as string,
+            },
+            tx
+          );
+        })
+      ).rejects.toThrow();
+    });
+
+    test("should rollback the audit-log row when the surrounding transaction throws", async () => {
+      const org = await createTestOrganization();
+      testOrgIds.push(org.id);
+      const userId = `test-user-${crypto.randomUUID()}`;
+      const resourceId = `emp-rollback-${crypto.randomUUID()}`;
+
+      await expect(
+        db.transaction(async (tx) => {
+          await AuditService.log(
+            {
+              action: "anonymize",
+              resource: "user",
+              resourceId,
+              userId,
+              organizationId: org.id,
+            },
+            tx
+          );
+          throw new Error("rollback");
+        })
+      ).rejects.toThrow("rollback");
+
+      const rows = await db
+        .select()
+        .from(schema.auditLogs)
+        .where(eq(schema.auditLogs.resourceId, resourceId));
+      expect(rows.length).toBe(0);
+    });
+
+    test("should commit the audit-log row when the surrounding transaction commits", async () => {
+      const org = await createTestOrganization();
+      testOrgIds.push(org.id);
+      const userId = `test-user-${crypto.randomUUID()}`;
+      const resourceId = `emp-commit-${crypto.randomUUID()}`;
+
+      await db.transaction(async (tx) => {
+        await AuditService.log(
+          {
+            action: "anonymize",
+            resource: "user",
+            resourceId,
+            userId,
+            organizationId: org.id,
+          },
+          tx
+        );
+      });
+
+      const rows = await db
+        .select()
+        .from(schema.auditLogs)
+        .where(eq(schema.auditLogs.resourceId, resourceId));
+      expect(rows.length).toBe(1);
+      expect(rows[0].id).toMatch(AUDIT_ID_PREFIX_REGEX);
+      expect(rows[0].action).toBe("anonymize");
+      expect(rows[0].resource).toBe("user");
     });
   });
 

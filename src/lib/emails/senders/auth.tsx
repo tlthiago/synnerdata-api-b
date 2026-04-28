@@ -1,6 +1,7 @@
 import { sendEmail } from "@/lib/emails/mailer";
 import { renderEmail } from "@/lib/emails/render";
 import { AccountActivationEmail } from "@/lib/emails/templates/auth/account-activation";
+import { AccountAnonymizedEmail } from "@/lib/emails/templates/auth/account-anonymized";
 import { OrganizationInvitationEmail } from "@/lib/emails/templates/auth/organization-invitation";
 import { PasswordResetEmail } from "@/lib/emails/templates/auth/password-reset";
 import { ProvisionActivationEmail } from "@/lib/emails/templates/auth/provision-activation";
@@ -127,6 +128,18 @@ export async function sendOrganizationInvitationEmail(params: {
   await sendEmail({
     to: params.to,
     subject: `Convite para ${params.organizationName} - Synnerdata`,
+    html,
+    text,
+  });
+}
+
+export async function sendAccountAnonymizedEmail(params: { email: string }) {
+  const { html, text } = await renderEmail(
+    <AccountAnonymizedEmail email={params.email} />
+  );
+  await sendEmail({
+    to: params.email,
+    subject: "Sua conta foi anonimizada no Synnerdata",
     html,
     text,
   });

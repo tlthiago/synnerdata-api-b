@@ -1,6 +1,7 @@
 import { describe, expect, test } from "bun:test";
 import { renderEmail } from "../render";
 import { AccountActivationEmail } from "../templates/auth/account-activation";
+import { AccountAnonymizedEmail } from "../templates/auth/account-anonymized";
 import { OrganizationInvitationEmail } from "../templates/auth/organization-invitation";
 import { PasswordResetEmail } from "../templates/auth/password-reset";
 import { TwoFactorOtpEmail } from "../templates/auth/two-factor-otp";
@@ -8,6 +9,48 @@ import { VerificationEmail } from "../templates/auth/verification";
 import { WelcomeEmail } from "../templates/auth/welcome";
 
 describe("auth email templates", () => {
+  test("AccountAnonymizedEmail renders with recipient address", async () => {
+    const { html, text } = await renderEmail(
+      <AccountAnonymizedEmail email="user@example.com" />
+    );
+
+    expect(html.length).toBeGreaterThan(0);
+    expect(text.length).toBeGreaterThan(0);
+    expect(html).toContain("user@example.com");
+    expect(text).toContain("user@example.com");
+    expect(html).toContain("anonimizada");
+    expect(text).toContain("anonimizada");
+  });
+
+  test("AccountAnonymizedEmail mentions the action is irreversible", async () => {
+    const { html, text } = await renderEmail(
+      <AccountAnonymizedEmail email="user@example.com" />
+    );
+
+    expect(html).toContain("irreversível");
+    expect(text).toContain("irreversível");
+  });
+
+  test("AccountAnonymizedEmail mentions the email can be reused for a new registration", async () => {
+    const { html, text } = await renderEmail(
+      <AccountAnonymizedEmail email="user@example.com" />
+    );
+
+    expect(html).toContain("novo cadastro");
+    expect(text).toContain("novo cadastro");
+  });
+
+  test("AccountAnonymizedEmail mentions audit history was preserved anonymously", async () => {
+    const { html, text } = await renderEmail(
+      <AccountAnonymizedEmail email="user@example.com" />
+    );
+
+    expect(html).toContain("auditoria");
+    expect(html).toContain("anônima");
+    expect(text).toContain("auditoria");
+    expect(text).toContain("anônima");
+  });
+
   test("VerificationEmail renders with url", async () => {
     const { html, text } = await renderEmail(
       <VerificationEmail url="https://app.test/verify?token=abc" />

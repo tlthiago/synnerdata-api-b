@@ -288,6 +288,13 @@
       "when": 1777593700000,
       "tag": "0040_apikeys_better_auth_1_6",
       "breakpoints": true
+    },
+    {
+      "idx": 41,
+      "version": "7",
+      "when": 1777939200000,
+      "tag": "0041_add_users_anonymized_at",
+      "breakpoints": true
     }
   ]
 }

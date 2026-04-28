@@ -1,24 +1,42 @@
 import { and, desc, eq, gte, lte } from "drizzle-orm";
 import { db } from "@/db";
-import type { AuditLog } from "@/db/schema";
+import type { AuditLog, NewAuditLog } from "@/db/schema";
 import { schema } from "@/db/schema";
 import { logger } from "@/lib/logger";
 import type { AuditLogEntry, AuditQueryOptions } from "./audit.model";
 
+type AuditLogConnection =
+  | typeof db
+  | Parameters<Parameters<typeof db.transaction>[0]>[0];
+
+function buildAuditLogRow(entry: AuditLogEntry): NewAuditLog {
+  return {
+    id: `audit-${crypto.randomUUID()}`,
+    organizationId: entry.organizationId ?? null,
+    userId: entry.userId,
+    action: entry.action,
+    resource: entry.resource,
+    resourceId: entry.resourceId ?? null,
+    changes: entry.changes ?? null,
+    ipAddress: entry.ipAddress ?? null,
+    userAgent: entry.userAgent ?? null,
+  };
+}
+
 export abstract class AuditService {
-  static async log(entry: AuditLogEntry): Promise<void> {
+  // When `tx` is passed, the insert participates in the caller's transaction and
+  // errors propagate so the transaction can roll back. Without `tx`, audit logging
+  // stays fire-and-forget: insert errors are swallowed and reported via `logger`.
+  static async log(
+    entry: AuditLogEntry,
+    tx?: AuditLogConnection
+  ): Promise<void> {
+    if (tx) {
+      await tx.insert(schema.auditLogs).values(buildAuditLogRow(entry));
+      return;
+    }
     try {
-      await db.insert(schema.auditLogs).values({
-        id: `audit-${crypto.randomUUID()}`,
-        organizationId: entry.organizationId ?? null,
-        userId: entry.userId,
-        action: entry.action,
-        resource: entry.resource,
-        resourceId: entry.resourceId ?? null,
-        changes: entry.changes ?? null,
-        ipAddress: entry.ipAddress ?? null,
-        userAgent: entry.userAgent ?? null,
-      });
+      await db.insert(schema.auditLogs).values(buildAuditLogRow(entry));
     } catch (error) {
       logger.error({
         type: "audit:log:failed",
