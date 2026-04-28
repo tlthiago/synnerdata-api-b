@@ -11,4 +11,4 @@
 | 05 | AnonymizeService + Zod model | completed | high | task_01, task_02, task_03, task_04 |
 | 06 | AnonymizeController + integration tests + app mount + legacy test cleanup | completed | high | task_05 |
 | 07 | Update src/modules/auth/CLAUDE.md (PR 1 documentation) | completed | low | task_06 |
-| 08 | PR 2 cleanup: remove legacy user.deleteUser block + auditUserDelete + CLAUDE.md final | pending | low | task_07 |
+| 08 | PR 2 cleanup: remove legacy user.deleteUser block + auditUserDelete + CLAUDE.md final | completed | low | task_07 |
