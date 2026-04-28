@@ -25,6 +25,7 @@ import {
   sendPasswordResetEmail,
   sendProvisionActivationEmail,
 } from "@/lib/emails/senders/auth";
+import { BadRequestError } from "@/lib/errors/http-errors";
 import { logger } from "@/lib/logger";
 import { ErrorReporter } from "@/lib/sentry/reporter";
 import { OrganizationService } from "@/modules/organizations/profile/organization.service";
@@ -130,10 +131,10 @@ export async function validateUserBeforeDelete(user: {
   role?: string;
 }): Promise<string | null> {
   if (user.role === "admin" || user.role === "super_admin") {
-    throw new APIError("BAD_REQUEST", {
-      code: "ADMIN_ACCOUNT_DELETE_FORBIDDEN",
-      message: "Contas de administrador não podem ser excluídas por esta ação.",
-    });
+    throw new BadRequestError(
+      "Contas de administrador não podem ser excluídas por esta ação.",
+      { code: "ADMIN_ACCOUNT_DELETE_FORBIDDEN" }
+    );
   }
 
   const membership = await db.query.members.findFirst({
@@ -153,11 +154,10 @@ export async function validateUserBeforeDelete(user: {
   );
   const paidStatuses: string[] = ["active", "past_due"];
   if (access.hasAccess && paidStatuses.includes(access.status)) {
-    throw new APIError("BAD_REQUEST", {
-      code: "ACTIVE_SUBSCRIPTION",
-      message:
-        "Não é possível excluir sua conta com uma assinatura ativa. Cancele a assinatura primeiro.",
-    });
+    throw new BadRequestError(
+      "Não é possível excluir sua conta com uma assinatura ativa. Cancele a assinatura primeiro.",
+      { code: "ACTIVE_SUBSCRIPTION" }
+    );
   }
 
   const members = await db.query.members.findMany({
@@ -165,11 +165,10 @@ export async function validateUserBeforeDelete(user: {
   });
   const otherMembers = members.filter((m) => m.userId !== user.id);
   if (otherMembers.length > 0) {
-    throw new APIError("BAD_REQUEST", {
-      code: "ORGANIZATION_HAS_MEMBERS",
-      message:
-        "Não é possível excluir sua conta. Remova os outros membros da organização primeiro.",
-    });
+    throw new BadRequestError(
+      "Não é possível excluir sua conta. Remova os outros membros da organização primeiro.",
+      { code: "ORGANIZATION_HAS_MEMBERS" }
+    );
   }
 
   return membership.organizationId;

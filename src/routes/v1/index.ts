@@ -1,6 +1,7 @@
 import { Elysia } from "elysia";
 import { adminController } from "@/modules/admin";
 import { auditController } from "@/modules/audit";
+import { anonymizeController } from "@/modules/auth/anonymize/anonymize.controller";
 import { employeeController } from "@/modules/employees";
 import { occurrencesController } from "@/modules/occurrences";
 import { organizationController } from "@/modules/organizations";
@@ -16,4 +17,5 @@ export const routesV1 = new Elysia({
   .use(paymentsController)
   .use(auditController)
   .use(adminController)
+  .use(anonymizeController)
   .use(publicController);
