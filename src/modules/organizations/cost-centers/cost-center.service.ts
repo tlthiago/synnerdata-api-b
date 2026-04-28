@@ -1,6 +1,8 @@
 import { and, eq, isNull, sql } from "drizzle-orm";
 import { db } from "@/db";
 import { schema } from "@/db/schema";
+import { AuditService } from "@/modules/audit/audit.service";
+import { buildAuditChanges } from "@/modules/audit/pii-redaction";
 import type {
   CostCenterData,
   CreateCostCenterInput,
@@ -90,6 +92,15 @@ export abstract class CostCenterService {
       })
       .returning();
 
+    await AuditService.log({
+      action: "create",
+      resource: "cost_center",
+      resourceId: costCenter.id,
+      userId,
+      organizationId,
+      changes: buildAuditChanges({}, costCenter),
+    });
+
     return costCenter as CostCenterData;
   }
 
@@ -153,6 +164,15 @@ export abstract class CostCenterService {
       )
       .returning();
 
+    await AuditService.log({
+      action: "update",
+      resource: "cost_center",
+      resourceId: id,
+      userId,
+      organizationId,
+      changes: buildAuditChanges(existing, updated),
+    });
+
     return updated as CostCenterData;
   }
 
@@ -187,6 +207,15 @@ export abstract class CostCenterService {
         )
       )
       .returning();
+
+    await AuditService.log({
+      action: "delete",
+      resource: "cost_center",
+      resourceId: id,
+      userId,
+      organizationId,
+      changes: buildAuditChanges(existing, {}),
+    });
 
     return deleted as DeletedCostCenterData;
   }

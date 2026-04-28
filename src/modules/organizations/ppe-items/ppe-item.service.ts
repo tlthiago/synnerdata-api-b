@@ -1,6 +1,8 @@
 import { and, eq, isNull, sql } from "drizzle-orm";
 import { db } from "@/db";
 import { schema } from "@/db/schema";
+import { AuditService } from "@/modules/audit/audit.service";
+import { buildAuditChanges } from "@/modules/audit/pii-redaction";
 import {
   PpeItemAlreadyDeletedError,
   PpeItemAlreadyExistsError,
@@ -100,6 +102,15 @@ export abstract class PpeItemService {
       })
       .returning();
 
+    await AuditService.log({
+      action: "create",
+      resource: "ppe_item",
+      resourceId: ppeItem.id,
+      userId,
+      organizationId,
+      changes: buildAuditChanges({}, ppeItem),
+    });
+
     return ppeItem as PpeItemData;
   }
 
@@ -166,6 +177,15 @@ export abstract class PpeItemService {
       )
       .returning();
 
+    await AuditService.log({
+      action: "update",
+      resource: "ppe_item",
+      resourceId: id,
+      userId,
+      organizationId,
+      changes: buildAuditChanges(existing, updated),
+    });
+
     return updated as PpeItemData;
   }
 
@@ -200,6 +220,15 @@ export abstract class PpeItemService {
         )
       )
       .returning();
+
+    await AuditService.log({
+      action: "delete",
+      resource: "ppe_item",
+      resourceId: id,
+      userId,
+      organizationId,
+      changes: buildAuditChanges(existing, {}),
+    });
 
     return deleted as DeletedPpeItemData;
   }
@@ -262,6 +291,15 @@ export abstract class PpeItemService {
       })
       .returning();
 
+    await AuditService.log({
+      action: "create",
+      resource: "ppe_job_position",
+      resourceId: association.id,
+      userId,
+      organizationId,
+      changes: buildAuditChanges({}, association),
+    });
+
     return {
       ppeItemId: association.ppeItemId,
       jobPositionId: association.jobPositionId,
@@ -297,13 +335,23 @@ export abstract class PpeItemService {
     }
 
     // Soft delete the association
-    await db
+    const [removed] = await db
       .update(schema.ppeJobPositions)
       .set({
         deletedAt: new Date(),
         deletedBy: userId,
       })
-      .where(eq(schema.ppeJobPositions.id, association.id));
+      .where(eq(schema.ppeJobPositions.id, association.id))
+      .returning();
+
+    await AuditService.log({
+      action: "delete",
+      resource: "ppe_job_position",
+      resourceId: removed.id,
+      userId,
+      organizationId,
+      changes: buildAuditChanges(association, {}),
+    });
   }
 
   static async getJobPositions(

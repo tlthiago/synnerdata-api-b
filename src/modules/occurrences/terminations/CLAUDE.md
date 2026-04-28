@@ -14,6 +14,15 @@ Registro de desligamentos de funcionários.
 - Permissão usa resource específico `termination`
 - Listagem ordenada por `terminationDate`
 
+## Audit logging
+
+- Plugin: `auditPlugin` registered in controller
+- Resource key: `termination`
+- Mutations logged: create, update, delete (via `AuditService.log` + `buildAuditChanges`)
+- Ignored fields: `employee` (JOIN-shaped virtual nested object) + `employeeId` (immutable FK; resource identity is captured via `resourceId`)
+- Side effects on `employees.status` (TERMINATED on create, ACTIVE on delete) ARE audited as `resource: "employee"` entries — captures the cross-module status transition for compliance trails
+- **Read audit enabled** on `GET /:id` — termination records include rescission/dismissal context (LGPD-sensitive)
+
 ## Enums
 
 - type: `RESIGNATION` | `DISMISSAL_WITH_CAUSE` | `DISMISSAL_WITHOUT_CAUSE` | `MUTUAL_AGREEMENT` | `CONTRACT_END`

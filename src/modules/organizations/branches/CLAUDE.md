@@ -8,6 +8,14 @@ Unidades/filiais da organização.
 - `foundedAt` não pode ser no futuro
 - `cno` obrigatório (Cadastro Nacional de Obras)
 
+## Audit logging
+
+- Resource key: `branch`
+- Mutations logged: create, update, delete (via `AuditService.log` + `buildAuditChanges`)
+- PII set extended with `taxId` (CNPJ) — phone/mobile already in default set
+- Campos de endereço (`street`, `number`, `neighborhood`, `city`, `state`, `zipCode`) intencionalmente NÃO redacted: branches são entidades corporativas (identificadas por CNPJ), não pessoas naturais; endereço é metadado operacional cujo valor em plaintext tem utilidade investigativa no audit log (ex.: detectar adulteração de endereço cadastrado). Redação degradaria a utilidade do audit sem obrigação correspondente da LGPD.
+- Read audit: not enabled
+
 ## Required Fields
 
 - `name` (max 255), `taxId` (14 dígitos), `cno`

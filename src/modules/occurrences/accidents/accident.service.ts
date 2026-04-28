@@ -1,6 +1,11 @@
 import { and, eq, isNull } from "drizzle-orm";
 import { db } from "@/db";
 import { schema } from "@/db/schema";
+import { AuditService } from "@/modules/audit/audit.service";
+import {
+  buildAuditChanges,
+  IGNORED_AUDIT_FIELDS,
+} from "@/modules/audit/pii-redaction";
 import { ensureEmployeeActive } from "@/modules/employees/status";
 import type {
   AccidentData,
@@ -14,6 +19,12 @@ import {
   AccidentInvalidEmployeeError,
   AccidentNotFoundError,
 } from "./errors";
+
+const ACCIDENT_IGNORED_FIELDS = new Set([
+  ...IGNORED_AUDIT_FIELDS,
+  "employee",
+  "employeeId",
+]);
 
 export abstract class AccidentService {
   private static async findById(
@@ -176,6 +187,17 @@ export abstract class AccidentService {
       })
       .returning();
 
+    await AuditService.log({
+      action: "create",
+      resource: "accident",
+      resourceId: accident.id,
+      userId,
+      organizationId,
+      changes: buildAuditChanges({}, accident, {
+        ignoredFields: ACCIDENT_IGNORED_FIELDS,
+      }),
+    });
+
     return {
       id: accident.id,
       organizationId: accident.organizationId,
@@ -248,13 +270,6 @@ export abstract class AccidentService {
       throw new AccidentNotFoundError(id);
     }
 
-    if (data.employeeId && data.employeeId !== existing.employee.id) {
-      await AccidentService.getEmployeeReference(
-        data.employeeId,
-        organizationId
-      );
-    }
-
     if (data.cat !== undefined && data.cat !== existing.cat) {
       await AccidentService.ensureCatNotExists(organizationId, data.cat, id);
     }
@@ -263,9 +278,6 @@ export abstract class AccidentService {
       updatedBy: userId,
     };
 
-    if (data.employeeId !== undefined) {
-      updateData.employeeId = data.employeeId;
-    }
     if (data.date !== undefined) {
       updateData.date = data.date;
     }
@@ -285,7 +297,7 @@ export abstract class AccidentService {
       updateData.notes = data.notes;
     }
 
-    await db
+    const [updated] = await db
       .update(schema.accidents)
       .set(updateData)
       .where(
@@ -293,7 +305,19 @@ export abstract class AccidentService {
           eq(schema.accidents.id, id),
           eq(schema.accidents.organizationId, organizationId)
         )
-      );
+      )
+      .returning();
+
+    await AuditService.log({
+      action: "update",
+      resource: "accident",
+      resourceId: id,
+      userId,
+      organizationId,
+      changes: buildAuditChanges(existing, updated, {
+        ignoredFields: ACCIDENT_IGNORED_FIELDS,
+      }),
+    });
 
     return AccidentService.findByIdOrThrow(id, organizationId);
   }
@@ -329,6 +353,19 @@ export abstract class AccidentService {
         )
       )
       .returning();
+
+    await AuditService.log({
+      action: "delete",
+      resource: "accident",
+      resourceId: id,
+      userId,
+      organizationId,
+      changes: buildAuditChanges(
+        existing,
+        {},
+        { ignoredFields: ACCIDENT_IGNORED_FIELDS }
+      ),
+    });
 
     return {
       ...existing,

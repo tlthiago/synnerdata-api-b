@@ -56,6 +56,7 @@ export const createWarningSchema = warningFieldsSchema
 
 export const updateWarningSchema = warningFieldsSchema
   .partial()
+  .omit({ employeeId: true })
   .extend({
     description: z.string().nullable().optional(),
     witnessName: z.string().nullable().optional(),

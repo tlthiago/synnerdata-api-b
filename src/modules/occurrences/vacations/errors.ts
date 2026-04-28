@@ -74,6 +74,18 @@ export class VacationDateBeforeHireError extends VacationError {
   }
 }
 
+export class VacationStartDateBeforeConcessiveError extends VacationError {
+  status = 422;
+
+  constructor(args: { startDate: string; concessivePeriodStart: string }) {
+    super(
+      "Data de início anterior ao início do período concessivo do ciclo. Funcionário não pode gozar férias antes de adquirir o direito.",
+      "VACATION_START_DATE_BEFORE_CONCESSIVE",
+      args
+    );
+  }
+}
+
 export class VacationOverlapError extends VacationError {
   status = 409;
 

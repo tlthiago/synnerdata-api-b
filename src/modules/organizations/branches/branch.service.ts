@@ -1,6 +1,8 @@
 import { and, eq, isNull } from "drizzle-orm";
 import { db } from "@/db";
 import { schema } from "@/db/schema";
+import { AuditService } from "@/modules/audit/audit.service";
+import { buildAuditChanges, PII_FIELDS } from "@/modules/audit/pii-redaction";
 import type {
   BranchData,
   CreateBranchInput,
@@ -12,6 +14,8 @@ import {
   BranchNotFoundError,
   BranchTaxIdAlreadyExistsError,
 } from "./errors";
+
+const BRANCH_PII_FIELDS = new Set([...PII_FIELDS, "taxId"]);
 
 export abstract class BranchService {
   private static async findById(
@@ -106,6 +110,15 @@ export abstract class BranchService {
       })
       .returning();
 
+    await AuditService.log({
+      action: "create",
+      resource: "branch",
+      resourceId: branch.id,
+      userId,
+      organizationId,
+      changes: buildAuditChanges({}, branch, { piiFields: BRANCH_PII_FIELDS }),
+    });
+
     return branch as BranchData;
   }
 
@@ -165,6 +178,17 @@ export abstract class BranchService {
       )
       .returning();
 
+    await AuditService.log({
+      action: "update",
+      resource: "branch",
+      resourceId: id,
+      userId,
+      organizationId,
+      changes: buildAuditChanges(existing, updated, {
+        piiFields: BRANCH_PII_FIELDS,
+      }),
+    });
+
     return updated as BranchData;
   }
 
@@ -199,6 +223,19 @@ export abstract class BranchService {
         )
       )
       .returning();
+
+    await AuditService.log({
+      action: "delete",
+      resource: "branch",
+      resourceId: id,
+      userId,
+      organizationId,
+      changes: buildAuditChanges(
+        existing,
+        {},
+        { piiFields: BRANCH_PII_FIELDS }
+      ),
+    });
 
     return deleted as DeletedBranchData;
   }
