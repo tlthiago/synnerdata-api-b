@@ -4,7 +4,7 @@ on:
   pull_request:
     branches: ['**']
     paths:
-      - 'src/lib/permissions.ts'
+      - 'src/lib/auth/permissions.ts'
 
 permissions:
   contents: read
@@ -37,4 +37,4 @@ jobs:
           sparse-checkout-cone-mode: false
 
       - name: Compare permissions
-        run: ./scripts/check-permissions-sync.sh synnerdata-web-n/src/lib/permissions.ts src/lib/permissions.ts
+        run: ./scripts/check-permissions-sync.sh synnerdata-web-n/src/lib/permissions.ts src/lib/auth/permissions.ts
