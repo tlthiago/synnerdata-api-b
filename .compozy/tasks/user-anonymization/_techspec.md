@@ -363,7 +363,7 @@ WHERE u.anonymized_at IS NOT NULL
     EXISTS (SELECT 1 FROM sessions   s WHERE s.user_id = u.id) OR
     EXISTS (SELECT 1 FROM accounts   a WHERE a.user_id = u.id) OR
     EXISTS (SELECT 1 FROM two_factors tf WHERE tf.user_id = u.id) OR
-    EXISTS (SELECT 1 FROM apikeys    k WHERE k.user_id = u.id) OR
+    EXISTS (SELECT 1 FROM apikeys    k WHERE k.reference_id = u.id) OR
     EXISTS (SELECT 1 FROM invitations i WHERE i.inviter_id = u.id)
   );
 ```

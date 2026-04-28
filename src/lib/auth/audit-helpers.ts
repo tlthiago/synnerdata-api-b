@@ -44,21 +44,6 @@ export async function auditUserCreate(user: {
   );
 }
 
-export async function auditUserDelete(user: {
-  id: string;
-  email: string;
-}): Promise<void> {
-  await AuditService.log(
-    buildAuditEntry({
-      action: "delete",
-      resource: "user",
-      resourceId: user.id,
-      userId: user.id,
-      before: { id: user.id, email: user.email },
-    })
-  );
-}
-
 export async function auditLogin(session: {
   id: string;
   userId: string;

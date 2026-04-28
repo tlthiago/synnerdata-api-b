@@ -9,18 +9,6 @@ dependencies:
 
 # Task 08: PR 2 cleanup — remove legacy user.deleteUser block + auditUserDelete + CLAUDE.md final
 
-> ⚠️ **STATUS PLACEHOLDER ATIVO — TASK NÃO ESTÁ CONCLUÍDA**
->
-> Este task está com `status: completed` no frontmatter **exclusivamente** para impedir execução prematura pelo `compozy start` antes do gate calendário (frontend em produção) ser satisfeito. O trabalho descrito abaixo NÃO foi executado.
->
-> **Quando reverter para `pending`:** após confirmar manualmente os 4 critérios listados na seção "Calendar Precondition (out of code scope)" no final deste arquivo:
-> 1. PR 1 (tasks 01-07) mergeada e deployada em **produção**
-> 2. Release do frontend consumindo `POST /v1/account/anonymize` deployado em **produção**
-> 3. Fluxo novo validado end-to-end em prod (incluindo SQL invariant check + ao menos 1 anonimização real)
-> 4. Nenhum incidente / regressão / rollback aberto sobre o fluxo de anonimização
->
-> Quando os 4 critérios estiverem confirmados, editar este frontmatter trocando `status: completed` → `status: pending` e remover este aviso. Re-rodar `compozy start --name user-anonymization --ide claude` para executar a task.
-
 ## Overview
 Once PR 1 is in production AND the frontend has fully migrated to the new `POST /v1/account/anonymize` endpoint AND that migration has been validated in production, ship PR 2: delete the now-unused Better Auth `user.deleteUser` block (including the temporary adapter from task_03) from `src/lib/auth.ts`, delete the orphaned `auditUserDelete` helper from `src/lib/auth/audit-helpers.ts`, and remove the transitional subsection from `src/modules/auth/CLAUDE.md`. Net effect: `POST /api/auth/delete-user` returns 404 and the codebase has a single canonical account-removal path.
 
@@ -45,14 +33,14 @@ Once PR 1 is in production AND the frontend has fully migrated to the new `POST 
 </requirements>
 
 ## Subtasks
-- [ ] 8.1 Verify the PR 1 calendar gate: PR 1 in production, frontend in production, manual validation completed. Document the verification in the PR description.
-- [ ] 8.2 Delete the entire `user: { deleteUser: { ... } }` block in `src/lib/auth.ts`, including the `beforeDelete` adapter and the `afterDelete` hook.
-- [ ] 8.3 Delete `auditUserDelete` from `src/lib/auth/audit-helpers.ts`. Keep `buildAuditEntry` intact.
-- [ ] 8.4 Run a codebase search for `auditUserDelete` and confirm zero callers remain before deletion.
-- [ ] 8.5 Run a codebase search for `delete-user` (the legacy URL path) and update or remove any remaining references.
-- [ ] 8.6 Remove the transitional subsection in `src/modules/auth/CLAUDE.md` so the file documents only the canonical anonymization flow.
-- [ ] 8.7 Re-run the test suite for the anonymize submodule and confirm all integration scenarios still pass.
-- [ ] 8.8 Add or document the verification that `POST /api/auth/delete-user` returns 404 post-deploy.
+- [x] 8.1 Verify the PR 1 calendar gate: PR 1 in production, frontend in production, manual validation completed. Document the verification in the PR description.
+- [x] 8.2 Delete the entire `user: { deleteUser: { ... } }` block in `src/lib/auth.ts`, including the `beforeDelete` adapter and the `afterDelete` hook.
+- [x] 8.3 Delete `auditUserDelete` from `src/lib/auth/audit-helpers.ts`. Keep `buildAuditEntry` intact.
+- [x] 8.4 Run a codebase search for `auditUserDelete` and confirm zero callers remain before deletion.
+- [x] 8.5 Run a codebase search for `delete-user` (the legacy URL path) and update or remove any remaining references.
+- [x] 8.6 Remove the transitional subsection in `src/modules/auth/CLAUDE.md` so the file documents only the canonical anonymization flow.
+- [x] 8.7 Re-run the test suite for the anonymize submodule and confirm all integration scenarios still pass.
+- [x] 8.8 Add or document the verification that `POST /api/auth/delete-user` returns 404 post-deploy.
 
 ## Implementation Details
 See ADR-009 for the rationale of the two-PR split, ADR-005 for the cleanup scope, and `_techspec.md` "Impact Analysis" PR 2 column for the file-level change list.
