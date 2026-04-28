@@ -11,7 +11,7 @@ Log de ações para compliance. Registra quem fez o quê, quando e onde.
 
 ## Enums
 
-- action: `create` | `read` | `update` | `delete` | `export` | `login` | `logout` | `accept`
+- action: `create` | `read` | `update` | `delete` | `export` | `login` | `logout` | `accept` | `anonymize`
 - resource: `user` | `session` | `organization` | `member` | `employee` | `document` | `medical_certificate` | `labor_lawsuit` | `cpf_analysis` | `subscription` | `export` | `api_key` | `invitation`
 
 ## Fields

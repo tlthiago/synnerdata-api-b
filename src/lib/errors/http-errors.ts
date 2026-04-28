@@ -36,6 +36,18 @@ export class ValidationError extends AppError {
   code = "VALIDATION_ERROR";
 }
 
+export class BadRequestError extends AppError {
+  status = 400 as const;
+  code = "BAD_REQUEST";
+
+  constructor(message: string, options?: { code?: string; details?: unknown }) {
+    super(message, options?.details);
+    if (options?.code !== undefined) {
+      this.code = options.code;
+    }
+  }
+}
+
 export class ConflictError extends AppError {
   status = 409 as const;
   code = "CONFLICT";
