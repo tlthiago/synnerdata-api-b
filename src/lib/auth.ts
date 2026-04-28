@@ -13,11 +13,7 @@ import { db } from "@/db";
 import { fullSchema } from "@/db/schema";
 import { env, isTest } from "@/env";
 import { handleWelcomeEmail } from "@/lib/auth/admin-helpers";
-import {
-  auditLogin,
-  auditUserCreate,
-  auditUserDelete,
-} from "@/lib/auth/audit-helpers";
+import { auditLogin, auditUserCreate } from "@/lib/auth/audit-helpers";
 import {
   activateAdminProvisionOnLogin,
   activateProvisionOnPasswordReset,
@@ -35,11 +31,9 @@ import {
   validateBeforeCreateInvitation,
   validateBeforeDeleteOrganization,
   validateCanCreateOrganization,
-  validateUserBeforeDelete,
 } from "@/lib/auth/hooks";
 import { validateUniqueRole } from "@/lib/auth/validators";
 import { parseOrigins } from "@/lib/cors";
-import { AppError } from "@/lib/errors/base-error";
 import { validatePasswordComplexity } from "./auth/password-complexity";
 import { orgAc, orgRoles, systemAc, systemRoles } from "./auth/permissions";
 import {
@@ -99,32 +93,6 @@ export const auth = betterAuth({
     },
   },
   user: {
-    deleteUser: {
-      enabled: true,
-      async beforeDelete(user, request) {
-        let orgIdToDelete: string | null;
-        try {
-          orgIdToDelete = await validateUserBeforeDelete(user as AuthUser);
-        } catch (error) {
-          if (error instanceof AppError) {
-            throw new APIError("BAD_REQUEST", {
-              code: error.code,
-              message: error.message,
-            });
-          }
-          throw error;
-        }
-        if (orgIdToDelete) {
-          await auth.api.deleteOrganization({
-            body: { organizationId: orgIdToDelete },
-            headers: request?.headers ?? new Headers(),
-          });
-        }
-      },
-      async afterDelete(user) {
-        await auditUserDelete(user);
-      },
-    },
     additionalFields: {
       role: {
         type: "string",
