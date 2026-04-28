@@ -70,33 +70,71 @@ Autenticação via Email/Password e lifecycle de usuários/organizações.
 - **Convite**: template com inviter, org name, link (`{APP_URL}/convite/{invitationId}?email={encoded}`), role
 - **Password reset**: link com expiração, revoga todas as sessions
 
-## Account Deletion
+## Account Anonymization
 
-- Enabled via Better Auth's native `user.deleteUser`
-- Frontend calls `authClient.deleteUser({ password })` → `POST /api/auth/delete-user`
-- `beforeDelete` hook runs validations and org cleanup before Better Auth deletes the user
-- `afterDelete` hook creates audit log
+- Project-owned endpoint `POST /v1/account/anonymize` (session-only auth, requires the user's password in the body)
+- LGPD-aligned: `users` row is preserved so authorship FKs (`createdBy`/`updatedBy`) on historical records stay intact; PII fields are irreversibly overwritten and credentials revoked in the same transaction
+- Implementation lives in `src/modules/auth/anonymize/` — see `anonymize.service.ts` for orchestration, `anonymize.controller.ts` for HTTP wiring
+- After commit, sends a best-effort confirmation email to the **original** address (captured pre-overwrite); email failures do not roll back the operation
 
-### Deletion Rules
+### Anonymization Semantics
+
+- Overwrites on `users`: `name = "Usuário removido"`, `email = "anon-${userId}@deleted.synnerdata.local"`, `image = null`, `emailVerified = false`, `anonymizedAt = now()`
+- The deterministic email placeholder preserves the UNIQUE constraint and **frees the original address** for re-registration
+- Operation is irreversible — no original PII is retained anywhere after commit (audit-log payload is non-PII by design)
+
+### Error Codes
+
+| Status | Code | Trigger |
+|---|---|---|
+| 400 | `INVALID_PASSWORD` | Password verification via `auth.api.verifyPassword` failed |
+| 400 | `ADMIN_ACCOUNT_DELETE_FORBIDDEN` | User has role `admin` or `super_admin` |
+| 400 | `ACTIVE_SUBSCRIPTION` | Owner with `hasAccess` and `status in ["active", "past_due"]` |
+| 400 | `ORGANIZATION_HAS_MEMBERS` | Owner with at least one other active member |
+
+### Business Rules
 
 | Condition | Result |
 |---|---|
-| Admin or super_admin | **Blocked** — admin accounts cannot self-delete |
-| User without org | Delete user directly |
-| Owner of trial org (active or expired), no other members | Delete org + user |
-| Owner with active paid subscription (`hasAccess` + `active`/`past_due`) | **Blocked** — cancel subscription first |
-| Owner with `past_due` outside grace period (`hasAccess=false`) | Delete org + user (no active access) |
-| Owner with other active members | **Blocked** — remove members first |
-| Non-owner member (edge case) | Delete user, CASCADE removes membership |
+| Admin or super_admin | **Blocked** — `ADMIN_ACCOUNT_DELETE_FORBIDDEN`. Admin accounts cannot self-anonymize |
+| User without org | Anonymize user directly |
+| Owner of trial org (active or expired), no other members | Anonymize user + cascade-delete org |
+| Owner with active paid subscription (`hasAccess` + `active`/`past_due`) | **Blocked** — `ACTIVE_SUBSCRIPTION`; cancel subscription first |
+| Owner with `past_due` outside grace period (`hasAccess=false`) | Anonymize user + cascade-delete org (no active access) |
+| Owner with other active members | **Blocked** — `ORGANIZATION_HAS_MEMBERS`; remove members first |
+| Non-owner member (edge case) | Anonymize user; membership row removed by the credential cleanup if applicable |
 
-### Cascade (DB-level)
+### Credential Cleanup (in-transaction)
+
+Five Better Auth credential tables are deleted in the same transaction as the PII overwrite. Because the `users` row is preserved, FK cascades do **not** fire — these explicit deletes are the primary cleanup mechanism:
+
+- `sessions`
+- `accounts`
+- `twoFactors`
+- `apikeys`
+- `invitations` (as inviter)
+
+### Cascade (DB-level, when org-cascade applies)
+
+When the trial-org cascade triggers, the organization is deleted inside the same transaction:
 
 - Deleting organization → CASCADE: members, subscriptions, billing profiles, employees, all occurrences, org profile, pending checkouts, price adjustments
-- Deleting user → CASCADE: sessions, accounts, twoFactors, apikeys, invitations (as inviter)
 
-### Future: Robust Version
+### Audit Log
 
-Simple hard delete will be replaced with soft delete + grace period. See memory notes.
+Every successful anonymization inserts exactly one `audit_logs` row (in-transaction, strict — failure rolls the operation back):
+
+- `action = "anonymize"`, `resource = "user"`, `resourceId = <userId>`, `userId = <self>`
+- Non-PII payload: `changes.before = { wasOwnerOfTrialOrg, organizationCascade }`
+- The audit-log row is the authoritative event record; the post-commit email is informational only
+
+### Transitional: legacy `user.deleteUser` block (PR 1 only)
+
+During the PR 1 → PR 2 rollout window, `src/lib/auth.ts` keeps the Better Auth `user.deleteUser` block wired so the legacy `POST /api/auth/delete-user` endpoint continues to function while the frontend migrates to the new endpoint. The `beforeDelete` hook contains a small adapter: `validateUserBeforeDelete` throws the project's `AppError` (`BadRequestError` with stable codes), and the adapter catches it and re-throws as Better Auth's `APIError` so the legacy response shape is preserved. **PR 2 deletes the entire `user.deleteUser` block, the adapter, `auditUserDelete`, and this subsection.**
+
+### Future Work
+
+Grace period before anonymization (cooling-off window with restore affordance) is a separate future PRD. Other deferred items: admin-initiated anonymization on behalf of a user, system-initiated anonymization for long-inactive accounts, and bulk anonymization.
 
 ## Melhorias Futuras
 
