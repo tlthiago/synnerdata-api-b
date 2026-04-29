@@ -717,6 +717,7 @@ export abstract class VacationService {
       .update(schema.vacations)
       .set({
         deletedAt: new Date(),
+        status: "canceled",
         updatedBy: userId,
       })
       .where(
