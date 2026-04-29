@@ -157,7 +157,6 @@ export abstract class TerminationService {
     }
   }
 
-  // biome-ignore lint/correctness/noUnusedPrivateClassMembers: wired in subsequent tasks
   private static async syncEmployeeStatusForTermination(
     employeeId: string,
     organizationId: string,
@@ -226,6 +225,10 @@ export abstract class TerminationService {
       employeeId
     );
 
+    const today = new Date().toISOString().split("T")[0];
+    const status: "scheduled" | "completed" =
+      data.terminationDate > today ? "scheduled" : "completed";
+
     const terminationId = `termination-${crypto.randomUUID()}`;
 
     const [termination] = await db
@@ -241,6 +244,7 @@ export abstract class TerminationService {
         noticePeriodWorked: data.noticePeriodWorked,
         lastWorkingDay: data.lastWorkingDay,
         notes: data.notes ?? null,
+        status,
         createdBy: userId,
       })
       .returning();
@@ -256,37 +260,25 @@ export abstract class TerminationService {
       }),
     });
 
-    const [employeeBefore] = await db
-      .select({ status: schema.employees.status })
-      .from(schema.employees)
-      .where(
-        and(
-          eq(schema.employees.id, employeeId),
-          eq(schema.employees.organizationId, organizationId)
-        )
-      );
-
-    await db
-      .update(schema.employees)
-      .set({ status: "TERMINATED", updatedBy: userId })
-      .where(
-        and(
-          eq(schema.employees.id, employeeId),
-          eq(schema.employees.organizationId, organizationId)
-        )
-      );
-
-    await AuditService.log({
-      action: "update",
-      resource: "employee",
-      resourceId: employeeId,
-      userId,
+    const sync = await TerminationService.syncEmployeeStatusForTermination(
+      employeeId,
       organizationId,
-      changes: buildAuditChanges(
-        { status: employeeBefore?.status ?? null },
-        { status: "TERMINATED" }
-      ),
-    });
+      userId
+    );
+
+    if (sync.before !== sync.after) {
+      await AuditService.log({
+        action: "update",
+        resource: "employee",
+        resourceId: employeeId,
+        userId,
+        organizationId,
+        changes: buildAuditChanges(
+          { status: sync.before },
+          { status: sync.after }
+        ),
+      });
+    }
 
     return {
       id: termination.id,
@@ -299,6 +291,7 @@ export abstract class TerminationService {
       noticePeriodWorked: termination.noticePeriodWorked,
       lastWorkingDay: termination.lastWorkingDay,
       notes: termination.notes,
+      status: termination.status,
       createdAt: termination.createdAt,
       updatedAt: termination.updatedAt,
     } as TerminationData;
