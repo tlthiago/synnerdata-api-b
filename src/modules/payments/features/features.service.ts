@@ -80,6 +80,7 @@ export abstract class FeaturesService {
         isDefault: data.isDefault,
         isPremium: data.isPremium,
         createdBy: data.userId,
+        updatedBy: data.userId,
       })
       .returning();
 

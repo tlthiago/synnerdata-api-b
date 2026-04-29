@@ -4,6 +4,7 @@ import { db } from "@/db";
 import { schema } from "@/db/schema";
 import { env } from "@/env";
 import { UserFactory } from "@/test/factories/user.factory";
+import { getOrCreateSystemTestUser } from "@/test/helpers/system-user";
 import { createTestApp, type TestApp } from "@/test/support/app";
 
 const BASE_URL = env.API_URL;
@@ -11,11 +12,13 @@ const BASE_URL = env.API_URL;
 describe("GET /payments/features/all", () => {
   let app: TestApp;
   let authHeaders: Record<string, string>;
+  let systemUserId: string;
 
   beforeAll(async () => {
     app = createTestApp();
     const { headers } = await UserFactory.createAdmin({ emailVerified: true });
     authHeaders = headers;
+    systemUserId = await getOrCreateSystemTestUser();
   });
 
   test("should reject unauthenticated requests", async () => {
@@ -86,6 +89,8 @@ describe("GET /payments/features/all", () => {
       displayName: "Test Inactive Feature",
       isActive: false,
       sortOrder: 999,
+      createdBy: systemUserId,
+      updatedBy: systemUserId,
     });
 
     try {
