@@ -1,6 +1,6 @@
 # PRD #3 — Schema FK + NOT NULL + Drop `deletedBy` Implementation Plan
 
-> **For agentic workers:** REQUIRED SUB-SKILL: Use superpowers:subagent-driven-development (recommended) or superpowers:executing-plans to implement this plan task-by-task. Steps use checkbox (`- [ ]`) syntax for tracking.
+> **For agentic workers:** REQUIRED SUB-SKILL: Use superpowers:subagent-driven-development (recommended) or superpowers:executing-plans to implement this plan task-by-task. Steps use checkbox (`- [x]`) syntax for tracking.
 
 **Goal:** Enforce referential integrity on `createdBy`/`updatedBy` across all 26 in-scope domain tables (NOT NULL + FK to `users.id` ON DELETE RESTRICT) and drop `deletedBy` columns now that PRD #1 made `audit_logs` the authoritative source for deletion attribution.
 
@@ -190,7 +190,7 @@ Totals: 26 createdBy, 22 updatedBy, 24 deletedBy.
 
 The originating script and runbook were authored on the `feat/cost-centers-audit-user-info` worktree (PR #252, closed). They remain valid as starting points — this task forks them into the four production-safe artifacts above.
 
-- [ ] **Step 1: Generate `orphan-audit-pre.sql` (direct copy, used in G1 pre-deploy gate)**
+- [x] **Step 1: Generate `orphan-audit-pre.sql` (direct copy, used in G1 pre-deploy gate)**
 
 ```bash
 mkdir -p .compozy/tasks/audit-fk-not-null/scripts
@@ -200,7 +200,7 @@ cp .worktrees/feat/cost-centers-audit-user-info/.compozy/tasks/audit-user-refere
 
 The script is read-only (wraps everything in `BEGIN; ... ROLLBACK;`) and unions `created_by`/`updated_by`/`deleted_by` populated rows across all 26 tables, then LEFT JOINs `users`. **Schema state assumed**: pre-migration 0042 — all 24 tables still have `deleted_by`. Expected output: `total_orphans = 0`. Any non-zero count is a hard deploy blocker. Update the script's header comment to call out that this version assumes pre-0042 schema.
 
-- [ ] **Step 2: Fork `orphan-audit-post.sql` removing the `deleted_by` UNION lines**
+- [x] **Step 2: Fork `orphan-audit-post.sql` removing the `deleted_by` UNION lines**
 
 ```bash
 cp .compozy/tasks/audit-fk-not-null/scripts/orphan-audit-pre.sql \
@@ -221,7 +221,7 @@ grep -c 'deleted_by FROM' .compozy/tasks/audit-fk-not-null/scripts/orphan-audit-
 
 Update the post-script's header comment to call out that this version assumes post-0042 schema (no `deleted_by` columns). It is used in G3 post-deploy verification (Task 32 Step 5) and in Task 30 Step 3 local verification.
 
-- [ ] **Step 3: Generate `null-audit.sql` (NEW — counts NULLs per table)**
+- [x] **Step 3: Generate `null-audit.sql` (NEW — counts NULLs per table)**
 
 Create `.compozy/tasks/audit-fk-not-null/scripts/null-audit.sql` with the same `BEGIN; ... ROLLBACK;` skeleton as orphan-audit, but the body is 26 UNIONed SELECTs (one per table) counting `created_by IS NULL` and `updated_by IS NULL`. Tables that lack `updated_by` (4 tables: `ppe_delivery_logs`, `ppe_delivery_items`, `ppe_job_positions`, `project_employees`) emit `NULL::bigint` for the `updated_by_nulls` column.
 
@@ -295,7 +295,7 @@ ROLLBACK;
 
 The agent expanding this template must enumerate all 26 tables in both the per-table block and the `WITH per_table AS (...)` totals CTE — no shortcuts.
 
-- [ ] **Step 4: Copy and adapt the deploy gate runbook**
+- [x] **Step 4: Copy and adapt the deploy gate runbook**
 
 ```bash
 cp .worktrees/feat/cost-centers-audit-user-info/.compozy/tasks/audit-user-references/deploy-gate.md \
@@ -332,7 +332,7 @@ Edit the copied file:
     migration.
   ```
 
-- [ ] **Step 5: Verify the scripts run against the local test DB**
+- [x] **Step 5: Verify the scripts run against the local test DB**
 
 ```bash
 bun run db:test:reset
@@ -345,7 +345,7 @@ Expected: `null-audit.sql` returns near-zero counts (the seed creates rows with 
 
 `orphan-audit-post.sql` cannot be functionally tested at this point — the `deleted_by` columns still exist locally, so its semantics aren't exercised until the migration applies. Task 30 Step 3 covers the post-script run.
 
-- [ ] **Step 6: Commit**
+- [x] **Step 6: Commit**
 
 ```bash
 git add .compozy/tasks/audit-fk-not-null/
@@ -362,7 +362,7 @@ git commit -m "chore(prd-3): cherry-pick orphan/null/deploy-gate artifacts adapt
 
 The helper encapsulates the two `aliasedTable` calls used by every domain service that joins `users` for `createdBy` and `updatedBy`. The aliases must use distinct names so the resulting SQL can SELECT both `creator.id`/`creator.name` and `updater.id`/`updater.name` from the same query.
 
-- [ ] **Step 1: Write the failing test**
+- [x] **Step 1: Write the failing test**
 
 Create `src/lib/schemas/__tests__/audit-users.test.ts`:
 
@@ -391,14 +391,14 @@ describe("auditUserAliases", () => {
 });
 ```
 
-- [ ] **Step 2: Run test to verify it fails**
+- [x] **Step 2: Run test to verify it fails**
 
 ```bash
 NODE_ENV=test bun test --env-file .env.test src/lib/schemas/__tests__/audit-users.test.ts
 ```
 Expected: FAIL — `auditUserAliases` is not exported from a non-existent module.
 
-- [ ] **Step 3: Implement the helper**
+- [x] **Step 3: Implement the helper**
 
 Create `src/lib/schemas/audit-users.ts`:
 
@@ -414,14 +414,14 @@ export function auditUserAliases() {
 }
 ```
 
-- [ ] **Step 4: Run test to verify it passes**
+- [x] **Step 4: Run test to verify it passes**
 
 ```bash
 NODE_ENV=test bun test --env-file .env.test src/lib/schemas/__tests__/audit-users.test.ts
 ```
 Expected: PASS.
 
-- [ ] **Step 5: Type-check and commit**
+- [x] **Step 5: Type-check and commit**
 
 ```bash
 bun x tsc --noEmit 2>&1 | tail -20
@@ -442,7 +442,7 @@ git commit -m "feat(lib/schemas): add auditUserAliases helper for audit-user joi
 
 PR #252's `task_04` already proved that fixture leaks (placeholder/hard-coded `userId` writes to audit columns) cause migration failure. The two known leaks (`cpf-analyses` `userId: organizationId` bug; `payments/plans` trial-constraint isolation) were extracted as standalone commits and are already in `preview` (commits `8fa7b08` and `3e101f6` / `824bd64`). This task verifies no new leak has been introduced since.
 
-- [ ] **Step 1: Grep for direct audit-column writes in fixtures**
+- [x] **Step 1: Grep for direct audit-column writes in fixtures**
 
 ```bash
 grep -rEn 'createdBy:|updatedBy:|deletedBy:' src/test/helpers/ src/db/seeds/ 2>&1 | tee /tmp/audit-fixture-grep.txt
@@ -454,7 +454,7 @@ For each match, classify into one of:
 - (b) **Helper passthrough**: the value is `userId: input.userId` where `input.userId` is supplied by the caller. ✓ Safe — caller responsibility.
 - (c) **Placeholder / hard-coded / wrong-shape**: value is a literal string like `"user-test"`, or a different ID like `organizationId`, or `undefined`. ✗ FK violation pending.
 
-- [ ] **Step 2: Reset test DB and run both pre-deploy audit scripts against it**
+- [x] **Step 2: Reset test DB and run both pre-deploy audit scripts against it**
 
 ```bash
 bun run db:test:reset
@@ -465,7 +465,7 @@ psql "$TEST_DATABASE_URL" -f .compozy/tasks/audit-fk-not-null/scripts/orphan-aud
 
 Expected: `null-audit.sql` returns near-zero counts and `orphan-audit-pre.sql` returns `total_orphans = 0` after a clean migration. If non-zero on either, the leak is in the seed / migration default values, not fixtures — escalate. (`orphan-audit-post.sql` is not exercised here — `deleted_by` columns still exist locally.)
 
-- [ ] **Step 3: Run a representative test batch and re-check both audits**
+- [x] **Step 3: Run a representative test batch and re-check both audits**
 
 ```bash
 NODE_ENV=test bun test --env-file .env.test \
@@ -479,7 +479,7 @@ psql "$TEST_DATABASE_URL" -f .compozy/tasks/audit-fk-not-null/scripts/orphan-aud
 
 Expected: both still report all-zero. If non-zero, the new leak is in one of the modules just exercised — bisect by running individual files.
 
-- [ ] **Step 4: Document findings**
+- [x] **Step 4: Document findings**
 
 Create `.compozy/tasks/audit-fk-not-null/fixture-audit.md` with:
 - Date and commit SHA
@@ -489,7 +489,7 @@ Create `.compozy/tasks/audit-fk-not-null/fixture-audit.md` with:
 
 If category (c) leaks are found, address each as a discrete commit before proceeding to Task 4.
 
-- [ ] **Step 5: Commit the audit document**
+- [x] **Step 5: Commit the audit document**
 
 ```bash
 git add .compozy/tasks/audit-fk-not-null/fixture-audit.md
@@ -509,14 +509,14 @@ Each task below applies the canonical patterns from sections **A** (schema), **B
 
 **Per-module template** (8 steps):
 
-- [ ] **Step 1: Update schema TS file** — apply pattern (A) to `src/db/schema/<file>.ts`. Add `import { users } from "./auth"` if not already present.
-- [ ] **Step 2: Type-check** — `bun x tsc --noEmit 2>&1 | tail -20`. Expected: errors localized to the consuming service/model that still reference `deletedBy`.
-- [ ] **Step 3: Update service** — apply pattern (B) to `src/modules/.../<name>.service.ts`. Remove `deletedBy: userId` from the `set({ ... })` of the soft-delete update; remove `deletedBy:` from any SELECT projection used by `findByIdIncludingDeleted` / equivalent; remove `deletedBy` from the function's return type. The audit_logs entry (added in PRD #1) is the new attribution source — no replacement code needed.
-- [ ] **Step 4: Update model** — apply pattern (C) to `src/modules/.../<name>.model.ts`. Remove the `deletedBy` field from the response Zod data schema. Verify no `.pick({ deletedBy: true })` / `.omit({ deletedBy: true })` chains depend on the key.
-- [ ] **Step 5: Update existing tests if any assert on `deletedBy`** — grep `deletedBy` inside this module's `__tests__/`. If a test asserts `expect(body.data.deletedBy).toBe(...)` or includes `deletedBy` in a `toMatchObject({...})`, drop that key from the assertion. Do not add new tests — soft-delete behavior is already covered by `audit_logs` assertions from PRD #1's audit-coverage tests.
-- [ ] **Step 6: Update module CLAUDE.md** — apply pattern (D). Look for any literal string `deletedBy` in the file; replace with attribution-via-audit_logs language. Most modules require a one-line edit.
-- [ ] **Step 7: Run the module's test suite** — `NODE_ENV=test bun test --env-file .env.test src/modules/.../__tests__/`. Expected: PASS. The DB still has the `deletedBy` column (migration not yet generated/applied) and accepts the now-omitted `deletedBy` write — Drizzle simply does not include the column in the INSERT/UPDATE.
-- [ ] **Step 8: Type-check + commit**
+- [x] **Step 1: Update schema TS file** — apply pattern (A) to `src/db/schema/<file>.ts`. Add `import { users } from "./auth"` if not already present.
+- [x] **Step 2: Type-check** — `bun x tsc --noEmit 2>&1 | tail -20`. Expected: errors localized to the consuming service/model that still reference `deletedBy`.
+- [x] **Step 3: Update service** — apply pattern (B) to `src/modules/.../<name>.service.ts`. Remove `deletedBy: userId` from the `set({ ... })` of the soft-delete update; remove `deletedBy:` from any SELECT projection used by `findByIdIncludingDeleted` / equivalent; remove `deletedBy` from the function's return type. The audit_logs entry (added in PRD #1) is the new attribution source — no replacement code needed.
+- [x] **Step 4: Update model** — apply pattern (C) to `src/modules/.../<name>.model.ts`. Remove the `deletedBy` field from the response Zod data schema. Verify no `.pick({ deletedBy: true })` / `.omit({ deletedBy: true })` chains depend on the key.
+- [x] **Step 5: Update existing tests if any assert on `deletedBy`** — grep `deletedBy` inside this module's `__tests__/`. If a test asserts `expect(body.data.deletedBy).toBe(...)` or includes `deletedBy` in a `toMatchObject({...})`, drop that key from the assertion. Do not add new tests — soft-delete behavior is already covered by `audit_logs` assertions from PRD #1's audit-coverage tests.
+- [x] **Step 6: Update module CLAUDE.md** — apply pattern (D). Look for any literal string `deletedBy` in the file; replace with attribution-via-audit_logs language. Most modules require a one-line edit.
+- [x] **Step 7: Run the module's test suite** — `NODE_ENV=test bun test --env-file .env.test src/modules/.../__tests__/`. Expected: PASS. The DB still has the `deletedBy` column (migration not yet generated/applied) and accepts the now-omitted `deletedBy` write — Drizzle simply does not include the column in the INSERT/UPDATE.
+- [x] **Step 8: Type-check + commit**
 
 ```bash
 bun x tsc --noEmit 2>&1 | tail -20
@@ -724,15 +724,15 @@ After Tasks 4-25 are done, three small follow-ups:
 - Modify: `src/modules/audit/__tests__/pii-redaction.test.ts:42`
 - Modify: `src/modules/audit/CLAUDE.md` (line ~43)
 
-- [ ] **Step 1: Drop `"deletedBy"` from the `IGNORED_AUDIT_FIELDS` Set**
+- [x] **Step 1: Drop `"deletedBy"` from the `IGNORED_AUDIT_FIELDS` Set**
 
 In `src/modules/audit/pii-redaction.ts`, the set currently includes `"createdAt"`, `"updatedAt"`, `"deletedAt"`, `"createdBy"`, `"updatedBy"`, `"deletedBy"`. Remove the `"deletedBy"` entry. The column will not appear in any future audit `before`/`after` diff because it no longer exists in the schema.
 
-- [ ] **Step 2: Update the unit test**
+- [x] **Step 2: Update the unit test**
 
 In `src/modules/audit/__tests__/pii-redaction.test.ts`, find the line `expect(IGNORED_AUDIT_FIELDS.has("deletedBy")).toBe(true);` and remove it. Ensure no other test in the file depends on `deletedBy` being in the set.
 
-- [ ] **Step 3: Update audit module CLAUDE.md**
+- [x] **Step 3: Update audit module CLAUDE.md**
 
 In `src/modules/audit/CLAUDE.md`, the line currently reads:
 
@@ -746,14 +746,14 @@ Replace with:
 - **Campos metadata ignorados**: `createdAt`, `updatedAt`, `deletedAt`, `createdBy`, `updatedBy` — não aparecem no diff (valores são reconstituíveis do próprio log entry; `deletedBy` foi removido do schema em PRD #3 — `audit_logs` é a fonte de atribuição de deleção)
 ```
 
-- [ ] **Step 4: Run audit tests**
+- [x] **Step 4: Run audit tests**
 
 ```bash
 NODE_ENV=test bun test --env-file .env.test src/modules/audit/__tests__/
 ```
 Expected: PASS.
 
-- [ ] **Step 5: Commit**
+- [x] **Step 5: Commit**
 
 ```bash
 git add src/modules/audit/pii-redaction.ts src/modules/audit/__tests__/pii-redaction.test.ts src/modules/audit/CLAUDE.md
@@ -766,7 +766,7 @@ git commit -m "refactor(audit): drop deletedBy from IGNORED_AUDIT_FIELDS (column
 
 Two sections need adjustment:
 
-- [ ] **Step 1: Update "Soft deletes" line**
+- [x] **Step 1: Update "Soft deletes" line**
 
 Find:
 
@@ -780,7 +780,7 @@ Replace with:
 - **Soft deletes** — entities use a `deletedAt` field instead of hard delete (the `deletedBy` field was removed in PRD #3 — deletion attribution is now the responsibility of `audit_logs`, see `src/modules/audit/`). Always filter with `isNull(schema.<table>.deletedAt)` in queries to exclude deleted records
 ```
 
-- [ ] **Step 2: Update "Timestamps convention" line**
+- [x] **Step 2: Update "Timestamps convention" line**
 
 Find:
 
@@ -794,7 +794,7 @@ Replace with:
 - **Timestamps convention** — all in-scope domain tables include `createdAt` (defaultNow), `updatedAt` ($onUpdate), `createdBy` (NOT NULL FK to `users.id` ON DELETE RESTRICT), `updatedBy` (NOT NULL FK to `users.id` ON DELETE RESTRICT). Populate `createdBy` on INSERT and `updatedBy` on both INSERT and UPDATE — both equal to the user ID from session. Helper for self-joins to `users`: `auditUserAliases()` from `src/lib/schemas/audit-users.ts`. Query style: Drizzle Core API + inline `select()` + `aliasedTable` (NOT the Relational API). Reference implementation: `src/modules/occurrences/absences/absence.service.ts`
 ```
 
-- [ ] **Step 3: Update `src/modules/occurrences/CLAUDE.md` "Audit trail" line**
+- [x] **Step 3: Update `src/modules/occurrences/CLAUDE.md` "Audit trail" line**
 
 Find:
 
@@ -808,7 +808,7 @@ Replace with:
 - Audit trail: `createdBy` (no INSERT) + `updatedBy` (no INSERT e no UPDATE) com userId da sessão. Atribuição de deleção via `audit_logs` (PRD #3 removeu `deletedBy` das tabelas)
 ```
 
-- [ ] **Step 4: Commit**
+- [x] **Step 4: Commit**
 
 ```bash
 git add .claude/CLAUDE.md src/modules/occurrences/CLAUDE.md
@@ -822,7 +822,7 @@ git commit -m "docs(claude-md): record PRD #3 convention (FK + NOT NULL on creat
 - Create: `src/db/migrations/meta/0042_snapshot.json`
 - Modify: `src/db/migrations/meta/_journal.json`
 
-- [ ] **Step 1: Run Drizzle generate**
+- [x] **Step 1: Run Drizzle generate**
 
 ```bash
 bun run db:generate
@@ -845,7 +845,7 @@ ALTER TABLE "<table>" DROP COLUMN "deleted_by";
 
 If the file is named `0042_<random-adjective>.sql`, rename it to `0042_audit_fk_not_null.sql` and update the corresponding `tag` field in `_journal.json`. Drizzle's snapshot files are versioned by `idx`, not name — the rename is safe.
 
-- [ ] **Step 2: Verify the snapshot is consistent**
+- [x] **Step 2: Verify the snapshot is consistent**
 
 ```bash
 bun x tsc --noEmit 2>&1 | tail -5
@@ -854,7 +854,7 @@ git diff --stat src/db/migrations/
 
 Expected: snapshot/journal/SQL changes only; no schema TS file regenerated by Drizzle (those were committed in Tasks 4-25).
 
-- [ ] **Step 3: Commit the auto-generated migration**
+- [x] **Step 3: Commit the auto-generated migration**
 
 ```bash
 git add src/db/migrations/0042_audit_fk_not_null.sql src/db/migrations/meta/_journal.json src/db/migrations/meta/0042_snapshot.json
@@ -877,13 +877,13 @@ The auto-generated SQL has two production safety gaps:
 
 The hand-tune converts the migration into the safe form: backfill → SET NOT NULL → ADD CONSTRAINT NOT VALID → VALIDATE CONSTRAINT (separate step) → DROP COLUMN.
 
-- [ ] **Step 1: Open the migration file**
+- [x] **Step 1: Open the migration file**
 
 ```bash
 $EDITOR src/db/migrations/0042_audit_fk_not_null.sql
 ```
 
-- [ ] **Step 2: Prepend the backfill block at the top of the file**
+- [x] **Step 2: Prepend the backfill block at the top of the file**
 
 **Rationale**: para linhas legacy onde `updated_by IS NULL`, fazer backfill com `created_by` — a entidade nunca foi atualizada, então a aproximação mais próxima da verdade é o autor do `INSERT` (alinhado à Semantic A: `updatedBy` igual a `createdBy` no instante do create). Sem o backfill, o `ALTER COLUMN updated_by SET NOT NULL` falharia em runtime de migration. Para cada uma das 22 tabelas com `updatedBy`, emit:
 
@@ -944,7 +944,7 @@ UPDATE warnings SET updated_by = created_by WHERE updated_by IS NULL;
 
 (22 backfill statements — one per table that has `updatedBy`.)
 
-- [ ] **Step 3: Convert each `ADD CONSTRAINT ... FOREIGN KEY` to NOT VALID + VALIDATE CONSTRAINT split**
+- [x] **Step 3: Convert each `ADD CONSTRAINT ... FOREIGN KEY` to NOT VALID + VALIDATE CONSTRAINT split**
 
 Drizzle emits each FK as a single statement. Convert each to two statements. Example:
 
@@ -988,7 +988,7 @@ mv /tmp/0042_safe.sql src/db/migrations/0042_audit_fk_not_null.sql
 
 Verify: there should now be 48 `ADD CONSTRAINT ... NOT VALID` statements followed each by a `VALIDATE CONSTRAINT` statement (48 + 48 = 96 lines for the FK section). And 24 `DROP COLUMN deleted_by` statements at the end.
 
-- [ ] **Step 4: Reorder the SQL into clear phases**
+- [x] **Step 4: Reorder the SQL into clear phases**
 
 Adjust the file so statements are grouped by phase (top-down):
 
@@ -1003,7 +1003,7 @@ Adjust the file so statements are grouped by phase (top-down):
 
 The auto-generated order interleaves `SET NOT NULL` and `ADD CONSTRAINT` per table; reordering into phases makes the migration auditable and matches the deploy-gate runbook's phase narrative.
 
-- [ ] **Step 5: Validate the SQL syntax**
+- [x] **Step 5: Validate the SQL syntax**
 
 ```bash
 psql "$TEST_DATABASE_URL" -c "BEGIN; \i src/db/migrations/0042_audit_fk_not_null.sql ; ROLLBACK;"
@@ -1011,7 +1011,7 @@ psql "$TEST_DATABASE_URL" -c "BEGIN; \i src/db/migrations/0042_audit_fk_not_null
 
 Expected: zero errors. Any error here is a syntax/order problem. Note: this will fail if the test DB has existing FK constraints with the same name from a prior run — reset first with `bun run db:test:reset && bun run db:migrate` (which only applies migrations 0001-0041; 0042 is the one being verified).
 
-- [ ] **Step 6: Commit the hand-tune**
+- [x] **Step 6: Commit the hand-tune**
 
 ```bash
 git add src/db/migrations/0042_audit_fk_not_null.sql
@@ -1026,7 +1026,7 @@ git commit -m "feat(db): hand-tune migration 0042 (backfill, NOT VALID/VALIDATE 
 
 This task replicates PR #252's `task_04` batching plan to confirm the migration applies cleanly and no module test regresses against the new constraints.
 
-- [ ] **Step 1: Reset test DB and apply migrations 0001-0042**
+- [x] **Step 1: Reset test DB and apply migrations 0001-0042**
 
 ```bash
 bun run db:test:reset
@@ -1035,7 +1035,7 @@ bun run db:migrate
 
 Expected: migrations apply in order; the final apply line mentions `0042_audit_fk_not_null`.
 
-- [ ] **Step 2: Verify constraints and dropped columns are present**
+- [x] **Step 2: Verify constraints and dropped columns are present**
 
 ```bash
 psql "$TEST_DATABASE_URL" -c "SELECT COUNT(*) FROM information_schema.table_constraints WHERE constraint_type='FOREIGN KEY' AND constraint_name LIKE '%_created_by_users_id_fk';"
@@ -1052,7 +1052,7 @@ psql "$TEST_DATABASE_URL" -c "SELECT COUNT(*) FROM information_schema.columns WH
 ```
 Expected: `0`.
 
-- [ ] **Step 3: Run `orphan-audit-post.sql` against test DB**
+- [x] **Step 3: Run `orphan-audit-post.sql` against test DB**
 
 ```bash
 psql "$TEST_DATABASE_URL" -f .compozy/tasks/audit-fk-not-null/scripts/orphan-audit-post.sql
@@ -1060,7 +1060,7 @@ psql "$TEST_DATABASE_URL" -f .compozy/tasks/audit-fk-not-null/scripts/orphan-aud
 
 `orphan-audit-post.sql` was created in Task 1 Step 2 with the `deleted_by` UNION lines already removed (the column no longer exists after migration 0042 applies). Expected: `total_refs > 0`, `total_orphans = 0`. No script edits or follow-up commit needed.
 
-- [ ] **Step 4: Run module suites in 9 batches** (per PR #252 task_04 plan, refresher of the full-suite sweep)
+- [x] **Step 4: Run module suites in 9 batches** (per PR #252 task_04 plan, refresher of the full-suite sweep)
 
 ```bash
 echo "Batch 1/9: lib"; NODE_ENV=test bun test --env-file .env.test src/lib/
@@ -1076,7 +1076,7 @@ echo "Batch 9/9: payments B"; NODE_ENV=test bun test --env-file .env.test src/mo
 
 Each batch is a synchronous foreground run. If a batch reports failures, stop, fix, re-run only that batch. **Do not skip a failing batch and proceed.** Expected: all 9 green.
 
-- [ ] **Step 5: Smoke seed**
+- [x] **Step 5: Smoke seed**
 
 ```bash
 bun run db:seed:org
@@ -1084,7 +1084,7 @@ bun run db:seed:org
 
 Expected: exit 0; no FK violation surfaces in the seed log.
 
-- [ ] **Step 6: No commit unless step 4 surfaced fixture/test breakage that needed fixing**
+- [x] **Step 6: No commit unless step 4 surfaced fixture/test breakage that needed fixing**
 
 If any batch required a fix, that fix is a separate small commit (`fix(<module>): adjust assertion for deletedBy removal` or similar) referencing PRD #3.
 
@@ -1094,14 +1094,14 @@ If any batch required a fix, that fix is a separate small commit (`fix(<module>)
 
 **Files:** No code change.
 
-- [ ] **Step 1: Type-check**
+- [x] **Step 1: Type-check**
 
 ```bash
 bun x tsc --noEmit 2>&1 | tail -20
 ```
 Expected: zero errors.
 
-- [ ] **Step 2: Lint**
+- [x] **Step 2: Lint**
 
 ```bash
 npx ultracite check
