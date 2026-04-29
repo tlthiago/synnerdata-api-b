@@ -40,6 +40,22 @@ Drizzle migrations são fonte da verdade do schema do banco. Disciplina obrigat�
 - **Reescrita do journal/snapshots de migrations já aplicadas em prod:** permitido alterar `when` do journal (não dispara re-aplicação porque drizzle compara contra `lastDbMigration.created_at`, que é o mais recente). NUNCA renomeie `tag` ou edite o `.sql` de uma migration já mergeada — drizzle valida hash e o deploy quebra.
 - **`__drizzle_migrations` table** vive no schema `drizzle` (não `public`). Estrutura: `id` (auto-increment), `hash` (do conteúdo SQL), `created_at` (= `when` do journal no momento da aplicação).
 
+### Estado atual do snapshot chain (debt conhecido)
+
+Snapshots de metadata em `src/db/migrations/meta/` estão ausentes para `idx 35-42` (e algumas históricas como 15, 21, 22, 23, 26). Os arquivos `.sql` dessas migrations existem e são canônicos — apenas os snapshots de metadata local-only são lacunas.
+
+**Consequência para `db:generate`:** o diff é computado contra o último snapshot disponível (0034). Como schema TS evoluiu até 0042+, qualquer chamada de `db:generate` gera uma migration "catchup" enorme que tenta replicar todas as mudanças de 0035-0042. Não é o que se quer.
+
+**Em terminais interativos:** drizzle-kit prompta pra resolver column renames durante esse diff. Em ambientes não-interativos (CI, sandboxes de agentes IA, scripts), aborta com erro `Interactive prompts require a TTY terminal`.
+
+**Workaround atual:** continue escrevendo migrations manualmente com `Date.now()` para `when` (regras acima). O bug do 0042-style fica prevenido pelos validators no CI.
+
+**Solução estrutural (backlog):** upgrade pra drizzle-kit v1.0 stable quando sair (atualmente em beta). v1.0 redesigna snapshots em estrutura DAG (`prevIds: string[]`) com checks de commutatividade nativos — elimina essa classe inteira de bug.
+
+### Histórico do incidente 0042 (referência para agentes investigando)
+
+PR #305 (correção urgente do `when`), #306 (validator + governança), #307 (snapshot chain repair + drizzle-kit check no CI) cobrem a sequência completa do incidente em 2026-04-29. Plan original em `docs/improvements/2026-04-29-termination-scheduled-plan.md`. Para entender o porquê das regras desta seção, consulte os PR bodies.
+
 ### Guard-rails para agentes de IA
 
 Ao tocar em qualquer arquivo sob `src/db/`:
