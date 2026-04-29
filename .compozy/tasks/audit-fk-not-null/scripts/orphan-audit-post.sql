@@ -71,7 +71,7 @@ CREATE TEMP VIEW audit_refs AS
   UNION ALL SELECT 'vacations', 'created_by', created_by FROM vacations WHERE created_by IS NOT NULL
   UNION ALL SELECT 'vacations', 'updated_by', updated_by FROM vacations WHERE updated_by IS NOT NULL
   UNION ALL SELECT 'warnings', 'created_by', created_by FROM warnings WHERE created_by IS NOT NULL
-  UNION ALL SELECT 'warnings', 'updated_by', updated_by FROM warnings WHERE updated_by IS NOT NULL
+  UNION ALL SELECT 'warnings', 'updated_by', updated_by FROM warnings WHERE updated_by IS NOT NULL;
 
 \echo ''
 \echo '=== Per-column summary (ordered by orphan_count DESC, then table, column) ==='
