@@ -25,7 +25,6 @@ const costCenterDataSchema = z.object({
 
 const deletedCostCenterDataSchema = costCenterDataSchema.extend({
   deletedAt: z.coerce.date().describe("Data de exclusão"),
-  deletedBy: z.string().nullable().describe("ID do usuário que excluiu"),
 });
 
 const costCenterListDataSchema = z.array(costCenterDataSchema);

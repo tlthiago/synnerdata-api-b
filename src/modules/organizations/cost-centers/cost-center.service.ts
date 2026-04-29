@@ -89,6 +89,7 @@ export abstract class CostCenterService {
         organizationId,
         name: data.name,
         createdBy: userId,
+        updatedBy: userId,
       })
       .returning();
 
@@ -198,7 +199,6 @@ export abstract class CostCenterService {
       .update(schema.costCenters)
       .set({
         deletedAt: new Date(),
-        deletedBy: userId,
       })
       .where(
         and(
