@@ -13,7 +13,7 @@ Vacations armazena periodos aquisitivo e concessivo inline (campos na propria ta
 - ID format: `<entity>-${crypto.randomUUID()}` (e.g., `absence-...`, `accident-...`)
 - Service: abstract class com métodos estáticos, private `findById`/`findByIdIncludingDeleted`
 - Listagem ordenada pelo campo de data principal de cada entidade
-- Campos de data não aceitam datas no futuro (exceções: férias `startDate`/`endDate` podem ser futuras; medical-certificates `endDate` pode ser futuro)
+- Campos de data não aceitam datas no futuro (exceções: férias `startDate`/`endDate` podem ser futuras; medical-certificates `endDate` pode ser futuro; terminations `terminationDate`/`lastWorkingDay` podem ser futuras — agendamento)
 - Ranges de data (startDate/endDate) validam que início ≤ fim
 - Updates parciais validam datas contra valores existentes no DB via service
 - Helper compartilhado: `isFutureDate` e `isFutureDatetime` em `src/lib/schemas/date-helpers.ts`
@@ -28,6 +28,8 @@ Shared helpers at `src/modules/employees/status.ts` and errors at `src/modules/e
 - No status check: terminations
 
 Shared errors: `EmployeeTerminatedError` (422), `EmployeeOnVacationError` (422).
+
+**Note on `TERMINATION_SCHEDULED`:** Ocorrências aceitam funcionários em `TERMINATION_SCHEDULED` (rescisão futura agendada — employee ainda está ativo até a data efetiva). Apenas `TERMINATED` bloqueia novas ocorrências.
 
 ## Duplicate / Overlap Prevention on Create
 
