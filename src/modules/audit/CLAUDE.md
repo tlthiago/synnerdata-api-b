@@ -40,7 +40,7 @@ Regras:
 - **Create**: `buildAuditChanges({}, record)` — campos aparecem só em `after`
 - **Delete**: `buildAuditChanges(record, {})` — campos aparecem só em `before`
 - **Update**: `buildAuditChanges(existing, updated)` — diff minimal
-- **Campos metadata ignorados**: `createdAt`, `updatedAt`, `deletedAt`, `createdBy`, `updatedBy`, `deletedBy` — não aparecem no diff (valores são reconstituíveis do próprio log entry)
+- **Campos metadata ignorados**: `createdAt`, `updatedAt`, `deletedAt`, `createdBy`, `updatedBy` — não aparecem no diff (valores são reconstituíveis do próprio log entry; `deletedBy` foi removido do schema em PRD #3 — `audit_logs` é a fonte de atribuição de deleção)
 
 ### Redação de PII
 
