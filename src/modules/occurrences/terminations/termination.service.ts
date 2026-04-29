@@ -45,6 +45,7 @@ export abstract class TerminationService {
         noticePeriodWorked: schema.terminations.noticePeriodWorked,
         lastWorkingDay: schema.terminations.lastWorkingDay,
         notes: schema.terminations.notes,
+        status: schema.terminations.status,
         createdAt: schema.terminations.createdAt,
         updatedAt: schema.terminations.updatedAt,
       })
@@ -87,6 +88,7 @@ export abstract class TerminationService {
         noticePeriodWorked: schema.terminations.noticePeriodWorked,
         lastWorkingDay: schema.terminations.lastWorkingDay,
         notes: schema.terminations.notes,
+        status: schema.terminations.status,
         createdAt: schema.terminations.createdAt,
         updatedAt: schema.terminations.updatedAt,
         deletedAt: schema.terminations.deletedAt,
@@ -262,6 +264,7 @@ export abstract class TerminationService {
         noticePeriodWorked: schema.terminations.noticePeriodWorked,
         lastWorkingDay: schema.terminations.lastWorkingDay,
         notes: schema.terminations.notes,
+        status: schema.terminations.status,
         createdAt: schema.terminations.createdAt,
         updatedAt: schema.terminations.updatedAt,
       })
