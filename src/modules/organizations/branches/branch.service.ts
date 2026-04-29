@@ -107,6 +107,7 @@ export abstract class BranchService {
         mobile: data.mobile,
         foundedAt: data.foundedAt,
         createdBy: userId,
+        updatedBy: userId,
       })
       .returning();
 
@@ -214,7 +215,6 @@ export abstract class BranchService {
       .update(schema.branches)
       .set({
         deletedAt: new Date(),
-        deletedBy: userId,
       })
       .where(
         and(
