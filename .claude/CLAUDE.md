@@ -75,15 +75,20 @@ Ao tocar em qualquer arquivo sob `src/db/`:
 
 - Branches derivam sempre da `preview`
 - Use worktrees (`Trabalhe em um worktree.`) para trabalho que precisa de isolamento (implementação paralela, features independentes)
+- Worktree novo não herda os arquivos `.env` / `.env.test` (gitignored). Após `git worktree add`, copie do repo principal: `cp ../../.env .env && cp ../../.env.test .env.test`. Sem isso, `bun test` quebra com erro de configuração de env.
 - Convenção de branch: `feat/`, `fix/`, `refactor/` + nome descritivo (e.g., `feat/admin-custom-checkout`)
 - Não faça commit sem ser solicitado
 - Observações e decisões da implementação devem ser documentadas na **PR**, não na issue. A issue é a especificação; a PR é a entrega
+- **Nunca `git push` direto em `preview` ou `main`** — sempre via PR. Exceção: docs-only patches em `preview` quando explicitamente autorizado pelo dono do repo.
+- **Nunca use `--no-verify` ou flags que bypassam hooks** (`--no-gpg-sign`, `-c commit.gpgsign=false`, etc.). Se um hook falha, investigue e corrija; não contorne.
 
 ## Definition of Done (global — não repetir nas issues)
 
 - Testes de integração criados em `__tests__/` ao lado do módulo
 - Testes seguem os padrões do projeto: `createTestApp()`, factories, `app.handle(new Request())`
 - Testes afetados passam (ver seção "Execução de Testes" abaixo)
+- Type-check passa: `bun x tsc --noEmit`
+- Drizzle snapshot chain válida: `bun run db:check` (obrigatório quando o PR toca `src/db/`)
 - Lint passa (`npx ultracite check`)
 
 ## Execução de Testes
