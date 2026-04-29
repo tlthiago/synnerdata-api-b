@@ -1,6 +1,7 @@
 import { beforeAll, describe, expect, test } from "bun:test";
 import { env } from "@/env";
 import { createTestApp, type TestApp } from "@/test/helpers/app";
+import { createTestBranch } from "@/test/helpers/branch";
 import { createTestEmployee } from "@/test/helpers/employee";
 import { generateCpf } from "@/test/helpers/faker";
 import {
@@ -610,5 +611,95 @@ describe("PUT /v1/employees/:id — acquisition period", () => {
     const { data: updated } = await updateResponse.json();
     expect(updated.probation1ExpiryDate).toBe("2025-04-16");
     expect(updated.probation2ExpiryDate).toBe("2025-05-31");
+  });
+
+  describe("branch clearing (move to Matriz)", () => {
+    test("should clear branchId when sent as null (RFC 7396)", async () => {
+      const { headers, organizationId, user } =
+        await createTestUserWithOrganization({ emailVerified: true });
+
+      const branch = await createTestBranch({
+        organizationId,
+        userId: user.id,
+      });
+      const { employee } = await createTestEmployee({
+        organizationId,
+        userId: user.id,
+        dependencies: { branchId: branch.id },
+      });
+      expect(employee.branch?.id).toBe(branch.id);
+
+      const response = await app.handle(
+        new Request(`${BASE_URL}/v1/employees/${employee.id}`, {
+          method: "PUT",
+          headers: { ...headers, "Content-Type": "application/json" },
+          body: JSON.stringify({ branchId: null }),
+        })
+      );
+
+      expect(response.status).toBe(200);
+      const body = await response.json();
+      expect(body.success).toBe(true);
+      expect(body.data.branch).toBeNull();
+    });
+
+    test("should keep current branch when branchId is omitted from payload", async () => {
+      const { headers, organizationId, user } =
+        await createTestUserWithOrganization({ emailVerified: true });
+
+      const branch = await createTestBranch({
+        organizationId,
+        userId: user.id,
+      });
+      const { employee } = await createTestEmployee({
+        organizationId,
+        userId: user.id,
+        dependencies: { branchId: branch.id },
+      });
+
+      const response = await app.handle(
+        new Request(`${BASE_URL}/v1/employees/${employee.id}`, {
+          method: "PUT",
+          headers: { ...headers, "Content-Type": "application/json" },
+          body: JSON.stringify({ manager: "Novo Gestor" }),
+        })
+      );
+
+      expect(response.status).toBe(200);
+      const body = await response.json();
+      expect(body.data.branch?.id).toBe(branch.id);
+      expect(body.data.manager).toBe("Novo Gestor");
+    });
+
+    test("should change branch when branchId is set to a different valid branch", async () => {
+      const { headers, organizationId, user } =
+        await createTestUserWithOrganization({ emailVerified: true });
+
+      const branch1 = await createTestBranch({
+        organizationId,
+        userId: user.id,
+      });
+      const branch2 = await createTestBranch({
+        organizationId,
+        userId: user.id,
+      });
+      const { employee } = await createTestEmployee({
+        organizationId,
+        userId: user.id,
+        dependencies: { branchId: branch1.id },
+      });
+
+      const response = await app.handle(
+        new Request(`${BASE_URL}/v1/employees/${employee.id}`, {
+          method: "PUT",
+          headers: { ...headers, "Content-Type": "application/json" },
+          body: JSON.stringify({ branchId: branch2.id }),
+        })
+      );
+
+      expect(response.status).toBe(200);
+      const body = await response.json();
+      expect(body.data.branch?.id).toBe(branch2.id);
+    });
   });
 });

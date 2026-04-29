@@ -117,14 +117,14 @@
     {
       "idx": 16,
       "version": "7",
-      "when": 1772496858495,
+      "when": 1772611260000,
       "tag": "0016_reflective_the_fallen",
       "breakpoints": true
     },
     {
       "idx": 17,
       "version": "7",
-      "when": 1772570256721,
+      "when": 1772611320000,
       "tag": "0017_nappy_micromacro",
       "breakpoints": true
     },
@@ -145,7 +145,7 @@
     {
       "idx": 20,
       "version": "7",
-      "when": 1772811939779,
+      "when": 1772816445944,
       "tag": "0020_third_selene",
       "breakpoints": true
     },
@@ -173,7 +173,7 @@
     {
       "idx": 24,
       "version": "7",
-      "when": 1772829707153,
+      "when": 1772870560000,
       "tag": "0024_eminent_scourge",
       "breakpoints": true
     },
@@ -294,6 +294,13 @@
       "version": "7",
       "when": 1777939200000,
       "tag": "0041_add_users_anonymized_at",
+      "breakpoints": true
+    },
+    {
+      "idx": 42,
+      "version": "7",
+      "when": 1778025600000,
+      "tag": "0042_add_termination_status",
       "breakpoints": true
     }
   ]

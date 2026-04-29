@@ -985,3 +985,21 @@ describe("POST /v1/account/anonymize (HTTP integration)", () => {
   // enforced by db.transaction itself; the service-level assertion exercises
   // exactly the rollback path that an HTTP-level test would cover.
 });
+
+describe("legacy POST /api/auth/delete-user", () => {
+  test("the Better Auth deleteUser route is no longer mounted (returns 404)", async () => {
+    const app = await createTestApp();
+    const { headers } = await UserFactory.create();
+    const response = await app.handle(
+      new Request(`${BASE_URL}/api/auth/delete-user`, {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+          Cookie: headers.Cookie,
+        },
+        body: JSON.stringify({ password: TEST_PASSWORD }),
+      })
+    );
+    expect(response.status).toBe(404);
+  });
+});

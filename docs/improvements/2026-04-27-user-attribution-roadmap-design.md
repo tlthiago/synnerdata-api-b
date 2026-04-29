@@ -2,7 +2,17 @@
 
 ## Status
 
-Validated through brainstorming session on 2026-04-27. Awaiting user review before transitioning to per-PRD authoring (`cy-create-prd`).
+Validated through brainstorming session on 2026-04-27. Per-PRD authoring underway.
+
+**Checkpoint 2026-04-28:**
+
+- **PRD #1 — Audit Coverage Expansion**: ✅ merged via [PR #296](https://github.com/tlthiago/synnerdata-api-b/pull/296) on 2026-04-27. Stable in production.
+- **PRD #2 — User Anonymization**:
+  - PR 1 (new endpoint + adapter): ✅ merged via [PR #300](https://github.com/tlthiago/synnerdata-api-b/pull/300) on 2026-04-28. Frontend deployed; post-deploy SQL invariant check passed.
+  - PR 2 (legacy `user.deleteUser` cleanup, T08): ✅ merged via [PR #302](https://github.com/tlthiago/synnerdata-api-b/pull/302) on 2026-04-28.
+- **PRD #3 — Schema FK + NOT NULL + drop deletedBy**: implementation plan finalized at `docs/improvements/2026-04-28-prd-3-schema-fk-not-null-plan.md` (1230 lines, 32 tasks, migration `0042_audit_fk_not_null.sql`). Ready for execution once PRD #2 stabilizes in production.
+- **PRD #4 — Cost-Centers Pilot**: pending PRD #3.
+- **PRD #5+ — Phase 3 Rollout**: pending PRD #4.
 
 ## Origin
 

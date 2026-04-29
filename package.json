@@ -17,6 +17,7 @@
     "db:test:reset": "docker exec synnerdata-api-b psql -U postgres -c 'DROP DATABASE IF EXISTS \"synnerdata-api-b-test\";'",
     "db:generate": "bun --env-file .env --bun drizzle-kit generate",
     "db:migrate": "bun --env-file .env --bun drizzle-kit migrate",
+    "db:check": "bun --bun drizzle-kit check --dialect=postgresql --out=./src/db/migrations",
     "db:seed:org": "bun --env-file .env src/db/seeds/organization.ts",
     "db:start": "docker compose up -d",
     "db:watch": "docker compose up",

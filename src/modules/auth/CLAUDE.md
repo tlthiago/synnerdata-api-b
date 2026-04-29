@@ -128,10 +128,6 @@ Every successful anonymization inserts exactly one `audit_logs` row (in-transact
 - Non-PII payload: `changes.before = { wasOwnerOfTrialOrg, organizationCascade }`
 - The audit-log row is the authoritative event record; the post-commit email is informational only
 
-### Transitional: legacy `user.deleteUser` block (PR 1 only)
-
-During the PR 1 → PR 2 rollout window, `src/lib/auth.ts` keeps the Better Auth `user.deleteUser` block wired so the legacy `POST /api/auth/delete-user` endpoint continues to function while the frontend migrates to the new endpoint. The `beforeDelete` hook contains a small adapter: `validateUserBeforeDelete` throws the project's `AppError` (`BadRequestError` with stable codes), and the adapter catches it and re-throws as Better Auth's `APIError` so the legacy response shape is preserved. **PR 2 deletes the entire `user.deleteUser` block, the adapter, `auditUserDelete`, and this subsection.**
-
 ### Future Work
 
 Grace period before anonymization (cooling-off window with restore affordance) is a separate future PRD. Other deferred items: admin-initiated anonymization on behalf of a user, system-initiated anonymization for long-inactive accounts, and bulk anonymization.

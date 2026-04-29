@@ -19,6 +19,40 @@
 - **Timestamps convention** — all tables include `createdAt` (defaultNow), `updatedAt` ($onUpdate), `createdBy`, `updatedBy`. Populate `createdBy`/`updatedBy` with the user ID from session
 - **Nullable field clearing (JSON Merge Patch)** — update endpoints follow RFC 7396 semantics for nullable fields: `undefined` (omitted) = keep current value, `"value"` = update, `null` = clear. Update schemas must use `.nullable().optional()` on every field that is `.nullable()` in the response schema. In `buildUpdateData`, use `!== undefined` to detect sent fields (null passes, undefined doesn't). Number fields stored as string need explicit null handling: `data.field !== null ? data.field.toString() : null`. Date cross-validations must use `!== undefined` (not truthy checks) and `!== undefined ? data.field : existing.field` (not `??`, which treats null as missing). Reference implementation: `src/modules/occurrences/labor-lawsuits/`
 
+## Database Versioning
+
+Drizzle migrations são fonte da verdade do schema do banco. Disciplina obrigatória:
+
+- **NUNCA use `bun db:push`** — esse comando aplica `schema.ts` direto no DB sem gerar migration. Quebra o histórico, impossibilita rollback determinístico, gera drift entre ambientes. O script existe no `package.json` apenas porque é parte do drizzle-kit; **não use**.
+- **`bun db:check` (drizzle-kit check)** valida a consistência da cadeia de snapshots — detecta colisões de `prevId`, snapshots malformados, conflitos de DDL não-comutativos entre branches. Roda no CI como guard-rail oficial.
+- **Workflow canônico**:
+  1. Edite `src/db/schema/*.ts`
+  2. `bun db:generate` — gera `src/db/migrations/NNNN_*.sql` + atualiza `meta/_journal.json` e `meta/NNNN_snapshot.json`
+  3. Inspecione a SQL gerada antes de commitar (drizzle pode gerar coisas inesperadas: drops, renames detectados como column delete + add, etc.)
+  4. `bun db:migrate` aplica em dev. CI/CD aplica em HML/prod no boot.
+- **Migrations manuais** (quando `db:generate` falha por bug do drizzle-kit ou para data fixes que o diff não captura): permitido, MAS:
+  1. O valor `when` no entry do `_journal.json` **DEVE ser `Date.now()`** no momento da criação. Nunca um timestamp arbitrário menor que o último entry.
+  2. O `idx` deve ser sequencial (último idx + 1).
+  3. O `tag` deve seguir o padrão `NNNN_descricao_kebab_ou_snake`.
+  4. Rode `bun db:check` antes de commitar (drizzle-kit check valida a estrutura da cadeia de snapshots).
+  5. Documente no PR body por que `db:generate` não foi usado.
+- **Por que `when` monotônico importa:** drizzle-orm migrate captura `lastDbMigration` UMA vez antes do loop e só aplica entries com `entry.when > lastDbMigration.created_at`. Se um entry novo tem `when` menor, é silenciosamente pulado no deploy — o log diz "completed" mas DDL nenhum rodou. Caso real: 0042_add_termination_status quebrou HML em 2026-04-29 por isso.
+- **Reescrita do journal/snapshots de migrations já aplicadas em prod:** permitido alterar `when` do journal (não dispara re-aplicação porque drizzle compara contra `lastDbMigration.created_at`, que é o mais recente). NUNCA renomeie `tag` ou edite o `.sql` de uma migration já mergeada — drizzle valida hash e o deploy quebra.
+- **`__drizzle_migrations` table** vive no schema `drizzle` (não `public`). Estrutura: `id` (auto-increment), `hash` (do conteúdo SQL), `created_at` (= `when` do journal no momento da aplicação).
+
+### Guard-rails para agentes de IA
+
+Ao tocar em qualquer arquivo sob `src/db/`:
+
+1. **Snapshots (`src/db/migrations/meta/*_snapshot.json`)** são gerados pelo drizzle-kit. **Nunca edite manualmente** — UUIDs, `prevId` chains e estrutura `tables` são interdependentes. Editar quebra `db:generate`.
+2. **Journal (`src/db/migrations/meta/_journal.json`)** pode ser editado APENAS para:
+   - Corrigir `when` de entries fora de ordem cronológica (preventivo, não dispara nada em DBs existentes).
+   - Remover entry de migration recém-criada **antes** dela ter sido aplicada em qualquer ambiente.
+   Nunca edite `idx` ou `tag` de entries já aplicadas.
+3. **Migration `.sql` files** já presentes no repo: **read-only**. Para corrigir uma migration buggy, crie uma NOVA migration que faz a correção (pattern de "forward-only migrations").
+4. **Schema TS (`src/db/schema/*.ts`)**: pode editar livremente — é a fonte da verdade. Após editar, sempre rode `bun db:generate` (mesmo se for falhar) para confirmar que o diff faz sentido. Se `db:generate` está broken, escreva manual seguindo as regras acima.
+5. **Test DB drift**: se ao rodar tests aparecer "column X does not exist" ou similar e a coluna ESTÁ em `schema.ts`, NÃO aplique DDL manualmente. Reporte BLOCKED — provavelmente migration foi pulada (mesmo bug do 0042). Investigar via `SELECT * FROM drizzle.__drizzle_migrations ORDER BY id` antes de qualquer ação.
+
 ## Git Workflow
 
 - Branches derivam sempre da `preview`

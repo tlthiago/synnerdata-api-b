@@ -166,37 +166,6 @@ describe("POST /v1/terminations", () => {
     expect(response.status).toBe(422);
   });
 
-  test("should reject future termination date", async () => {
-    const { headers, organizationId, user } =
-      await createTestUserWithOrganization({
-        emailVerified: true,
-      });
-
-    const { employee } = await createTestEmployee({
-      organizationId,
-      userId: user.id,
-    });
-
-    const futureDate = new Date();
-    futureDate.setDate(futureDate.getDate() + 10);
-    const futureDateStr = futureDate.toISOString().split("T")[0];
-
-    const response = await app.handle(
-      new Request(`${BASE_URL}/v1/terminations`, {
-        method: "POST",
-        headers: { ...headers, "Content-Type": "application/json" },
-        body: JSON.stringify({
-          employeeId: employee.id,
-          terminationDate: futureDateStr,
-          type: "RESIGNATION",
-          lastWorkingDay: futureDateStr,
-        }),
-      })
-    );
-
-    expect(response.status).toBe(422);
-  });
-
   test("should create termination successfully", async () => {
     const { headers, organizationId, user } =
       await createTestUserWithOrganization({

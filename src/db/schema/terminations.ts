@@ -20,6 +20,12 @@ export const terminationTypeEnum = pgEnum("termination_type", [
   "CONTRACT_END",
 ]);
 
+export const terminationStatusEnum = pgEnum("termination_status", [
+  "scheduled",
+  "completed",
+  "canceled",
+]);
+
 export const terminations = pgTable(
   "terminations",
   {
@@ -41,6 +47,7 @@ export const terminations = pgTable(
       .notNull(),
     lastWorkingDay: date("last_working_day").notNull(),
     notes: text("notes"),
+    status: terminationStatusEnum("status").default("completed").notNull(),
 
     // Audit
     createdAt: timestamp("created_at", { withTimezone: true })
@@ -60,6 +67,7 @@ export const terminations = pgTable(
     index("terminations_employee_id_idx").on(table.employeeId),
     index("terminations_termination_date_idx").on(table.terminationDate),
     index("terminations_type_idx").on(table.type),
+    index("terminations_status_idx").on(table.status),
   ]
 );
 
