@@ -220,7 +220,6 @@ const laborLawsuitDataSchema = z.object({
 
 const deletedLaborLawsuitDataSchema = laborLawsuitDataSchema.extend({
   deletedAt: z.coerce.date().describe("Data de exclusão"),
-  deletedBy: z.string().nullable().describe("ID do usuário que excluiu"),
 });
 
 const laborLawsuitListDataSchema = z.array(laborLawsuitDataSchema);

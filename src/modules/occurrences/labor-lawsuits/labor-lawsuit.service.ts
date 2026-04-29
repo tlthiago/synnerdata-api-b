@@ -75,10 +75,7 @@ export abstract class LaborLawsuitService {
   private static async findByIdIncludingDeleted(
     id: string,
     organizationId: string
-  ): Promise<
-    | (LaborLawsuitData & { deletedAt: Date | null; deletedBy: string | null })
-    | null
-  > {
+  ): Promise<(LaborLawsuitData & { deletedAt: Date | null }) | null> {
     const [result] = await db
       .select({
         id: schema.laborLawsuits.id,
@@ -105,7 +102,6 @@ export abstract class LaborLawsuitService {
         createdAt: schema.laborLawsuits.createdAt,
         updatedAt: schema.laborLawsuits.updatedAt,
         deletedAt: schema.laborLawsuits.deletedAt,
-        deletedBy: schema.laborLawsuits.deletedBy,
       })
       .from(schema.laborLawsuits)
       .innerJoin(
@@ -233,6 +229,7 @@ export abstract class LaborLawsuitService {
         appeals: data.appeals,
         costsExpenses: data.costsExpenses?.toString(),
         createdBy: userId,
+        updatedBy: userId,
       })
       .returning();
 
@@ -445,7 +442,7 @@ export abstract class LaborLawsuitService {
       .update(schema.laborLawsuits)
       .set({
         deletedAt: new Date(),
-        deletedBy: userId,
+        updatedBy: userId,
       })
       .where(
         and(
@@ -458,7 +455,6 @@ export abstract class LaborLawsuitService {
     return {
       ...existing,
       deletedAt: deleted.deletedAt as Date,
-      deletedBy: deleted.deletedBy,
     } as DeletedLaborLawsuitData;
   }
 }

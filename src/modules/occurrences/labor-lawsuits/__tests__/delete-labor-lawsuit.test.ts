@@ -81,7 +81,6 @@ describe("DELETE /v1/labor-lawsuits/:id", () => {
     expect(body.success).toBe(true);
     expect(body.data.id).toBe(lawsuit.id);
     expect(body.data.deletedAt).toBeDefined();
-    expect(body.data.deletedBy).toBeDefined();
   });
 
   test("should return 404 when trying to delete already deleted lawsuit", async () => {
