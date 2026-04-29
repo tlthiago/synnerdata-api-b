@@ -127,6 +127,101 @@ describe("POST /v1/terminations — scheduled flow", () => {
   });
 });
 
+describe("DELETE /v1/terminations/:id — soft delete with canceled status", () => {
+  let app: TestApp;
+
+  beforeAll(() => {
+    app = createTestApp();
+  });
+
+  test("sets status=canceled and reverts employee from TERMINATION_SCHEDULED to ACTIVE when deleting scheduled", async () => {
+    const { headers, organizationId, user } =
+      await createTestUserWithOrganization();
+    const { employee } = await createTestEmployee({
+      organizationId,
+      userId: user.id,
+    });
+
+    const futureDate = offsetISO(30);
+    const createRes = await app.handle(
+      new Request(`${BASE_URL}/v1/terminations`, {
+        method: "POST",
+        headers: { ...headers, "Content-Type": "application/json" },
+        body: JSON.stringify({
+          employeeId: employee.id,
+          terminationDate: futureDate,
+          type: "DISMISSAL_WITHOUT_CAUSE",
+          lastWorkingDay: futureDate,
+          noticePeriodWorked: false,
+        }),
+      })
+    );
+    const created = (await createRes.json()).data;
+    expect(created.status).toBe("scheduled");
+
+    const deleteRes = await app.handle(
+      new Request(`${BASE_URL}/v1/terminations/${created.id}`, {
+        method: "DELETE",
+        headers,
+      })
+    );
+
+    expect(deleteRes.status).toBe(200);
+    const body = await deleteRes.json();
+    expect(body.data.status).toBe("canceled");
+    expect(body.data.deletedAt).toBeTruthy();
+
+    const [empRow] = await db
+      .select({ status: schema.employees.status })
+      .from(schema.employees)
+      .where(eq(schema.employees.id, employee.id));
+    expect(empRow?.status).toBe("ACTIVE");
+  });
+
+  test("sets status=canceled and reverts employee from TERMINATED to ACTIVE when deleting completed", async () => {
+    const { headers, organizationId, user } =
+      await createTestUserWithOrganization();
+    const { employee } = await createTestEmployee({
+      organizationId,
+      userId: user.id,
+    });
+
+    const today = todayISO();
+    const createRes = await app.handle(
+      new Request(`${BASE_URL}/v1/terminations`, {
+        method: "POST",
+        headers: { ...headers, "Content-Type": "application/json" },
+        body: JSON.stringify({
+          employeeId: employee.id,
+          terminationDate: today,
+          type: "DISMISSAL_WITHOUT_CAUSE",
+          lastWorkingDay: today,
+          noticePeriodWorked: false,
+        }),
+      })
+    );
+    const created = (await createRes.json()).data;
+    expect(created.status).toBe("completed");
+
+    const deleteRes = await app.handle(
+      new Request(`${BASE_URL}/v1/terminations/${created.id}`, {
+        method: "DELETE",
+        headers,
+      })
+    );
+
+    expect(deleteRes.status).toBe(200);
+    const body = await deleteRes.json();
+    expect(body.data.status).toBe("canceled");
+
+    const [empRow] = await db
+      .select({ status: schema.employees.status })
+      .from(schema.employees)
+      .where(eq(schema.employees.id, employee.id));
+    expect(empRow?.status).toBe("ACTIVE");
+  });
+});
+
 describe("PUT /v1/terminations/:id — status flip on date change", () => {
   let app: TestApp;
 

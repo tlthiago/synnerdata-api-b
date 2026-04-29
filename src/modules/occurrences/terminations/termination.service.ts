@@ -434,6 +434,8 @@ export abstract class TerminationService {
       .set({
         deletedAt: new Date(),
         deletedBy: userId,
+        status: "canceled",
+        updatedBy: userId,
       })
       .where(
         and(
@@ -456,40 +458,29 @@ export abstract class TerminationService {
       ),
     });
 
-    const [employeeBefore] = await db
-      .select({ status: schema.employees.status })
-      .from(schema.employees)
-      .where(
-        and(
-          eq(schema.employees.id, existing.employee.id),
-          eq(schema.employees.organizationId, organizationId)
-        )
-      );
-
-    await db
-      .update(schema.employees)
-      .set({ status: "ACTIVE", updatedBy: userId })
-      .where(
-        and(
-          eq(schema.employees.id, existing.employee.id),
-          eq(schema.employees.organizationId, organizationId)
-        )
-      );
-
-    await AuditService.log({
-      action: "update",
-      resource: "employee",
-      resourceId: existing.employee.id,
-      userId,
+    const sync = await TerminationService.syncEmployeeStatusForTermination(
+      existing.employee.id,
       organizationId,
-      changes: buildAuditChanges(
-        { status: employeeBefore?.status ?? null },
-        { status: "ACTIVE" }
-      ),
-    });
+      userId
+    );
+
+    if (sync.before !== sync.after) {
+      await AuditService.log({
+        action: "update",
+        resource: "employee",
+        resourceId: existing.employee.id,
+        userId,
+        organizationId,
+        changes: buildAuditChanges(
+          { status: sync.before },
+          { status: sync.after }
+        ),
+      });
+    }
 
     return {
       ...existing,
+      status: "canceled",
       deletedAt: deleted.deletedAt as Date,
       deletedBy: deleted.deletedBy,
     } as DeletedTerminationData;
