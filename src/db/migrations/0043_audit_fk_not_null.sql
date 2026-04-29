@@ -6,10 +6,11 @@
 -- (populated by PRD #1) is now the authoritative source of deletion attribution.
 --
 -- Production safety:
---   - Pre-deploy gate: both null-audit.sql (zero NULLs on createdBy/updatedBy)
---     AND orphan-audit-pre.sql (zero FK orphans) must clear within 24h of merge.
---     Scripts: .compozy/tasks/audit-fk-not-null/scripts/null-audit.sql and
---              .compozy/tasks/audit-fk-not-null/scripts/orphan-audit-pre.sql
+--   - Pre-deploy gate (operator-driven, not automated): operator queries prod
+--     directly before merge to confirm no NULLs in createdBy/updatedBy and no
+--     FK orphans on populated values. PR description carries the queries +
+--     expected results. Failing either gate aborts the migration at runtime
+--     (ALTER COLUMN SET NOT NULL or VALIDATE CONSTRAINT abort the transaction).
 --   - Backfill: updated_by = created_by for any row with updated_by IS NULL
 --     (Semantic A normalization). The features table is special-cased because
 --     migration 0012 seeded its rows with NULL audit columns; both columns are
@@ -17,10 +18,10 @@
 --   - FK constraints added with NOT VALID (no table scan), then VALIDATE
 --     CONSTRAINT in a separate statement (ShareUpdateExclusiveLock — allows
 --     concurrent reads/writes; aborts atomically if any orphan slips through).
---   - DROP COLUMN deleted_by is irreversible. Rollback strategy in
---     .compozy/tasks/audit-fk-not-null/deploy-gate.md (re-add column without
---     historical values; deletion attribution before this migration is in
---     audit_logs from PRD #1).
+--   - DROP COLUMN deleted_by is irreversible. Rollback would require a forward
+--     migration: ALTER TABLE ... ADD COLUMN deleted_by text on the 24 tables
+--     (no NOT NULL — historical deletedBy values are gone). Deletion attribution
+--     for the rollback window is captured in audit_logs (PRD #1).
 -- ============================================================================
 --> statement-breakpoint
 
