@@ -159,7 +159,10 @@ export abstract class UserFactory {
 
     const userResult = await UserFactory.create(userOptions);
 
-    const organization = await OrganizationFactory.create({ name: orgName });
+    const organization = await OrganizationFactory.create({
+      name: orgName,
+      creatorUserId: userResult.user.id,
+    });
     await OrganizationFactory.addMember(userResult, {
       organizationId: organization.id,
       role: "owner",

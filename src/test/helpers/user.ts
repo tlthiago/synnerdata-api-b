@@ -224,7 +224,10 @@ export async function createTestUserWithOrganization(
 
   const userResult = await createTestUser(userOptions);
 
-  const organization = await createTestOrganization({ name: orgName });
+  const organization = await createTestOrganization({
+    name: orgName,
+    creatorUserId: userResult.user.id,
+  });
   await addMemberToOrganization(userResult, {
     organizationId: organization.id,
     role: "owner",

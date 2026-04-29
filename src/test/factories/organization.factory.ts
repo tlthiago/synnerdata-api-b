@@ -2,6 +2,7 @@ import { eq } from "drizzle-orm";
 import { db } from "@/db";
 import { type Role, schema } from "@/db/schema";
 import { env } from "@/env";
+import { getOrCreateSystemTestUser } from "@/test/helpers/system-user";
 import { createTestApp } from "@/test/support/app";
 import type { TestUserResult } from "./user.factory";
 
@@ -23,6 +24,7 @@ type CreateOrganizationOptions = {
   phone?: string;
   email?: string;
   pagarmeCustomerId?: string;
+  creatorUserId?: string;
 };
 
 type AddMemberOptions = {
@@ -57,6 +59,8 @@ export abstract class OrganizationFactory {
 
     const name = options.name ?? `Test Org ${testId.slice(0, 8)}`;
     const slug = options.slug ?? `test-org-${testId.slice(0, 8)}`;
+    const creatorUserId =
+      options.creatorUserId ?? (await getOrCreateSystemTestUser());
 
     await db.insert(schema.organizations).values({
       id: organizationId,
@@ -75,6 +79,8 @@ export abstract class OrganizationFactory {
       mobile: options.phone ?? "11999999999",
       email: options.email ?? `org-${testId}@example.com`,
       pagarmeCustomerId: options.pagarmeCustomerId,
+      createdBy: creatorUserId,
+      updatedBy: creatorUserId,
     });
 
     return {
