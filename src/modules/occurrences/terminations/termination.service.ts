@@ -356,10 +356,17 @@ export abstract class TerminationService {
       throw new TerminationNotFoundError(id);
     }
 
+    const today = new Date().toISOString().split("T")[0];
+    const nextTerminationDate =
+      data.terminationDate ?? existing.terminationDate;
+    const nextStatus: "scheduled" | "completed" =
+      nextTerminationDate > today ? "scheduled" : "completed";
+
     const [updated] = await db
       .update(schema.terminations)
       .set({
         ...data,
+        status: nextStatus,
         updatedBy: userId,
       })
       .where(
@@ -380,6 +387,26 @@ export abstract class TerminationService {
         ignoredFields: TERMINATION_IGNORED_FIELDS,
       }),
     });
+
+    const sync = await TerminationService.syncEmployeeStatusForTermination(
+      existing.employee.id,
+      organizationId,
+      userId
+    );
+
+    if (sync.before !== sync.after) {
+      await AuditService.log({
+        action: "update",
+        resource: "employee",
+        resourceId: existing.employee.id,
+        userId,
+        organizationId,
+        changes: buildAuditChanges(
+          { status: sync.before },
+          { status: sync.after }
+        ),
+      });
+    }
 
     return TerminationService.findByIdOrThrow(id, organizationId);
   }

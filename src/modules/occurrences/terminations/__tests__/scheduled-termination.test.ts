@@ -126,3 +126,109 @@ describe("POST /v1/terminations — scheduled flow", () => {
     expect(body.data.status).toBe("completed");
   });
 });
+
+describe("PUT /v1/terminations/:id — status flip on date change", () => {
+  let app: TestApp;
+
+  beforeAll(() => {
+    app = createTestApp();
+  });
+
+  test("flips scheduled→completed when terminationDate moves to past", async () => {
+    const { headers, organizationId, user } =
+      await createTestUserWithOrganization();
+    const { employee } = await createTestEmployee({
+      organizationId,
+      userId: user.id,
+    });
+
+    const futureDate = offsetISO(30);
+
+    const createRes = await app.handle(
+      new Request(`${BASE_URL}/v1/terminations`, {
+        method: "POST",
+        headers: { ...headers, "Content-Type": "application/json" },
+        body: JSON.stringify({
+          employeeId: employee.id,
+          terminationDate: futureDate,
+          type: "DISMISSAL_WITHOUT_CAUSE",
+          lastWorkingDay: futureDate,
+          noticePeriodWorked: false,
+        }),
+      })
+    );
+    const created = (await createRes.json()).data;
+    expect(created.status).toBe("scheduled");
+
+    const today = todayISO();
+    const updateRes = await app.handle(
+      new Request(`${BASE_URL}/v1/terminations/${created.id}`, {
+        method: "PUT",
+        headers: { ...headers, "Content-Type": "application/json" },
+        body: JSON.stringify({
+          terminationDate: today,
+          lastWorkingDay: today,
+        }),
+      })
+    );
+
+    expect(updateRes.status).toBe(200);
+    const body = await updateRes.json();
+    expect(body.data.status).toBe("completed");
+
+    const [empRow] = await db
+      .select({ status: schema.employees.status })
+      .from(schema.employees)
+      .where(eq(schema.employees.id, employee.id));
+    expect(empRow?.status).toBe("TERMINATED");
+  });
+
+  test("flips completed→scheduled when terminationDate moves to future", async () => {
+    const { headers, organizationId, user } =
+      await createTestUserWithOrganization();
+    const { employee } = await createTestEmployee({
+      organizationId,
+      userId: user.id,
+    });
+
+    const today = todayISO();
+
+    const createRes = await app.handle(
+      new Request(`${BASE_URL}/v1/terminations`, {
+        method: "POST",
+        headers: { ...headers, "Content-Type": "application/json" },
+        body: JSON.stringify({
+          employeeId: employee.id,
+          terminationDate: today,
+          type: "DISMISSAL_WITHOUT_CAUSE",
+          lastWorkingDay: today,
+          noticePeriodWorked: false,
+        }),
+      })
+    );
+    const created = (await createRes.json()).data;
+    expect(created.status).toBe("completed");
+
+    const futureDate = offsetISO(15);
+    const updateRes = await app.handle(
+      new Request(`${BASE_URL}/v1/terminations/${created.id}`, {
+        method: "PUT",
+        headers: { ...headers, "Content-Type": "application/json" },
+        body: JSON.stringify({
+          terminationDate: futureDate,
+          lastWorkingDay: futureDate,
+        }),
+      })
+    );
+
+    expect(updateRes.status).toBe(200);
+    const body = await updateRes.json();
+    expect(body.data.status).toBe("scheduled");
+
+    const [empRow] = await db
+      .select({ status: schema.employees.status })
+      .from(schema.employees)
+      .where(eq(schema.employees.id, employee.id));
+    expect(empRow?.status).toBe("TERMINATION_SCHEDULED");
+  });
+});
