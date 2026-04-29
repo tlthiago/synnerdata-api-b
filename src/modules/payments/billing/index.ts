@@ -58,10 +58,11 @@ export const billingController = new Elysia({
   )
   .post(
     "/profile",
-    async ({ session, body }) => {
+    async ({ session, body, user }) => {
       const profile = await BillingService.createProfile(
         session.activeOrganizationId as string,
-        body
+        body,
+        user.id
       );
       return wrapSuccess(profile);
     },
@@ -87,10 +88,11 @@ export const billingController = new Elysia({
   )
   .patch(
     "/profile",
-    async ({ session, body }) => {
+    async ({ session, body, user }) => {
       const profile = await BillingService.updateProfile(
         session.activeOrganizationId as string,
-        body
+        body,
+        user.id
       );
       return wrapSuccess(profile);
     },

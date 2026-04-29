@@ -65,7 +65,8 @@ export abstract class OrganizationService {
 
   static async createProfile(
     organizationId: string,
-    data: CreateProfileData
+    data: CreateProfileData,
+    userId: string
   ): Promise<void> {
     const existingProfile =
       await OrganizationService.findByOrganizationId(organizationId);
@@ -84,13 +85,15 @@ export abstract class OrganizationService {
       phone: data.phone,
       mobile: data.phone,
       email: data.email,
+      createdBy: userId,
+      updatedBy: userId,
     });
   }
 
   static async updateProfile(
     organizationId: string,
     data: UpdateProfileInput,
-    userId?: string
+    userId: string
   ): Promise<OrganizationProfileData> {
     const existing =
       await OrganizationService.findByOrganizationId(organizationId);
@@ -110,7 +113,7 @@ export abstract class OrganizationService {
       }
     }
 
-    const updateData: Record<string, unknown> = { ...data };
+    const updateData: Record<string, unknown> = { ...data, updatedBy: userId };
     if (data.phone !== undefined) {
       updateData.mobile = data.phone;
     }
@@ -132,7 +135,7 @@ export abstract class OrganizationService {
       return result;
     });
 
-    if (userId && (data.taxId || data.email)) {
+    if (data.taxId || data.email) {
       await AuditService.log({
         organizationId,
         userId,
@@ -194,11 +197,12 @@ export abstract class OrganizationService {
 
   static async setCustomerId(
     organizationId: string,
-    pagarmeCustomerId: string
+    pagarmeCustomerId: string,
+    userId: string
   ): Promise<void> {
     await db
       .update(schema.organizationProfiles)
-      .set({ pagarmeCustomerId })
+      .set({ pagarmeCustomerId, updatedBy: userId })
       .where(eq(schema.organizationProfiles.organizationId, organizationId));
   }
 
@@ -208,7 +212,8 @@ export abstract class OrganizationService {
    */
   static async createMinimalProfile(
     organizationId: string,
-    orgName: string
+    orgName: string,
+    userId: string
   ): Promise<void> {
     const existing =
       await OrganizationService.findByOrganizationId(organizationId);
@@ -222,6 +227,8 @@ export abstract class OrganizationService {
       id: profileId,
       organizationId,
       tradeName: orgName,
+      createdBy: userId,
+      updatedBy: userId,
     });
   }
 
@@ -243,7 +250,8 @@ export abstract class OrganizationService {
       city?: string;
       state?: string;
       zipCode?: string;
-    }
+    },
+    userId: string
   ): Promise<void> {
     const profile =
       await OrganizationService.findByOrganizationId(organizationId);
@@ -285,7 +293,7 @@ export abstract class OrganizationService {
 
     await db
       .update(schema.organizationProfiles)
-      .set(updates)
+      .set({ ...updates, updatedBy: userId })
       .where(eq(schema.organizationProfiles.organizationId, organizationId));
   }
 }

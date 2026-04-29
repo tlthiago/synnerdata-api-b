@@ -1,6 +1,7 @@
 import { db } from "@/db";
 import type { BillingProfile } from "@/db/schema";
 import { billingProfiles } from "@/db/schema/billing-profiles";
+import { getOrCreateSystemTestUser } from "@/test/helpers/system-user";
 import { faker, generateCnpj, generateMobile } from "@/test/support/faker";
 
 type CreateBillingProfileOptions = {
@@ -10,6 +11,7 @@ type CreateBillingProfileOptions = {
   email?: string;
   phone?: string;
   pagarmeCustomerId?: string;
+  creatorUserId?: string;
 };
 
 function generateBillingProfileId(): string {
@@ -41,6 +43,8 @@ export abstract class BillingProfileFactory {
     options: CreateBillingProfileOptions
   ): Promise<BillingProfile> {
     const id = generateBillingProfileId();
+    const creatorUserId =
+      options.creatorUserId ?? (await getOrCreateSystemTestUser());
 
     const [profile] = await db
       .insert(billingProfiles)
@@ -52,6 +56,8 @@ export abstract class BillingProfileFactory {
         email: options.email ?? faker.internet.email(),
         phone: options.phone ?? generateMobile(),
         pagarmeCustomerId: options.pagarmeCustomerId,
+        createdBy: creatorUserId,
+        updatedBy: creatorUserId,
       })
       .returning();
 
