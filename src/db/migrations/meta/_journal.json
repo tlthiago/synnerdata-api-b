@@ -302,6 +302,13 @@
       "when": 1778025600000,
       "tag": "0042_add_termination_status",
       "breakpoints": true
+    },
+    {
+      "idx": 43,
+      "version": "7",
+      "when": 1778112000000,
+      "tag": "0043_audit_fk_not_null",
+      "breakpoints": true
     }
   ]
 }

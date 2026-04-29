@@ -65,7 +65,6 @@ export abstract class MedicalCertificateService {
   ): Promise<
     | (MedicalCertificateData & {
         deletedAt: Date | null;
-        deletedBy: string | null;
       })
     | null
   > {
@@ -87,7 +86,6 @@ export abstract class MedicalCertificateService {
         createdAt: schema.medicalCertificates.createdAt,
         updatedAt: schema.medicalCertificates.updatedAt,
         deletedAt: schema.medicalCertificates.deletedAt,
-        deletedBy: schema.medicalCertificates.deletedBy,
       })
       .from(schema.medicalCertificates)
       .innerJoin(
@@ -212,6 +210,7 @@ export abstract class MedicalCertificateService {
         doctorCrm: data.doctorCrm,
         notes: data.notes,
         createdBy: userId,
+        updatedBy: userId,
       })
       .returning();
 
@@ -387,7 +386,7 @@ export abstract class MedicalCertificateService {
       .update(schema.medicalCertificates)
       .set({
         deletedAt: new Date(),
-        deletedBy: userId,
+        updatedBy: userId,
       })
       .where(
         and(
@@ -409,7 +408,6 @@ export abstract class MedicalCertificateService {
     return {
       ...existing,
       deletedAt: deleted.deletedAt as Date,
-      deletedBy: deleted.deletedBy,
     } as DeletedMedicalCertificateData;
   }
 }

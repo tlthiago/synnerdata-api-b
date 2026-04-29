@@ -154,7 +154,8 @@ async function createOrganizationForUser(params: {
   );
   await OrganizationService.createMinimalProfile(
     orgId,
-    params.tradeName ?? params.name
+    params.tradeName ?? params.name,
+    params.userId
   );
 
   return { id: orgId };
@@ -234,7 +235,11 @@ export abstract class AdminProvisionService {
         tradeName: _tradeName,
         ...profileData
       } = organization;
-      await OrganizationService.enrichProfile(createdOrg.id, profileData);
+      await OrganizationService.enrichProfile(
+        createdOrg.id,
+        profileData,
+        createdUser.id
+      );
 
       // 6. Insert provision record
       const provisionId = `provision-${crypto.randomUUID()}`;
@@ -246,6 +251,7 @@ export abstract class AdminProvisionService {
         status: "pending_activation",
         notes: notes ?? null,
         createdBy: adminUserId,
+        updatedBy: adminUserId,
       });
 
       // 7. Trigger activation email via requestPasswordReset
@@ -345,7 +351,11 @@ export abstract class AdminProvisionService {
         tradeName: _tradeName,
         ...profileData
       } = organization;
-      await OrganizationService.enrichProfile(createdOrg.id, profileData);
+      await OrganizationService.enrichProfile(
+        createdOrg.id,
+        profileData,
+        createdUser.id
+      );
 
       // 5. Insert provision record (pending_payment)
       const provisionId = `provision-${crypto.randomUUID()}`;
@@ -357,6 +367,7 @@ export abstract class AdminProvisionService {
         status: "pending_payment",
         notes: notes ?? null,
         createdBy: adminUserId,
+        updatedBy: adminUserId,
       });
 
       // 6. Map organization data to billing object for AdminCheckoutService
@@ -770,7 +781,7 @@ export abstract class AdminProvisionService {
       .set({
         status: "deleted",
         deletedAt: new Date(),
-        deletedBy: adminUserId,
+        updatedBy: adminUserId,
       })
       .where(eq(schema.adminOrgProvisions.id, provisionId));
   }

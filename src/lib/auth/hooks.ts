@@ -379,7 +379,11 @@ export async function triggerAfterCreateOrganizationEffects({
   }
 
   try {
-    await OrganizationService.createMinimalProfile(org.id, org.name);
+    await OrganizationService.createMinimalProfile(
+      org.id,
+      org.name,
+      member.userId
+    );
   } catch (error) {
     reportOrgEffectFailure(error, {
       type: "organization:auto-profile:failed",

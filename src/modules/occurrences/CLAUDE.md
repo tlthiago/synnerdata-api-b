@@ -8,8 +8,8 @@ Vacations armazena periodos aquisitivo e concessivo inline (campos na propria ta
 
 - Todas as ocorrências referenciam `employeeId` (obrigatório) — employee deve existir, pertencer à organização e não estar deletado
 - Organization scoping via `session.activeOrganizationId` em todas as queries
-- Soft delete em todos os sub-módulos (`deletedAt`/`deletedBy`) — re-delete lança `AlreadyDeletedError` (404)
-- Audit trail: `createdBy`, `updatedBy`, `deletedBy` com userId da sessão
+- Soft delete em todos os sub-módulos (`deletedAt`) — re-delete lança `AlreadyDeletedError` (404). Atribuição de deleção via `audit_logs` (PRD #3 removeu `deletedBy`)
+- Audit trail: `createdBy` (no INSERT) + `updatedBy` (no INSERT e no UPDATE) com userId da sessão. Atribuição de deleção via `audit_logs` (PRD #3 removeu `deletedBy` das tabelas)
 - ID format: `<entity>-${crypto.randomUUID()}` (e.g., `absence-...`, `accident-...`)
 - Service: abstract class com métodos estáticos, private `findById`/`findByIdIncludingDeleted`
 - Listagem ordenada pelo campo de data principal de cada entidade

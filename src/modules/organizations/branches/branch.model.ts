@@ -119,7 +119,6 @@ const branchDataSchema = z.object({
 
 const deletedBranchDataSchema = branchDataSchema.extend({
   deletedAt: z.coerce.date().describe("Data de exclusão"),
-  deletedBy: z.string().nullable().describe("ID do usuário que excluiu"),
 });
 
 const branchListDataSchema = z.array(branchDataSchema);

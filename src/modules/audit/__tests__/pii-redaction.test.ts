@@ -39,7 +39,6 @@ describe("IGNORED_AUDIT_FIELDS", () => {
     expect(IGNORED_AUDIT_FIELDS.has("deletedAt")).toBe(true);
     expect(IGNORED_AUDIT_FIELDS.has("createdBy")).toBe(true);
     expect(IGNORED_AUDIT_FIELDS.has("updatedBy")).toBe(true);
-    expect(IGNORED_AUDIT_FIELDS.has("deletedBy")).toBe(true);
   });
 });
 

@@ -71,7 +71,6 @@ const accidentDataSchema = z.object({
 
 const deletedAccidentDataSchema = accidentDataSchema.extend({
   deletedAt: z.coerce.date().describe("Data de exclusão"),
-  deletedBy: z.string().nullable().describe("ID do usuário que excluiu"),
 });
 
 const accidentListDataSchema = z.array(accidentDataSchema);

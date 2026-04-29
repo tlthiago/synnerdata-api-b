@@ -583,6 +583,7 @@ export abstract class EmployeeService {
         acquisitionPeriodEnd: data.acquisitionPeriodEnd,
         ...computeProbationDates(data.hireDate),
         createdBy: userId,
+        updatedBy: userId,
       })
       .returning();
 
@@ -907,7 +908,7 @@ export abstract class EmployeeService {
       .update(schema.employees)
       .set({
         deletedAt: new Date(),
-        deletedBy: userId,
+        updatedBy: userId,
       })
       .where(
         and(
@@ -934,7 +935,6 @@ export abstract class EmployeeService {
     return {
       ...enriched,
       deletedAt: deleted.deletedAt as Date,
-      deletedBy: deleted.deletedBy,
     };
   }
 }

@@ -3,6 +3,7 @@ import { db } from "@/db";
 import { type Role, schema } from "@/db/schema";
 import { env } from "@/env";
 import { createTestApp } from "./app";
+import { getOrCreateSystemTestUser } from "./system-user";
 import type { TestUserResult } from "./user";
 
 const BASE_URL = env.API_URL;
@@ -23,6 +24,7 @@ type CreateTestOrganizationOptions = {
   phone?: string;
   email?: string;
   pagarmeCustomerId?: string;
+  creatorUserId?: string;
 };
 
 /**
@@ -38,6 +40,8 @@ export async function createTestOrganization(
 
   const name = options.name ?? `Test Org ${testId.slice(0, 8)}`;
   const slug = options.slug ?? `test-org-${testId.slice(0, 8)}`;
+  const creatorUserId =
+    options.creatorUserId ?? (await getOrCreateSystemTestUser());
 
   await db.insert(schema.organizations).values({
     id: organizationId,
@@ -56,6 +60,8 @@ export async function createTestOrganization(
     mobile: options.phone ?? "11999999999",
     email: options.email ?? `org-${testId}@example.com`,
     pagarmeCustomerId: options.pagarmeCustomerId,
+    createdBy: creatorUserId,
+    updatedBy: creatorUserId,
   });
 
   return {

@@ -11,6 +11,7 @@ import {
   addMemberToOrganization,
   createTestOrganization,
 } from "@/test/helpers/organization";
+import { getOrCreateSystemTestUser } from "@/test/helpers/system-user";
 import {
   createTestAdminUser,
   createTestUser,
@@ -164,6 +165,7 @@ describe("GET /v1/admin/organizations/:id", () => {
     const organization = await createTestOrganization();
 
     const bpId = `bp-${crypto.randomUUID()}`;
+    const systemUserId = await getOrCreateSystemTestUser();
     await db.insert(billingProfiles).values({
       id: bpId,
       organizationId: organization.id,
@@ -179,6 +181,8 @@ describe("GET /v1/admin/organizations/:id", () => {
       state: "SP",
       zipCode: "01001000",
       pagarmeCustomerId: "cus_test123",
+      createdBy: systemUserId,
+      updatedBy: systemUserId,
     });
 
     const response = await app.handle(

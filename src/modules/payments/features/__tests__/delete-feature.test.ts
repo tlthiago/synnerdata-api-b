@@ -5,6 +5,7 @@ import { schema } from "@/db/schema";
 import { env } from "@/env";
 import { PlanFactory } from "@/test/factories/payments/plan.factory";
 import { UserFactory } from "@/test/factories/user.factory";
+import { getOrCreateSystemTestUser } from "@/test/helpers/system-user";
 import { createTestApp, type TestApp } from "@/test/support/app";
 
 const BASE_URL = env.API_URL;
@@ -36,11 +37,13 @@ async function createFeatureViaApi(
 describe("DELETE /payments/features/:id", () => {
   let app: TestApp;
   let authHeaders: Record<string, string>;
+  let systemUserId: string;
 
   beforeAll(async () => {
     app = createTestApp();
     const { headers } = await UserFactory.createAdmin({ emailVerified: true });
     authHeaders = headers;
+    systemUserId = await getOrCreateSystemTestUser();
   });
 
   afterAll(async () => {
@@ -105,6 +108,8 @@ describe("DELETE /payments/features/:id", () => {
     await db.insert(schema.features).values({
       id: featureId,
       displayName: "Soft Delete Feature",
+      createdBy: systemUserId,
+      updatedBy: systemUserId,
     });
 
     await PlanFactory.createPaid("gold", {

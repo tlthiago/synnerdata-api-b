@@ -82,7 +82,6 @@ const absenceDataSchema = z.object({
 
 const deletedAbsenceDataSchema = absenceDataSchema.extend({
   deletedAt: z.coerce.date().describe("Data de exclusão"),
-  deletedBy: z.string().nullable().describe("ID do usuário que excluiu"),
 });
 
 const absenceListDataSchema = z.array(absenceDataSchema);

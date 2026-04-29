@@ -72,7 +72,11 @@ export abstract class AdminCheckoutService {
     );
 
     // 4. Handle billing profile
-    await AdminCheckoutService.ensureBillingProfile(organizationId, billing);
+    await AdminCheckoutService.ensureBillingProfile(
+      organizationId,
+      adminUserId,
+      billing
+    );
 
     // 5. Get or create Pagarme customer
     const { pagarmeCustomerId } =
@@ -289,6 +293,7 @@ export abstract class AdminCheckoutService {
 
   private static async ensureBillingProfile(
     organizationId: string,
+    adminUserId: string,
     billing?: {
       legalName: string;
       taxId: string;
@@ -313,20 +318,24 @@ export abstract class AdminCheckoutService {
       throw new BillingProfileRequiredError(organizationId);
     }
 
-    await BillingService.createProfile(organizationId, {
-      legalName: billing.legalName,
-      taxId: billing.taxId,
-      email: billing.email,
-      phone: billing.phone,
-      address: {
-        street: billing.street,
-        number: billing.number,
-        complement: billing.complement,
-        neighborhood: billing.neighborhood,
-        city: billing.city,
-        state: billing.state,
-        zipCode: billing.zipCode,
+    await BillingService.createProfile(
+      organizationId,
+      {
+        legalName: billing.legalName,
+        taxId: billing.taxId,
+        email: billing.email,
+        phone: billing.phone,
+        address: {
+          street: billing.street,
+          number: billing.number,
+          complement: billing.complement,
+          neighborhood: billing.neighborhood,
+          city: billing.city,
+          state: billing.state,
+          zipCode: billing.zipCode,
+        },
       },
-    });
+      adminUserId
+    );
   }
 }

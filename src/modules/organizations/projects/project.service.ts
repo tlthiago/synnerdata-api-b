@@ -157,9 +157,7 @@ export abstract class ProjectService {
   private static async findByIdIncludingDeleted(
     id: string,
     organizationId: string
-  ): Promise<
-    (ProjectData & { deletedAt: Date | null; deletedBy: string | null }) | null
-  > {
+  ): Promise<(ProjectData & { deletedAt: Date | null }) | null> {
     const [result] = await db
       .select({
         id: schema.projects.id,
@@ -171,7 +169,6 @@ export abstract class ProjectService {
         createdAt: schema.projects.createdAt,
         updatedAt: schema.projects.updatedAt,
         deletedAt: schema.projects.deletedAt,
-        deletedBy: schema.projects.deletedBy,
       })
       .from(schema.projects)
       .where(
@@ -243,6 +240,7 @@ export abstract class ProjectService {
         startDate: data.startDate,
         cno: data.cno,
         createdBy: userId,
+        updatedBy: userId,
       })
       .returning();
 
@@ -426,7 +424,7 @@ export abstract class ProjectService {
       .update(schema.projects)
       .set({
         deletedAt: new Date(),
-        deletedBy: userId,
+        updatedBy: userId,
       })
       .where(
         and(
@@ -454,7 +452,6 @@ export abstract class ProjectService {
     return {
       ...existing,
       deletedAt: deleted.deletedAt as Date,
-      deletedBy: deleted.deletedBy,
     };
   }
 
@@ -567,7 +564,6 @@ export abstract class ProjectService {
       .update(schema.projectEmployees)
       .set({
         deletedAt: new Date(),
-        deletedBy: userId,
       })
       .where(eq(schema.projectEmployees.id, association.id))
       .returning();

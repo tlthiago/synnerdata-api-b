@@ -28,7 +28,7 @@ Registro de entregas de Equipamentos de Proteção Individual com controle item-
 - Mutations logged: `create` (via `addPpeItem`, `replacePpeItems` adds, or inline `create` loop), `delete` (via `removePpeItem` or `replacePpeItems` removes)
 - Diff fields: `ppeDeliveryId`, `ppeItemId` (junction columns)
 - Coexists with the module-specific `ppeDeliveryLogs` domain log — `audit_logs` is the cross-cutting compliance trail; `ppeDeliveryLogs` is the module's own historical record (kept as-is)
-- Why audited separately: junction has its own lifecycle; PRD #3 will drop `deletedBy` from `ppe_delivery_items`, so `audit_logs` becomes the deletion attribution source
+- Why audited separately: junction has its own lifecycle without `deletedBy` (dropped in PRD #3 along with `ppe_deliveries.deletedBy`), so `audit_logs` is the deletion attribution source
 
 ## Unique in this module
 

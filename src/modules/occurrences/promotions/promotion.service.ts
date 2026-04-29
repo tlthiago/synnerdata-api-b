@@ -176,7 +176,6 @@ export abstract class PromotionService {
         createdBy: schema.promotions.createdBy,
         updatedBy: schema.promotions.updatedBy,
         deletedAt: schema.promotions.deletedAt,
-        deletedBy: schema.promotions.deletedBy,
       })
       .from(schema.promotions)
       .innerJoin(
@@ -439,6 +438,7 @@ export abstract class PromotionService {
         reason: reason ?? null,
         notes: notes ?? null,
         createdBy: userId,
+        updatedBy: userId,
       })
       .returning();
 
@@ -718,7 +718,7 @@ export abstract class PromotionService {
       .update(schema.promotions)
       .set({
         deletedAt: new Date(),
-        deletedBy: userId,
+        updatedBy: userId,
       })
       .where(
         and(
@@ -786,7 +786,6 @@ export abstract class PromotionService {
       createdBy: deleted.createdBy,
       updatedBy: deleted.updatedBy,
       deletedAt: deleted.deletedAt as Date,
-      deletedBy: deleted.deletedBy,
     };
   }
 }

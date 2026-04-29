@@ -733,6 +733,7 @@ describe("POST /v1/vacations", () => {
       daysUsed: 15,
       status: "completed",
       createdBy: user.id,
+      updatedBy: user.id,
     });
 
     const response = await app.handle(

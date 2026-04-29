@@ -90,6 +90,7 @@ export abstract class JobPositionService {
         name: data.name,
         description: data.description ?? null,
         createdBy: userId,
+        updatedBy: userId,
       })
       .returning();
 
@@ -199,7 +200,6 @@ export abstract class JobPositionService {
       .update(schema.jobPositions)
       .set({
         deletedAt: new Date(),
-        deletedBy: userId,
       })
       .where(
         and(

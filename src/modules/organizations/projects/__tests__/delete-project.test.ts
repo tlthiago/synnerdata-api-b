@@ -82,7 +82,6 @@ describe("DELETE /v1/projects/:id", () => {
     expect(body.success).toBe(true);
     expect(body.data.id).toBe(project.id);
     expect(body.data.deletedAt).toBeDefined();
-    expect(body.data.deletedBy).toBeDefined();
 
     // Verify project is no longer accessible
     const getResponse = await app.handle(

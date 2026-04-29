@@ -3,15 +3,18 @@ import { eq } from "drizzle-orm";
 import { db } from "@/db";
 import { schema } from "@/db/schema";
 import { env } from "@/env";
+import { getOrCreateSystemTestUser } from "@/test/helpers/system-user";
 import { createTestApp, type TestApp } from "@/test/support/app";
 
 const BASE_URL = env.API_URL;
 
 describe("GET /payments/features (public)", () => {
   let app: TestApp;
+  let systemUserId: string;
 
-  beforeAll(() => {
+  beforeAll(async () => {
     app = createTestApp();
+    systemUserId = await getOrCreateSystemTestUser();
   });
 
   test("should list features without authentication", async () => {
@@ -33,6 +36,8 @@ describe("GET /payments/features (public)", () => {
       displayName: "Test Inactive Public",
       isActive: false,
       sortOrder: 999,
+      createdBy: systemUserId,
+      updatedBy: systemUserId,
     });
 
     try {
@@ -78,6 +83,8 @@ describe("GET /payments/features (public)", () => {
       sortOrder: 0,
       isDefault: true,
       isPremium: false,
+      createdBy: systemUserId,
+      updatedBy: systemUserId,
     });
 
     try {

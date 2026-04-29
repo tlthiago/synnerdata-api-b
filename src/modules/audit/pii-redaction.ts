@@ -20,7 +20,6 @@ export const IGNORED_AUDIT_FIELDS: ReadonlySet<string> = new Set([
   "deletedAt",
   "createdBy",
   "updatedBy",
-  "deletedBy",
 ]);
 
 export type AuditDiff = {

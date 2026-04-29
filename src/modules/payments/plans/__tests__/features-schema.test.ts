@@ -6,6 +6,7 @@ import {
   planFeatures,
   subscriptionPlans,
 } from "@/db/schema/payments";
+import { getOrCreateSystemTestUser } from "@/test/helpers/system-user";
 
 const SEED_PLAN_IDS = {
   trial: "plan-trial",
@@ -320,11 +321,14 @@ describe("features and plan_features schema", () => {
 
     test("should default sort_order to 0 for new features", async () => {
       const testId = `test-default-sort-${crypto.randomUUID().slice(0, 8)}`;
+      const systemUserId = await getOrCreateSystemTestUser();
 
       try {
         await db.insert(features).values({
           id: testId,
           displayName: "Test Default Sort",
+          createdBy: systemUserId,
+          updatedBy: systemUserId,
         });
 
         const [result] = await db

@@ -381,7 +381,7 @@ describe("POST /v1/terminations", () => {
 
     await db
       .update(schema.terminations)
-      .set({ deletedAt: new Date(), deletedBy: user.id })
+      .set({ deletedAt: new Date() })
       .where(eq(schema.terminations.id, existingTermination.id));
 
     const response = await app.handle(
