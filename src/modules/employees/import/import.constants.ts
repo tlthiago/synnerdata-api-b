@@ -488,14 +488,14 @@ export const IMPORT_COLUMNS: ImportColumn[] = [
   // ── Benefits ──
   {
     key: "mealAllowance",
-    header: "Vale alimentação",
+    header: "Vale alimentação (diário)",
     width: 18,
     required: false,
     section: "benefits",
   },
   {
     key: "transportAllowance",
-    header: "Vale transporte",
+    header: "Vale transporte (diário)",
     width: 18,
     required: false,
     section: "benefits",
