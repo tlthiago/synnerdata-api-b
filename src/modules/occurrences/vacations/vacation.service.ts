@@ -144,14 +144,11 @@ export abstract class VacationService {
   private static async findByIdIncludingDeleted(
     id: string,
     organizationId: string
-  ): Promise<
-    (VacationData & { deletedAt: Date | null; deletedBy: string | null }) | null
-  > {
+  ): Promise<(VacationData & { deletedAt: Date | null }) | null> {
     const [result] = await db
       .select({
         ...SELECT_FIELDS,
         deletedAt: schema.vacations.deletedAt,
-        deletedBy: schema.vacations.deletedBy,
       })
       .from(schema.vacations)
       .innerJoin(
@@ -460,6 +457,7 @@ export abstract class VacationService {
         status: data.status,
         notes: data.notes,
         createdBy: userId,
+        updatedBy: userId,
       })
       .returning();
 
@@ -719,7 +717,7 @@ export abstract class VacationService {
       .update(schema.vacations)
       .set({
         deletedAt: new Date(),
-        deletedBy: userId,
+        updatedBy: userId,
       })
       .where(
         and(
@@ -753,7 +751,6 @@ export abstract class VacationService {
     return {
       ...existing,
       deletedAt: deleted.deletedAt as Date,
-      deletedBy: deleted.deletedBy,
     } as DeletedVacationData;
   }
 }
