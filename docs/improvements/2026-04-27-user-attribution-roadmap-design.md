@@ -4,15 +4,15 @@
 
 Validated through brainstorming session on 2026-04-27. Per-PRD authoring underway.
 
-**Checkpoint 2026-04-28:**
+**Checkpoint 2026-04-29:**
 
 - **PRD #1 — Audit Coverage Expansion**: ✅ merged via [PR #296](https://github.com/tlthiago/synnerdata-api-b/pull/296) on 2026-04-27. Stable in production.
 - **PRD #2 — User Anonymization**:
   - PR 1 (new endpoint + adapter): ✅ merged via [PR #300](https://github.com/tlthiago/synnerdata-api-b/pull/300) on 2026-04-28. Frontend deployed; post-deploy SQL invariant check passed.
   - PR 2 (legacy `user.deleteUser` cleanup, T08): ✅ merged via [PR #302](https://github.com/tlthiago/synnerdata-api-b/pull/302) on 2026-04-28.
-- **PRD #3 — Schema FK + NOT NULL + drop deletedBy**: implementation plan finalized at `docs/improvements/2026-04-28-prd-3-schema-fk-not-null-plan.md` (1230 lines, 32 tasks, migration `0042_audit_fk_not_null.sql`). Ready for execution once PRD #2 stabilizes in production.
-- **PRD #4 — Cost-Centers Pilot**: pending PRD #3.
-- **PRD #5+ — Phase 3 Rollout**: pending PRD #4.
+- **PRD #3 — Schema FK + NOT NULL + drop deletedBy**: ✅ merged via [PR #303](https://github.com/tlthiago/synnerdata-api-b/pull/303) on 2026-04-29. Migration `0043_audit_fk_not_null.sql` aplicada em HML+prod. Schema state em prod: 26 `created_by_users_id_fk` + 22 `updated_by_users_id_fk` + 0 colunas `deleted_by` remanescentes. Pre-deploy backfill manual de prod (12 organization_profiles + 2 billing_profiles com NULL em `created_by`) executado via psql atribuindo o owner da org como creator. Frontend grep confirmou zero consumidores manuais de `deletedBy`. Decorrente: CLAUDE.md ganhou seção "O que pertence em uma migration" estabelecendo as 3 categorias aceitas (DDL puro, backfill como pré-requisito DDL idêntico em todo ambiente, seeds idempotentes) e as 3 rejeitadas (data fix de prod, backfill com decisão operacional, cleanup recorrente).
+- **PRD #4 — Cost-Centers Pilot**: 🔓 desbloqueado. Plan finalizado a seguir; execução estimada em ~1-2 dias via Superpowers `writing-plans` + `executing-plans`.
+- **PRD #5+ — Phase 3 Rollout**: pending PRD #4. 23 módulos remanescentes replicarão o pattern do pilot.
 
 ## Origin
 
