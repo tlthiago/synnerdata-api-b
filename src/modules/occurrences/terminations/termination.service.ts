@@ -157,6 +157,62 @@ export abstract class TerminationService {
     }
   }
 
+  // biome-ignore lint/correctness/noUnusedPrivateClassMembers: wired in subsequent tasks
+  private static async syncEmployeeStatusForTermination(
+    employeeId: string,
+    organizationId: string,
+    userId: string,
+    tx?: typeof db
+  ): Promise<{ before: string | null; after: string }> {
+    const executor = tx ?? db;
+
+    const [activeTermination] = await executor
+      .select({ status: schema.terminations.status })
+      .from(schema.terminations)
+      .where(
+        and(
+          eq(schema.terminations.employeeId, employeeId),
+          eq(schema.terminations.organizationId, organizationId),
+          isNull(schema.terminations.deletedAt)
+        )
+      )
+      .limit(1);
+
+    let nextStatus: "ACTIVE" | "TERMINATED" | "TERMINATION_SCHEDULED" =
+      "ACTIVE";
+    if (activeTermination?.status === "completed") {
+      nextStatus = "TERMINATED";
+    } else if (activeTermination?.status === "scheduled") {
+      nextStatus = "TERMINATION_SCHEDULED";
+    }
+
+    const [employeeBefore] = await executor
+      .select({ status: schema.employees.status })
+      .from(schema.employees)
+      .where(
+        and(
+          eq(schema.employees.id, employeeId),
+          eq(schema.employees.organizationId, organizationId)
+        )
+      );
+
+    if (employeeBefore?.status === nextStatus) {
+      return { before: employeeBefore.status, after: nextStatus };
+    }
+
+    await executor
+      .update(schema.employees)
+      .set({ status: nextStatus, updatedBy: userId })
+      .where(
+        and(
+          eq(schema.employees.id, employeeId),
+          eq(schema.employees.organizationId, organizationId)
+        )
+      );
+
+    return { before: employeeBefore?.status ?? null, after: nextStatus };
+  }
+
   static async create(input: CreateTerminationInput): Promise<TerminationData> {
     const { organizationId, userId, employeeId, ...data } = input;
 
