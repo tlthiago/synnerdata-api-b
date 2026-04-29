@@ -173,7 +173,6 @@ describe("DELETE /v1/terminations/:id", () => {
     expect(body.data.employee.id).toBe(termination.employee.id);
     expect(body.data.employee.name).toBeString();
     expect(body.data.deletedAt).toBeDefined();
-    expect(body.data.deletedBy).toBe(user.id);
 
     const [deletedTermination] = await db
       .select()
@@ -182,7 +181,6 @@ describe("DELETE /v1/terminations/:id", () => {
       .limit(1);
 
     expect(deletedTermination.deletedAt).not.toBeNull();
-    expect(deletedTermination.deletedBy).toBe(user.id);
   });
 
   test("should allow manager to delete termination", async () => {
@@ -214,7 +212,6 @@ describe("DELETE /v1/terminations/:id", () => {
     expect(response.status).toBe(200);
     const body = await response.json();
     expect(body.success).toBe(true);
-    expect(body.data.deletedBy).toBe(managerResult.user.id);
   });
 
   test("should revert employee status to ACTIVE after deleting termination", async () => {

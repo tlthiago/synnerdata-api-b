@@ -69,10 +69,7 @@ export abstract class TerminationService {
   private static async findByIdIncludingDeleted(
     id: string,
     organizationId: string
-  ): Promise<
-    | (TerminationData & { deletedAt: Date | null; deletedBy: string | null })
-    | null
-  > {
+  ): Promise<(TerminationData & { deletedAt: Date | null }) | null> {
     const [result] = await db
       .select({
         id: schema.terminations.id,
@@ -92,7 +89,6 @@ export abstract class TerminationService {
         createdAt: schema.terminations.createdAt,
         updatedAt: schema.terminations.updatedAt,
         deletedAt: schema.terminations.deletedAt,
-        deletedBy: schema.terminations.deletedBy,
       })
       .from(schema.terminations)
       .innerJoin(
@@ -246,6 +242,7 @@ export abstract class TerminationService {
         notes: data.notes ?? null,
         status,
         createdBy: userId,
+        updatedBy: userId,
       })
       .returning();
 
@@ -433,7 +430,6 @@ export abstract class TerminationService {
       .update(schema.terminations)
       .set({
         deletedAt: new Date(),
-        deletedBy: userId,
         status: "canceled",
         updatedBy: userId,
       })
@@ -482,7 +478,6 @@ export abstract class TerminationService {
       ...existing,
       status: "canceled",
       deletedAt: deleted.deletedAt as Date,
-      deletedBy: deleted.deletedBy,
     } as DeletedTerminationData;
   }
 }

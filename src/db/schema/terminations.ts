@@ -9,7 +9,7 @@ import {
   text,
   timestamp,
 } from "drizzle-orm/pg-core";
-import { organizations } from "./auth";
+import { organizations, users } from "./auth";
 import { employees } from "./employees";
 
 export const terminationTypeEnum = pgEnum("termination_type", [
@@ -57,10 +57,13 @@ export const terminations = pgTable(
       .defaultNow()
       .$onUpdate(() => new Date())
       .notNull(),
-    createdBy: text("created_by"),
-    updatedBy: text("updated_by"),
+    createdBy: text("created_by")
+      .notNull()
+      .references(() => users.id, { onDelete: "restrict" }),
+    updatedBy: text("updated_by")
+      .notNull()
+      .references(() => users.id, { onDelete: "restrict" }),
     deletedAt: timestamp("deleted_at", { withTimezone: true }),
-    deletedBy: text("deleted_by"),
   },
   (table) => [
     index("terminations_organization_id_idx").on(table.organizationId),
