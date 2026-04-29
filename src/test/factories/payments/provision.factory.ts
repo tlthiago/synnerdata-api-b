@@ -2,6 +2,7 @@ import { eq } from "drizzle-orm";
 import { db } from "@/db";
 import type { AdminOrgProvision } from "@/db/schema";
 import { schema } from "@/db/schema";
+import { getOrCreateSystemTestUser } from "@/test/helpers/system-user";
 
 type CreateProvisionOptions = {
   userId: string;
@@ -33,6 +34,7 @@ export abstract class ProvisionFactory {
     } = options;
 
     const id = `provision-${crypto.randomUUID()}`;
+    const auditUserId = createdBy ?? (await getOrCreateSystemTestUser());
 
     const [provision] = await db
       .insert(schema.adminOrgProvisions)
@@ -46,7 +48,8 @@ export abstract class ProvisionFactory {
         checkoutUrl,
         checkoutExpiresAt,
         notes,
-        createdBy,
+        createdBy: auditUserId,
+        updatedBy: auditUserId,
       })
       .returning();
 
