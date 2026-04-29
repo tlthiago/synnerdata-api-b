@@ -6,7 +6,7 @@ import {
   timestamp,
   uniqueIndex,
 } from "drizzle-orm/pg-core";
-import { organizations } from "./auth";
+import { organizations, users } from "./auth";
 import { ppeDeliveries } from "./ppe-deliveries";
 import { ppeItems } from "./ppe-items";
 
@@ -28,11 +28,12 @@ export const ppeDeliveryItems = pgTable(
     createdAt: timestamp("created_at", { withTimezone: true })
       .defaultNow()
       .notNull(),
-    createdBy: text("created_by"),
+    createdBy: text("created_by")
+      .notNull()
+      .references(() => users.id, { onDelete: "restrict" }),
 
     // Soft delete
     deletedAt: timestamp("deleted_at", { withTimezone: true }),
-    deletedBy: text("deleted_by"),
   },
   (table) => [
     index("ppe_delivery_items_organization_id_idx").on(table.organizationId),
