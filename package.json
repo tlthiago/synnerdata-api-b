@@ -18,6 +18,7 @@
     "db:generate": "bun --env-file .env --bun drizzle-kit generate",
     "db:migrate": "bun --env-file .env --bun drizzle-kit migrate",
     "db:journal:validate": "bun scripts/validate-migration-journal.ts",
+    "db:check": "DATABASE_URL=postgresql://placeholder bun --bun drizzle-kit check",
     "db:seed:org": "bun --env-file .env src/db/seeds/organization.ts",
     "db:start": "docker compose up -d",
     "db:watch": "docker compose up",

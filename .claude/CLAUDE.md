@@ -24,6 +24,7 @@
 Drizzle migrations são fonte da verdade do schema do banco. Disciplina obrigatória:
 
 - **NUNCA use `bun db:push`** — esse comando aplica `schema.ts` direto no DB sem gerar migration. Quebra o histórico, impossibilita rollback determinístico, gera drift entre ambientes. O script existe no `package.json` apenas porque é parte do drizzle-kit; **não use**.
+- **`bun db:check` (drizzle-kit check)** valida a consistência da cadeia de snapshots — detecta colisões de `prevId`, snapshots malformados, conflitos de DDL não-comutativos entre branches. Roda no CI como guard-rail oficial. Complementa o `db:journal:validate` (que cobre `when` monotônico, gap não coberto pelo check oficial).
 - **Workflow canônico**:
   1. Edite `src/db/schema/*.ts`
   2. `bun db:generate` — gera `src/db/migrations/NNNN_*.sql` + atualiza `meta/_journal.json` e `meta/NNNN_snapshot.json`
