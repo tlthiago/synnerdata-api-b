@@ -58,7 +58,7 @@ VALUES ('terminated_employees', 'Demitidos', ...), ...
 ```
 
 The INSERT does not include `created_by` / `updated_by`, leaving both NULL. This is a real
-production-affecting issue (the same 10 rows exist in prod). Migration 0042's
+production-affecting issue (the same 10 rows exist in prod). Migration 0043's
 `ALTER COLUMN features.created_by SET NOT NULL` and `ALTER COLUMN features.updated_by SET NOT NULL`
 will fail at runtime against these 10 rows.
 
@@ -120,7 +120,7 @@ classifies this as a category-(c) FK violation pending — must be fixed before 
 Distributed across `absences`, `cost_centers`, `cpf_analyses`, `employees`,
 `job_classifications`, `job_positions`, `sectors`. These are produced by service `create` paths
 that set `createdBy: userId` only and leave `updatedBy` undefined (= NULL). This is the
-pre-Semantic-A behavior. Migration 0042's Step 1 backfill —
+pre-Semantic-A behavior. Migration 0043's Step 1 backfill —
 `UPDATE <table> SET updated_by = created_by WHERE updated_by IS NULL` — handles this cleanly,
 **no fixture/service fix required for this PRD**. (Adopting Semantic A in services is out of
 scope here; that lives in PRD #4/5+.)
@@ -135,7 +135,7 @@ scope here; that lives in PRD #4/5+.)
    plan did not anticipate. Two new files (`src/test/helpers/system-user.ts` and the
    `creatorUserId` parameter in two helpers) plus three call-site updates. This is committed
    ahead of the per-module refactor wave (Tasks 4-25).
-3. **Migration 0042 will need a `features`-specific backfill** beyond the 22 generic
+3. **Migration 0043 will need a `features`-specific backfill** beyond the 22 generic
    `updated_by = created_by` UPDATEs. Task 29 will add it.
 
 ---
@@ -144,6 +144,6 @@ scope here; that lives in PRD #4/5+.)
 
 - Zero category-(c) fixture leaks remain after the fix.
 - Zero orphans on populated audit columns.
-- Two pre-existing NULL sources are cleanly resolvable in migration 0042 (features by
+- Two pre-existing NULL sources are cleanly resolvable in migration 0043 (features by
   hand-tuned UPDATE, generic updated_by by the planned backfill).
 - Cleared to proceed to Tasks 4-25.

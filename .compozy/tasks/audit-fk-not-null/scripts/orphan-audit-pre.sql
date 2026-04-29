@@ -1,12 +1,12 @@
 -- Orphan audit for user-attribution columns across the 26 FK-covered tables.
--- Schema state assumed: PRE-migration 0042 — all 24 tables still have `deleted_by`.
--- Use this script for the G1 PRE-deploy gate of PRD #3 (migration 0042).
+-- Schema state assumed: PRE-migration 0043 — all 24 tables still have `deleted_by`.
+-- Use this script for the G1 PRE-deploy gate of PRD #3 (migration 0043).
 --
 -- Source of truth: schema files under src/db/schema/ (26 createdBy + 22 updatedBy
 -- + 24 deletedBy = 72 populated columns visible to this audit).
 --
 -- Expected output: total_orphans = 0 and the orphan-detail result set is empty.
--- Any non-zero orphan count is a hard deploy blocker for migration 0042 — the
+-- Any non-zero orphan count is a hard deploy blocker for migration 0043 — the
 -- subsequent VALIDATE CONSTRAINT would abort the migration and leave the schema
 -- partially altered.
 --

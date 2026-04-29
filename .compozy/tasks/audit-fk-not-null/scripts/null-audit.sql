@@ -1,6 +1,6 @@
 -- Pre-deploy NULL audit for createdBy/updatedBy across the 26 in-scope tables.
 -- Source of truth: schema convention requires NOT NULL on every audit reference.
--- Migration 0042_audit_fk_not_null.sql will fail at ALTER COLUMN SET NOT NULL
+-- Migration 0043_audit_fk_not_null.sql will fail at ALTER COLUMN SET NOT NULL
 -- if ANY row has created_by IS NULL or (for tables with updatedBy) updated_by IS NULL.
 --
 -- Expected output: every row has created_by_nulls = 0 AND updated_by_nulls = 0

@@ -1,12 +1,12 @@
 -- Orphan audit for user-attribution columns across the 26 FK-covered tables.
--- Schema state assumed: POST-migration 0042 — `deleted_by` was DROPPED on 24 tables.
--- Use this script for the G3 POST-deploy verification of PRD #3 (migration 0042).
+-- Schema state assumed: POST-migration 0043 — `deleted_by` was DROPPED on 24 tables.
+-- Use this script for the G3 POST-deploy verification of PRD #3 (migration 0043).
 --
 -- Source of truth: schema files under src/db/schema/ (26 createdBy + 22 updatedBy
 -- = 48 populated columns visible to this audit; deleted_by no longer exists).
 --
 -- Expected output: total_orphans = 0 and the orphan-detail result set is empty.
--- A non-zero orphan count after migration 0042 is a critical incident — VALIDATE
+-- A non-zero orphan count after migration 0043 is a critical incident — VALIDATE
 -- CONSTRAINT should have caught any orphan during deploy. Investigate immediately.
 --
 -- Re-run this script verbatim post-deploy of PRD #3 PR (G3 gate). The matching

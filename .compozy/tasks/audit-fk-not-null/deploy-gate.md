@@ -1,6 +1,6 @@
 # Deploy Gate — PRD #3 Schema FK + NOT NULL + drop deletedBy (PRD #3 PR)
 
-Operational runbook for the merge/deploy of migration `0042_audit_fk_not_null.sql`.
+Operational runbook for the merge/deploy of migration `0043_audit_fk_not_null.sql`.
 Execution owner: the person merging the PRD #3 PR. Evidence owner: the same person, captured in
 the PR description or a pinned comment.
 
@@ -10,7 +10,7 @@ This gate is mandatory. Skipping any check aborts the deploy and fails PRD #3.
 
 ## Scope
 
-- Migration: `src/db/migrations/0042_audit_fk_not_null.sql` — 48 FK constraints added via
+- Migration: `src/db/migrations/0043_audit_fk_not_null.sql` — 48 FK constraints added via
   `NOT VALID + VALIDATE CONSTRAINT` (26 `created_by` + 22 `updated_by`) across 26 tables, plus
   `ALTER COLUMN ... SET NOT NULL` on the same 48 columns and `DROP COLUMN deleted_by` on 24
   tables. PRD #1 already populated `audit_logs` with deletion attribution — that is now the
@@ -177,7 +177,7 @@ On any failure:
    - **Schema-correct but data-legitimate**: extremely unlikely. If an orphan is a real user
      that was hard-deleted outside the Better Auth flow, open an incident and loop in security
      before any cleanup. Do not merge the PRD #3 PR until resolved. Rollback strategy if a
-     post-deploy regression requires reverting: `0043_revert_audit_fk.sql` with
+     post-deploy regression requires reverting: `0044_revert_audit_fk.sql` with
      `ALTER TABLE ... DROP CONSTRAINT ...` for each of the 48 FK constraints + `ALTER TABLE
      ... ADD COLUMN deleted_by text` for each of the 24 tables (no `NOT NULL` — historical
      `deleted_by` values were destroyed by `DROP COLUMN` and cannot be recovered; see Rollback
