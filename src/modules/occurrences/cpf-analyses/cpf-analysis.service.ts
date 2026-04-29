@@ -57,10 +57,7 @@ export abstract class CpfAnalysisService {
   private static async findByIdIncludingDeleted(
     id: string,
     organizationId: string
-  ): Promise<
-    | (CpfAnalysisData & { deletedAt: Date | null; deletedBy: string | null })
-    | null
-  > {
+  ): Promise<(CpfAnalysisData & { deletedAt: Date | null }) | null> {
     const [result] = await db
       .select({
         id: schema.cpfAnalyses.id,
@@ -78,7 +75,6 @@ export abstract class CpfAnalysisService {
         createdAt: schema.cpfAnalyses.createdAt,
         updatedAt: schema.cpfAnalyses.updatedAt,
         deletedAt: schema.cpfAnalyses.deletedAt,
-        deletedBy: schema.cpfAnalyses.deletedBy,
       })
       .from(schema.cpfAnalyses)
       .innerJoin(
@@ -178,6 +174,7 @@ export abstract class CpfAnalysisService {
         observations: data.observations ?? null,
         externalReference: data.externalReference ?? null,
         createdBy: userId,
+        updatedBy: userId,
       })
       .returning();
 
@@ -303,7 +300,7 @@ export abstract class CpfAnalysisService {
       .update(schema.cpfAnalyses)
       .set({
         deletedAt: new Date(),
-        deletedBy: userId,
+        updatedBy: userId,
       })
       .where(
         and(
@@ -316,7 +313,6 @@ export abstract class CpfAnalysisService {
     return {
       ...existing,
       deletedAt: deleted.deletedAt as Date,
-      deletedBy: deleted.deletedBy,
     } as DeletedCpfAnalysisData;
   }
 }
