@@ -182,6 +182,7 @@ export abstract class ImportService {
           ...computeProbationDates(row.data.hireDate),
           status: "ACTIVE" as const,
           createdBy: userId,
+          updatedBy: userId,
         });
       }
 
