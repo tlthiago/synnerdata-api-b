@@ -327,3 +327,106 @@ describe("PUT /v1/terminations/:id — status flip on date change", () => {
     expect(empRow?.status).toBe("TERMINATION_SCHEDULED");
   });
 });
+
+describe("Termination edge cases — invariants from PR #304", () => {
+  let app: TestApp;
+
+  beforeAll(() => {
+    app = createTestApp();
+  });
+
+  test("rejects creating a 2nd termination when the 1st is scheduled (ensureNoActiveTermination)", async () => {
+    const { headers, organizationId, user } =
+      await createTestUserWithOrganization();
+    const { employee } = await createTestEmployee({
+      organizationId,
+      userId: user.id,
+    });
+
+    const futureDate = offsetISO(30);
+    const firstRes = await app.handle(
+      new Request(`${BASE_URL}/v1/terminations`, {
+        method: "POST",
+        headers: { ...headers, "Content-Type": "application/json" },
+        body: JSON.stringify({
+          employeeId: employee.id,
+          terminationDate: futureDate,
+          type: "DISMISSAL_WITHOUT_CAUSE",
+          lastWorkingDay: futureDate,
+          noticePeriodWorked: false,
+        }),
+      })
+    );
+    expect(firstRes.status).toBe(200);
+    const firstBody = await firstRes.json();
+    expect(firstBody.data.status).toBe("scheduled");
+
+    const farFutureDate = offsetISO(60);
+    const secondRes = await app.handle(
+      new Request(`${BASE_URL}/v1/terminations`, {
+        method: "POST",
+        headers: { ...headers, "Content-Type": "application/json" },
+        body: JSON.stringify({
+          employeeId: employee.id,
+          terminationDate: farFutureDate,
+          type: "RESIGNATION",
+          lastWorkingDay: farFutureDate,
+          noticePeriodWorked: false,
+        }),
+      })
+    );
+
+    expect(secondRes.status).toBe(409);
+    const secondBody = await secondRes.json();
+    expect(secondBody.error.code).toBe("TERMINATION_ALREADY_EXISTS");
+  });
+
+  test("preserves status when update changes only reason/notes (no terminationDate change)", async () => {
+    const { headers, organizationId, user } =
+      await createTestUserWithOrganization();
+    const { employee } = await createTestEmployee({
+      organizationId,
+      userId: user.id,
+    });
+
+    const futureDate = offsetISO(30);
+    const createRes = await app.handle(
+      new Request(`${BASE_URL}/v1/terminations`, {
+        method: "POST",
+        headers: { ...headers, "Content-Type": "application/json" },
+        body: JSON.stringify({
+          employeeId: employee.id,
+          terminationDate: futureDate,
+          type: "DISMISSAL_WITHOUT_CAUSE",
+          lastWorkingDay: futureDate,
+          noticePeriodWorked: false,
+        }),
+      })
+    );
+    const created = (await createRes.json()).data;
+    expect(created.status).toBe("scheduled");
+
+    const updateRes = await app.handle(
+      new Request(`${BASE_URL}/v1/terminations/${created.id}`, {
+        method: "PUT",
+        headers: { ...headers, "Content-Type": "application/json" },
+        body: JSON.stringify({
+          reason: "Reorganização de equipe",
+          notes: "Observação adicional",
+        }),
+      })
+    );
+
+    expect(updateRes.status).toBe(200);
+    const updated = (await updateRes.json()).data;
+    expect(updated.status).toBe("scheduled");
+    expect(updated.reason).toBe("Reorganização de equipe");
+    expect(updated.notes).toBe("Observação adicional");
+
+    const [empRow] = await db
+      .select({ status: schema.employees.status })
+      .from(schema.employees)
+      .where(eq(schema.employees.id, employee.id));
+    expect(empRow?.status).toBe("TERMINATION_SCHEDULED");
+  });
+});

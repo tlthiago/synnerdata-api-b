@@ -24,7 +24,7 @@
 Drizzle migrations são fonte da verdade do schema do banco. Disciplina obrigatória:
 
 - **NUNCA use `bun db:push`** — esse comando aplica `schema.ts` direto no DB sem gerar migration. Quebra o histórico, impossibilita rollback determinístico, gera drift entre ambientes. O script existe no `package.json` apenas porque é parte do drizzle-kit; **não use**.
-- **`bun db:check` (drizzle-kit check)** valida a consistência da cadeia de snapshots — detecta colisões de `prevId`, snapshots malformados, conflitos de DDL não-comutativos entre branches. Roda no CI como guard-rail oficial. Complementa o `db:journal:validate` (que cobre `when` monotônico, gap não coberto pelo check oficial).
+- **`bun db:check` (drizzle-kit check)** valida a consistência da cadeia de snapshots — detecta colisões de `prevId`, snapshots malformados, conflitos de DDL não-comutativos entre branches. Roda no CI como guard-rail oficial.
 - **Workflow canônico**:
   1. Edite `src/db/schema/*.ts`
   2. `bun db:generate` — gera `src/db/migrations/NNNN_*.sql` + atualiza `meta/_journal.json` e `meta/NNNN_snapshot.json`
@@ -34,7 +34,7 @@ Drizzle migrations são fonte da verdade do schema do banco. Disciplina obrigat�
   1. O valor `when` no entry do `_journal.json` **DEVE ser `Date.now()`** no momento da criação. Nunca um timestamp arbitrário menor que o último entry.
   2. O `idx` deve ser sequencial (último idx + 1).
   3. O `tag` deve seguir o padrão `NNNN_descricao_kebab_ou_snake`.
-  4. Rode `bun db:journal:validate` antes de commitar (validador de monotonia — também roda no CI lint).
+  4. Rode `bun db:check` antes de commitar (drizzle-kit check valida a estrutura da cadeia de snapshots).
   5. Documente no PR body por que `db:generate` não foi usado.
 - **Por que `when` monotônico importa:** drizzle-orm migrate captura `lastDbMigration` UMA vez antes do loop e só aplica entries com `entry.when > lastDbMigration.created_at`. Se um entry novo tem `when` menor, é silenciosamente pulado no deploy — o log diz "completed" mas DDL nenhum rodou. Caso real: 0042_add_termination_status quebrou HML em 2026-04-29 por isso.
 - **Reescrita do journal/snapshots de migrations já aplicadas em prod:** permitido alterar `when` do journal (não dispara re-aplicação porque drizzle compara contra `lastDbMigration.created_at`, que é o mais recente). NUNCA renomeie `tag` ou edite o `.sql` de uma migration já mergeada — drizzle valida hash e o deploy quebra.
