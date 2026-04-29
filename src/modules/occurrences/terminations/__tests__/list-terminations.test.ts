@@ -86,6 +86,10 @@ describe("GET /v1/terminations", () => {
     expect(body.data[0].employee).toHaveProperty("name");
     expect(body.data[0]).toHaveProperty("terminationDate");
     expect(body.data[0]).toHaveProperty("type");
+    expect(body.data[0]).toHaveProperty("status");
+    expect(["scheduled", "completed", "canceled"]).toContain(
+      body.data[0].status
+    );
   });
 
   test("should not return terminations from other organizations", async () => {
