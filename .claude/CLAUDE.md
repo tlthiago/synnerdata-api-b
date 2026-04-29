@@ -23,6 +23,24 @@
 
 Drizzle migrations são fonte da verdade do schema do banco. Disciplina obrigatória:
 
+### O que pertence em uma migration
+
+Migrations descrevem evolução de schema, não estado de dados de produção. São aceitos:
+
+1. **DDL puro** (`CREATE`, `ALTER`, `DROP`) — caso canônico.
+2. **Backfill como pré-requisito DDL**, com a condição de que o resultado seja **igual em todo ambiente** — ex: `UPDATE x SET col = UPPER(col)` antes de `ALTER COLUMN ... TYPE enum`; backfill de seed conhecido idêntico em test/HML/prod. Se o backfill depende de dados específicos de prod, NÃO pertence aqui.
+3. **Seeds idempotentes de dados de referência** (`ON CONFLICT DO UPDATE`), aceitos por compatibilidade. Para novos seeds, prefira script dedicado (`bun run db:seed`) — não é ideal versionar dados em migrations.
+
+NÃO pertence em migration:
+
+- **Data fix de prod** (corrigir dados produzidos por bug específico, restaurar estado, limpar órfãos). Roda via `psql "$PROD_DATABASE_URL"` direto, com audit trail (Slack/ticket/PR de scripts em `scripts/data-fixes/`).
+- **Backfill que depende de decisão operacional** (ex: "qual user atribuir como creator dessas N linhas legacy"). Mesmo tratamento — operação manual auditável fora da migration.
+- **Cleanup recorrente** (truncate de logs, expirar tokens, etc.). Job agendado, não migration.
+
+Critério de teste: se a migration roda como no-op em test/HML/CI mas faz UPDATE em prod, é provavelmente data fix mascarado. Se o backfill exigiu uma reunião pra decidir o critério, idem.
+
+### Regras de processo
+
 - **NUNCA use `bun db:push`** — esse comando aplica `schema.ts` direto no DB sem gerar migration. Quebra o histórico, impossibilita rollback determinístico, gera drift entre ambientes. O script existe no `package.json` apenas porque é parte do drizzle-kit; **não use**.
 - **`bun db:check` (drizzle-kit check)** valida a consistência da cadeia de snapshots — detecta colisões de `prevId`, snapshots malformados, conflitos de DDL não-comutativos entre branches. Roda no CI como guard-rail oficial.
 - **Workflow canônico**:
