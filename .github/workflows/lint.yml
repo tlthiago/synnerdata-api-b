@@ -38,5 +38,8 @@ jobs:
       - name: Check secrets
         run: bun run secrets:check
 
+      - name: Validate migration journal
+        run: bun run db:journal:validate
+
       - name: Security audit
         run: bun audit --audit-level=high
