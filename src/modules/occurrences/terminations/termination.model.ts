@@ -1,6 +1,5 @@
 import { z } from "zod";
 import { successResponseSchema } from "@/lib/responses/response.types";
-import { isFutureDate } from "@/lib/schemas/date-helpers";
 import { entityReferenceSchema } from "@/lib/schemas/relationships";
 
 const terminationFieldsSchema = z.object({
@@ -11,9 +10,6 @@ const terminationFieldsSchema = z.object({
   terminationDate: z
     .string()
     .date("Data de demissão deve ser uma data válida")
-    .refine((val) => !isFutureDate(val), {
-      message: "Data de demissão não pode ser no futuro",
-    })
     .describe("Data de demissão"),
   type: z
     .enum([
@@ -44,9 +40,6 @@ const terminationFieldsSchema = z.object({
   lastWorkingDay: z
     .string()
     .date("Último dia trabalhado deve ser uma data válida")
-    .refine((val) => !isFutureDate(val), {
-      message: "Último dia trabalhado não pode ser no futuro",
-    })
     .describe("Último dia trabalhado"),
   notes: z
     .string()
@@ -122,6 +115,9 @@ const terminationDataSchema = z.object({
   noticePeriodWorked: z.boolean().describe("Se o aviso prévio foi cumprido"),
   lastWorkingDay: z.string().describe("Último dia trabalhado"),
   notes: z.string().nullable().describe("Observações adicionais"),
+  status: z
+    .enum(["scheduled", "completed", "canceled"])
+    .describe("Status da rescisão"),
   createdAt: z.coerce.date().describe("Data de criação"),
   updatedAt: z.coerce.date().describe("Data de atualização"),
 });

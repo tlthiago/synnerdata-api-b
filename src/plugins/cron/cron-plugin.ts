@@ -1,6 +1,7 @@
 import { cron } from "@elysiajs/cron";
 import { Elysia } from "elysia";
 import { logger } from "@/lib/logger";
+import { TerminationJobsService } from "@/modules/occurrences/terminations/termination-jobs.service";
 import { VacationJobsService } from "@/modules/occurrences/vacations/vacation-jobs.service";
 import { JobsService } from "@/modules/payments/jobs/jobs.service";
 
@@ -76,6 +77,14 @@ export const cronPlugin = new Elysia({ name: "cron-jobs" })
       name: "complete-expired-vacations",
       pattern: "0 3 * * *",
       run: () => VacationJobsService.completeExpiredVacations(),
+      log: (r) => ({ updated: r.updated.length }),
+    })
+  )
+  .use(
+    createCronJob({
+      name: "process-scheduled-terminations",
+      pattern: "0 3 * * *",
+      run: () => TerminationJobsService.processScheduledTerminations(),
       log: (r) => ({ updated: r.updated.length }),
     })
   );

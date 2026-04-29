@@ -35,6 +35,7 @@ const employeeStatusValues = [
   "ON_LEAVE",
   "ON_VACATION",
   "VACATION_SCHEDULED",
+  "TERMINATION_SCHEDULED",
 ] as const;
 const disabilityTypeValues = [
   "AUDITIVA",

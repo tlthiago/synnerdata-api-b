@@ -45,6 +45,7 @@ export abstract class TerminationService {
         noticePeriodWorked: schema.terminations.noticePeriodWorked,
         lastWorkingDay: schema.terminations.lastWorkingDay,
         notes: schema.terminations.notes,
+        status: schema.terminations.status,
         createdAt: schema.terminations.createdAt,
         updatedAt: schema.terminations.updatedAt,
       })
@@ -87,6 +88,7 @@ export abstract class TerminationService {
         noticePeriodWorked: schema.terminations.noticePeriodWorked,
         lastWorkingDay: schema.terminations.lastWorkingDay,
         notes: schema.terminations.notes,
+        status: schema.terminations.status,
         createdAt: schema.terminations.createdAt,
         updatedAt: schema.terminations.updatedAt,
         deletedAt: schema.terminations.deletedAt,
@@ -155,6 +157,61 @@ export abstract class TerminationService {
     }
   }
 
+  private static async syncEmployeeStatusForTermination(
+    employeeId: string,
+    organizationId: string,
+    userId: string,
+    tx?: typeof db
+  ): Promise<{ before: string | null; after: string }> {
+    const executor = tx ?? db;
+
+    const [activeTermination] = await executor
+      .select({ status: schema.terminations.status })
+      .from(schema.terminations)
+      .where(
+        and(
+          eq(schema.terminations.employeeId, employeeId),
+          eq(schema.terminations.organizationId, organizationId),
+          isNull(schema.terminations.deletedAt)
+        )
+      )
+      .limit(1);
+
+    let nextStatus: "ACTIVE" | "TERMINATED" | "TERMINATION_SCHEDULED" =
+      "ACTIVE";
+    if (activeTermination?.status === "completed") {
+      nextStatus = "TERMINATED";
+    } else if (activeTermination?.status === "scheduled") {
+      nextStatus = "TERMINATION_SCHEDULED";
+    }
+
+    const [employeeBefore] = await executor
+      .select({ status: schema.employees.status })
+      .from(schema.employees)
+      .where(
+        and(
+          eq(schema.employees.id, employeeId),
+          eq(schema.employees.organizationId, organizationId)
+        )
+      );
+
+    if (employeeBefore?.status === nextStatus) {
+      return { before: employeeBefore.status, after: nextStatus };
+    }
+
+    await executor
+      .update(schema.employees)
+      .set({ status: nextStatus, updatedBy: userId })
+      .where(
+        and(
+          eq(schema.employees.id, employeeId),
+          eq(schema.employees.organizationId, organizationId)
+        )
+      );
+
+    return { before: employeeBefore?.status ?? null, after: nextStatus };
+  }
+
   static async create(input: CreateTerminationInput): Promise<TerminationData> {
     const { organizationId, userId, employeeId, ...data } = input;
 
@@ -167,6 +224,10 @@ export abstract class TerminationService {
       organizationId,
       employeeId
     );
+
+    const today = new Date().toISOString().split("T")[0];
+    const status: "scheduled" | "completed" =
+      data.terminationDate > today ? "scheduled" : "completed";
 
     const terminationId = `termination-${crypto.randomUUID()}`;
 
@@ -183,6 +244,7 @@ export abstract class TerminationService {
         noticePeriodWorked: data.noticePeriodWorked,
         lastWorkingDay: data.lastWorkingDay,
         notes: data.notes ?? null,
+        status,
         createdBy: userId,
       })
       .returning();
@@ -198,37 +260,25 @@ export abstract class TerminationService {
       }),
     });
 
-    const [employeeBefore] = await db
-      .select({ status: schema.employees.status })
-      .from(schema.employees)
-      .where(
-        and(
-          eq(schema.employees.id, employeeId),
-          eq(schema.employees.organizationId, organizationId)
-        )
-      );
-
-    await db
-      .update(schema.employees)
-      .set({ status: "TERMINATED", updatedBy: userId })
-      .where(
-        and(
-          eq(schema.employees.id, employeeId),
-          eq(schema.employees.organizationId, organizationId)
-        )
-      );
-
-    await AuditService.log({
-      action: "update",
-      resource: "employee",
-      resourceId: employeeId,
-      userId,
+    const sync = await TerminationService.syncEmployeeStatusForTermination(
+      employeeId,
       organizationId,
-      changes: buildAuditChanges(
-        { status: employeeBefore?.status ?? null },
-        { status: "TERMINATED" }
-      ),
-    });
+      userId
+    );
+
+    if (sync.before !== sync.after) {
+      await AuditService.log({
+        action: "update",
+        resource: "employee",
+        resourceId: employeeId,
+        userId,
+        organizationId,
+        changes: buildAuditChanges(
+          { status: sync.before },
+          { status: sync.after }
+        ),
+      });
+    }
 
     return {
       id: termination.id,
@@ -241,6 +291,7 @@ export abstract class TerminationService {
       noticePeriodWorked: termination.noticePeriodWorked,
       lastWorkingDay: termination.lastWorkingDay,
       notes: termination.notes,
+      status: termination.status,
       createdAt: termination.createdAt,
       updatedAt: termination.updatedAt,
     } as TerminationData;
@@ -262,6 +313,7 @@ export abstract class TerminationService {
         noticePeriodWorked: schema.terminations.noticePeriodWorked,
         lastWorkingDay: schema.terminations.lastWorkingDay,
         notes: schema.terminations.notes,
+        status: schema.terminations.status,
         createdAt: schema.terminations.createdAt,
         updatedAt: schema.terminations.updatedAt,
       })
@@ -304,10 +356,17 @@ export abstract class TerminationService {
       throw new TerminationNotFoundError(id);
     }
 
+    const today = new Date().toISOString().split("T")[0];
+    const nextTerminationDate =
+      data.terminationDate ?? existing.terminationDate;
+    const nextStatus: "scheduled" | "completed" =
+      nextTerminationDate > today ? "scheduled" : "completed";
+
     const [updated] = await db
       .update(schema.terminations)
       .set({
         ...data,
+        status: nextStatus,
         updatedBy: userId,
       })
       .where(
@@ -328,6 +387,26 @@ export abstract class TerminationService {
         ignoredFields: TERMINATION_IGNORED_FIELDS,
       }),
     });
+
+    const sync = await TerminationService.syncEmployeeStatusForTermination(
+      existing.employee.id,
+      organizationId,
+      userId
+    );
+
+    if (sync.before !== sync.after) {
+      await AuditService.log({
+        action: "update",
+        resource: "employee",
+        resourceId: existing.employee.id,
+        userId,
+        organizationId,
+        changes: buildAuditChanges(
+          { status: sync.before },
+          { status: sync.after }
+        ),
+      });
+    }
 
     return TerminationService.findByIdOrThrow(id, organizationId);
   }
@@ -355,6 +434,8 @@ export abstract class TerminationService {
       .set({
         deletedAt: new Date(),
         deletedBy: userId,
+        status: "canceled",
+        updatedBy: userId,
       })
       .where(
         and(
@@ -377,40 +458,29 @@ export abstract class TerminationService {
       ),
     });
 
-    const [employeeBefore] = await db
-      .select({ status: schema.employees.status })
-      .from(schema.employees)
-      .where(
-        and(
-          eq(schema.employees.id, existing.employee.id),
-          eq(schema.employees.organizationId, organizationId)
-        )
-      );
-
-    await db
-      .update(schema.employees)
-      .set({ status: "ACTIVE", updatedBy: userId })
-      .where(
-        and(
-          eq(schema.employees.id, existing.employee.id),
-          eq(schema.employees.organizationId, organizationId)
-        )
-      );
-
-    await AuditService.log({
-      action: "update",
-      resource: "employee",
-      resourceId: existing.employee.id,
-      userId,
+    const sync = await TerminationService.syncEmployeeStatusForTermination(
+      existing.employee.id,
       organizationId,
-      changes: buildAuditChanges(
-        { status: employeeBefore?.status ?? null },
-        { status: "ACTIVE" }
-      ),
-    });
+      userId
+    );
+
+    if (sync.before !== sync.after) {
+      await AuditService.log({
+        action: "update",
+        resource: "employee",
+        resourceId: existing.employee.id,
+        userId,
+        organizationId,
+        changes: buildAuditChanges(
+          { status: sync.before },
+          { status: sync.after }
+        ),
+      });
+    }
 
     return {
       ...existing,
+      status: "canceled",
       deletedAt: deleted.deletedAt as Date,
       deletedBy: deleted.deletedBy,
     } as DeletedTerminationData;

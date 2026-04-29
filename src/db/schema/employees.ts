@@ -59,6 +59,7 @@ export const employeeStatusEnum = pgEnum("employee_status", [
   "ON_LEAVE",
   "ON_VACATION",
   "VACATION_SCHEDULED",
+  "TERMINATION_SCHEDULED",
 ]);
 
 export const disabilityTypeEnum = pgEnum("disability_type", [
