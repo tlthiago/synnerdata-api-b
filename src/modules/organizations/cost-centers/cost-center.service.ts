@@ -1,6 +1,7 @@
 import { and, eq, isNull, sql } from "drizzle-orm";
 import { db } from "@/db";
 import { schema } from "@/db/schema";
+import { auditUserAliases } from "@/lib/schemas/audit-users";
 import { AuditService } from "@/modules/audit/audit.service";
 import { buildAuditChanges } from "@/modules/audit/pii-redaction";
 import type {
@@ -42,9 +43,27 @@ export abstract class CostCenterService {
     id: string,
     organizationId: string
   ): Promise<CostCenterData | null> {
+    const { creator, updater } = auditUserAliases();
+
     const [costCenter] = await db
-      .select()
+      .select({
+        id: schema.costCenters.id,
+        organizationId: schema.costCenters.organizationId,
+        name: schema.costCenters.name,
+        createdAt: schema.costCenters.createdAt,
+        updatedAt: schema.costCenters.updatedAt,
+        createdBy: {
+          id: creator.id,
+          name: creator.name,
+        },
+        updatedBy: {
+          id: updater.id,
+          name: updater.name,
+        },
+      })
       .from(schema.costCenters)
+      .innerJoin(creator, eq(schema.costCenters.createdBy, creator.id))
+      .innerJoin(updater, eq(schema.costCenters.updatedBy, updater.id))
       .where(
         and(
           eq(schema.costCenters.id, id),
@@ -54,16 +73,35 @@ export abstract class CostCenterService {
       )
       .limit(1);
 
-    return (costCenter as CostCenterData) ?? null;
+    return costCenter ?? null;
   }
 
   private static async findByIdIncludingDeleted(
     id: string,
     organizationId: string
   ): Promise<(CostCenterData & { deletedAt: Date | null }) | null> {
+    const { creator, updater } = auditUserAliases();
+
     const [costCenter] = await db
-      .select()
+      .select({
+        id: schema.costCenters.id,
+        organizationId: schema.costCenters.organizationId,
+        name: schema.costCenters.name,
+        createdAt: schema.costCenters.createdAt,
+        updatedAt: schema.costCenters.updatedAt,
+        deletedAt: schema.costCenters.deletedAt,
+        createdBy: {
+          id: creator.id,
+          name: creator.name,
+        },
+        updatedBy: {
+          id: updater.id,
+          name: updater.name,
+        },
+      })
       .from(schema.costCenters)
+      .innerJoin(creator, eq(schema.costCenters.createdBy, creator.id))
+      .innerJoin(updater, eq(schema.costCenters.updatedBy, updater.id))
       .where(
         and(
           eq(schema.costCenters.id, id),
@@ -82,7 +120,7 @@ export abstract class CostCenterService {
 
     const costCenterId = `cost-center-${crypto.randomUUID()}`;
 
-    const [costCenter] = await db
+    const [inserted] = await db
       .insert(schema.costCenters)
       .values({
         id: costCenterId,
@@ -96,19 +134,37 @@ export abstract class CostCenterService {
     await AuditService.log({
       action: "create",
       resource: "cost_center",
-      resourceId: costCenter.id,
+      resourceId: inserted.id,
       userId,
       organizationId,
-      changes: buildAuditChanges({}, costCenter),
+      changes: buildAuditChanges({}, inserted),
     });
 
-    return costCenter as CostCenterData;
+    return CostCenterService.findByIdOrThrow(inserted.id, organizationId);
   }
 
   static async findAll(organizationId: string): Promise<CostCenterData[]> {
+    const { creator, updater } = auditUserAliases();
+
     const costCenters = await db
-      .select()
+      .select({
+        id: schema.costCenters.id,
+        organizationId: schema.costCenters.organizationId,
+        name: schema.costCenters.name,
+        createdAt: schema.costCenters.createdAt,
+        updatedAt: schema.costCenters.updatedAt,
+        createdBy: {
+          id: creator.id,
+          name: creator.name,
+        },
+        updatedBy: {
+          id: updater.id,
+          name: updater.name,
+        },
+      })
       .from(schema.costCenters)
+      .innerJoin(creator, eq(schema.costCenters.createdBy, creator.id))
+      .innerJoin(updater, eq(schema.costCenters.updatedBy, updater.id))
       .where(
         and(
           eq(schema.costCenters.organizationId, organizationId),
@@ -117,7 +173,7 @@ export abstract class CostCenterService {
       )
       .orderBy(schema.costCenters.name);
 
-    return costCenters as CostCenterData[];
+    return costCenters;
   }
 
   static async findByIdOrThrow(
@@ -174,7 +230,7 @@ export abstract class CostCenterService {
       changes: buildAuditChanges(existing, updated),
     });
 
-    return updated as CostCenterData;
+    return CostCenterService.findByIdOrThrow(id, organizationId);
   }
 
   static async delete(
@@ -217,6 +273,9 @@ export abstract class CostCenterService {
       changes: buildAuditChanges(existing, {}),
     });
 
-    return deleted as DeletedCostCenterData;
+    return {
+      ...existing,
+      deletedAt: deleted.deletedAt as Date,
+    };
   }
 }
