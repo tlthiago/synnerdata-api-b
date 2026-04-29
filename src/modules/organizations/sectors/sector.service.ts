@@ -89,6 +89,7 @@ export abstract class SectorService {
         organizationId,
         name: data.name,
         createdBy: userId,
+        updatedBy: userId,
       })
       .returning();
 
@@ -194,7 +195,6 @@ export abstract class SectorService {
       .update(schema.sectors)
       .set({
         deletedAt: new Date(),
-        deletedBy: userId,
       })
       .where(
         and(
