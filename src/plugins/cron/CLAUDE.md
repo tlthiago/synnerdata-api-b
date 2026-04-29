@@ -19,6 +19,7 @@ Orquestra jobs agendados do domínio. Composição de 7 cron jobs via `@elysiajs
 | `process-scheduled-plan-changes` | `0 12 * * *` | `JobsService.processScheduledPlanChanges` |
 | `activate-scheduled-vacations` | `0 3 * * *` (03:00 UTC = 00:00 BRT) | `VacationJobsService.activateScheduledVacations` |
 | `complete-expired-vacations` | `0 3 * * *` | `VacationJobsService.completeExpiredVacations` |
+| `process-scheduled-terminations` | `0 3 * * *` (03:00 UTC = 00:00 BRT) | `TerminationJobsService.processScheduledTerminations` |
 
 ## Hooks
 
