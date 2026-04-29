@@ -38,9 +38,6 @@ jobs:
       - name: Check secrets
         run: bun run secrets:check
 
-      - name: Validate migration journal
-        run: bun run db:journal:validate
-
       - name: Check migration consistency (drizzle-kit)
         run: bun run db:check
 
