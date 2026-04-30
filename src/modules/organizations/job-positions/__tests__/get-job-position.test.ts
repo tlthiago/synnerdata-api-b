@@ -141,5 +141,7 @@ describe("GET /v1/job-positions/:id", () => {
     expect(body.data.organizationId).toBe(organizationId);
     expect(body.data.name).toBe("Analista Financeiro");
     expect(body.data.description).toBe("Responsável por análise financeira");
+    expect(body.data.createdBy).toEqual({ id: user.id, name: user.name });
+    expect(body.data.updatedBy).toEqual({ id: user.id, name: user.name });
   });
 });

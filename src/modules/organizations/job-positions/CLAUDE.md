@@ -23,3 +23,7 @@ Cargos da organização. Referenciado por employees (FK obrigatória) e por prom
 - `JobPositionNotFoundError` (404)
 - `JobPositionAlreadyExistsError` (409)
 - `JobPositionAlreadyDeletedError` (404)
+
+## User attribution shape
+
+Este módulo segue o pattern canônico de `createdBy`/`updatedBy` como `entityReferenceSchema` (`{ id, name }`), documentado em `src/modules/organizations/cost-centers/CLAUDE.md`.

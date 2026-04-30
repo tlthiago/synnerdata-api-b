@@ -1,6 +1,7 @@
 import { and, eq, isNull, sql } from "drizzle-orm";
 import { db } from "@/db";
 import { schema } from "@/db/schema";
+import { auditUserAliases } from "@/lib/schemas/audit-users";
 import { AuditService } from "@/modules/audit/audit.service";
 import { buildAuditChanges } from "@/modules/audit/pii-redaction";
 import {
@@ -42,9 +43,28 @@ export abstract class JobPositionService {
     id: string,
     organizationId: string
   ): Promise<JobPositionData | null> {
+    const { creator, updater } = auditUserAliases();
+
     const [jobPosition] = await db
-      .select()
+      .select({
+        id: schema.jobPositions.id,
+        organizationId: schema.jobPositions.organizationId,
+        name: schema.jobPositions.name,
+        description: schema.jobPositions.description,
+        createdAt: schema.jobPositions.createdAt,
+        updatedAt: schema.jobPositions.updatedAt,
+        createdBy: {
+          id: creator.id,
+          name: creator.name,
+        },
+        updatedBy: {
+          id: updater.id,
+          name: updater.name,
+        },
+      })
       .from(schema.jobPositions)
+      .innerJoin(creator, eq(schema.jobPositions.createdBy, creator.id))
+      .innerJoin(updater, eq(schema.jobPositions.updatedBy, updater.id))
       .where(
         and(
           eq(schema.jobPositions.id, id),
@@ -54,16 +74,36 @@ export abstract class JobPositionService {
       )
       .limit(1);
 
-    return (jobPosition as JobPositionData) ?? null;
+    return jobPosition ?? null;
   }
 
   private static async findByIdIncludingDeleted(
     id: string,
     organizationId: string
   ): Promise<(JobPositionData & { deletedAt: Date | null }) | null> {
+    const { creator, updater } = auditUserAliases();
+
     const [jobPosition] = await db
-      .select()
+      .select({
+        id: schema.jobPositions.id,
+        organizationId: schema.jobPositions.organizationId,
+        name: schema.jobPositions.name,
+        description: schema.jobPositions.description,
+        createdAt: schema.jobPositions.createdAt,
+        updatedAt: schema.jobPositions.updatedAt,
+        deletedAt: schema.jobPositions.deletedAt,
+        createdBy: {
+          id: creator.id,
+          name: creator.name,
+        },
+        updatedBy: {
+          id: updater.id,
+          name: updater.name,
+        },
+      })
       .from(schema.jobPositions)
+      .innerJoin(creator, eq(schema.jobPositions.createdBy, creator.id))
+      .innerJoin(updater, eq(schema.jobPositions.updatedBy, updater.id))
       .where(
         and(
           eq(schema.jobPositions.id, id),
@@ -103,13 +143,32 @@ export abstract class JobPositionService {
       changes: buildAuditChanges({}, jobPosition),
     });
 
-    return jobPosition as JobPositionData;
+    return JobPositionService.findByIdOrThrow(jobPosition.id, organizationId);
   }
 
   static async findAll(organizationId: string): Promise<JobPositionData[]> {
+    const { creator, updater } = auditUserAliases();
+
     const jobPositions = await db
-      .select()
+      .select({
+        id: schema.jobPositions.id,
+        organizationId: schema.jobPositions.organizationId,
+        name: schema.jobPositions.name,
+        description: schema.jobPositions.description,
+        createdAt: schema.jobPositions.createdAt,
+        updatedAt: schema.jobPositions.updatedAt,
+        createdBy: {
+          id: creator.id,
+          name: creator.name,
+        },
+        updatedBy: {
+          id: updater.id,
+          name: updater.name,
+        },
+      })
       .from(schema.jobPositions)
+      .innerJoin(creator, eq(schema.jobPositions.createdBy, creator.id))
+      .innerJoin(updater, eq(schema.jobPositions.updatedBy, updater.id))
       .where(
         and(
           eq(schema.jobPositions.organizationId, organizationId),
@@ -118,7 +177,7 @@ export abstract class JobPositionService {
       )
       .orderBy(schema.jobPositions.name);
 
-    return jobPositions as JobPositionData[];
+    return jobPositions;
   }
 
   static async findByIdOrThrow(
@@ -175,7 +234,7 @@ export abstract class JobPositionService {
       changes: buildAuditChanges(existing, updated),
     });
 
-    return updated as JobPositionData;
+    return JobPositionService.findByIdOrThrow(id, organizationId);
   }
 
   static async delete(
@@ -219,6 +278,9 @@ export abstract class JobPositionService {
       changes: buildAuditChanges(existing, {}),
     });
 
-    return deleted as DeletedJobPositionData;
+    return {
+      ...existing,
+      deletedAt: deleted.deletedAt as Date,
+    };
   }
 }

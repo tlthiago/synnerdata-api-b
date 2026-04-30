@@ -303,6 +303,11 @@ describe("PUT /v1/job-positions/:id", () => {
     );
 
     expect(response.status).toBe(200);
+    const body = await response.json();
+    expect(body.data.updatedBy).toEqual({
+      id: memberResult.user.id,
+      name: memberResult.user.name,
+    });
   });
 
   test("should return 409 when updating job position to duplicate name", async () => {

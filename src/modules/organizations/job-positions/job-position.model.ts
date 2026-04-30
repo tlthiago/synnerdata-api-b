@@ -1,5 +1,6 @@
 import { z } from "zod";
 import { successResponseSchema } from "@/lib/responses/response.types";
+import { entityReferenceSchema } from "@/lib/schemas/relationships";
 
 export const createJobPositionSchema = z.object({
   name: z
@@ -36,6 +37,10 @@ const jobPositionDataSchema = z.object({
   description: z.string().nullable().describe("Descrição da função"),
   createdAt: z.coerce.date().describe("Data de criação"),
   updatedAt: z.coerce.date().describe("Data de atualização"),
+  createdBy: entityReferenceSchema.describe("Usuário que criou o cargo"),
+  updatedBy: entityReferenceSchema.describe(
+    "Usuário que atualizou o cargo pela última vez"
+  ),
 });
 
 const deletedJobPositionDataSchema = jobPositionDataSchema.extend({

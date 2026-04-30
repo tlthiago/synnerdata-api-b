@@ -97,9 +97,10 @@ describe("POST /v1/job-positions", () => {
   });
 
   test("should create job position successfully", async () => {
-    const { headers, organizationId } = await createTestUserWithOrganization({
-      emailVerified: true,
-    });
+    const { headers, organizationId, user } =
+      await createTestUserWithOrganization({
+        emailVerified: true,
+      });
 
     const response = await app.handle(
       new Request(`${BASE_URL}/v1/job-positions`, {
@@ -121,6 +122,8 @@ describe("POST /v1/job-positions", () => {
     expect(body.data.organizationId).toBe(organizationId);
     expect(body.data.name).toBe(validJobPositionData.name);
     expect(body.data.description).toBe(validJobPositionData.description);
+    expect(body.data.createdBy).toEqual({ id: user.id, name: user.name });
+    expect(body.data.updatedBy).toEqual({ id: user.id, name: user.name });
   });
 
   test("should create job position without description", async () => {
