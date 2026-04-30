@@ -58,7 +58,10 @@ export const provisionDataSchema = z.object({
   checkoutUrl: z.string().nullable(),
   checkoutExpiresAt: z.string().nullable(),
   notes: z.string().nullable(),
-  createdBy: entityReferenceSchema.nullable(),
+  createdBy: entityReferenceSchema.describe("User who created this provision"),
+  updatedBy: entityReferenceSchema.describe(
+    "User who last updated this provision"
+  ),
   createdAt: z.string(),
   subscription: provisionSubscriptionSchema.nullable(),
 });

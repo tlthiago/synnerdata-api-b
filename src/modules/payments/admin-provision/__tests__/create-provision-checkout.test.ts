@@ -291,6 +291,14 @@ describe("POST /v1/payments/admin/provisions/checkout", () => {
     expect(data.checkoutUrl).toBe(mocks.mockCheckoutUrl);
     expect(data.checkoutExpiresAt).toBeString();
     expect(data.notes).toBe("Mocked checkout test");
+    expect(data.createdBy).toMatchObject({
+      id: expect.any(String),
+      name: expect.any(String),
+    });
+    expect(data.updatedBy).toMatchObject({
+      id: expect.any(String),
+      name: expect.any(String),
+    });
 
     // Verify subscription shows contracted plan data (not interim trial)
     expect(data.subscription).toBeDefined();
