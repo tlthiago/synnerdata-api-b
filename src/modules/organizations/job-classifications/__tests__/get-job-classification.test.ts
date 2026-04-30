@@ -154,5 +154,7 @@ describe("GET /v1/job-classifications/:id", () => {
     expect(body.data.id).toBe(jobClassification.id);
     expect(body.data.organizationId).toBe(organizationId);
     expect(body.data.name).toBe("Analista de Sistemas");
+    expect(body.data.createdBy).toEqual({ id: user.id, name: user.name });
+    expect(body.data.updatedBy).toEqual({ id: user.id, name: user.name });
   });
 });

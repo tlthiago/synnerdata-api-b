@@ -1,5 +1,6 @@
 import { z } from "zod";
 import { successResponseSchema } from "@/lib/responses/response.types";
+import { entityReferenceSchema } from "@/lib/schemas/relationships";
 
 export const createJobClassificationSchema = z
   .object({
@@ -46,6 +47,12 @@ const jobClassificationDataSchema = z.object({
   cboOccupationId: z.string().nullable().describe("ID da ocupação CBO oficial"),
   createdAt: z.coerce.date().describe("Data de criação"),
   updatedAt: z.coerce.date().describe("Data de atualização"),
+  createdBy: entityReferenceSchema.describe(
+    "Usuário que criou a classificação de cargo"
+  ),
+  updatedBy: entityReferenceSchema.describe(
+    "Usuário que atualizou a classificação de cargo pela última vez"
+  ),
 });
 
 const deletedJobClassificationDataSchema = jobClassificationDataSchema.extend({
