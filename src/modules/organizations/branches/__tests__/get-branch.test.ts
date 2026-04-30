@@ -113,6 +113,8 @@ describe("GET /v1/branches/:id", () => {
     expect(body.data.id).toBe(branch.id);
     expect(body.data.name).toBe("Filial Get Test");
     expect(body.data.organizationId).toBe(organizationId);
+    expect(body.data.createdBy).toEqual({ id: user.id, name: user.name });
+    expect(body.data.updatedBy).toEqual({ id: user.id, name: user.name });
   });
 
   test("should return 404 for deleted branch", async () => {

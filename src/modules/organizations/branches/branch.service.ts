@@ -1,6 +1,7 @@
 import { and, eq, isNull } from "drizzle-orm";
 import { db } from "@/db";
 import { schema } from "@/db/schema";
+import { auditUserAliases } from "@/lib/schemas/audit-users";
 import { AuditService } from "@/modules/audit/audit.service";
 import { buildAuditChanges, PII_FIELDS } from "@/modules/audit/pii-redaction";
 import type {
@@ -22,9 +23,38 @@ export abstract class BranchService {
     id: string,
     organizationId: string
   ): Promise<BranchData | null> {
+    const { creator, updater } = auditUserAliases();
+
     const [branch] = await db
-      .select()
+      .select({
+        id: schema.branches.id,
+        organizationId: schema.branches.organizationId,
+        name: schema.branches.name,
+        taxId: schema.branches.taxId,
+        street: schema.branches.street,
+        number: schema.branches.number,
+        complement: schema.branches.complement,
+        neighborhood: schema.branches.neighborhood,
+        city: schema.branches.city,
+        state: schema.branches.state,
+        zipCode: schema.branches.zipCode,
+        phone: schema.branches.phone,
+        mobile: schema.branches.mobile,
+        foundedAt: schema.branches.foundedAt,
+        createdAt: schema.branches.createdAt,
+        updatedAt: schema.branches.updatedAt,
+        createdBy: {
+          id: creator.id,
+          name: creator.name,
+        },
+        updatedBy: {
+          id: updater.id,
+          name: updater.name,
+        },
+      })
       .from(schema.branches)
+      .innerJoin(creator, eq(schema.branches.createdBy, creator.id))
+      .innerJoin(updater, eq(schema.branches.updatedBy, updater.id))
       .where(
         and(
           eq(schema.branches.id, id),
@@ -34,16 +64,46 @@ export abstract class BranchService {
       )
       .limit(1);
 
-    return (branch as BranchData) ?? null;
+    return branch ?? null;
   }
 
   private static async findByIdIncludingDeleted(
     id: string,
     organizationId: string
   ): Promise<(BranchData & { deletedAt: Date | null }) | null> {
+    const { creator, updater } = auditUserAliases();
+
     const [branch] = await db
-      .select()
+      .select({
+        id: schema.branches.id,
+        organizationId: schema.branches.organizationId,
+        name: schema.branches.name,
+        taxId: schema.branches.taxId,
+        street: schema.branches.street,
+        number: schema.branches.number,
+        complement: schema.branches.complement,
+        neighborhood: schema.branches.neighborhood,
+        city: schema.branches.city,
+        state: schema.branches.state,
+        zipCode: schema.branches.zipCode,
+        phone: schema.branches.phone,
+        mobile: schema.branches.mobile,
+        foundedAt: schema.branches.foundedAt,
+        createdAt: schema.branches.createdAt,
+        updatedAt: schema.branches.updatedAt,
+        deletedAt: schema.branches.deletedAt,
+        createdBy: {
+          id: creator.id,
+          name: creator.name,
+        },
+        updatedBy: {
+          id: updater.id,
+          name: updater.name,
+        },
+      })
       .from(schema.branches)
+      .innerJoin(creator, eq(schema.branches.createdBy, creator.id))
+      .innerJoin(updater, eq(schema.branches.updatedBy, updater.id))
       .where(
         and(
           eq(schema.branches.id, id),
@@ -120,13 +180,42 @@ export abstract class BranchService {
       changes: buildAuditChanges({}, branch, { piiFields: BRANCH_PII_FIELDS }),
     });
 
-    return branch as BranchData;
+    return BranchService.findByIdOrThrow(branch.id, organizationId);
   }
 
   static async findAll(organizationId: string): Promise<BranchData[]> {
+    const { creator, updater } = auditUserAliases();
+
     const branches = await db
-      .select()
+      .select({
+        id: schema.branches.id,
+        organizationId: schema.branches.organizationId,
+        name: schema.branches.name,
+        taxId: schema.branches.taxId,
+        street: schema.branches.street,
+        number: schema.branches.number,
+        complement: schema.branches.complement,
+        neighborhood: schema.branches.neighborhood,
+        city: schema.branches.city,
+        state: schema.branches.state,
+        zipCode: schema.branches.zipCode,
+        phone: schema.branches.phone,
+        mobile: schema.branches.mobile,
+        foundedAt: schema.branches.foundedAt,
+        createdAt: schema.branches.createdAt,
+        updatedAt: schema.branches.updatedAt,
+        createdBy: {
+          id: creator.id,
+          name: creator.name,
+        },
+        updatedBy: {
+          id: updater.id,
+          name: updater.name,
+        },
+      })
       .from(schema.branches)
+      .innerJoin(creator, eq(schema.branches.createdBy, creator.id))
+      .innerJoin(updater, eq(schema.branches.updatedBy, updater.id))
       .where(
         and(
           eq(schema.branches.organizationId, organizationId),
@@ -135,7 +224,7 @@ export abstract class BranchService {
       )
       .orderBy(schema.branches.name);
 
-    return branches as BranchData[];
+    return branches;
   }
 
   static async findByIdOrThrow(
@@ -190,7 +279,7 @@ export abstract class BranchService {
       }),
     });
 
-    return updated as BranchData;
+    return BranchService.findByIdOrThrow(id, organizationId);
   }
 
   static async delete(
@@ -238,6 +327,9 @@ export abstract class BranchService {
       ),
     });
 
-    return deleted as DeletedBranchData;
+    return {
+      ...existing,
+      deletedAt: deleted.deletedAt as Date,
+    };
   }
 }

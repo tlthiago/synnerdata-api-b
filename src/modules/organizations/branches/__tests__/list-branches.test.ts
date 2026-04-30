@@ -95,6 +95,10 @@ describe("GET /v1/branches", () => {
     expect(body.data.length).toBe(2);
     expect(body.data[0].organizationId).toBe(organizationId);
     expect(body.data[1].organizationId).toBe(organizationId);
+    for (const item of body.data) {
+      expect(item.createdBy).toEqual({ id: user.id, name: user.name });
+      expect(item.updatedBy).toEqual({ id: user.id, name: user.name });
+    }
   });
 
   test("should not return branches from other organizations", async () => {

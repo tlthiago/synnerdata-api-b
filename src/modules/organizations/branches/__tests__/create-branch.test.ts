@@ -211,9 +211,10 @@ describe("POST /v1/branches", () => {
   });
 
   test("should create branch successfully", async () => {
-    const { headers, organizationId } = await createTestUserWithOrganization({
-      emailVerified: true,
-    });
+    const { headers, organizationId, user } =
+      await createTestUserWithOrganization({
+        emailVerified: true,
+      });
 
     const uniqueTaxId = generateCnpj();
 
@@ -243,6 +244,8 @@ describe("POST /v1/branches", () => {
     expect(body.data.street).toBe(validBranchData.street);
     expect(body.data.city).toBe(validBranchData.city);
     expect(body.data.state).toBe(validBranchData.state);
+    expect(body.data.createdBy).toEqual({ id: user.id, name: user.name });
+    expect(body.data.updatedBy).toEqual({ id: user.id, name: user.name });
   });
 
   test("should create branch without optional fields", async () => {

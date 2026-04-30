@@ -322,6 +322,10 @@ describe("PUT /v1/branches/:id", () => {
     expect(response.status).toBe(200);
     const body = await response.json();
     expect(body.data.name).toBe("Manager Updated");
+    expect(body.data.updatedBy).toEqual({
+      id: memberResult.user.id,
+      name: memberResult.user.name,
+    });
   });
 
   test("should reject invalid taxId format", async () => {

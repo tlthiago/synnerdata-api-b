@@ -35,3 +35,7 @@ Unidades/filiais da organização.
 - `BranchNotFoundError` (404)
 - `BranchTaxIdAlreadyExistsError` (409)
 - `BranchAlreadyDeletedError` (404)
+
+## User attribution shape
+
+Este módulo segue o pattern canônico de `createdBy`/`updatedBy` como `entityReferenceSchema` (`{ id, name }`), documentado em `src/modules/organizations/cost-centers/CLAUDE.md`.
