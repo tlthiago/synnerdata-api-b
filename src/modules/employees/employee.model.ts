@@ -618,6 +618,10 @@ const employeeDataSchema = z.object({
   // Audit
   createdAt: z.coerce.date().describe("Data de criação"),
   updatedAt: z.coerce.date().describe("Data de atualização"),
+  createdBy: entityReferenceSchema.describe("Usuário que criou o funcionário"),
+  updatedBy: entityReferenceSchema.describe(
+    "Usuário que atualizou o funcionário pela última vez"
+  ),
 });
 
 const deletedEmployeeDataSchema = employeeDataSchema.extend({

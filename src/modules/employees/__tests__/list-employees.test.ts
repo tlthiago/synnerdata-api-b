@@ -94,6 +94,13 @@ describe("GET /v1/employees", () => {
     expect(body.data.length).toBe(2);
     expect(body.data[0].organizationId).toBe(organizationId);
     expect(body.data[1].organizationId).toBe(organizationId);
+
+    expect(body.data[0].createdBy).toBeObject();
+    expect(body.data[0].createdBy.id).toBeString();
+    expect(body.data[0].createdBy.name).toBeString();
+    expect(body.data[0].updatedBy).toBeObject();
+    expect(body.data[0].updatedBy.id).toBeString();
+    expect(body.data[0].updatedBy.name).toBeString();
   });
 
   test("should not return employees from other organizations", async () => {

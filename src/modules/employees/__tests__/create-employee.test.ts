@@ -198,6 +198,13 @@ describe("POST /v1/employees", () => {
     expect(body.data.organizationId).toBe(organizationId);
     expect(body.data.name).toBe(employeeData.name);
     expect(body.data.cpf).toBe(employeeData.cpf);
+
+    expect(body.data.createdBy).toBeObject();
+    expect(body.data.createdBy.id).toBe(user.id);
+    expect(body.data.createdBy.name).toBeString();
+    expect(body.data.updatedBy).toBeObject();
+    expect(body.data.updatedBy.id).toBe(user.id);
+    expect(body.data.updatedBy.name).toBeString();
   });
 
   test("should reject duplicate CPF in same organization", async () => {
