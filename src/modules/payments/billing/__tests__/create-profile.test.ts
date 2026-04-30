@@ -81,6 +81,14 @@ describe("POST /payments/billing/profile", () => {
     expect(body.data.email).toBe(input.email);
     expect(body.data.phone).toBe(input.phone);
     expect(body.data.pagarmeCustomerId).toBeNull();
+    expect(body.data.createdBy).toMatchObject({
+      id: expect.any(String),
+      name: expect.any(String),
+    });
+    expect(body.data.updatedBy).toMatchObject({
+      id: expect.any(String),
+      name: expect.any(String),
+    });
   });
 
   test("should reject duplicate billing profile for same organization", async () => {

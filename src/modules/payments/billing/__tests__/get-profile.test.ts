@@ -104,6 +104,14 @@ describe("GET /payments/billing/profile", () => {
     expect(body.data.taxId).toBe(billingProfile.taxId);
     expect(body.data.email).toBe(billingProfile.email);
     expect(body.data.phone).toBe(billingProfile.phone);
+    expect(body.data.createdBy).toMatchObject({
+      id: expect.any(String),
+      name: expect.any(String),
+    });
+    expect(body.data.updatedBy).toMatchObject({
+      id: expect.any(String),
+      name: expect.any(String),
+    });
   });
 
   test("should return billing profile with pagarmeCustomerId when set", async () => {
