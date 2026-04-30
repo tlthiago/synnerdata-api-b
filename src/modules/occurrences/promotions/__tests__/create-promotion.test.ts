@@ -373,6 +373,12 @@ describe("POST /v1/promotions", () => {
     expect(body.data.newSalary).toBe("3600.00");
     expect(body.data.reason).toBe("Promoção por mérito");
     expect(body.data.notes).toBe("Excelente desempenho no último ano");
+    expect(body.data.createdBy).toBeObject();
+    expect(body.data.createdBy.id).toBeString();
+    expect(body.data.createdBy.name).toBeString();
+    expect(body.data.updatedBy).toBeObject();
+    expect(body.data.updatedBy.id).toBeString();
+    expect(body.data.updatedBy.name).toBeString();
   });
 
   test("should reject duplicate promotion on same date", async () => {

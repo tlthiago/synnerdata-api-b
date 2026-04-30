@@ -97,6 +97,12 @@ describe("GET /v1/promotions", () => {
     expect(body.data[0].newJobPosition).toBeObject();
     expect(body.data[0].newJobPosition.id).toBeString();
     expect(body.data[0].newJobPosition.name).toBeString();
+    expect(body.data[0].createdBy).toBeObject();
+    expect(body.data[0].createdBy.id).toBeString();
+    expect(body.data[0].createdBy.name).toBeString();
+    expect(body.data[0].updatedBy).toBeObject();
+    expect(body.data[0].updatedBy.id).toBeString();
+    expect(body.data[0].updatedBy.name).toBeString();
   });
 
   test("should not return promotions from other organizations", async () => {

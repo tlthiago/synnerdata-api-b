@@ -117,6 +117,12 @@ describe("GET /v1/promotions/:id", () => {
     expect(body.data.newJobPosition).toBeObject();
     expect(body.data.newJobPosition.id).toBe(dependencies.newJobPositionId);
     expect(body.data.newJobPosition.name).toBeString();
+    expect(body.data.createdBy).toBeObject();
+    expect(body.data.createdBy.id).toBeString();
+    expect(body.data.createdBy.name).toBeString();
+    expect(body.data.updatedBy).toBeObject();
+    expect(body.data.updatedBy.id).toBeString();
+    expect(body.data.updatedBy.name).toBeString();
   });
 
   test("should allow viewer to get promotion", async () => {
