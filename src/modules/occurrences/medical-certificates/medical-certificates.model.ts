@@ -102,6 +102,12 @@ const medicalCertificateDataSchema = z.object({
   notes: z.string().nullable().describe("Observações"),
   createdAt: z.coerce.date().describe("Data de criação"),
   updatedAt: z.coerce.date().describe("Data de atualização"),
+  createdBy: entityReferenceSchema.describe(
+    "Usuário que criou o atestado médico"
+  ),
+  updatedBy: entityReferenceSchema.describe(
+    "Usuário que atualizou o atestado médico pela última vez"
+  ),
 });
 
 const deletedMedicalCertificateDataSchema = medicalCertificateDataSchema.extend(
