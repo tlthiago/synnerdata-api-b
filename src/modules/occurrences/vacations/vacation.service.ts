@@ -1,6 +1,7 @@
 import { and, eq, isNull, sql } from "drizzle-orm";
 import { db } from "@/db";
 import { schema } from "@/db/schema";
+import { auditUserAliases } from "@/lib/schemas/audit-users";
 import { calculateDaysBetween } from "@/lib/schemas/date-helpers";
 import { AuditService } from "@/modules/audit/audit.service";
 import {
@@ -42,27 +43,6 @@ const VACATION_IGNORED_FIELDS = new Set([
   "employee",
   "employeeId",
 ]);
-
-const SELECT_FIELDS = {
-  id: schema.vacations.id,
-  organizationId: schema.vacations.organizationId,
-  employee: {
-    id: schema.employees.id,
-    name: schema.employees.name,
-  },
-  startDate: schema.vacations.startDate,
-  endDate: schema.vacations.endDate,
-  acquisitionPeriodStart: schema.vacations.acquisitionPeriodStart,
-  acquisitionPeriodEnd: schema.vacations.acquisitionPeriodEnd,
-  concessivePeriodStart: schema.vacations.concessivePeriodStart,
-  concessivePeriodEnd: schema.vacations.concessivePeriodEnd,
-  daysEntitled: schema.vacations.daysEntitled,
-  daysUsed: schema.vacations.daysUsed,
-  status: schema.vacations.status,
-  notes: schema.vacations.notes,
-  createdAt: schema.vacations.createdAt,
-  updatedAt: schema.vacations.updatedAt,
-} as const;
 
 export abstract class VacationService {
   private static async ensureAquisitivoLimit(args: {
@@ -122,13 +102,44 @@ export abstract class VacationService {
     id: string,
     organizationId: string
   ): Promise<VacationData | null> {
+    const { creator, updater } = auditUserAliases();
+
     const [result] = await db
-      .select(SELECT_FIELDS)
+      .select({
+        id: schema.vacations.id,
+        organizationId: schema.vacations.organizationId,
+        employee: {
+          id: schema.employees.id,
+          name: schema.employees.name,
+        },
+        startDate: schema.vacations.startDate,
+        endDate: schema.vacations.endDate,
+        acquisitionPeriodStart: schema.vacations.acquisitionPeriodStart,
+        acquisitionPeriodEnd: schema.vacations.acquisitionPeriodEnd,
+        concessivePeriodStart: schema.vacations.concessivePeriodStart,
+        concessivePeriodEnd: schema.vacations.concessivePeriodEnd,
+        daysEntitled: schema.vacations.daysEntitled,
+        daysUsed: schema.vacations.daysUsed,
+        status: schema.vacations.status,
+        notes: schema.vacations.notes,
+        createdAt: schema.vacations.createdAt,
+        updatedAt: schema.vacations.updatedAt,
+        createdBy: {
+          id: creator.id,
+          name: creator.name,
+        },
+        updatedBy: {
+          id: updater.id,
+          name: updater.name,
+        },
+      })
       .from(schema.vacations)
       .innerJoin(
         schema.employees,
         eq(schema.vacations.employeeId, schema.employees.id)
       )
+      .innerJoin(creator, eq(schema.vacations.createdBy, creator.id))
+      .innerJoin(updater, eq(schema.vacations.updatedBy, updater.id))
       .where(
         and(
           eq(schema.vacations.id, id),
@@ -145,16 +156,45 @@ export abstract class VacationService {
     id: string,
     organizationId: string
   ): Promise<(VacationData & { deletedAt: Date | null }) | null> {
+    const { creator, updater } = auditUserAliases();
+
     const [result] = await db
       .select({
-        ...SELECT_FIELDS,
+        id: schema.vacations.id,
+        organizationId: schema.vacations.organizationId,
+        employee: {
+          id: schema.employees.id,
+          name: schema.employees.name,
+        },
+        startDate: schema.vacations.startDate,
+        endDate: schema.vacations.endDate,
+        acquisitionPeriodStart: schema.vacations.acquisitionPeriodStart,
+        acquisitionPeriodEnd: schema.vacations.acquisitionPeriodEnd,
+        concessivePeriodStart: schema.vacations.concessivePeriodStart,
+        concessivePeriodEnd: schema.vacations.concessivePeriodEnd,
+        daysEntitled: schema.vacations.daysEntitled,
+        daysUsed: schema.vacations.daysUsed,
+        status: schema.vacations.status,
+        notes: schema.vacations.notes,
+        createdAt: schema.vacations.createdAt,
+        updatedAt: schema.vacations.updatedAt,
         deletedAt: schema.vacations.deletedAt,
+        createdBy: {
+          id: creator.id,
+          name: creator.name,
+        },
+        updatedBy: {
+          id: updater.id,
+          name: updater.name,
+        },
       })
       .from(schema.vacations)
       .innerJoin(
         schema.employees,
         eq(schema.vacations.employeeId, schema.employees.id)
       )
+      .innerJoin(creator, eq(schema.vacations.createdBy, creator.id))
+      .innerJoin(updater, eq(schema.vacations.updatedBy, updater.id))
       .where(
         and(
           eq(schema.vacations.id, id),
@@ -478,33 +518,48 @@ export abstract class VacationService {
       userId
     );
 
-    return {
-      id: vacationId,
-      organizationId,
-      employee,
-      startDate: data.startDate,
-      endDate: data.endDate,
-      acquisitionPeriodStart: activeCycle.acquisitionPeriodStart,
-      acquisitionPeriodEnd: activeCycle.acquisitionPeriodEnd,
-      concessivePeriodStart: activeCycle.concessivePeriodStart,
-      concessivePeriodEnd: activeCycle.concessivePeriodEnd,
-      daysEntitled: data.daysEntitled,
-      daysUsed: data.daysUsed,
-      status: data.status,
-      notes: data.notes ?? null,
-      createdAt: new Date(),
-      updatedAt: new Date(),
-    } as VacationData;
+    return VacationService.findByIdOrThrow(vacationId, organizationId);
   }
 
   static async findAll(organizationId: string): Promise<VacationData[]> {
+    const { creator, updater } = auditUserAliases();
+
     const results = await db
-      .select(SELECT_FIELDS)
+      .select({
+        id: schema.vacations.id,
+        organizationId: schema.vacations.organizationId,
+        employee: {
+          id: schema.employees.id,
+          name: schema.employees.name,
+        },
+        startDate: schema.vacations.startDate,
+        endDate: schema.vacations.endDate,
+        acquisitionPeriodStart: schema.vacations.acquisitionPeriodStart,
+        acquisitionPeriodEnd: schema.vacations.acquisitionPeriodEnd,
+        concessivePeriodStart: schema.vacations.concessivePeriodStart,
+        concessivePeriodEnd: schema.vacations.concessivePeriodEnd,
+        daysEntitled: schema.vacations.daysEntitled,
+        daysUsed: schema.vacations.daysUsed,
+        status: schema.vacations.status,
+        notes: schema.vacations.notes,
+        createdAt: schema.vacations.createdAt,
+        updatedAt: schema.vacations.updatedAt,
+        createdBy: {
+          id: creator.id,
+          name: creator.name,
+        },
+        updatedBy: {
+          id: updater.id,
+          name: updater.name,
+        },
+      })
       .from(schema.vacations)
       .innerJoin(
         schema.employees,
         eq(schema.vacations.employeeId, schema.employees.id)
       )
+      .innerJoin(creator, eq(schema.vacations.createdBy, creator.id))
+      .innerJoin(updater, eq(schema.vacations.updatedBy, updater.id))
       .where(
         and(
           eq(schema.vacations.organizationId, organizationId),
@@ -520,13 +575,44 @@ export abstract class VacationService {
     organizationId: string,
     employeeId: string
   ): Promise<VacationData[]> {
+    const { creator, updater } = auditUserAliases();
+
     const results = await db
-      .select(SELECT_FIELDS)
+      .select({
+        id: schema.vacations.id,
+        organizationId: schema.vacations.organizationId,
+        employee: {
+          id: schema.employees.id,
+          name: schema.employees.name,
+        },
+        startDate: schema.vacations.startDate,
+        endDate: schema.vacations.endDate,
+        acquisitionPeriodStart: schema.vacations.acquisitionPeriodStart,
+        acquisitionPeriodEnd: schema.vacations.acquisitionPeriodEnd,
+        concessivePeriodStart: schema.vacations.concessivePeriodStart,
+        concessivePeriodEnd: schema.vacations.concessivePeriodEnd,
+        daysEntitled: schema.vacations.daysEntitled,
+        daysUsed: schema.vacations.daysUsed,
+        status: schema.vacations.status,
+        notes: schema.vacations.notes,
+        createdAt: schema.vacations.createdAt,
+        updatedAt: schema.vacations.updatedAt,
+        createdBy: {
+          id: creator.id,
+          name: creator.name,
+        },
+        updatedBy: {
+          id: updater.id,
+          name: updater.name,
+        },
+      })
       .from(schema.vacations)
       .innerJoin(
         schema.employees,
         eq(schema.vacations.employeeId, schema.employees.id)
       )
+      .innerJoin(creator, eq(schema.vacations.createdBy, creator.id))
+      .innerJoin(updater, eq(schema.vacations.updatedBy, updater.id))
       .where(
         and(
           eq(schema.vacations.organizationId, organizationId),
