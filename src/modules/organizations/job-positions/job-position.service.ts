@@ -200,6 +200,7 @@ export abstract class JobPositionService {
       .update(schema.jobPositions)
       .set({
         deletedAt: new Date(),
+        updatedBy: userId,
       })
       .where(
         and(

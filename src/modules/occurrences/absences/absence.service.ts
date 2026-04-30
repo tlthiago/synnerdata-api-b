@@ -364,6 +364,7 @@ export abstract class AbsenceService {
       .update(schema.absences)
       .set({
         deletedAt: new Date(),
+        updatedBy: userId,
       })
       .where(
         and(

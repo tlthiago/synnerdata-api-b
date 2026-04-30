@@ -254,6 +254,7 @@ export abstract class JobClassificationService {
       .update(schema.jobClassifications)
       .set({
         deletedAt: new Date(),
+        updatedBy: userId,
       })
       .where(
         and(
