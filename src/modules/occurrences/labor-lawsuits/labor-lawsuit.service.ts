@@ -1,6 +1,7 @@
 import { and, desc, eq, isNull } from "drizzle-orm";
 import { db } from "@/db";
 import { schema } from "@/db/schema";
+import { auditUserAliases } from "@/lib/schemas/audit-users";
 import { ensureEmployeeNotTerminated } from "@/modules/employees/status";
 import {
   LaborLawsuitAlreadyDeletedError,
@@ -21,6 +22,8 @@ export abstract class LaborLawsuitService {
     id: string,
     organizationId: string
   ): Promise<LaborLawsuitData | null> {
+    const { creator, updater } = auditUserAliases();
+
     const [result] = await db
       .select({
         id: schema.laborLawsuits.id,
@@ -46,12 +49,22 @@ export abstract class LaborLawsuitService {
         costsExpenses: schema.laborLawsuits.costsExpenses,
         createdAt: schema.laborLawsuits.createdAt,
         updatedAt: schema.laborLawsuits.updatedAt,
+        createdBy: {
+          id: creator.id,
+          name: creator.name,
+        },
+        updatedBy: {
+          id: updater.id,
+          name: updater.name,
+        },
       })
       .from(schema.laborLawsuits)
       .innerJoin(
         schema.employees,
         eq(schema.laborLawsuits.employeeId, schema.employees.id)
       )
+      .innerJoin(creator, eq(schema.laborLawsuits.createdBy, creator.id))
+      .innerJoin(updater, eq(schema.laborLawsuits.updatedBy, updater.id))
       .where(
         and(
           eq(schema.laborLawsuits.id, id),
@@ -76,6 +89,8 @@ export abstract class LaborLawsuitService {
     id: string,
     organizationId: string
   ): Promise<(LaborLawsuitData & { deletedAt: Date | null }) | null> {
+    const { creator, updater } = auditUserAliases();
+
     const [result] = await db
       .select({
         id: schema.laborLawsuits.id,
@@ -102,12 +117,22 @@ export abstract class LaborLawsuitService {
         createdAt: schema.laborLawsuits.createdAt,
         updatedAt: schema.laborLawsuits.updatedAt,
         deletedAt: schema.laborLawsuits.deletedAt,
+        createdBy: {
+          id: creator.id,
+          name: creator.name,
+        },
+        updatedBy: {
+          id: updater.id,
+          name: updater.name,
+        },
       })
       .from(schema.laborLawsuits)
       .innerJoin(
         schema.employees,
         eq(schema.laborLawsuits.employeeId, schema.employees.id)
       )
+      .innerJoin(creator, eq(schema.laborLawsuits.createdBy, creator.id))
+      .innerJoin(updater, eq(schema.laborLawsuits.updatedBy, updater.id))
       .where(
         and(
           eq(schema.laborLawsuits.id, id),
@@ -197,7 +222,7 @@ export abstract class LaborLawsuitService {
   ): Promise<LaborLawsuitData> {
     const { organizationId, userId, ...data } = input;
 
-    const employee = await LaborLawsuitService.getEmployeeReference(
+    await LaborLawsuitService.getEmployeeReference(
       data.employeeId,
       organizationId
     );
@@ -233,36 +258,15 @@ export abstract class LaborLawsuitService {
       })
       .returning();
 
-    return {
-      id: lawsuit.id,
-      organizationId: lawsuit.organizationId,
-      employee,
-      processNumber: lawsuit.processNumber,
-      court: lawsuit.court,
-      filingDate: lawsuit.filingDate,
-      knowledgeDate: lawsuit.knowledgeDate,
-      plaintiff: lawsuit.plaintiff,
-      defendant: lawsuit.defendant,
-      plaintiffLawyer: lawsuit.plaintiffLawyer,
-      defendantLawyer: lawsuit.defendantLawyer,
-      description: lawsuit.description,
-      claimAmount: lawsuit.claimAmount ? Number(lawsuit.claimAmount) : null,
-      progress: lawsuit.progress,
-      decision: lawsuit.decision,
-      conclusionDate: lawsuit.conclusionDate,
-      appeals: lawsuit.appeals,
-      costsExpenses: lawsuit.costsExpenses
-        ? Number(lawsuit.costsExpenses)
-        : null,
-      createdAt: lawsuit.createdAt,
-      updatedAt: lawsuit.updatedAt,
-    } as LaborLawsuitData;
+    return LaborLawsuitService.findByIdOrThrow(lawsuit.id, organizationId);
   }
 
   static async findAll(
     organizationId: string,
     employeeId?: string
   ): Promise<LaborLawsuitData[]> {
+    const { creator, updater } = auditUserAliases();
+
     const conditions = [
       eq(schema.laborLawsuits.organizationId, organizationId),
       isNull(schema.laborLawsuits.deletedAt),
@@ -297,12 +301,22 @@ export abstract class LaborLawsuitService {
         costsExpenses: schema.laborLawsuits.costsExpenses,
         createdAt: schema.laborLawsuits.createdAt,
         updatedAt: schema.laborLawsuits.updatedAt,
+        createdBy: {
+          id: creator.id,
+          name: creator.name,
+        },
+        updatedBy: {
+          id: updater.id,
+          name: updater.name,
+        },
       })
       .from(schema.laborLawsuits)
       .innerJoin(
         schema.employees,
         eq(schema.laborLawsuits.employeeId, schema.employees.id)
       )
+      .innerJoin(creator, eq(schema.laborLawsuits.createdBy, creator.id))
+      .innerJoin(updater, eq(schema.laborLawsuits.updatedBy, updater.id))
       .where(and(...conditions))
       .orderBy(desc(schema.laborLawsuits.filingDate));
 

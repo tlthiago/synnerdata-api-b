@@ -82,6 +82,12 @@ describe("GET /v1/labor-lawsuits", () => {
     expect(body.data.length).toBe(2);
     expect(body.data[0].employee).toBeDefined();
     expect(body.data[0].processNumber).toBeDefined();
+    expect(body.data[0].createdBy).toBeObject();
+    expect(body.data[0].createdBy.id).toBeString();
+    expect(body.data[0].createdBy.name).toBeString();
+    expect(body.data[0].updatedBy).toBeObject();
+    expect(body.data[0].updatedBy.id).toBeString();
+    expect(body.data[0].updatedBy.name).toBeString();
   });
 
   test("should filter by employeeId", async () => {
