@@ -34,6 +34,12 @@ describe("GET /v1/absences/:id", () => {
     expect(body.data.employee).toBeObject();
     expect(body.data.employee.id).toBe(absence.employee.id);
     expect(body.data.employee.name).toBe(absence.employee.name);
+    expect(body.data.createdBy).toBeObject();
+    expect(body.data.createdBy.id).toBeString();
+    expect(body.data.createdBy.name).toBeString();
+    expect(body.data.updatedBy).toBeObject();
+    expect(body.data.updatedBy.id).toBeString();
+    expect(body.data.updatedBy.name).toBeString();
   });
 
   test("should reject non-existent absence", async () => {

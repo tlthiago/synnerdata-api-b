@@ -225,6 +225,12 @@ describe("POST /v1/absences", () => {
     expect(body.data.startDate).toBe("2024-01-01");
     expect(body.data.endDate).toBe("2024-01-03");
     expect(body.data.type).toBe("justified");
+    expect(body.data.createdBy).toBeObject();
+    expect(body.data.createdBy.id).toBeString();
+    expect(body.data.createdBy.name).toBeString();
+    expect(body.data.updatedBy).toBeObject();
+    expect(body.data.updatedBy.id).toBeString();
+    expect(body.data.updatedBy.name).toBeString();
   });
 
   test.each([
