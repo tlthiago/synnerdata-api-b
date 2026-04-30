@@ -71,7 +71,6 @@ export const projectDataSchema = z.object({
 // Deleted project data schema (response)
 export const deletedProjectDataSchema = projectDataSchema.extend({
   deletedAt: z.coerce.date().describe("Data de exclusão"),
-  deletedBy: z.string().nullable().describe("Usuário que excluiu"),
 });
 
 // Employee assignment response schema

@@ -15,13 +15,31 @@
 - **No re-exports or barrel files** — import directly from source modules. The only allowed barrel file is `src/db/schema/index.ts` (Drizzle schema aggregation)
 - **Typed env config** — all environment variables are parsed via Zod in `src/env.ts`. Import `env` from there, never use `process.env` directly
 - **Domain-prefixed IDs** — entity IDs follow `<domain>-<uuid>` format (e.g., `absence-${crypto.randomUUID()}`). Always use `crypto.randomUUID()` with the appropriate prefix
-- **Soft deletes** — entities use `deletedAt`/`deletedBy` fields instead of hard delete. Always filter with `isNull(schema.<table>.deletedAt)` in queries to exclude deleted records
-- **Timestamps convention** — all tables include `createdAt` (defaultNow), `updatedAt` ($onUpdate), `createdBy`, `updatedBy`. Populate `createdBy`/`updatedBy` with the user ID from session
+- **Soft deletes** — entities use a `deletedAt` field instead of hard delete (the `deletedBy` field was removed in PRD #3 — deletion attribution is now the responsibility of `audit_logs`, see `src/modules/audit/`). Always filter with `isNull(schema.<table>.deletedAt)` in queries to exclude deleted records
+- **Timestamps convention** — all in-scope domain tables include `createdAt` (defaultNow), `updatedAt` ($onUpdate), `createdBy` (NOT NULL FK to `users.id` ON DELETE RESTRICT), `updatedBy` (NOT NULL FK to `users.id` ON DELETE RESTRICT). Populate `createdBy` on INSERT and `updatedBy` on both INSERT and UPDATE — both equal to the user ID from session. Soft-delete (`UPDATE x SET deletedAt = now()`) também é um UPDATE para essa regra: sempre incluir `updatedBy: userId` no `.set()`. O par `(updatedAt, updatedBy)` permanece coerente — se `updatedAt` mudou, `updatedBy` reflete quem causou a mudança, mesmo que ela tenha sido um soft-delete. Helper for self-joins to `users`: `auditUserAliases()` from `src/lib/schemas/audit-users.ts`. Query style: Drizzle Core API + inline `select()` + `aliasedTable` (NOT the Relational API). Reference implementation: `src/modules/occurrences/absences/absence.service.ts`
 - **Nullable field clearing (JSON Merge Patch)** — update endpoints follow RFC 7396 semantics for nullable fields: `undefined` (omitted) = keep current value, `"value"` = update, `null` = clear. Update schemas must use `.nullable().optional()` on every field that is `.nullable()` in the response schema. In `buildUpdateData`, use `!== undefined` to detect sent fields (null passes, undefined doesn't). Number fields stored as string need explicit null handling: `data.field !== null ? data.field.toString() : null`. Date cross-validations must use `!== undefined` (not truthy checks) and `!== undefined ? data.field : existing.field` (not `??`, which treats null as missing). Reference implementation: `src/modules/occurrences/labor-lawsuits/`
 
 ## Database Versioning
 
 Drizzle migrations são fonte da verdade do schema do banco. Disciplina obrigatória:
+
+### O que pertence em uma migration
+
+Migrations descrevem evolução de schema, não estado de dados de produção. São aceitos:
+
+1. **DDL puro** (`CREATE`, `ALTER`, `DROP`) — caso canônico.
+2. **Backfill como pré-requisito DDL**, com a condição de que o resultado seja **igual em todo ambiente** — ex: `UPDATE x SET col = UPPER(col)` antes de `ALTER COLUMN ... TYPE enum`; backfill de seed conhecido idêntico em test/HML/prod. Se o backfill depende de dados específicos de prod, NÃO pertence aqui.
+3. **Seeds idempotentes de dados de referência** (`ON CONFLICT DO UPDATE`), aceitos por compatibilidade. Para novos seeds, prefira script dedicado (`bun run db:seed`) — não é ideal versionar dados em migrations.
+
+NÃO pertence em migration:
+
+- **Data fix de prod** (corrigir dados produzidos por bug específico, restaurar estado, limpar órfãos). Roda via `psql "$PROD_DATABASE_URL"` direto, com audit trail (Slack/ticket/PR de scripts em `scripts/data-fixes/`).
+- **Backfill que depende de decisão operacional** (ex: "qual user atribuir como creator dessas N linhas legacy"). Mesmo tratamento — operação manual auditável fora da migration.
+- **Cleanup recorrente** (truncate de logs, expirar tokens, etc.). Job agendado, não migration.
+
+Critério de teste: se a migration roda como no-op em test/HML/CI mas faz UPDATE em prod, é provavelmente data fix mascarado. Se o backfill exigiu uma reunião pra decidir o critério, idem.
+
+### Regras de processo
 
 - **NUNCA use `bun db:push`** — esse comando aplica `schema.ts` direto no DB sem gerar migration. Quebra o histórico, impossibilita rollback determinístico, gera drift entre ambientes. O script existe no `package.json` apenas porque é parte do drizzle-kit; **não use**.
 - **`bun db:check` (drizzle-kit check)** valida a consistência da cadeia de snapshots — detecta colisões de `prevId`, snapshots malformados, conflitos de DDL não-comutativos entre branches. Roda no CI como guard-rail oficial.
@@ -57,15 +75,20 @@ Ao tocar em qualquer arquivo sob `src/db/`:
 
 - Branches derivam sempre da `preview`
 - Use worktrees (`Trabalhe em um worktree.`) para trabalho que precisa de isolamento (implementação paralela, features independentes)
+- Worktree novo não herda os arquivos `.env` / `.env.test` (gitignored). Após `git worktree add`, copie do repo principal: `cp ../../.env .env && cp ../../.env.test .env.test`. Sem isso, `bun test` quebra com erro de configuração de env.
 - Convenção de branch: `feat/`, `fix/`, `refactor/` + nome descritivo (e.g., `feat/admin-custom-checkout`)
 - Não faça commit sem ser solicitado
 - Observações e decisões da implementação devem ser documentadas na **PR**, não na issue. A issue é a especificação; a PR é a entrega
+- **Nunca `git push` direto em `preview` ou `main`** — sempre via PR. Exceção: docs-only patches em `preview` quando explicitamente autorizado pelo dono do repo.
+- **Nunca use `--no-verify` ou flags que bypassam hooks** (`--no-gpg-sign`, `-c commit.gpgsign=false`, etc.). Se um hook falha, investigue e corrija; não contorne.
 
 ## Definition of Done (global — não repetir nas issues)
 
 - Testes de integração criados em `__tests__/` ao lado do módulo
 - Testes seguem os padrões do projeto: `createTestApp()`, factories, `app.handle(new Request())`
 - Testes afetados passam (ver seção "Execução de Testes" abaixo)
+- Type-check passa: `bun x tsc --noEmit`
+- Drizzle snapshot chain válida: `bun run db:check` (obrigatório quando o PR toca `src/db/`)
 - Lint passa (`npx ultracite check`)
 
 ## Execução de Testes

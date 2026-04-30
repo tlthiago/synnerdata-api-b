@@ -26,7 +26,7 @@ Projetos com alocação de funcionários (M2M).
 - Resource key: `project_employee`
 - Mutations logged: `create` (via `addEmployee` or inline `create` loop), `delete` (via `removeEmployee`)
 - Diff fields: `projectId`, `employeeId` (junction columns)
-- Why audited separately: junction table has its own lifecycle; PRD #3 will drop `deletedBy` from `project_employees`, so `audit_logs` becomes the deletion attribution source for these associations
+- Why audited separately: junction table has its own lifecycle; `deletedBy` was dropped from both `projects` and `project_employees` in PRD #3, so `audit_logs` is the deletion attribution source for both
 
 ## Endpoints M2M
 

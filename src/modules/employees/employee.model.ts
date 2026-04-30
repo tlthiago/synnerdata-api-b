@@ -622,7 +622,6 @@ const employeeDataSchema = z.object({
 
 const deletedEmployeeDataSchema = employeeDataSchema.extend({
   deletedAt: z.coerce.date().describe("Data de exclusão"),
-  deletedBy: z.string().nullable().describe("ID do usuário que excluiu"),
 });
 
 const employeeListDataSchema = z.array(employeeDataSchema);

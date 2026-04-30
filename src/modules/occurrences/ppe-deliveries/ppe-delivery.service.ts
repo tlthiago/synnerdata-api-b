@@ -207,6 +207,7 @@ export abstract class PpeDeliveryService {
         reason: data.reason,
         deliveredBy: data.deliveredBy,
         createdBy: userId,
+        updatedBy: userId,
       })
       .returning();
 
@@ -393,7 +394,7 @@ export abstract class PpeDeliveryService {
       if (!newIds.has(item.ppeItemId)) {
         const [removed] = await db
           .update(schema.ppeDeliveryItems)
-          .set({ deletedAt: new Date(), deletedBy: userId })
+          .set({ deletedAt: new Date() })
           .where(eq(schema.ppeDeliveryItems.id, item.id))
           .returning();
 
@@ -472,7 +473,7 @@ export abstract class PpeDeliveryService {
       .update(schema.ppeDeliveries)
       .set({
         deletedAt: new Date(),
-        deletedBy: userId,
+        updatedBy: userId,
       })
       .where(
         and(
@@ -503,7 +504,6 @@ export abstract class PpeDeliveryService {
     return {
       ...enriched,
       deletedAt: deleted.deletedAt as Date,
-      deletedBy: deleted.deletedBy,
     };
   }
 
@@ -643,7 +643,6 @@ export abstract class PpeDeliveryService {
       .update(schema.ppeDeliveryItems)
       .set({
         deletedAt: new Date(),
-        deletedBy: userId,
       })
       .where(eq(schema.ppeDeliveryItems.id, association.id))
       .returning();

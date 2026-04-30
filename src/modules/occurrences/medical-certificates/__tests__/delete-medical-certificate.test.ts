@@ -130,7 +130,7 @@ describe("DELETE /v1/medical-certificates/:id", () => {
   });
 
   test("should delete medical certificate successfully", async () => {
-    const { headers, organizationId, userId, user } =
+    const { headers, organizationId, userId } =
       await createTestUserWithOrganization({
         emailVerified: true,
       });
@@ -157,6 +157,5 @@ describe("DELETE /v1/medical-certificates/:id", () => {
     expect(body.data.employee.id).toBe(employee.id);
     expect(body.data.employee.name).toBeString();
     expect(body.data.deletedAt).toBeDefined();
-    expect(body.data.deletedBy).toBe(user.id);
   });
 });

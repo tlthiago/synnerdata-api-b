@@ -82,7 +82,6 @@ const promotionDataSchema = z.object({
 
 const deletedPromotionDataSchema = promotionDataSchema.extend({
   deletedAt: z.coerce.date().describe("Data de exclusão"),
-  deletedBy: z.string().nullable().describe("ID do usuário que excluiu"),
 });
 
 const promotionListDataSchema = z.array(promotionDataSchema);

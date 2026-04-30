@@ -117,7 +117,6 @@ const warningDataSchema = z.object({
 
 const deletedWarningDataSchema = warningDataSchema.extend({
   deletedAt: z.coerce.date().describe("Data de exclusão"),
-  deletedBy: z.string().nullable().describe("ID do usuário que excluiu"),
 });
 
 const warningListDataSchema = z.array(warningDataSchema);

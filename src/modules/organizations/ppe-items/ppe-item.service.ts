@@ -99,6 +99,7 @@ export abstract class PpeItemService {
         description: data.description,
         equipment: data.equipment,
         createdBy: userId,
+        updatedBy: userId,
       })
       .returning();
 
@@ -211,7 +212,7 @@ export abstract class PpeItemService {
       .update(schema.ppeItems)
       .set({
         deletedAt: new Date(),
-        deletedBy: userId,
+        updatedBy: userId,
       })
       .where(
         and(
@@ -339,7 +340,6 @@ export abstract class PpeItemService {
       .update(schema.ppeJobPositions)
       .set({
         deletedAt: new Date(),
-        deletedBy: userId,
       })
       .where(eq(schema.ppeJobPositions.id, association.id))
       .returning();

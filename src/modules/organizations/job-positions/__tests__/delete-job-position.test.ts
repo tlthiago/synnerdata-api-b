@@ -110,7 +110,6 @@ describe("DELETE /v1/job-positions/:id", () => {
     expect(body.success).toBe(true);
     expect(body.data.id).toBe(jobPosition.id);
     expect(body.data.deletedAt).toBeDefined();
-    expect(body.data.deletedBy).toBe(user.id);
   });
 
   test.each([

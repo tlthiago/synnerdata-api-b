@@ -8,6 +8,7 @@ import {
 } from "@/modules/organizations/profile/errors";
 import { OrganizationService } from "@/modules/organizations/profile/organization.service";
 import { createTestOrganization } from "@/test/helpers/organization";
+import { getOrCreateSystemTestUser } from "@/test/helpers/system-user";
 
 function generateUniqueTaxId(): string {
   return `${Date.now()}${Math.floor(Math.random() * 1_000_000)}`.slice(0, 14);
@@ -125,13 +126,18 @@ describe("OrganizationService", () => {
     test("should create profile with provided data", async () => {
       const org = await createOrganizationWithoutProfile();
       const uniqueTaxId = generateUniqueTaxId();
+      const userId = await getOrCreateSystemTestUser();
 
-      await OrganizationService.createProfile(org.id, {
-        tradeName: "New Company",
-        taxId: uniqueTaxId,
-        phone: "21888888888",
-        email: "billing@newcompany.com",
-      });
+      await OrganizationService.createProfile(
+        org.id,
+        {
+          tradeName: "New Company",
+          taxId: uniqueTaxId,
+          phone: "21888888888",
+          email: "billing@newcompany.com",
+        },
+        userId
+      );
 
       const [profile] = await db
         .select()
@@ -149,12 +155,17 @@ describe("OrganizationService", () => {
     test("should use tradeName as legalName when legalName is not provided", async () => {
       const org = await createOrganizationWithoutProfile();
       const uniqueTaxId = generateUniqueTaxId();
+      const userId = await getOrCreateSystemTestUser();
 
-      await OrganizationService.createProfile(org.id, {
-        tradeName: "Trade Name Only",
-        taxId: uniqueTaxId,
-        phone: "11999999999",
-      });
+      await OrganizationService.createProfile(
+        org.id,
+        {
+          tradeName: "Trade Name Only",
+          taxId: uniqueTaxId,
+          phone: "11999999999",
+        },
+        userId
+      );
 
       const [profile] = await db
         .select()
@@ -167,13 +178,18 @@ describe("OrganizationService", () => {
 
     test("should throw ProfileAlreadyExistsError when profile already exists", async () => {
       const org = await createTestOrganization();
+      const userId = await getOrCreateSystemTestUser();
 
       await expect(
-        OrganizationService.createProfile(org.id, {
-          tradeName: "Duplicate Profile",
-          taxId: generateUniqueTaxId(),
-          phone: "11999999999",
-        })
+        OrganizationService.createProfile(
+          org.id,
+          {
+            tradeName: "Duplicate Profile",
+            taxId: generateUniqueTaxId(),
+            phone: "11999999999",
+          },
+          userId
+        )
       ).rejects.toBeInstanceOf(ProfileAlreadyExistsError);
     });
   });
@@ -212,8 +228,9 @@ describe("OrganizationService", () => {
   describe("createMinimalProfile", () => {
     test("should create profile with tradeName only", async () => {
       const org = await createOrganizationWithoutProfile();
+      const userId = await getOrCreateSystemTestUser();
 
-      await OrganizationService.createMinimalProfile(org.id, org.name);
+      await OrganizationService.createMinimalProfile(org.id, org.name, userId);
 
       const [profile] = await db
         .select()
@@ -233,8 +250,13 @@ describe("OrganizationService", () => {
 
     test("should be idempotent — return silently if profile already exists", async () => {
       const org = await createTestOrganization({ tradeName: "Original Name" });
+      const userId = await getOrCreateSystemTestUser();
 
-      await OrganizationService.createMinimalProfile(org.id, "New Name");
+      await OrganizationService.createMinimalProfile(
+        org.id,
+        "New Name",
+        userId
+      );
 
       const [profile] = await db
         .select()
@@ -249,19 +271,24 @@ describe("OrganizationService", () => {
   describe("enrichProfile", () => {
     test("should fill null fields with provided data", async () => {
       const org = await createOrganizationWithoutProfile();
-      await OrganizationService.createMinimalProfile(org.id, org.name);
+      const userId = await getOrCreateSystemTestUser();
+      await OrganizationService.createMinimalProfile(org.id, org.name, userId);
 
-      await OrganizationService.enrichProfile(org.id, {
-        legalName: "Enriched Legal Name",
-        taxId: generateUniqueTaxId(),
-        email: "enriched@example.com",
-        phone: "11888888888",
-        street: "Rua Teste",
-        number: "123",
-        city: "São Paulo",
-        state: "SP",
-        zipCode: "01001000",
-      });
+      await OrganizationService.enrichProfile(
+        org.id,
+        {
+          legalName: "Enriched Legal Name",
+          taxId: generateUniqueTaxId(),
+          email: "enriched@example.com",
+          phone: "11888888888",
+          street: "Rua Teste",
+          number: "123",
+          city: "São Paulo",
+          state: "SP",
+          zipCode: "01001000",
+        },
+        userId
+      );
 
       const profile = await OrganizationService.getProfile(org.id);
 
@@ -285,14 +312,19 @@ describe("OrganizationService", () => {
         phone: "11999999999",
         email: "existing@example.com",
       });
+      const userId = await getOrCreateSystemTestUser();
 
-      await OrganizationService.enrichProfile(org.id, {
-        legalName: "Should Not Overwrite",
-        taxId: "99999999999999",
-        email: "should-not@example.com",
-        phone: "21888888888",
-        street: "New Street",
-      });
+      await OrganizationService.enrichProfile(
+        org.id,
+        {
+          legalName: "Should Not Overwrite",
+          taxId: "99999999999999",
+          email: "should-not@example.com",
+          phone: "21888888888",
+          street: "New Street",
+        },
+        userId
+      );
 
       const profile = await OrganizationService.getProfile(org.id);
 
@@ -304,9 +336,15 @@ describe("OrganizationService", () => {
     });
 
     test("should do nothing if profile does not exist", async () => {
-      await OrganizationService.enrichProfile("non-existent-org-id", {
-        legalName: "Test",
-      });
+      const userId = await getOrCreateSystemTestUser();
+
+      await OrganizationService.enrichProfile(
+        "non-existent-org-id",
+        {
+          legalName: "Test",
+        },
+        userId
+      );
 
       // Should not throw
     });
@@ -319,11 +357,16 @@ describe("OrganizationService", () => {
         phone: "11999999999",
         email: "full@example.com",
       });
+      const userId = await getOrCreateSystemTestUser();
 
-      await OrganizationService.enrichProfile(org.id, {
-        legalName: "New Legal",
-        email: "new@example.com",
-      });
+      await OrganizationService.enrichProfile(
+        org.id,
+        {
+          legalName: "New Legal",
+          email: "new@example.com",
+        },
+        userId
+      );
 
       const profile = await OrganizationService.getProfile(org.id);
 
@@ -336,8 +379,9 @@ describe("OrganizationService", () => {
     test("should update pagarmeCustomerId for existing profile", async () => {
       const org = await createTestOrganization();
       const customerId = `cus_test_${crypto.randomUUID().slice(0, 8)}`;
+      const userId = await getOrCreateSystemTestUser();
 
-      await OrganizationService.setCustomerId(org.id, customerId);
+      await OrganizationService.setCustomerId(org.id, customerId, userId);
 
       const [profile] = await db
         .select({

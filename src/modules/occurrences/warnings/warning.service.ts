@@ -71,9 +71,7 @@ export abstract class WarningService {
   private static async findByIdIncludingDeleted(
     id: string,
     organizationId: string
-  ): Promise<
-    (WarningData & { deletedAt: Date | null; deletedBy: string | null }) | null
-  > {
+  ): Promise<(WarningData & { deletedAt: Date | null }) | null> {
     const [result] = await db
       .select({
         id: schema.warnings.id,
@@ -93,7 +91,6 @@ export abstract class WarningService {
         createdAt: schema.warnings.createdAt,
         updatedAt: schema.warnings.updatedAt,
         deletedAt: schema.warnings.deletedAt,
-        deletedBy: schema.warnings.deletedBy,
       })
       .from(schema.warnings)
       .innerJoin(
@@ -249,6 +246,7 @@ export abstract class WarningService {
           : null,
         notes: data.notes,
         createdBy: userId,
+        updatedBy: userId,
       })
       .returning();
 
@@ -410,7 +408,7 @@ export abstract class WarningService {
       .update(schema.warnings)
       .set({
         deletedAt: new Date(),
-        deletedBy: userId,
+        updatedBy: userId,
       })
       .where(
         and(
@@ -436,7 +434,6 @@ export abstract class WarningService {
     return {
       ...existing,
       deletedAt: deleted.deletedAt as Date,
-      deletedBy: deleted.deletedBy,
     } as DeletedWarningData;
   }
 }

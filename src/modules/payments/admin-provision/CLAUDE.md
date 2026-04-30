@@ -128,8 +128,9 @@ Todas as rotas que retornam `ProvisionData` incluem o objeto `subscription`:
 | checkoutExpiresAt | timestamp | Expiração do link de checkout |
 | pendingCheckoutId | text | ID do pending_checkout associado |
 | notes | text | Observações do admin |
-| createdBy | text | Admin que criou |
-| deletedAt/deletedBy | timestamp/text | Soft delete para audit |
+| createdBy | text FK NOT NULL | Admin que criou (FK -> users.id, restrict) |
+| updatedBy | text FK NOT NULL | Quem atualizou por último, inclui soft delete (FK -> users.id, restrict) |
+| deletedAt | timestamp | Soft delete timestamp |
 
 ## Dependências
 

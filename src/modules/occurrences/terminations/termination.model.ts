@@ -124,7 +124,6 @@ const terminationDataSchema = z.object({
 
 const deletedTerminationDataSchema = terminationDataSchema.extend({
   deletedAt: z.coerce.date().describe("Data de exclusão"),
-  deletedBy: z.string().nullable().describe("ID do usuário que excluiu"),
 });
 
 const terminationListDataSchema = z.array(terminationDataSchema);

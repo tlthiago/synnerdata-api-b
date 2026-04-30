@@ -1,5 +1,6 @@
 import { z } from "zod";
 import { successResponseSchema } from "@/lib/responses/response.types";
+import { entityReferenceSchema } from "@/lib/schemas/relationships";
 
 export const createCostCenterSchema = z.object({
   name: z
@@ -21,11 +22,16 @@ const costCenterDataSchema = z.object({
   name: z.string().describe("Nome do centro de custo"),
   createdAt: z.coerce.date().describe("Data de criação"),
   updatedAt: z.coerce.date().describe("Data de atualização"),
+  createdBy: entityReferenceSchema.describe(
+    "Usuário que criou o centro de custo"
+  ),
+  updatedBy: entityReferenceSchema.describe(
+    "Usuário que atualizou o centro de custo pela última vez"
+  ),
 });
 
 const deletedCostCenterDataSchema = costCenterDataSchema.extend({
   deletedAt: z.coerce.date().describe("Data de exclusão"),
-  deletedBy: z.string().nullable().describe("ID do usuário que excluiu"),
 });
 
 const costCenterListDataSchema = z.array(costCenterDataSchema);

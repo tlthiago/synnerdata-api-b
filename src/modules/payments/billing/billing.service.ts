@@ -79,7 +79,8 @@ export abstract class BillingService {
 
   static async createProfile(
     organizationId: string,
-    input: CreateProfileInput
+    input: CreateProfileInput,
+    userId: string
   ): Promise<BillingProfile> {
     const existing = await BillingService.getProfile(organizationId);
 
@@ -105,17 +106,20 @@ export abstract class BillingService {
         city: input.address?.city,
         state: input.address?.state,
         zipCode: input.address?.zipCode,
+        createdBy: userId,
+        updatedBy: userId,
       })
       .returning();
 
-    BillingService.propagateToOrgProfile(organizationId, input);
+    BillingService.propagateToOrgProfile(organizationId, input, userId);
 
     return profile;
   }
 
   static async updateProfile(
     organizationId: string,
-    input: UpdateProfileInput
+    input: UpdateProfileInput,
+    userId: string
   ): Promise<BillingProfile> {
     const existing = await BillingService.getProfileOrThrow(organizationId);
 
@@ -133,6 +137,7 @@ export abstract class BillingService {
         city: input.address?.city,
         state: input.address?.state,
         zipCode: input.address?.zipCode,
+        updatedBy: userId,
       })
       .where(eq(billingProfiles.id, existing.id))
       .returning();
@@ -141,30 +146,35 @@ export abstract class BillingService {
       await syncCustomerToPagarme(existing, input, organizationId);
     }
 
-    BillingService.propagateToOrgProfile(organizationId, input);
+    BillingService.propagateToOrgProfile(organizationId, input, userId);
 
     return updated;
   }
 
   private static propagateToOrgProfile(
     organizationId: string,
-    input: CreateProfileInput | UpdateProfileInput
+    input: CreateProfileInput | UpdateProfileInput,
+    userId: string
   ): void {
     import("@/modules/organizations/profile/organization.service")
       .then(({ OrganizationService }) =>
-        OrganizationService.enrichProfile(organizationId, {
-          legalName: input.legalName,
-          taxId: input.taxId,
-          email: input.email,
-          phone: input.phone,
-          street: input.address?.street,
-          number: input.address?.number,
-          complement: input.address?.complement,
-          neighborhood: input.address?.neighborhood,
-          city: input.address?.city,
-          state: input.address?.state,
-          zipCode: input.address?.zipCode,
-        })
+        OrganizationService.enrichProfile(
+          organizationId,
+          {
+            legalName: input.legalName,
+            taxId: input.taxId,
+            email: input.email,
+            phone: input.phone,
+            street: input.address?.street,
+            number: input.address?.number,
+            complement: input.address?.complement,
+            neighborhood: input.address?.neighborhood,
+            city: input.address?.city,
+            state: input.address?.state,
+            zipCode: input.address?.zipCode,
+          },
+          userId
+        )
       )
       .catch((error: unknown) => {
         import("@/lib/logger").then(({ logger }) => {

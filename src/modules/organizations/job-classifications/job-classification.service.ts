@@ -125,6 +125,7 @@ export abstract class JobClassificationService {
         name: resolvedName,
         cboOccupationId: data.cboOccupationId ?? null,
         createdBy: userId,
+        updatedBy: userId,
       })
       .returning();
 
@@ -253,7 +254,7 @@ export abstract class JobClassificationService {
       .update(schema.jobClassifications)
       .set({
         deletedAt: new Date(),
-        deletedBy: userId,
+        updatedBy: userId,
       })
       .where(
         and(

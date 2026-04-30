@@ -4,8 +4,8 @@ Estrutura organizacional e dados cadastrais. Todos os sub-módulos são scoped p
 
 ## Common Patterns (all submodules)
 
-- Soft delete em todos os sub-módulos (`deletedAt`/`deletedBy`) — exceção: profile (permanente)
-- Audit trail: `createdBy`, `updatedBy`, `deletedBy`
+- Soft delete em todos os sub-módulos (`deletedAt`) — exceção: profile (permanente). Atribuição de deleção via `audit_logs` (PRD #3 removeu `deletedBy`)
+- Audit trail: `createdBy` (no INSERT) + `updatedBy` (no INSERT e no UPDATE) com userId da sessão
 - ID format: `<entity>-${crypto.randomUUID()}`
 - Listagem ordenada por `name` (exceção: projects ordena por `startDate` DESC)
 - Todos requerem `requireOrganization: true`

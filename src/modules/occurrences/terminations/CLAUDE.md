@@ -12,7 +12,7 @@ Registro de desligamentos de funcionários com suporte a agendamento futuro.
 - `reason` (max 1000), `notes` (max 2000) — opcionais.
 - Um employee só pode ter um desligamento ativo (não deletado) — `TerminationAlreadyExistsError` (409).
 - Update que altera `terminationDate` flipa o `status` imediatamente (sem esperar cron).
-- Soft delete seta `status = canceled` (antecipa migração futura que removerá `deletedAt`/`deletedBy`).
+- Soft delete seta `status = canceled` em paralelo a `deletedAt` — preserva o lifecycle do recurso no enum (estado de negócio) enquanto `deletedAt` mantém o sinal técnico de soft-delete (filtro universal `isNull(deletedAt)` em queries; permite restore por `UPDATE ... SET deleted_at = NULL`).
 - Sem verificação de status do employee no create — `TERMINATION_SCHEDULED` não bloqueia outras ocorrências (employee em rescisão agendada ainda pode tirar férias, registrar atestado, etc., durante o aviso prévio).
 
 ## Status Lifecycle

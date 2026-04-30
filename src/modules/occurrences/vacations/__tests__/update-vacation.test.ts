@@ -874,6 +874,7 @@ describe("PUT /v1/vacations/:id", () => {
       status: "scheduled",
       notes: null,
       createdBy: user.id,
+      updatedBy: user.id,
     });
 
     const updateResponse = await app.handle(

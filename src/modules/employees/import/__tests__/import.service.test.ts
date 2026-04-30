@@ -357,6 +357,7 @@ describe("ImportService.importFromFile", () => {
       hasSpecialNeeds: false,
       hasChildren: false,
       createdBy: userId,
+      updatedBy: userId,
     });
 
     // Import a new employee with the same CPF

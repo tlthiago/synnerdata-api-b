@@ -200,7 +200,6 @@ describe("DELETE /v1/vacations/:id", () => {
     expect(body.success).toBe(true);
     expect(body.data.id).toBe(vacation.id);
     expect(body.data.deletedAt).toBeDefined();
-    expect(body.data.deletedBy).toBe(user.id);
     expect(body.data.employee).toBeObject();
     expect(body.data.employee.id).toBeString();
     expect(body.data.employee.name).toBeString();

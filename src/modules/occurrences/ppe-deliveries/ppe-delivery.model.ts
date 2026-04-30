@@ -101,7 +101,6 @@ const ppeDeliveryDataSchema = z.object({
 
 const deletedPpeDeliveryDataSchema = ppeDeliveryDataSchema.extend({
   deletedAt: z.coerce.date().describe("Data de exclusão"),
-  deletedBy: z.string().nullable().describe("ID do usuário que excluiu"),
 });
 
 const ppeDeliveryListDataSchema = z.array(ppeDeliveryDataSchema);

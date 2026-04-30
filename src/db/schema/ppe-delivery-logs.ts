@@ -1,5 +1,6 @@
 import { relations } from "drizzle-orm";
 import { index, pgEnum, pgTable, text, timestamp } from "drizzle-orm/pg-core";
+import { users } from "./auth";
 import { ppeDeliveries } from "./ppe-deliveries";
 import { ppeItems } from "./ppe-items";
 
@@ -25,7 +26,9 @@ export const ppeDeliveryLogs = pgTable(
     createdAt: timestamp("created_at", { withTimezone: true })
       .defaultNow()
       .notNull(),
-    createdBy: text("created_by"),
+    createdBy: text("created_by")
+      .notNull()
+      .references(() => users.id, { onDelete: "restrict" }),
   },
   (table) => [
     index("ppe_delivery_logs_ppe_delivery_id_idx").on(table.ppeDeliveryId),

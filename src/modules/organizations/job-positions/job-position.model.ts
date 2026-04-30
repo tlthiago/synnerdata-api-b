@@ -40,7 +40,6 @@ const jobPositionDataSchema = z.object({
 
 const deletedJobPositionDataSchema = jobPositionDataSchema.extend({
   deletedAt: z.coerce.date().describe("Data de exclusão"),
-  deletedBy: z.string().nullable().describe("ID do usuário que excluiu"),
 });
 
 const jobPositionListDataSchema = z.array(jobPositionDataSchema);

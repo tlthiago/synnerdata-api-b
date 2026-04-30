@@ -174,6 +174,11 @@ describe("PUT /v1/cost-centers/:id", () => {
     expect(response.status).toBe(200);
     const body = await response.json();
     expect(body.data.name).toBe("Updated by Manager");
+    expect(body.data.createdBy).toEqual({ id: user.id, name: user.name });
+    expect(body.data.updatedBy).toEqual({
+      id: memberResult.user.id,
+      name: memberResult.user.name,
+    });
   });
 
   test("should return 409 when updating cost center to duplicate name", async () => {

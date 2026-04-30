@@ -217,6 +217,7 @@ describe("GET /v1/vacations/employee/:employeeId/next-cycle", () => {
       daysUsed: 30,
       status: "completed",
       createdBy: user.id,
+      updatedBy: user.id,
     });
 
     const response = await app.handle(

@@ -21,7 +21,7 @@ Catálogo de Equipamentos de Proteção Individual com associação a cargos.
 - Resource key: `ppe_job_position`
 - Mutations logged: `create` (via `addJobPosition`), `delete` (via `removeJobPosition`)
 - Diff fields: `ppeItemId`, `jobPositionId` (junction columns)
-- Why audited separately: junction has its own lifecycle; PRD #3 will drop `deletedBy` from `ppe_job_positions`, so `audit_logs` becomes the deletion attribution source
+- Why audited separately: junction has its own lifecycle; `ppe_job_positions` does not store `deletedBy`, so `audit_logs` is the deletion attribution source
 
 ## Endpoints M2M
 

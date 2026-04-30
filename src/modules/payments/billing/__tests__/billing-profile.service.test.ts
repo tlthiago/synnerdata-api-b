@@ -8,6 +8,7 @@ import {
 } from "@/modules/payments/errors";
 import { OrganizationFactory } from "@/test/factories/organization.factory";
 import { BillingProfileFactory } from "@/test/factories/payments/billing-profile.factory";
+import { getOrCreateSystemTestUser } from "@/test/helpers/system-user";
 import { faker, generateCnpj, generateMobile } from "@/test/support/faker";
 import { BillingService } from "../billing.service";
 
@@ -75,6 +76,7 @@ describe("BillingService - Profile Methods", () => {
 
   describe("createProfile", () => {
     test("should create profile with valid data", async () => {
+      const userId = await getOrCreateSystemTestUser();
       const org = await OrganizationFactory.create();
       const input = {
         legalName: faker.company.name(),
@@ -83,7 +85,7 @@ describe("BillingService - Profile Methods", () => {
         phone: generateMobile(),
       };
 
-      const result = await BillingService.createProfile(org.id, input);
+      const result = await BillingService.createProfile(org.id, input, userId);
 
       expect(result.id).toStartWith("bp-");
       expect(result.organizationId).toBe(org.id);
@@ -95,6 +97,7 @@ describe("BillingService - Profile Methods", () => {
     });
 
     test("should throw BillingProfileAlreadyExistsError when profile exists", async () => {
+      const userId = await getOrCreateSystemTestUser();
       const org = await OrganizationFactory.create();
       await BillingProfileFactory.create({ organizationId: org.id });
 
@@ -106,26 +109,32 @@ describe("BillingService - Profile Methods", () => {
       };
 
       await expect(
-        BillingService.createProfile(org.id, input)
+        BillingService.createProfile(org.id, input, userId)
       ).rejects.toBeInstanceOf(BillingProfileAlreadyExistsError);
     });
   });
 
   describe("updateProfile", () => {
     test("should update single field", async () => {
+      const userId = await getOrCreateSystemTestUser();
       const org = await OrganizationFactory.create();
       await BillingProfileFactory.create({ organizationId: org.id });
 
       const newLegalName = faker.company.name();
 
-      const result = await BillingService.updateProfile(org.id, {
-        legalName: newLegalName,
-      });
+      const result = await BillingService.updateProfile(
+        org.id,
+        {
+          legalName: newLegalName,
+        },
+        userId
+      );
 
       expect(result.legalName).toBe(newLegalName);
     });
 
     test("should update multiple fields", async () => {
+      const userId = await getOrCreateSystemTestUser();
       const org = await OrganizationFactory.create();
       await BillingProfileFactory.create({ organizationId: org.id });
 
@@ -136,7 +145,11 @@ describe("BillingService - Profile Methods", () => {
         phone: generateMobile(),
       };
 
-      const result = await BillingService.updateProfile(org.id, updates);
+      const result = await BillingService.updateProfile(
+        org.id,
+        updates,
+        userId
+      );
 
       expect(result.legalName).toBe(updates.legalName);
       expect(result.taxId).toBe(updates.taxId);
@@ -145,10 +158,11 @@ describe("BillingService - Profile Methods", () => {
     });
 
     test("should throw BillingProfileNotFoundError for non-existent profile", async () => {
+      const userId = await getOrCreateSystemTestUser();
       const org = await OrganizationFactory.create();
 
       await expect(
-        BillingService.updateProfile(org.id, { legalName: "New Name" })
+        BillingService.updateProfile(org.id, { legalName: "New Name" }, userId)
       ).rejects.toBeInstanceOf(BillingProfileNotFoundError);
     });
   });
@@ -255,6 +269,7 @@ describe("BillingService - Profile Methods", () => {
 
   describe("createProfile — org profile propagation", () => {
     test("should propagate billing data to null org profile fields", async () => {
+      const userId = await getOrCreateSystemTestUser();
       const { schema } = await import("@/db/schema");
       const org = await OrganizationFactory.create();
 
@@ -278,7 +293,7 @@ describe("BillingService - Profile Methods", () => {
         phone: generateMobile(),
       };
 
-      await BillingService.createProfile(org.id, input);
+      await BillingService.createProfile(org.id, input, userId);
 
       // Wait for fire-and-forget propagation
       await new Promise((resolve) => setTimeout(resolve, 200));
@@ -297,6 +312,7 @@ describe("BillingService - Profile Methods", () => {
     });
 
     test("should not overwrite existing org profile fields", async () => {
+      const userId = await getOrCreateSystemTestUser();
       const existingTaxId = `${Date.now()}`.slice(0, 14);
       const org = await OrganizationFactory.create({
         legalName: "Existing Legal Name",
@@ -310,7 +326,7 @@ describe("BillingService - Profile Methods", () => {
         phone: generateMobile(),
       };
 
-      await BillingService.createProfile(org.id, input);
+      await BillingService.createProfile(org.id, input, userId);
 
       // Wait for fire-and-forget propagation
       await new Promise((resolve) => setTimeout(resolve, 200));
@@ -330,6 +346,7 @@ describe("BillingService - Profile Methods", () => {
 
   describe("updateProfile — org profile propagation", () => {
     test("should propagate updated billing data to null org profile fields", async () => {
+      const userId = await getOrCreateSystemTestUser();
       const { schema } = await import("@/db/schema");
       const org = await OrganizationFactory.create();
       await BillingProfileFactory.create({ organizationId: org.id });
@@ -347,7 +364,11 @@ describe("BillingService - Profile Methods", () => {
         .where(eq(schema.organizationProfiles.organizationId, org.id));
 
       const newLegalName = faker.company.name();
-      await BillingService.updateProfile(org.id, { legalName: newLegalName });
+      await BillingService.updateProfile(
+        org.id,
+        { legalName: newLegalName },
+        userId
+      );
 
       // Wait for fire-and-forget propagation
       await new Promise((resolve) => setTimeout(resolve, 200));
