@@ -44,3 +44,7 @@ Registro de advertências e suspensões disciplinares.
 - `WarningDuplicateError` (409) — same employee + date + type
 - `EmployeeTerminatedError` (422) — shared, from `src/modules/employees/errors.ts`
 - `EmployeeOnVacationError` (422) — shared, from `src/modules/employees/errors.ts`
+
+## User Attribution Shape
+
+Response exposes `createdBy: { id, name }` and `updatedBy: { id, name }` via `auditUserAliases()` innerJoin — canonical pattern from `src/modules/organizations/cost-centers/` (PRD #5+).

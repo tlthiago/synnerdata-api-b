@@ -46,3 +46,7 @@ Registro de entregas de Equipamentos de Proteção Individual com controle item-
 - `PpeDeliveryPpeItemNotFoundError` (404)
 - `EmployeeTerminatedError` (422) — shared, from `src/modules/employees/errors.ts`
 - `EmployeeOnVacationError` (422) — shared, from `src/modules/employees/errors.ts`
+
+## User attribution shape
+
+Este módulo segue o pattern canônico de `createdBy`/`updatedBy` como `entityReferenceSchema` (`{ id, name }`), documentado em `src/modules/organizations/cost-centers/CLAUDE.md`. Aplicado apenas à entrega principal (`ppe_deliveries`); as junctions `ppe_delivery_items` e `ppe_delivery_logs` permanecem fora do contrato de API (items expostos sem audit columns, logs internos).

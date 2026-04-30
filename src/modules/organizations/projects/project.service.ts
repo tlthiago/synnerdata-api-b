@@ -1,6 +1,7 @@
 import { and, desc, eq, isNull, sql } from "drizzle-orm";
 import { db } from "@/db";
 import { schema } from "@/db/schema";
+import { auditUserAliases } from "@/lib/schemas/audit-users";
 import { AuditService } from "@/modules/audit/audit.service";
 import {
   buildAuditChanges,
@@ -98,34 +99,12 @@ export abstract class ProjectService {
     return employees;
   }
 
-  private static async enrichProject(
-    project: {
-      id: string;
-      organizationId: string;
-      name: string;
-      description: string;
-      startDate: string;
-      cno: string;
-      createdAt: Date;
-      updatedAt: Date;
-    },
-    organizationId: string
-  ): Promise<ProjectData> {
-    const employees = await ProjectService.getEmployees(
-      project.id,
-      organizationId
-    );
-
-    return {
-      ...project,
-      employees,
-    };
-  }
-
   private static async findById(
     id: string,
     organizationId: string
   ): Promise<ProjectData | null> {
+    const { creator, updater } = auditUserAliases();
+
     const [result] = await db
       .select({
         id: schema.projects.id,
@@ -136,8 +115,18 @@ export abstract class ProjectService {
         cno: schema.projects.cno,
         createdAt: schema.projects.createdAt,
         updatedAt: schema.projects.updatedAt,
+        createdBy: {
+          id: creator.id,
+          name: creator.name,
+        },
+        updatedBy: {
+          id: updater.id,
+          name: updater.name,
+        },
       })
       .from(schema.projects)
+      .innerJoin(creator, eq(schema.projects.createdBy, creator.id))
+      .innerJoin(updater, eq(schema.projects.updatedBy, updater.id))
       .where(
         and(
           eq(schema.projects.id, id),
@@ -151,13 +140,17 @@ export abstract class ProjectService {
       return null;
     }
 
-    return ProjectService.enrichProject(result, organizationId);
+    const employees = await ProjectService.getEmployees(id, organizationId);
+
+    return { ...result, employees };
   }
 
   private static async findByIdIncludingDeleted(
     id: string,
     organizationId: string
   ): Promise<(ProjectData & { deletedAt: Date | null }) | null> {
+    const { creator, updater } = auditUserAliases();
+
     const [result] = await db
       .select({
         id: schema.projects.id,
@@ -169,8 +162,18 @@ export abstract class ProjectService {
         createdAt: schema.projects.createdAt,
         updatedAt: schema.projects.updatedAt,
         deletedAt: schema.projects.deletedAt,
+        createdBy: {
+          id: creator.id,
+          name: creator.name,
+        },
+        updatedBy: {
+          id: updater.id,
+          name: updater.name,
+        },
       })
       .from(schema.projects)
+      .innerJoin(creator, eq(schema.projects.createdBy, creator.id))
+      .innerJoin(updater, eq(schema.projects.updatedBy, updater.id))
       .where(
         and(
           eq(schema.projects.id, id),
@@ -183,15 +186,9 @@ export abstract class ProjectService {
       return null;
     }
 
-    const employees = await ProjectService.getEmployees(
-      result.id,
-      organizationId
-    );
+    const employees = await ProjectService.getEmployees(id, organizationId);
 
-    return {
-      ...result,
-      employees,
-    };
+    return { ...result, employees };
   }
 
   private static async verifyEmployee(
@@ -221,7 +218,6 @@ export abstract class ProjectService {
     await ProjectService.ensureNameNotExists(organizationId, data.name);
     await ProjectService.ensureCnoNotExists(organizationId, data.cno);
 
-    // Verify all employees exist if provided
     if (employeeIds && employeeIds.length > 0) {
       for (const employeeId of employeeIds) {
         await ProjectService.verifyEmployee(employeeId, organizationId);
@@ -244,7 +240,6 @@ export abstract class ProjectService {
       })
       .returning();
 
-    // Add employees to the project
     if (employeeIds && employeeIds.length > 0) {
       for (const employeeId of employeeIds) {
         const [association] = await db
@@ -280,22 +275,12 @@ export abstract class ProjectService {
       }),
     });
 
-    return ProjectService.enrichProject(
-      {
-        id: project.id,
-        organizationId: project.organizationId,
-        name: project.name,
-        description: project.description,
-        startDate: project.startDate,
-        cno: project.cno,
-        createdAt: project.createdAt,
-        updatedAt: project.updatedAt,
-      },
-      organizationId
-    );
+    return ProjectService.findByIdOrThrow(project.id, organizationId);
   }
 
   static async findAll(organizationId: string): Promise<ProjectData[]> {
+    const { creator, updater } = auditUserAliases();
+
     const results = await db
       .select({
         id: schema.projects.id,
@@ -306,8 +291,18 @@ export abstract class ProjectService {
         cno: schema.projects.cno,
         createdAt: schema.projects.createdAt,
         updatedAt: schema.projects.updatedAt,
+        createdBy: {
+          id: creator.id,
+          name: creator.name,
+        },
+        updatedBy: {
+          id: updater.id,
+          name: updater.name,
+        },
       })
       .from(schema.projects)
+      .innerJoin(creator, eq(schema.projects.createdBy, creator.id))
+      .innerJoin(updater, eq(schema.projects.updatedBy, updater.id))
       .where(
         and(
           eq(schema.projects.organizationId, organizationId),
@@ -317,12 +312,12 @@ export abstract class ProjectService {
       .orderBy(desc(schema.projects.startDate));
 
     const enrichedProjects: ProjectData[] = [];
-    for (const project of results) {
-      const enriched = await ProjectService.enrichProject(
-        project,
+    for (const result of results) {
+      const employees = await ProjectService.getEmployees(
+        result.id,
         organizationId
       );
-      enrichedProjects.push(enriched);
+      enrichedProjects.push({ ...result, employees });
     }
 
     return enrichedProjects;
@@ -475,16 +470,13 @@ export abstract class ProjectService {
     organizationId: string,
     userId: string
   ): Promise<EmployeeAssignment> {
-    // Verify project exists
     const project = await ProjectService.findById(projectId, organizationId);
     if (!project) {
       throw new ProjectNotFoundError(projectId);
     }
 
-    // Verify employee exists
     await ProjectService.verifyEmployee(employeeId, organizationId);
 
-    // Check if association already exists (active)
     const [existing] = await db
       .select()
       .from(schema.projectEmployees)
@@ -535,13 +527,11 @@ export abstract class ProjectService {
     organizationId: string,
     userId: string
   ): Promise<void> {
-    // Verify project exists
     const project = await ProjectService.findById(projectId, organizationId);
     if (!project) {
       throw new ProjectNotFoundError(projectId);
     }
 
-    // Find active association
     const [association] = await db
       .select()
       .from(schema.projectEmployees)
@@ -559,7 +549,6 @@ export abstract class ProjectService {
       throw new ProjectEmployeeNotAssignedError(projectId, employeeId);
     }
 
-    // Soft delete the association
     const [removed] = await db
       .update(schema.projectEmployees)
       .set({

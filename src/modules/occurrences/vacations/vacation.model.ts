@@ -116,6 +116,10 @@ const vacationDataSchema = z.object({
   notes: z.string().nullable().describe("Observações"),
   createdAt: z.coerce.date().describe("Data de criação"),
   updatedAt: z.coerce.date().describe("Data de atualização"),
+  createdBy: entityReferenceSchema.describe("Usuário que criou as férias"),
+  updatedBy: entityReferenceSchema.describe(
+    "Usuário que atualizou as férias pela última vez"
+  ),
 });
 
 const deletedVacationDataSchema = vacationDataSchema.extend({

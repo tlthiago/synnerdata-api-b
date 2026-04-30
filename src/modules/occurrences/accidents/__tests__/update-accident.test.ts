@@ -109,6 +109,12 @@ describe("PUT /v1/accidents/:id", () => {
     expect(body.data.employee).toBeObject();
     expect(body.data.employee.id).toBe(employee.id);
     expect(body.data.employee.name).toBeString();
+    expect(body.data.createdBy).toBeObject();
+    expect(body.data.createdBy.id).toBeString();
+    expect(body.data.createdBy.name).toBeString();
+    expect(body.data.updatedBy).toBeObject();
+    expect(body.data.updatedBy.id).toBeString();
+    expect(body.data.updatedBy.name).toBeString();
   });
 
   test("should reject future date on update", async () => {

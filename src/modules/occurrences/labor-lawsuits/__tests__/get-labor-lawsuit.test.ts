@@ -85,6 +85,12 @@ describe("GET /v1/labor-lawsuits/:id", () => {
     expect(body.data.processNumber).toBe(lawsuit.processNumber);
     expect(body.data.plaintiff).toBe("Maria Santos");
     expect(body.data.employee).toBeDefined();
+    expect(body.data.createdBy).toBeObject();
+    expect(body.data.createdBy.id).toBeString();
+    expect(body.data.createdBy.name).toBeString();
+    expect(body.data.updatedBy).toBeObject();
+    expect(body.data.updatedBy.id).toBeString();
+    expect(body.data.updatedBy.name).toBeString();
   });
 
   test("should not return lawsuit from another organization", async () => {

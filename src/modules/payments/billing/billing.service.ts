@@ -1,7 +1,9 @@
 import { and, eq, isNull, sql } from "drizzle-orm";
 import { db } from "@/db";
-import { type BillingProfile, schema } from "@/db/schema";
+import type { BillingProfile } from "@/db/schema";
+import { schema } from "@/db/schema";
 import { billingProfiles } from "@/db/schema/billing-profiles";
+import { auditUserAliases } from "@/lib/schemas/audit-users";
 import { Retry } from "@/lib/utils/retry";
 import {
   BillingNotAvailableForTrialError,
@@ -23,10 +25,13 @@ import type {
   InvoiceData,
   ListInvoicesData,
   ListInvoicesInput,
+  ProfileData,
   UpdateCardData,
   UpdateCardInput,
   UpdateProfileInput,
 } from "./billing.model";
+
+const { creator, updater } = auditUserAliases();
 
 async function syncCustomerToPagarme(
   existing: BillingProfile,
@@ -52,6 +57,64 @@ async function syncCustomerToPagarme(
   );
 }
 
+async function fetchProfileData(
+  organizationId: string
+): Promise<ProfileData | null> {
+  const [row] = await db
+    .select({
+      id: billingProfiles.id,
+      organizationId: billingProfiles.organizationId,
+      legalName: billingProfiles.legalName,
+      taxId: billingProfiles.taxId,
+      email: billingProfiles.email,
+      phone: billingProfiles.phone,
+      street: billingProfiles.street,
+      number: billingProfiles.number,
+      complement: billingProfiles.complement,
+      neighborhood: billingProfiles.neighborhood,
+      city: billingProfiles.city,
+      state: billingProfiles.state,
+      zipCode: billingProfiles.zipCode,
+      pagarmeCustomerId: billingProfiles.pagarmeCustomerId,
+      createdAt: billingProfiles.createdAt,
+      updatedAt: billingProfiles.updatedAt,
+      createdById: creator.id,
+      createdByName: creator.name,
+      updatedById: updater.id,
+      updatedByName: updater.name,
+    })
+    .from(billingProfiles)
+    .innerJoin(creator, eq(billingProfiles.createdBy, creator.id))
+    .innerJoin(updater, eq(billingProfiles.updatedBy, updater.id))
+    .where(eq(billingProfiles.organizationId, organizationId))
+    .limit(1);
+
+  if (!row) {
+    return null;
+  }
+
+  return {
+    id: row.id,
+    organizationId: row.organizationId,
+    legalName: row.legalName,
+    taxId: row.taxId,
+    email: row.email,
+    phone: row.phone,
+    street: row.street,
+    number: row.number,
+    complement: row.complement,
+    neighborhood: row.neighborhood,
+    city: row.city,
+    state: row.state,
+    zipCode: row.zipCode,
+    pagarmeCustomerId: row.pagarmeCustomerId,
+    createdAt: row.createdAt,
+    updatedAt: row.updatedAt,
+    createdBy: { id: row.createdById, name: row.createdByName },
+    updatedBy: { id: row.updatedById, name: row.updatedByName },
+  };
+}
+
 export abstract class BillingService {
   static async getProfile(
     organizationId: string
@@ -65,10 +128,8 @@ export abstract class BillingService {
     return profile ?? null;
   }
 
-  static async getProfileOrThrow(
-    organizationId: string
-  ): Promise<BillingProfile> {
-    const profile = await BillingService.getProfile(organizationId);
+  static async getProfileOrThrow(organizationId: string): Promise<ProfileData> {
+    const profile = await fetchProfileData(organizationId);
 
     if (!profile) {
       throw new BillingProfileNotFoundError(organizationId);
@@ -81,7 +142,7 @@ export abstract class BillingService {
     organizationId: string,
     input: CreateProfileInput,
     userId: string
-  ): Promise<BillingProfile> {
+  ): Promise<ProfileData> {
     const existing = await BillingService.getProfile(organizationId);
 
     if (existing) {
@@ -90,29 +151,30 @@ export abstract class BillingService {
 
     const id = `bp-${crypto.randomUUID()}`;
 
-    const [profile] = await db
-      .insert(billingProfiles)
-      .values({
-        id,
-        organizationId,
-        legalName: input.legalName,
-        taxId: input.taxId,
-        email: input.email,
-        phone: input.phone,
-        street: input.address?.street,
-        number: input.address?.number,
-        complement: input.address?.complement,
-        neighborhood: input.address?.neighborhood,
-        city: input.address?.city,
-        state: input.address?.state,
-        zipCode: input.address?.zipCode,
-        createdBy: userId,
-        updatedBy: userId,
-      })
-      .returning();
+    await db.insert(billingProfiles).values({
+      id,
+      organizationId,
+      legalName: input.legalName,
+      taxId: input.taxId,
+      email: input.email,
+      phone: input.phone,
+      street: input.address?.street,
+      number: input.address?.number,
+      complement: input.address?.complement,
+      neighborhood: input.address?.neighborhood,
+      city: input.address?.city,
+      state: input.address?.state,
+      zipCode: input.address?.zipCode,
+      createdBy: userId,
+      updatedBy: userId,
+    });
 
     BillingService.propagateToOrgProfile(organizationId, input, userId);
 
+    const profile = await fetchProfileData(organizationId);
+    if (!profile) {
+      throw new BillingProfileNotFoundError(organizationId);
+    }
     return profile;
   }
 
@@ -120,10 +182,14 @@ export abstract class BillingService {
     organizationId: string,
     input: UpdateProfileInput,
     userId: string
-  ): Promise<BillingProfile> {
-    const existing = await BillingService.getProfileOrThrow(organizationId);
+  ): Promise<ProfileData> {
+    const existing = await BillingService.getProfile(organizationId);
 
-    const [updated] = await db
+    if (!existing) {
+      throw new BillingProfileNotFoundError(organizationId);
+    }
+
+    await db
       .update(billingProfiles)
       .set({
         legalName: input.legalName,
@@ -139,8 +205,7 @@ export abstract class BillingService {
         zipCode: input.address?.zipCode,
         updatedBy: userId,
       })
-      .where(eq(billingProfiles.id, existing.id))
-      .returning();
+      .where(eq(billingProfiles.id, existing.id));
 
     if (existing.pagarmeCustomerId) {
       await syncCustomerToPagarme(existing, input, organizationId);
@@ -148,7 +213,11 @@ export abstract class BillingService {
 
     BillingService.propagateToOrgProfile(organizationId, input, userId);
 
-    return updated;
+    const profile = await fetchProfileData(organizationId);
+    if (!profile) {
+      throw new BillingProfileNotFoundError(organizationId);
+    }
+    return profile;
   }
 
   private static propagateToOrgProfile(
@@ -332,7 +401,6 @@ export abstract class BillingService {
       throw new SubscriptionNotFoundError(organizationId);
     }
 
-    // For trial plans without a tier, get limit from plan_limits
     let employeesLimit = result.tier?.maxEmployees ?? 0;
     if (!result.tier) {
       const [limitRow] = await db
@@ -348,7 +416,6 @@ export abstract class BillingService {
       employeesLimit = limitRow?.limitValue ?? 0;
     }
 
-    // Get features from plan_features
     const featureRows = await db
       .select({ featureId: schema.planFeatures.featureId })
       .from(schema.planFeatures)

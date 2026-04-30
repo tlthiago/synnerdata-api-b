@@ -222,6 +222,12 @@ describe("POST /v1/vacations", () => {
     expect(body.data.daysUsed).toBe(10);
     expect(body.data.status).toBe("scheduled");
     expect(body.data.notes).toBe("Summer vacation");
+    expect(body.data.createdBy).toBeObject();
+    expect(body.data.createdBy.id).toBeString();
+    expect(body.data.createdBy.name).toBeString();
+    expect(body.data.updatedBy).toBeObject();
+    expect(body.data.updatedBy.id).toBeString();
+    expect(body.data.updatedBy.name).toBeString();
   });
 
   test("should allow manager to create vacation", async () => {

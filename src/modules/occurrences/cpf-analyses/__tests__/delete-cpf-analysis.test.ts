@@ -162,6 +162,12 @@ describe("DELETE /v1/cpf-analyses/:id", () => {
     expect(body.data.employee.id).toBe(employee.id);
     expect(body.data.employee.name).toBeString();
     expect(body.data.deletedAt).toBeDefined();
+    expect(body.data.createdBy).toBeObject();
+    expect(body.data.createdBy.id).toBeString();
+    expect(body.data.createdBy.name).toBeString();
+    expect(body.data.updatedBy).toBeObject();
+    expect(body.data.updatedBy.id).toBeString();
+    expect(body.data.updatedBy.name).toBeString();
   });
 
   test("should allow manager to delete cpf analysis", async () => {

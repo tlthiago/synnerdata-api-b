@@ -1,4 +1,5 @@
 import { z } from "zod";
+import { entityReferenceSchema } from "@/lib/schemas/relationships";
 
 // Employee reference in responses
 const employeeDataSchema = z.object({
@@ -66,6 +67,10 @@ export const projectDataSchema = z.object({
   employees: z.array(employeeDataSchema).describe("Funcionários do projeto"),
   createdAt: z.coerce.date().describe("Data de criação"),
   updatedAt: z.coerce.date().describe("Data de atualização"),
+  createdBy: entityReferenceSchema.describe("Usuário que criou o projeto"),
+  updatedBy: entityReferenceSchema.describe(
+    "Usuário que atualizou o projeto pela última vez"
+  ),
 });
 
 // Deleted project data schema (response)

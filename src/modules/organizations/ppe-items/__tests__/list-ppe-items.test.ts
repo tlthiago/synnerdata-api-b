@@ -84,6 +84,10 @@ describe("GET /v1/ppe-items", () => {
     expect(body.success).toBe(true);
     expect(body.data).toBeArray();
     expect(body.data.length).toBe(createdPpeItems.length);
+    for (const item of body.data) {
+      expect(item.createdBy).toMatchObject({ id: user.id });
+      expect(item.updatedBy).toMatchObject({ id: user.id });
+    }
   });
 
   test("should only return ppe items from the active organization", async () => {

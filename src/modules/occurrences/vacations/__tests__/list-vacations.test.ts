@@ -108,6 +108,12 @@ describe("GET /v1/vacations", () => {
     expect(body.data[0].employee.name).toBeString();
     expect(body.data[0].daysEntitled).toBeNumber();
     expect(body.data[1].employee.id).toBe(employee.id);
+    expect(body.data[0].createdBy).toBeObject();
+    expect(body.data[0].createdBy).toHaveProperty("id");
+    expect(body.data[0].createdBy).toHaveProperty("name");
+    expect(body.data[0].updatedBy).toBeObject();
+    expect(body.data[0].updatedBy).toHaveProperty("id");
+    expect(body.data[0].updatedBy).toHaveProperty("name");
   });
 
   test("should not return deleted vacations", async () => {

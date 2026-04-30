@@ -27,3 +27,7 @@ Codigos CBO para compliance trabalhista brasileiro. Referenciado por employees (
 - `JobClassificationAlreadyExistsError` (409)
 - `JobClassificationAlreadyDeletedError` (404)
 - `InvalidCboOccupationError` (422) — invalid cboOccupationId reference
+
+## User attribution shape
+
+Este módulo segue o pattern canônico de `createdBy`/`updatedBy` como `entityReferenceSchema` (`{ id, name }`), documentado em `src/modules/organizations/cost-centers/CLAUDE.md`.

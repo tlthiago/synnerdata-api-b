@@ -102,6 +102,16 @@ Todas as rotas que retornam `ProvisionData` incluem o objeto `subscription`:
 - Na listagem, os dados vêm via LEFT JOIN (subscription + tier)
 - Nos demais endpoints, vêm via `fetchSubscriptionInfo()`
 
+## User Attribution Shape (PRD #5+)
+
+Canonical pattern in effect. `createdBy` and `updatedBy` are both exposed as `{ id, name }` (non-nullable) on `ProvisionData`.
+
+- **Field rename**: response field was previously `createdByUser`; renamed to `createdBy` (BREAKING, deployed in PR #feat/audit-user-shape-rollout). Legacy `fetchCreatedByUser` helper removed.
+- **`updatedBy` added**: previously absent from the response; now included.
+- **Join pattern**: list query uses `auditUserAliases()` (`creator` + `updater`) with `innerJoin`. Single-record paths (`resendActivation`, `fetchProvisionData`) do a dedicated query with `innerJoin` on both aliases.
+- **Create paths**: `adminUserName` is already in scope from the controller input; creator/updater are passed directly to `toProvisionData()` without an extra DB query.
+- **Semantic A**: all `db.update().set()` include `updatedBy: userId/adminUserId`, including soft-delete and checkout URL updates.
+
 ## Decisões Arquiteturais
 
 - **Criação de org via Drizzle direto** — `auth.api.createOrganization()` não funciona para admin porque `allowUserToCreateOrganization` bloqueia roles `admin`/`super_admin`. A função `createOrganizationForUser()` insere org + member diretamente, chama `SubscriptionService.createTrial()` e `OrganizationService.createMinimalProfile()`.

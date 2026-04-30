@@ -160,6 +160,8 @@ describe("POST /v1/ppe-deliveries", () => {
     expect(body.data.deliveredBy).toBe("João Silva");
     expect(body.data.items).toBeArray();
     expect(body.data.items.length).toBe(0);
+    expect(body.data.createdBy).toEqual({ id: user.id, name: user.name });
+    expect(body.data.updatedBy).toEqual({ id: user.id, name: user.name });
   });
 
   test("should create ppe delivery with items", async () => {

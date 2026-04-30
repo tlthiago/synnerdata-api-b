@@ -216,6 +216,12 @@ const laborLawsuitDataSchema = z.object({
   costsExpenses: z.number().nullable().describe("Custas e despesas"),
   createdAt: z.coerce.date().describe("Data de criação"),
   updatedAt: z.coerce.date().describe("Data de atualização"),
+  createdBy: entityReferenceSchema.describe(
+    "Usuário que criou o processo trabalhista"
+  ),
+  updatedBy: entityReferenceSchema.describe(
+    "Usuário que atualizou o processo trabalhista pela última vez"
+  ),
 });
 
 const deletedLaborLawsuitDataSchema = laborLawsuitDataSchema.extend({

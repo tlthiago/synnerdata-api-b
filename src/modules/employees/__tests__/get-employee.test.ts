@@ -150,5 +150,12 @@ describe("GET /v1/employees/:id", () => {
       dependencies.jobClassificationId
     );
     expect(body.data.jobClassification.name).toBeString();
+
+    expect(body.data.createdBy).toBeObject();
+    expect(body.data.createdBy.id).toBe(user.id);
+    expect(body.data.createdBy.name).toBeString();
+    expect(body.data.updatedBy).toBeObject();
+    expect(body.data.updatedBy.id).toBe(user.id);
+    expect(body.data.updatedBy.name).toBeString();
   });
 });

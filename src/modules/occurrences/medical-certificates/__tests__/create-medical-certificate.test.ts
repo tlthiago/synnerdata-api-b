@@ -293,6 +293,12 @@ describe("POST /v1/medical-certificates", () => {
     expect(body.data.daysOff).toBe(5);
     expect(body.data.cid).toBe("A00.1");
     expect(body.data.doctorName).toBe("Dr. João Silva");
+    expect(body.data.createdBy).toBeObject();
+    expect(body.data.createdBy.id).toBeString();
+    expect(body.data.createdBy.name).toBeString();
+    expect(body.data.updatedBy).toBeObject();
+    expect(body.data.updatedBy.id).toBeString();
+    expect(body.data.updatedBy.name).toBeString();
   });
 
   test("should allow manager to create medical certificate", async () => {

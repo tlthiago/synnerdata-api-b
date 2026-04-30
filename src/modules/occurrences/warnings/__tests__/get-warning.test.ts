@@ -111,6 +111,12 @@ describe("GET /v1/warnings/:id", () => {
     expect(body.data.employee).toBeObject();
     expect(body.data.employee.id).toBe(warning.employee.id);
     expect(body.data.employee.name).toBe(warning.employee.name);
+    expect(body.data.createdBy).toBeObject();
+    expect(body.data.createdBy.id).toBeString();
+    expect(body.data.createdBy.name).toBeString();
+    expect(body.data.updatedBy).toBeObject();
+    expect(body.data.updatedBy.id).toBeString();
+    expect(body.data.updatedBy.name).toBeString();
   });
 
   test("should allow viewer to get warning", async () => {

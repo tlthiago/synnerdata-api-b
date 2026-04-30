@@ -89,6 +89,14 @@ describe("PATCH /payments/billing/profile", () => {
 
     expect(body.success).toBe(true);
     expect(body.data.legalName).toBe(newLegalName);
+    expect(body.data.createdBy).toMatchObject({
+      id: expect.any(String),
+      name: expect.any(String),
+    });
+    expect(body.data.updatedBy).toMatchObject({
+      id: expect.any(String),
+      name: expect.any(String),
+    });
   });
 
   test("should update multiple fields at once", async () => {

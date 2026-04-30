@@ -170,6 +170,14 @@ describe("POST /v1/projects", () => {
     expect(body.data.employees).toHaveLength(0);
     expect(body.data.createdAt).toBeDefined();
     expect(body.data.updatedAt).toBeDefined();
+    expect(body.data.createdBy).toMatchObject({
+      id: expect.any(String),
+      name: expect.any(String),
+    });
+    expect(body.data.updatedBy).toMatchObject({
+      id: expect.any(String),
+      name: expect.any(String),
+    });
   });
 
   test("should create project with employees", async () => {

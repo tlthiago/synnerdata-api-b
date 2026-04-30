@@ -1,6 +1,7 @@
 import { eq } from "drizzle-orm";
 import { db } from "@/db";
 import { schema } from "@/db/schema";
+import { auditUserAliases } from "@/lib/schemas/audit-users";
 import { AuditService } from "@/modules/audit/audit.service";
 import {
   ProfileAlreadyExistsError,
@@ -19,9 +20,46 @@ export abstract class OrganizationService {
   private static async findByOrganizationId(
     organizationId: string
   ): Promise<OrganizationProfileData | null> {
+    const { creator, updater } = auditUserAliases();
+
     const [profile] = await db
-      .select()
+      .select({
+        id: schema.organizationProfiles.id,
+        organizationId: schema.organizationProfiles.organizationId,
+        tradeName: schema.organizationProfiles.tradeName,
+        legalName: schema.organizationProfiles.legalName,
+        taxId: schema.organizationProfiles.taxId,
+        email: schema.organizationProfiles.email,
+        phone: schema.organizationProfiles.phone,
+        mobile: schema.organizationProfiles.mobile,
+        taxRegime: schema.organizationProfiles.taxRegime,
+        stateRegistration: schema.organizationProfiles.stateRegistration,
+        mainActivityCode: schema.organizationProfiles.mainActivityCode,
+        street: schema.organizationProfiles.street,
+        number: schema.organizationProfiles.number,
+        complement: schema.organizationProfiles.complement,
+        neighborhood: schema.organizationProfiles.neighborhood,
+        city: schema.organizationProfiles.city,
+        state: schema.organizationProfiles.state,
+        zipCode: schema.organizationProfiles.zipCode,
+        industry: schema.organizationProfiles.industry,
+        businessArea: schema.organizationProfiles.businessArea,
+        foundingDate: schema.organizationProfiles.foundingDate,
+        revenue: schema.organizationProfiles.revenue,
+        maxUsers: schema.organizationProfiles.maxUsers,
+        maxEmployees: schema.organizationProfiles.maxEmployees,
+        logoUrl: schema.organizationProfiles.logoUrl,
+        pbUrl: schema.organizationProfiles.pbUrl,
+        pagarmeCustomerId: schema.organizationProfiles.pagarmeCustomerId,
+        status: schema.organizationProfiles.status,
+        createdAt: schema.organizationProfiles.createdAt,
+        updatedAt: schema.organizationProfiles.updatedAt,
+        createdBy: { id: creator.id, name: creator.name },
+        updatedBy: { id: updater.id, name: updater.name },
+      })
       .from(schema.organizationProfiles)
+      .innerJoin(creator, eq(schema.organizationProfiles.createdBy, creator.id))
+      .innerJoin(updater, eq(schema.organizationProfiles.updatedBy, updater.id))
       .where(eq(schema.organizationProfiles.organizationId, organizationId))
       .limit(1);
 
@@ -118,12 +156,11 @@ export abstract class OrganizationService {
       updateData.mobile = data.phone;
     }
 
-    const [updated] = await db.transaction(async (tx) => {
-      const result = await tx
+    await db.transaction(async (tx) => {
+      await tx
         .update(schema.organizationProfiles)
         .set(updateData)
-        .where(eq(schema.organizationProfiles.organizationId, organizationId))
-        .returning();
+        .where(eq(schema.organizationProfiles.organizationId, organizationId));
 
       if (data.tradeName) {
         await tx
@@ -131,8 +168,6 @@ export abstract class OrganizationService {
           .set({ name: data.tradeName })
           .where(eq(schema.organizations.id, organizationId));
       }
-
-      return result;
     });
 
     if (data.taxId || data.email) {
@@ -152,7 +187,12 @@ export abstract class OrganizationService {
       });
     }
 
-    return updated as OrganizationProfileData;
+    const enriched =
+      await OrganizationService.findByOrganizationId(organizationId);
+    if (!enriched) {
+      throw new ProfileNotFoundError(organizationId);
+    }
+    return enriched;
   }
 
   static async checkBillingRequirements(

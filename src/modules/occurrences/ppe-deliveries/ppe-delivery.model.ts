@@ -1,6 +1,7 @@
 import { z } from "zod";
 import { successResponseSchema } from "@/lib/responses/response.types";
 import { isFutureDate } from "@/lib/schemas/date-helpers";
+import { entityReferenceSchema } from "@/lib/schemas/relationships";
 
 export const createPpeDeliverySchema = z.object({
   employeeId: z
@@ -97,6 +98,10 @@ const ppeDeliveryDataSchema = z.object({
   items: z.array(ppeItemDataSchema).describe("EPIs entregues"),
   createdAt: z.coerce.date().describe("Data de criação"),
   updatedAt: z.coerce.date().describe("Data de atualização"),
+  createdBy: entityReferenceSchema.describe("Usuário que criou a entrega"),
+  updatedBy: entityReferenceSchema.describe(
+    "Usuário que atualizou a entrega pela última vez"
+  ),
 });
 
 const deletedPpeDeliveryDataSchema = ppeDeliveryDataSchema.extend({

@@ -100,6 +100,14 @@ describe("PUT /v1/projects/:id", () => {
     expect(body.data.description).toBe(project.description);
     expect(body.data.startDate).toBe(project.startDate);
     expect(body.data.cno).toBe(project.cno);
+    expect(body.data.createdBy).toMatchObject({
+      id: expect.any(String),
+      name: expect.any(String),
+    });
+    expect(body.data.updatedBy).toMatchObject({
+      id: expect.any(String),
+      name: expect.any(String),
+    });
   });
 
   test("should update multiple fields", async () => {

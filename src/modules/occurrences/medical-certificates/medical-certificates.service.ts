@@ -1,6 +1,7 @@
 import { and, eq, isNull, sql } from "drizzle-orm";
 import { db } from "@/db";
 import { schema } from "@/db/schema";
+import { auditUserAliases } from "@/lib/schemas/audit-users";
 import { calculateDaysBetween } from "@/lib/schemas/date-helpers";
 import { AuditService } from "@/modules/audit/audit.service";
 import { buildAuditChanges } from "@/modules/audit/pii-redaction";
@@ -24,6 +25,8 @@ export abstract class MedicalCertificateService {
     id: string,
     organizationId: string
   ): Promise<MedicalCertificateData | null> {
+    const { creator, updater } = auditUserAliases();
+
     const [result] = await db
       .select({
         id: schema.medicalCertificates.id,
@@ -41,12 +44,22 @@ export abstract class MedicalCertificateService {
         notes: schema.medicalCertificates.notes,
         createdAt: schema.medicalCertificates.createdAt,
         updatedAt: schema.medicalCertificates.updatedAt,
+        createdBy: {
+          id: creator.id,
+          name: creator.name,
+        },
+        updatedBy: {
+          id: updater.id,
+          name: updater.name,
+        },
       })
       .from(schema.medicalCertificates)
       .innerJoin(
         schema.employees,
         eq(schema.medicalCertificates.employeeId, schema.employees.id)
       )
+      .innerJoin(creator, eq(schema.medicalCertificates.createdBy, creator.id))
+      .innerJoin(updater, eq(schema.medicalCertificates.updatedBy, updater.id))
       .where(
         and(
           eq(schema.medicalCertificates.id, id),
@@ -68,6 +81,8 @@ export abstract class MedicalCertificateService {
       })
     | null
   > {
+    const { creator, updater } = auditUserAliases();
+
     const [result] = await db
       .select({
         id: schema.medicalCertificates.id,
@@ -86,12 +101,22 @@ export abstract class MedicalCertificateService {
         createdAt: schema.medicalCertificates.createdAt,
         updatedAt: schema.medicalCertificates.updatedAt,
         deletedAt: schema.medicalCertificates.deletedAt,
+        createdBy: {
+          id: creator.id,
+          name: creator.name,
+        },
+        updatedBy: {
+          id: updater.id,
+          name: updater.name,
+        },
       })
       .from(schema.medicalCertificates)
       .innerJoin(
         schema.employees,
         eq(schema.medicalCertificates.employeeId, schema.employees.id)
       )
+      .innerJoin(creator, eq(schema.medicalCertificates.createdBy, creator.id))
+      .innerJoin(updater, eq(schema.medicalCertificates.updatedBy, updater.id))
       .where(
         and(
           eq(schema.medicalCertificates.id, id),
@@ -174,7 +199,7 @@ export abstract class MedicalCertificateService {
   ): Promise<MedicalCertificateData> {
     const { organizationId, userId, employeeId, ...data } = input;
 
-    const employee = await MedicalCertificateService.getEmployeeReference(
+    await MedicalCertificateService.getEmployeeReference(
       employeeId,
       organizationId
     );
@@ -223,25 +248,17 @@ export abstract class MedicalCertificateService {
       changes: buildAuditChanges({}, medicalCertificate),
     });
 
-    return {
-      id: medicalCertificate.id,
-      organizationId: medicalCertificate.organizationId,
-      employee,
-      startDate: medicalCertificate.startDate,
-      endDate: medicalCertificate.endDate,
-      daysOff: medicalCertificate.daysOff,
-      cid: medicalCertificate.cid,
-      doctorName: medicalCertificate.doctorName,
-      doctorCrm: medicalCertificate.doctorCrm,
-      notes: medicalCertificate.notes,
-      createdAt: medicalCertificate.createdAt,
-      updatedAt: medicalCertificate.updatedAt,
-    } as MedicalCertificateData;
+    return MedicalCertificateService.findByIdOrThrow(
+      medicalCertificate.id,
+      organizationId
+    );
   }
 
   static async findAll(
     organizationId: string
   ): Promise<MedicalCertificateData[]> {
+    const { creator, updater } = auditUserAliases();
+
     const results = await db
       .select({
         id: schema.medicalCertificates.id,
@@ -259,12 +276,22 @@ export abstract class MedicalCertificateService {
         notes: schema.medicalCertificates.notes,
         createdAt: schema.medicalCertificates.createdAt,
         updatedAt: schema.medicalCertificates.updatedAt,
+        createdBy: {
+          id: creator.id,
+          name: creator.name,
+        },
+        updatedBy: {
+          id: updater.id,
+          name: updater.name,
+        },
       })
       .from(schema.medicalCertificates)
       .innerJoin(
         schema.employees,
         eq(schema.medicalCertificates.employeeId, schema.employees.id)
       )
+      .innerJoin(creator, eq(schema.medicalCertificates.createdBy, creator.id))
+      .innerJoin(updater, eq(schema.medicalCertificates.updatedBy, updater.id))
       .where(
         and(
           eq(schema.medicalCertificates.organizationId, organizationId),

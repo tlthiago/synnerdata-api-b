@@ -187,6 +187,12 @@ describe("PUT /v1/vacations/:id", () => {
     expect(body.data.employee.id).toBeString();
     expect(body.data.employee.name).toBeString();
     expect(body.data.daysEntitled).toBeNumber();
+    expect(body.data.createdBy).toBeObject();
+    expect(body.data.createdBy.id).toBeString();
+    expect(body.data.createdBy.name).toBeString();
+    expect(body.data.updatedBy).toBeObject();
+    expect(body.data.updatedBy.id).toBeString();
+    expect(body.data.updatedBy.name).toBeString();
   });
 
   test("should reject when daysUsed exceeds daysEntitled on update", async () => {

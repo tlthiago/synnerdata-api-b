@@ -239,6 +239,12 @@ describe("POST /v1/warnings", () => {
     expect(body.data.type).toBe(validWarningData.type);
     expect(body.data.reason).toBe(validWarningData.reason);
     expect(body.data.acknowledged).toBe(false);
+    expect(body.data.createdBy).toBeObject();
+    expect(body.data.createdBy.id).toBeString();
+    expect(body.data.createdBy.name).toBeString();
+    expect(body.data.updatedBy).toBeObject();
+    expect(body.data.updatedBy.id).toBeString();
+    expect(body.data.updatedBy.name).toBeString();
   });
 
   test("should reject duplicate warning with same date and type", async () => {

@@ -1,6 +1,7 @@
 import { and, eq, isNull, sql } from "drizzle-orm";
 import { db } from "@/db";
 import { schema } from "@/db/schema";
+import { auditUserAliases } from "@/lib/schemas/audit-users";
 import { AuditService } from "@/modules/audit/audit.service";
 import {
   buildAuditChanges,
@@ -32,6 +33,8 @@ export abstract class AbsenceService {
     id: string,
     organizationId: string
   ): Promise<AbsenceData | null> {
+    const { creator, updater } = auditUserAliases();
+
     const [result] = await db
       .select({
         id: schema.absences.id,
@@ -47,12 +50,22 @@ export abstract class AbsenceService {
         notes: schema.absences.notes,
         createdAt: schema.absences.createdAt,
         updatedAt: schema.absences.updatedAt,
+        createdBy: {
+          id: creator.id,
+          name: creator.name,
+        },
+        updatedBy: {
+          id: updater.id,
+          name: updater.name,
+        },
       })
       .from(schema.absences)
       .innerJoin(
         schema.employees,
         eq(schema.absences.employeeId, schema.employees.id)
       )
+      .innerJoin(creator, eq(schema.absences.createdBy, creator.id))
+      .innerJoin(updater, eq(schema.absences.updatedBy, updater.id))
       .where(
         and(
           eq(schema.absences.id, id),
@@ -62,13 +75,15 @@ export abstract class AbsenceService {
       )
       .limit(1);
 
-    return (result as AbsenceData) ?? null;
+    return result ?? null;
   }
 
   private static async findByIdIncludingDeleted(
     id: string,
     organizationId: string
   ): Promise<(AbsenceData & { deletedAt: Date | null }) | null> {
+    const { creator, updater } = auditUserAliases();
+
     const [result] = await db
       .select({
         id: schema.absences.id,
@@ -85,12 +100,22 @@ export abstract class AbsenceService {
         createdAt: schema.absences.createdAt,
         updatedAt: schema.absences.updatedAt,
         deletedAt: schema.absences.deletedAt,
+        createdBy: {
+          id: creator.id,
+          name: creator.name,
+        },
+        updatedBy: {
+          id: updater.id,
+          name: updater.name,
+        },
       })
       .from(schema.absences)
       .innerJoin(
         schema.employees,
         eq(schema.absences.employeeId, schema.employees.id)
       )
+      .innerJoin(creator, eq(schema.absences.createdBy, creator.id))
+      .innerJoin(updater, eq(schema.absences.updatedBy, updater.id))
       .where(
         and(
           eq(schema.absences.id, id),
@@ -175,10 +200,7 @@ export abstract class AbsenceService {
       throw new AbsenceInvalidDateRangeError();
     }
 
-    const employee = await AbsenceService.getEmployeeReference(
-      employeeId,
-      organizationId
-    );
+    await AbsenceService.getEmployeeReference(employeeId, organizationId);
 
     await ensureEmployeeActive(employeeId, organizationId);
 
@@ -219,21 +241,12 @@ export abstract class AbsenceService {
       }),
     });
 
-    return {
-      id: absence.id,
-      organizationId: absence.organizationId,
-      employee,
-      startDate: absence.startDate,
-      endDate: absence.endDate,
-      type: absence.type,
-      reason: absence.reason,
-      notes: absence.notes,
-      createdAt: absence.createdAt,
-      updatedAt: absence.updatedAt,
-    } as AbsenceData;
+    return AbsenceService.findByIdOrThrow(absence.id, organizationId);
   }
 
   static async findAll(organizationId: string): Promise<AbsenceData[]> {
+    const { creator, updater } = auditUserAliases();
+
     const results = await db
       .select({
         id: schema.absences.id,
@@ -249,12 +262,22 @@ export abstract class AbsenceService {
         notes: schema.absences.notes,
         createdAt: schema.absences.createdAt,
         updatedAt: schema.absences.updatedAt,
+        createdBy: {
+          id: creator.id,
+          name: creator.name,
+        },
+        updatedBy: {
+          id: updater.id,
+          name: updater.name,
+        },
       })
       .from(schema.absences)
       .innerJoin(
         schema.employees,
         eq(schema.absences.employeeId, schema.employees.id)
       )
+      .innerJoin(creator, eq(schema.absences.createdBy, creator.id))
+      .innerJoin(updater, eq(schema.absences.updatedBy, updater.id))
       .where(
         and(
           eq(schema.absences.organizationId, organizationId),
@@ -263,7 +286,7 @@ export abstract class AbsenceService {
       )
       .orderBy(schema.absences.startDate);
 
-    return results as AbsenceData[];
+    return results;
   }
 
   static async findByIdOrThrow(
@@ -390,6 +413,6 @@ export abstract class AbsenceService {
     return {
       ...existing,
       deletedAt: deleted.deletedAt as Date,
-    } as DeletedAbsenceData;
+    };
   }
 }

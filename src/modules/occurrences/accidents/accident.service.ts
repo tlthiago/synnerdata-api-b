@@ -1,6 +1,7 @@
 import { and, eq, isNull } from "drizzle-orm";
 import { db } from "@/db";
 import { schema } from "@/db/schema";
+import { auditUserAliases } from "@/lib/schemas/audit-users";
 import { AuditService } from "@/modules/audit/audit.service";
 import {
   buildAuditChanges,
@@ -31,6 +32,8 @@ export abstract class AccidentService {
     id: string,
     organizationId: string
   ): Promise<AccidentData | null> {
+    const { creator, updater } = auditUserAliases();
+
     const [result] = await db
       .select({
         id: schema.accidents.id,
@@ -47,12 +50,22 @@ export abstract class AccidentService {
         notes: schema.accidents.notes,
         createdAt: schema.accidents.createdAt,
         updatedAt: schema.accidents.updatedAt,
+        createdBy: {
+          id: creator.id,
+          name: creator.name,
+        },
+        updatedBy: {
+          id: updater.id,
+          name: updater.name,
+        },
       })
       .from(schema.accidents)
       .innerJoin(
         schema.employees,
         eq(schema.accidents.employeeId, schema.employees.id)
       )
+      .innerJoin(creator, eq(schema.accidents.createdBy, creator.id))
+      .innerJoin(updater, eq(schema.accidents.updatedBy, updater.id))
       .where(
         and(
           eq(schema.accidents.id, id),
@@ -62,13 +75,15 @@ export abstract class AccidentService {
       )
       .limit(1);
 
-    return (result as AccidentData) ?? null;
+    return result ?? null;
   }
 
   private static async findByIdIncludingDeleted(
     id: string,
     organizationId: string
   ): Promise<(AccidentData & { deletedAt: Date | null }) | null> {
+    const { creator, updater } = auditUserAliases();
+
     const [result] = await db
       .select({
         id: schema.accidents.id,
@@ -86,12 +101,22 @@ export abstract class AccidentService {
         createdAt: schema.accidents.createdAt,
         updatedAt: schema.accidents.updatedAt,
         deletedAt: schema.accidents.deletedAt,
+        createdBy: {
+          id: creator.id,
+          name: creator.name,
+        },
+        updatedBy: {
+          id: updater.id,
+          name: updater.name,
+        },
       })
       .from(schema.accidents)
       .innerJoin(
         schema.employees,
         eq(schema.accidents.employeeId, schema.employees.id)
       )
+      .innerJoin(creator, eq(schema.accidents.createdBy, creator.id))
+      .innerJoin(updater, eq(schema.accidents.updatedBy, updater.id))
       .where(
         and(
           eq(schema.accidents.id, id),
@@ -158,10 +183,7 @@ export abstract class AccidentService {
   static async create(input: CreateAccidentInput): Promise<AccidentData> {
     const { organizationId, userId, ...data } = input;
 
-    const employee = await AccidentService.getEmployeeReference(
-      data.employeeId,
-      organizationId
-    );
+    await AccidentService.getEmployeeReference(data.employeeId, organizationId);
 
     await ensureEmployeeActive(data.employeeId, organizationId);
     await AccidentService.ensureCatNotExists(organizationId, data.cat);
@@ -196,22 +218,12 @@ export abstract class AccidentService {
       }),
     });
 
-    return {
-      id: accident.id,
-      organizationId: accident.organizationId,
-      employee,
-      date: accident.date,
-      description: accident.description,
-      nature: accident.nature,
-      cat: accident.cat,
-      measuresTaken: accident.measuresTaken,
-      notes: accident.notes,
-      createdAt: accident.createdAt,
-      updatedAt: accident.updatedAt,
-    } as AccidentData;
+    return AccidentService.findByIdOrThrow(accident.id, organizationId);
   }
 
   static async findAll(organizationId: string): Promise<AccidentData[]> {
+    const { creator, updater } = auditUserAliases();
+
     const results = await db
       .select({
         id: schema.accidents.id,
@@ -228,12 +240,22 @@ export abstract class AccidentService {
         notes: schema.accidents.notes,
         createdAt: schema.accidents.createdAt,
         updatedAt: schema.accidents.updatedAt,
+        createdBy: {
+          id: creator.id,
+          name: creator.name,
+        },
+        updatedBy: {
+          id: updater.id,
+          name: updater.name,
+        },
       })
       .from(schema.accidents)
       .innerJoin(
         schema.employees,
         eq(schema.accidents.employeeId, schema.employees.id)
       )
+      .innerJoin(creator, eq(schema.accidents.createdBy, creator.id))
+      .innerJoin(updater, eq(schema.accidents.updatedBy, updater.id))
       .where(
         and(
           eq(schema.accidents.organizationId, organizationId),
@@ -242,7 +264,7 @@ export abstract class AccidentService {
       )
       .orderBy(schema.accidents.date);
 
-    return results as AccidentData[];
+    return results;
   }
 
   static async findByIdOrThrow(
@@ -368,6 +390,6 @@ export abstract class AccidentService {
     return {
       ...existing,
       deletedAt: deleted.deletedAt as Date,
-    } as DeletedAccidentData;
+    };
   }
 }

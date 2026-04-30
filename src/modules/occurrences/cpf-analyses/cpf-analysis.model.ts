@@ -82,6 +82,12 @@ const cpfAnalysisDataSchema = z.object({
   externalReference: z.string().nullable().describe("Referência externa"),
   createdAt: z.coerce.date().describe("Data de criação"),
   updatedAt: z.coerce.date().describe("Data de atualização"),
+  createdBy: entityReferenceSchema.describe(
+    "Usuário que registrou a análise de CPF"
+  ),
+  updatedBy: entityReferenceSchema.describe(
+    "Usuário que atualizou a análise de CPF pela última vez"
+  ),
 });
 
 const deletedCpfAnalysisDataSchema = cpfAnalysisDataSchema.extend({

@@ -1,6 +1,7 @@
 import { and, eq, isNull, ne } from "drizzle-orm";
 import { db } from "@/db";
 import { schema } from "@/db/schema";
+import { auditUserAliases } from "@/lib/schemas/audit-users";
 import type { EntityReference } from "@/lib/schemas/relationships";
 import { AuditService } from "@/modules/audit/audit.service";
 import { buildAuditChanges } from "@/modules/audit/pii-redaction";
@@ -25,6 +26,8 @@ import {
 } from "./errors";
 
 type EmployeeRaw = typeof schema.employees.$inferSelect;
+
+type AuditUserRef = { id: string; name: string };
 
 export abstract class EmployeeService {
   private static async getSectorReference(
@@ -153,7 +156,8 @@ export abstract class EmployeeService {
 
   private static async enrichEmployee(
     employee: EmployeeRaw,
-    organizationId: string
+    organizationId: string,
+    auditUsers: { createdBy: AuditUserRef; updatedBy: AuditUserRef }
   ): Promise<EmployeeData> {
     const [
       sector,
@@ -247,6 +251,8 @@ export abstract class EmployeeService {
       lastAcquisitionPeriod,
       createdAt: employee.createdAt,
       updatedAt: employee.updatedAt,
+      createdBy: auditUsers.createdBy,
+      updatedBy: auditUsers.updatedBy,
     };
   }
 
@@ -254,9 +260,17 @@ export abstract class EmployeeService {
     id: string,
     organizationId: string
   ): Promise<EmployeeData | null> {
-    const [employee] = await db
-      .select()
+    const { creator, updater } = auditUserAliases();
+
+    const [row] = await db
+      .select({
+        employee: schema.employees,
+        createdBy: { id: creator.id, name: creator.name },
+        updatedBy: { id: updater.id, name: updater.name },
+      })
       .from(schema.employees)
+      .innerJoin(creator, eq(schema.employees.createdBy, creator.id))
+      .innerJoin(updater, eq(schema.employees.updatedBy, updater.id))
       .where(
         and(
           eq(schema.employees.id, id),
@@ -266,20 +280,31 @@ export abstract class EmployeeService {
       )
       .limit(1);
 
-    if (!employee) {
+    if (!row) {
       return null;
     }
 
-    return EmployeeService.enrichEmployee(employee, organizationId);
+    return EmployeeService.enrichEmployee(row.employee, organizationId, {
+      createdBy: row.createdBy,
+      updatedBy: row.updatedBy,
+    });
   }
 
   private static async findByIdIncludingDeleted(
     id: string,
     organizationId: string
   ): Promise<(EmployeeData & { deletedAt: Date | null }) | null> {
-    const [employee] = await db
-      .select()
+    const { creator, updater } = auditUserAliases();
+
+    const [row] = await db
+      .select({
+        employee: schema.employees,
+        createdBy: { id: creator.id, name: creator.name },
+        updatedBy: { id: updater.id, name: updater.name },
+      })
       .from(schema.employees)
+      .innerJoin(creator, eq(schema.employees.createdBy, creator.id))
+      .innerJoin(updater, eq(schema.employees.updatedBy, updater.id))
       .where(
         and(
           eq(schema.employees.id, id),
@@ -288,15 +313,16 @@ export abstract class EmployeeService {
       )
       .limit(1);
 
-    if (!employee) {
+    if (!row) {
       return null;
     }
 
     const enriched = await EmployeeService.enrichEmployee(
-      employee,
-      organizationId
+      row.employee,
+      organizationId,
+      { createdBy: row.createdBy, updatedBy: row.updatedBy }
     );
-    return { ...enriched, deletedAt: employee.deletedAt };
+    return { ...enriched, deletedAt: row.employee.deletedAt };
   }
 
   private static async ensureCpfNotExists(
@@ -603,7 +629,7 @@ export abstract class EmployeeService {
       changes: buildAuditChanges({}, employee),
     });
 
-    return EmployeeService.enrichEmployee(employee, organizationId);
+    return EmployeeService.findByIdOrThrow(employee.id, organizationId);
   }
 
   static async findAll(
@@ -611,6 +637,7 @@ export abstract class EmployeeService {
     statusFilter?: EmployeeRaw["status"][]
   ): Promise<EmployeeData[]> {
     const { inArray } = await import("drizzle-orm");
+    const { creator, updater } = auditUserAliases();
 
     const conditions = [
       eq(schema.employees.organizationId, organizationId),
@@ -621,14 +648,25 @@ export abstract class EmployeeService {
       conditions.push(inArray(schema.employees.status, statusFilter));
     }
 
-    const employees = await db
-      .select()
+    const rows = await db
+      .select({
+        employee: schema.employees,
+        createdBy: { id: creator.id, name: creator.name },
+        updatedBy: { id: updater.id, name: updater.name },
+      })
       .from(schema.employees)
+      .innerJoin(creator, eq(schema.employees.createdBy, creator.id))
+      .innerJoin(updater, eq(schema.employees.updatedBy, updater.id))
       .where(and(...conditions))
       .orderBy(schema.employees.name);
 
     const enriched = await Promise.all(
-      employees.map((e) => EmployeeService.enrichEmployee(e, organizationId))
+      rows.map((r) =>
+        EmployeeService.enrichEmployee(r.employee, organizationId, {
+          createdBy: r.createdBy,
+          updatedBy: r.updatedBy,
+        })
+      )
     );
 
     return enriched;
@@ -842,7 +880,7 @@ export abstract class EmployeeService {
       changes: buildAuditChanges(existingRaw, updated),
     });
 
-    return EmployeeService.enrichEmployee(updated, organizationId);
+    return EmployeeService.findByIdOrThrow(id, organizationId);
   }
 
   static async updateStatus(
@@ -883,7 +921,7 @@ export abstract class EmployeeService {
       ),
     });
 
-    return EmployeeService.enrichEmployee(updated, organizationId);
+    return EmployeeService.findByIdOrThrow(id, organizationId);
   }
 
   static async delete(
@@ -918,11 +956,6 @@ export abstract class EmployeeService {
       )
       .returning();
 
-    const enriched = await EmployeeService.enrichEmployee(
-      deleted,
-      organizationId
-    );
-
     await AuditService.log({
       action: "delete",
       resource: "employee",
@@ -933,7 +966,7 @@ export abstract class EmployeeService {
     });
 
     return {
-      ...enriched,
+      ...existing,
       deletedAt: deleted.deletedAt as Date,
     };
   }

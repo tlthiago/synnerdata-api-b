@@ -124,6 +124,7 @@ describe("DELETE /v1/job-classifications/:id", () => {
     expect(body.success).toBe(true);
     expect(body.data.id).toBe(jobClassification.id);
     expect(body.data.deletedAt).toBeDefined();
+    expect(body.data.updatedBy).toEqual({ id: user.id, name: user.name });
   });
 
   test.each([

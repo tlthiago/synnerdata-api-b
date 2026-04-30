@@ -97,6 +97,14 @@ describe("GET /v1/projects", () => {
       expect(project.employees).toBeArray();
       expect(project.createdAt).toBeDefined();
       expect(project.updatedAt).toBeDefined();
+      expect(project.createdBy).toMatchObject({
+        id: expect.any(String),
+        name: expect.any(String),
+      });
+      expect(project.updatedBy).toMatchObject({
+        id: expect.any(String),
+        name: expect.any(String),
+      });
     }
   });
 

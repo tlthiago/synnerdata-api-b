@@ -174,6 +174,12 @@ describe("DELETE /v1/terminations/:id", () => {
     expect(body.data.employee.name).toBeString();
     expect(body.data.deletedAt).toBeDefined();
     expect(body.data.status).toBe("canceled");
+    expect(body.data.createdBy).toBeObject();
+    expect(body.data.createdBy.id).toBeString();
+    expect(body.data.createdBy.name).toBeString();
+    expect(body.data.updatedBy).toBeObject();
+    expect(body.data.updatedBy.id).toBeString();
+    expect(body.data.updatedBy.name).toBeString();
 
     const [deletedTermination] = await db
       .select()

@@ -209,6 +209,12 @@ describe("POST /v1/terminations", () => {
     expect(body.data.noticePeriodWorked).toBe(true);
     expect(body.data.lastWorkingDay).toBe("2024-02-15");
     expect(body.data.notes).toBe("Funcionário exemplar, saída amigável");
+    expect(body.data.createdBy).toBeObject();
+    expect(body.data.createdBy.id).toBeString();
+    expect(body.data.createdBy.name).toBeString();
+    expect(body.data.updatedBy).toBeObject();
+    expect(body.data.updatedBy.id).toBeString();
+    expect(body.data.updatedBy.name).toBeString();
   });
 
   test("should allow manager to create termination", async () => {

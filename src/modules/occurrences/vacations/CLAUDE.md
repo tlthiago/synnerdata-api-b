@@ -115,3 +115,7 @@ Jobs automaticos em `vacation-jobs.service.ts`, registrados em `src/lib/cron-plu
 | `completeExpiredVacations` | `in_progress` → `completed` quando `endDate < hoje` |
 
 Ambos sincronizam o status do funcionario apos a transicao via `syncEmployeeStatus`.
+
+## User Attribution Shape
+
+Response exposes `createdBy: { id, name }` and `updatedBy: { id, name }` via `auditUserAliases()` innerJoin — canonical pattern from `src/modules/organizations/cost-centers/` (PRD #5+).

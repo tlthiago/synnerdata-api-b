@@ -1,6 +1,7 @@
 import { z } from "zod";
 import { isValidCNPJ } from "@/lib/document-validators";
 import { successResponseSchema } from "@/lib/responses/response.types";
+import { entityReferenceSchema } from "@/lib/schemas/relationships";
 
 export const listInvoicesQuerySchema = z.object({
   page: z.coerce
@@ -189,6 +190,10 @@ const profileDataSchema = z.object({
   pagarmeCustomerId: z.string().nullable().describe("Pagarme customer ID"),
   createdAt: z.date().describe("Data de criação"),
   updatedAt: z.date().describe("Data da última atualização"),
+  createdBy: entityReferenceSchema.describe("User who created this profile"),
+  updatedBy: entityReferenceSchema.describe(
+    "User who last updated this profile"
+  ),
 });
 
 export const profileResponseSchema = successResponseSchema(profileDataSchema);

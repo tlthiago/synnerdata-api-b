@@ -1,6 +1,7 @@
 import { and, eq, isNull, sql } from "drizzle-orm";
 import { db } from "@/db";
 import { schema } from "@/db/schema";
+import { auditUserAliases } from "@/lib/schemas/audit-users";
 import { AuditService } from "@/modules/audit/audit.service";
 import { buildAuditChanges } from "@/modules/audit/pii-redaction";
 import { CboOccupationService } from "@/modules/cbo-occupations/cbo-occupation.service";
@@ -46,9 +47,28 @@ export abstract class JobClassificationService {
     id: string,
     organizationId: string
   ): Promise<JobClassificationData | null> {
+    const { creator, updater } = auditUserAliases();
+
     const [jobClassification] = await db
-      .select()
+      .select({
+        id: schema.jobClassifications.id,
+        organizationId: schema.jobClassifications.organizationId,
+        name: schema.jobClassifications.name,
+        cboOccupationId: schema.jobClassifications.cboOccupationId,
+        createdAt: schema.jobClassifications.createdAt,
+        updatedAt: schema.jobClassifications.updatedAt,
+        createdBy: {
+          id: creator.id,
+          name: creator.name,
+        },
+        updatedBy: {
+          id: updater.id,
+          name: updater.name,
+        },
+      })
       .from(schema.jobClassifications)
+      .innerJoin(creator, eq(schema.jobClassifications.createdBy, creator.id))
+      .innerJoin(updater, eq(schema.jobClassifications.updatedBy, updater.id))
       .where(
         and(
           eq(schema.jobClassifications.id, id),
@@ -58,16 +78,36 @@ export abstract class JobClassificationService {
       )
       .limit(1);
 
-    return (jobClassification as JobClassificationData) ?? null;
+    return jobClassification ?? null;
   }
 
   private static async findByIdIncludingDeleted(
     id: string,
     organizationId: string
   ): Promise<(JobClassificationData & { deletedAt: Date | null }) | null> {
+    const { creator, updater } = auditUserAliases();
+
     const [jobClassification] = await db
-      .select()
+      .select({
+        id: schema.jobClassifications.id,
+        organizationId: schema.jobClassifications.organizationId,
+        name: schema.jobClassifications.name,
+        cboOccupationId: schema.jobClassifications.cboOccupationId,
+        createdAt: schema.jobClassifications.createdAt,
+        updatedAt: schema.jobClassifications.updatedAt,
+        deletedAt: schema.jobClassifications.deletedAt,
+        createdBy: {
+          id: creator.id,
+          name: creator.name,
+        },
+        updatedBy: {
+          id: updater.id,
+          name: updater.name,
+        },
+      })
       .from(schema.jobClassifications)
+      .innerJoin(creator, eq(schema.jobClassifications.createdBy, creator.id))
+      .innerJoin(updater, eq(schema.jobClassifications.updatedBy, updater.id))
       .where(
         and(
           eq(schema.jobClassifications.id, id),
@@ -103,7 +143,6 @@ export abstract class JobClassificationService {
     }
 
     if (!resolvedName) {
-      // This shouldn't happen due to Zod validation, but just in case
       throw new JobClassificationError(
         "Nome é obrigatório",
         "VALIDATION_ERROR"
@@ -138,15 +177,37 @@ export abstract class JobClassificationService {
       changes: buildAuditChanges({}, jobClassification),
     });
 
-    return jobClassification as JobClassificationData;
+    return JobClassificationService.findByIdOrThrow(
+      jobClassification.id,
+      organizationId
+    );
   }
 
   static async findAll(
     organizationId: string
   ): Promise<JobClassificationData[]> {
+    const { creator, updater } = auditUserAliases();
+
     const jobClassifications = await db
-      .select()
+      .select({
+        id: schema.jobClassifications.id,
+        organizationId: schema.jobClassifications.organizationId,
+        name: schema.jobClassifications.name,
+        cboOccupationId: schema.jobClassifications.cboOccupationId,
+        createdAt: schema.jobClassifications.createdAt,
+        updatedAt: schema.jobClassifications.updatedAt,
+        createdBy: {
+          id: creator.id,
+          name: creator.name,
+        },
+        updatedBy: {
+          id: updater.id,
+          name: updater.name,
+        },
+      })
       .from(schema.jobClassifications)
+      .innerJoin(creator, eq(schema.jobClassifications.createdBy, creator.id))
+      .innerJoin(updater, eq(schema.jobClassifications.updatedBy, updater.id))
       .where(
         and(
           eq(schema.jobClassifications.organizationId, organizationId),
@@ -155,7 +216,7 @@ export abstract class JobClassificationService {
       )
       .orderBy(schema.jobClassifications.name);
 
-    return jobClassifications as JobClassificationData[];
+    return jobClassifications;
   }
 
   static async findByIdOrThrow(
@@ -229,7 +290,7 @@ export abstract class JobClassificationService {
       changes: buildAuditChanges(existing, updated),
     });
 
-    return updated as JobClassificationData;
+    return JobClassificationService.findByIdOrThrow(id, organizationId);
   }
 
   static async delete(
@@ -273,6 +334,9 @@ export abstract class JobClassificationService {
       changes: buildAuditChanges(existing, {}),
     });
 
-    return deleted as DeletedJobClassificationData;
+    return {
+      ...existing,
+      deletedAt: deleted.deletedAt as Date,
+    };
   }
 }

@@ -84,6 +84,12 @@ describe("GET /v1/warnings", () => {
     expect(body.data[0].employee).toBeObject();
     expect(body.data[0].employee.id).toBeString();
     expect(body.data[0].employee.name).toBeString();
+    expect(body.data[0].createdBy).toBeObject();
+    expect(body.data[0].createdBy.id).toBeString();
+    expect(body.data[0].createdBy.name).toBeString();
+    expect(body.data[0].updatedBy).toBeObject();
+    expect(body.data[0].updatedBy.id).toBeString();
+    expect(body.data[0].updatedBy.name).toBeString();
   });
 
   test("should not return warnings from other organizations", async () => {

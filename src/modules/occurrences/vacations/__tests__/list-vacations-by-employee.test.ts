@@ -125,6 +125,12 @@ describe("GET /v1/vacations/employee/:employeeId", () => {
     for (const vacation of body.data) {
       expect(vacation.employee.id).toBe(employee1.id);
       expect(vacation.daysEntitled).toBeNumber();
+      expect(vacation.createdBy).toBeObject();
+      expect(vacation.createdBy).toHaveProperty("id");
+      expect(vacation.createdBy).toHaveProperty("name");
+      expect(vacation.updatedBy).toBeObject();
+      expect(vacation.updatedBy).toHaveProperty("id");
+      expect(vacation.updatedBy).toHaveProperty("name");
     }
   });
 

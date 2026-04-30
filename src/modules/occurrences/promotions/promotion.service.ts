@@ -1,7 +1,7 @@
 import { aliasedTable, and, eq, isNull } from "drizzle-orm";
 import { db } from "@/db";
 import { schema } from "@/db/schema";
-import type { EntityReference } from "@/lib/schemas/relationships";
+import { auditUserAliases } from "@/lib/schemas/audit-users";
 import { AuditService } from "@/modules/audit/audit.service";
 import {
   buildAuditChanges,
@@ -53,48 +53,12 @@ const PROMOTION_IGNORED_FIELDS = new Set([
 ]);
 
 export abstract class PromotionService {
-  private static async getEmployeeReference(
-    employeeId: string,
-    organizationId: string
-  ): Promise<EntityReference> {
-    const [employee] = await db
-      .select({ id: schema.employees.id, name: schema.employees.name })
-      .from(schema.employees)
-      .where(
-        and(
-          eq(schema.employees.id, employeeId),
-          eq(schema.employees.organizationId, organizationId),
-          isNull(schema.employees.deletedAt)
-        )
-      )
-      .limit(1);
-
-    return employee;
-  }
-
-  private static async getJobPositionReference(
-    jobPositionId: string,
-    organizationId: string
-  ): Promise<EntityReference> {
-    const [jobPosition] = await db
-      .select({ id: schema.jobPositions.id, name: schema.jobPositions.name })
-      .from(schema.jobPositions)
-      .where(
-        and(
-          eq(schema.jobPositions.id, jobPositionId),
-          eq(schema.jobPositions.organizationId, organizationId),
-          isNull(schema.jobPositions.deletedAt)
-        )
-      )
-      .limit(1);
-
-    return jobPosition;
-  }
-
   private static async findById(
     id: string,
     organizationId: string
   ): Promise<PromotionData | null> {
+    const { creator, updater } = auditUserAliases();
+
     const [result] = await db
       .select({
         id: schema.promotions.id,
@@ -118,8 +82,14 @@ export abstract class PromotionService {
         notes: schema.promotions.notes,
         createdAt: schema.promotions.createdAt,
         updatedAt: schema.promotions.updatedAt,
-        createdBy: schema.promotions.createdBy,
-        updatedBy: schema.promotions.updatedBy,
+        createdBy: {
+          id: creator.id,
+          name: creator.name,
+        },
+        updatedBy: {
+          id: updater.id,
+          name: updater.name,
+        },
       })
       .from(schema.promotions)
       .innerJoin(
@@ -134,6 +104,8 @@ export abstract class PromotionService {
         newJobPositionTable,
         eq(schema.promotions.newJobPositionId, newJobPositionTable.id)
       )
+      .innerJoin(creator, eq(schema.promotions.createdBy, creator.id))
+      .innerJoin(updater, eq(schema.promotions.updatedBy, updater.id))
       .where(
         and(
           eq(schema.promotions.id, id),
@@ -150,6 +122,8 @@ export abstract class PromotionService {
     id: string,
     organizationId: string
   ): Promise<(PromotionData & { deletedAt: Date | null }) | null> {
+    const { creator, updater } = auditUserAliases();
+
     const [result] = await db
       .select({
         id: schema.promotions.id,
@@ -173,9 +147,15 @@ export abstract class PromotionService {
         notes: schema.promotions.notes,
         createdAt: schema.promotions.createdAt,
         updatedAt: schema.promotions.updatedAt,
-        createdBy: schema.promotions.createdBy,
-        updatedBy: schema.promotions.updatedBy,
         deletedAt: schema.promotions.deletedAt,
+        createdBy: {
+          id: creator.id,
+          name: creator.name,
+        },
+        updatedBy: {
+          id: updater.id,
+          name: updater.name,
+        },
       })
       .from(schema.promotions)
       .innerJoin(
@@ -190,6 +170,8 @@ export abstract class PromotionService {
         newJobPositionTable,
         eq(schema.promotions.newJobPositionId, newJobPositionTable.id)
       )
+      .innerJoin(creator, eq(schema.promotions.createdBy, creator.id))
+      .innerJoin(updater, eq(schema.promotions.updatedBy, updater.id))
       .where(
         and(
           eq(schema.promotions.id, id),
@@ -473,41 +455,17 @@ export abstract class PromotionService {
       });
     }
 
-    const employee = await PromotionService.getEmployeeReference(
-      employeeId,
-      organizationId
-    );
-    const previousJobPosition = await PromotionService.getJobPositionReference(
-      previousJobPositionId,
-      organizationId
-    );
-    const newJobPosition = await PromotionService.getJobPositionReference(
-      newJobPositionId,
+    const data = await PromotionService.findByIdOrThrow(
+      promotion.id,
       organizationId
     );
 
-    return {
-      data: {
-        id: promotion.id,
-        organizationId: promotion.organizationId,
-        employee,
-        promotionDate: promotion.promotionDate,
-        previousJobPosition,
-        newJobPosition,
-        previousSalary: promotion.previousSalary,
-        newSalary: promotion.newSalary,
-        reason: promotion.reason,
-        notes: promotion.notes,
-        createdAt: promotion.createdAt,
-        updatedAt: promotion.updatedAt,
-        createdBy: promotion.createdBy,
-        updatedBy: promotion.updatedBy,
-      },
-      employeeSynced,
-    };
+    return { data, employeeSynced };
   }
 
   static async findAll(organizationId: string): Promise<PromotionData[]> {
+    const { creator, updater } = auditUserAliases();
+
     const promotions = await db
       .select({
         id: schema.promotions.id,
@@ -531,8 +489,14 @@ export abstract class PromotionService {
         notes: schema.promotions.notes,
         createdAt: schema.promotions.createdAt,
         updatedAt: schema.promotions.updatedAt,
-        createdBy: schema.promotions.createdBy,
-        updatedBy: schema.promotions.updatedBy,
+        createdBy: {
+          id: creator.id,
+          name: creator.name,
+        },
+        updatedBy: {
+          id: updater.id,
+          name: updater.name,
+        },
       })
       .from(schema.promotions)
       .innerJoin(
@@ -547,6 +511,8 @@ export abstract class PromotionService {
         newJobPositionTable,
         eq(schema.promotions.newJobPositionId, newJobPositionTable.id)
       )
+      .innerJoin(creator, eq(schema.promotions.createdBy, creator.id))
+      .innerJoin(updater, eq(schema.promotions.updatedBy, updater.id))
       .where(
         and(
           eq(schema.promotions.organizationId, organizationId),
@@ -771,20 +737,7 @@ export abstract class PromotionService {
     }
 
     return {
-      id: deleted.id,
-      organizationId: deleted.organizationId,
-      employee: existing.employee,
-      promotionDate: deleted.promotionDate,
-      previousJobPosition: existing.previousJobPosition,
-      newJobPosition: existing.newJobPosition,
-      previousSalary: deleted.previousSalary,
-      newSalary: deleted.newSalary,
-      reason: deleted.reason,
-      notes: deleted.notes,
-      createdAt: deleted.createdAt,
-      updatedAt: deleted.updatedAt,
-      createdBy: deleted.createdBy,
-      updatedBy: deleted.updatedBy,
+      ...existing,
       deletedAt: deleted.deletedAt as Date,
     };
   }

@@ -76,8 +76,10 @@ const promotionDataSchema = z.object({
   notes: z.string().nullable().describe("Observações adicionais"),
   createdAt: z.coerce.date().describe("Data de criação"),
   updatedAt: z.coerce.date().describe("Data de atualização"),
-  createdBy: z.string().nullable().describe("ID do usuário que criou"),
-  updatedBy: z.string().nullable().describe("ID do usuário que atualizou"),
+  createdBy: entityReferenceSchema.describe("Usuário que criou a promoção"),
+  updatedBy: entityReferenceSchema.describe(
+    "Usuário que atualizou a promoção pela última vez"
+  ),
 });
 
 const deletedPromotionDataSchema = promotionDataSchema.extend({

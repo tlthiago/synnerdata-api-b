@@ -78,6 +78,10 @@ const absenceDataSchema = z.object({
   notes: z.string().nullable().describe("Observações"),
   createdAt: z.coerce.date().describe("Data de criação"),
   updatedAt: z.coerce.date().describe("Data de atualização"),
+  createdBy: entityReferenceSchema.describe("Usuário que registrou a ausência"),
+  updatedBy: entityReferenceSchema.describe(
+    "Usuário que atualizou a ausência pela última vez"
+  ),
 });
 
 const deletedAbsenceDataSchema = absenceDataSchema.extend({

@@ -76,3 +76,7 @@ Event-driven hooks at `src/modules/employees/hooks/`:
 - `import/import.service.ts` — orquestra parsing, dedup CPF, check limite, batch insert, audit
 - `import/import.model.ts` — schemas Zod para response do import
 - `import/import.errors.ts` — erros específicos do import
+
+## User Attribution Shape
+
+`createdBy`/`updatedBy` expostos como `entityReferenceSchema` (`{ id, name }`) seguindo o padrão canônico de `src/modules/organizations/cost-centers/CLAUDE.md` (PRD #5+).

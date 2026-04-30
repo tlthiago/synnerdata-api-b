@@ -61,7 +61,7 @@ describe("GET /v1/job-positions", () => {
   });
 
   test("should list all job positions for organization", async () => {
-    const { headers } = await createTestUserWithOrganization({
+    const { headers, user } = await createTestUserWithOrganization({
       emailVerified: true,
     });
 
@@ -95,6 +95,10 @@ describe("GET /v1/job-positions", () => {
     expect(body.data).toBeArray();
     expect(body.data.length).toBe(2);
     expect(body.data[0].name).toBeDefined();
+    for (const item of body.data) {
+      expect(item.createdBy).toEqual({ id: user.id, name: user.name });
+      expect(item.updatedBy).toEqual({ id: user.id, name: user.name });
+    }
   });
 
   test("should not list deleted job positions", async () => {

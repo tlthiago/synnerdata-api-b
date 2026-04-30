@@ -279,6 +279,12 @@ describe("POST /v1/labor-lawsuits", () => {
     expect(body.data.plaintiff).toBe(lawsuitData.plaintiff);
     expect(body.data.defendant).toBe(lawsuitData.defendant);
     expect(body.data.description).toBe(lawsuitData.description);
+    expect(body.data.createdBy).toBeObject();
+    expect(body.data.createdBy.id).toBeString();
+    expect(body.data.createdBy.name).toBeString();
+    expect(body.data.updatedBy).toBeObject();
+    expect(body.data.updatedBy.id).toBeString();
+    expect(body.data.updatedBy.name).toBeString();
   });
 
   test("should create lawsuit without optional date and court fields", async () => {

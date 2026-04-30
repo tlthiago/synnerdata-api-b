@@ -1,6 +1,7 @@
 import { and, eq, isNull } from "drizzle-orm";
 import { db } from "@/db";
 import { schema } from "@/db/schema";
+import { auditUserAliases } from "@/lib/schemas/audit-users";
 import { AuditService } from "@/modules/audit/audit.service";
 import {
   buildAuditChanges,
@@ -30,6 +31,8 @@ export abstract class TerminationService {
     id: string,
     organizationId: string
   ): Promise<TerminationData | null> {
+    const { creator, updater } = auditUserAliases();
+
     const [result] = await db
       .select({
         id: schema.terminations.id,
@@ -48,12 +51,22 @@ export abstract class TerminationService {
         status: schema.terminations.status,
         createdAt: schema.terminations.createdAt,
         updatedAt: schema.terminations.updatedAt,
+        createdBy: {
+          id: creator.id,
+          name: creator.name,
+        },
+        updatedBy: {
+          id: updater.id,
+          name: updater.name,
+        },
       })
       .from(schema.terminations)
       .innerJoin(
         schema.employees,
         eq(schema.terminations.employeeId, schema.employees.id)
       )
+      .innerJoin(creator, eq(schema.terminations.createdBy, creator.id))
+      .innerJoin(updater, eq(schema.terminations.updatedBy, updater.id))
       .where(
         and(
           eq(schema.terminations.id, id),
@@ -70,6 +83,8 @@ export abstract class TerminationService {
     id: string,
     organizationId: string
   ): Promise<(TerminationData & { deletedAt: Date | null }) | null> {
+    const { creator, updater } = auditUserAliases();
+
     const [result] = await db
       .select({
         id: schema.terminations.id,
@@ -89,12 +104,22 @@ export abstract class TerminationService {
         createdAt: schema.terminations.createdAt,
         updatedAt: schema.terminations.updatedAt,
         deletedAt: schema.terminations.deletedAt,
+        createdBy: {
+          id: creator.id,
+          name: creator.name,
+        },
+        updatedBy: {
+          id: updater.id,
+          name: updater.name,
+        },
       })
       .from(schema.terminations)
       .innerJoin(
         schema.employees,
         eq(schema.terminations.employeeId, schema.employees.id)
       )
+      .innerJoin(creator, eq(schema.terminations.createdBy, creator.id))
+      .innerJoin(updater, eq(schema.terminations.updatedBy, updater.id))
       .where(
         and(
           eq(schema.terminations.id, id),
@@ -211,10 +236,7 @@ export abstract class TerminationService {
   static async create(input: CreateTerminationInput): Promise<TerminationData> {
     const { organizationId, userId, employeeId, ...data } = input;
 
-    const employee = await TerminationService.getEmployeeReference(
-      employeeId,
-      organizationId
-    );
+    await TerminationService.getEmployeeReference(employeeId, organizationId);
 
     await TerminationService.ensureNoActiveTermination(
       organizationId,
@@ -277,24 +299,12 @@ export abstract class TerminationService {
       });
     }
 
-    return {
-      id: termination.id,
-      organizationId: termination.organizationId,
-      employee,
-      terminationDate: termination.terminationDate,
-      type: termination.type,
-      reason: termination.reason,
-      noticePeriodDays: termination.noticePeriodDays,
-      noticePeriodWorked: termination.noticePeriodWorked,
-      lastWorkingDay: termination.lastWorkingDay,
-      notes: termination.notes,
-      status: termination.status,
-      createdAt: termination.createdAt,
-      updatedAt: termination.updatedAt,
-    } as TerminationData;
+    return TerminationService.findByIdOrThrow(termination.id, organizationId);
   }
 
   static async findAll(organizationId: string): Promise<TerminationData[]> {
+    const { creator, updater } = auditUserAliases();
+
     const results = await db
       .select({
         id: schema.terminations.id,
@@ -313,12 +323,22 @@ export abstract class TerminationService {
         status: schema.terminations.status,
         createdAt: schema.terminations.createdAt,
         updatedAt: schema.terminations.updatedAt,
+        createdBy: {
+          id: creator.id,
+          name: creator.name,
+        },
+        updatedBy: {
+          id: updater.id,
+          name: updater.name,
+        },
       })
       .from(schema.terminations)
       .innerJoin(
         schema.employees,
         eq(schema.terminations.employeeId, schema.employees.id)
       )
+      .innerJoin(creator, eq(schema.terminations.createdBy, creator.id))
+      .innerJoin(updater, eq(schema.terminations.updatedBy, updater.id))
       .where(
         and(
           eq(schema.terminations.organizationId, organizationId),

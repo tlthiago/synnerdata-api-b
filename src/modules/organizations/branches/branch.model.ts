@@ -1,6 +1,7 @@
 import { z } from "zod";
 import { isValidCNPJ } from "@/lib/document-validators";
 import { successResponseSchema } from "@/lib/responses/response.types";
+import { entityReferenceSchema } from "@/lib/schemas/relationships";
 
 const isFutureDate = (dateStr: string) => {
   const date = new Date(dateStr);
@@ -115,6 +116,10 @@ const branchDataSchema = z.object({
   foundedAt: z.string().nullable().describe("Data de fundação"),
   createdAt: z.coerce.date().describe("Data de criação"),
   updatedAt: z.coerce.date().describe("Data de atualização"),
+  createdBy: entityReferenceSchema.describe("Usuário que criou a filial"),
+  updatedBy: entityReferenceSchema.describe(
+    "Usuário que atualizou a filial pela última vez"
+  ),
 });
 
 const deletedBranchDataSchema = branchDataSchema.extend({

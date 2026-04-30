@@ -89,6 +89,8 @@ describe("GET /v1/projects/:id", () => {
     expect(body.data.employees).toBeArray();
     expect(body.data.createdAt).toBeDefined();
     expect(body.data.updatedAt).toBeDefined();
+    expect(body.data.createdBy).toEqual({ id: user.id, name: user.name });
+    expect(body.data.updatedBy).toEqual({ id: user.id, name: user.name });
   });
 
   test("should not return project from different organization", async () => {

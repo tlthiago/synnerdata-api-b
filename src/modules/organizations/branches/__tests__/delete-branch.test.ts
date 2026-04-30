@@ -111,6 +111,7 @@ describe("DELETE /v1/branches/:id", () => {
     expect(body.success).toBe(true);
     expect(body.data.id).toBe(branch.id);
     expect(body.data.deletedAt).toBeDefined();
+    expect(body.data.updatedBy).toEqual({ id: user.id, name: user.name });
 
     // Verify branch is no longer accessible via GET
     const getResponse = await app.handle(

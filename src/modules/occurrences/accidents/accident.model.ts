@@ -67,6 +67,10 @@ const accidentDataSchema = z.object({
   notes: z.string().nullable().describe("Observações"),
   createdAt: z.coerce.date().describe("Data de criação"),
   updatedAt: z.coerce.date().describe("Data de atualização"),
+  createdBy: entityReferenceSchema.describe("Usuário que registrou o acidente"),
+  updatedBy: entityReferenceSchema.describe(
+    "Usuário que atualizou o acidente pela última vez"
+  ),
 });
 
 const deletedAccidentDataSchema = accidentDataSchema.extend({

@@ -51,3 +51,7 @@ Registro de promoções com mudança de cargo e salário. Sincroniza automaticam
 - `PromotionNotLatestError` (422) — tentativa de editar/deletar promoção que não é a mais recente
 - `EmployeeTerminatedError` (422) — shared, from `src/modules/employees/errors.ts`
 - `EmployeeOnVacationError` (422) — shared, from `src/modules/employees/errors.ts`
+
+## User Attribution Shape
+
+Response exposes `createdBy: { id, name }` and `updatedBy: { id, name }` via `auditUserAliases()` innerJoin — canonical pattern from `src/modules/organizations/cost-centers/` (PRD #5+). Replaces the legacy `z.string().nullable()` shape with `entityReferenceSchema` (FK NOT NULL since PRD #3).
