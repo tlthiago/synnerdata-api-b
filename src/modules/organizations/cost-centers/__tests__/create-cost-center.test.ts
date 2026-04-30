@@ -121,9 +121,10 @@ describe("POST /v1/cost-centers", () => {
   });
 
   test("should create cost center successfully", async () => {
-    const { headers, organizationId } = await createTestUserWithOrganization({
-      emailVerified: true,
-    });
+    const { headers, organizationId, user } =
+      await createTestUserWithOrganization({
+        emailVerified: true,
+      });
 
     const response = await app.handle(
       new Request(`${BASE_URL}/v1/cost-centers`, {
@@ -144,6 +145,8 @@ describe("POST /v1/cost-centers", () => {
     expect(body.data.id).toStartWith("cost-center-");
     expect(body.data.organizationId).toBe(organizationId);
     expect(body.data.name).toBe(validCostCenterData.name);
+    expect(body.data.createdBy).toEqual({ id: user.id, name: user.name });
+    expect(body.data.updatedBy).toEqual({ id: user.id, name: user.name });
   });
 
   test.each([

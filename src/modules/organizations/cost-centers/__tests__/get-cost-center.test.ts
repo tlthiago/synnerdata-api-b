@@ -138,5 +138,7 @@ describe("GET /v1/cost-centers/:id", () => {
     expect(body.data.id).toBe(costCenter.id);
     expect(body.data.organizationId).toBe(organizationId);
     expect(body.data.name).toBe("Centro de Custo Financeiro");
+    expect(body.data.createdBy).toEqual({ id: user.id, name: user.name });
+    expect(body.data.updatedBy).toEqual({ id: user.id, name: user.name });
   });
 });
