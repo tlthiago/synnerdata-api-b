@@ -1,6 +1,7 @@
 import { and, eq, isNull } from "drizzle-orm";
 import { db } from "@/db";
 import { schema } from "@/db/schema";
+import { auditUserAliases } from "@/lib/schemas/audit-users";
 import { AuditService } from "@/modules/audit/audit.service";
 import {
   buildAuditChanges,
@@ -28,34 +29,9 @@ const PPE_DELIVERY_IGNORED_FIELDS = new Set([
   "employeeId",
 ]);
 
-type PpeDeliveryRaw = typeof schema.ppeDeliveries.$inferSelect;
-type EmployeeData = { id: string; name: string; cpf: string };
 type PpeItemData = { id: string; name: string; equipment: string };
 
 export abstract class PpeDeliveryService {
-  private static async getEmployee(
-    employeeId: string,
-    organizationId: string
-  ): Promise<EmployeeData | null> {
-    const [employee] = await db
-      .select({
-        id: schema.employees.id,
-        name: schema.employees.name,
-        cpf: schema.employees.cpf,
-      })
-      .from(schema.employees)
-      .where(
-        and(
-          eq(schema.employees.id, employeeId),
-          eq(schema.employees.organizationId, organizationId),
-          isNull(schema.employees.deletedAt)
-        )
-      )
-      .limit(1);
-
-    return employee ?? null;
-  }
-
   private static async getPpeItems(
     ppeDeliveryId: string,
     organizationId: string
@@ -84,35 +60,42 @@ export abstract class PpeDeliveryService {
     return items;
   }
 
-  private static async enrichDelivery(
-    delivery: PpeDeliveryRaw,
-    organizationId: string
-  ): Promise<PpeDeliveryData> {
-    const [employee, items] = await Promise.all([
-      PpeDeliveryService.getEmployee(delivery.employeeId, organizationId),
-      PpeDeliveryService.getPpeItems(delivery.id, organizationId),
-    ]);
-
-    return {
-      id: delivery.id,
-      organizationId: delivery.organizationId,
-      employee: employee ?? { id: delivery.employeeId, name: "", cpf: "" },
-      deliveryDate: delivery.deliveryDate,
-      reason: delivery.reason,
-      deliveredBy: delivery.deliveredBy,
-      items,
-      createdAt: delivery.createdAt,
-      updatedAt: delivery.updatedAt,
-    };
-  }
-
   private static async findById(
     id: string,
     organizationId: string
-  ): Promise<PpeDeliveryRaw | null> {
+  ): Promise<PpeDeliveryData | null> {
+    const { creator, updater } = auditUserAliases();
+
     const [delivery] = await db
-      .select()
+      .select({
+        id: schema.ppeDeliveries.id,
+        organizationId: schema.ppeDeliveries.organizationId,
+        employee: {
+          id: schema.employees.id,
+          name: schema.employees.name,
+          cpf: schema.employees.cpf,
+        },
+        deliveryDate: schema.ppeDeliveries.deliveryDate,
+        reason: schema.ppeDeliveries.reason,
+        deliveredBy: schema.ppeDeliveries.deliveredBy,
+        createdAt: schema.ppeDeliveries.createdAt,
+        updatedAt: schema.ppeDeliveries.updatedAt,
+        createdBy: {
+          id: creator.id,
+          name: creator.name,
+        },
+        updatedBy: {
+          id: updater.id,
+          name: updater.name,
+        },
+      })
       .from(schema.ppeDeliveries)
+      .innerJoin(
+        schema.employees,
+        eq(schema.ppeDeliveries.employeeId, schema.employees.id)
+      )
+      .innerJoin(creator, eq(schema.ppeDeliveries.createdBy, creator.id))
+      .innerJoin(updater, eq(schema.ppeDeliveries.updatedBy, updater.id))
       .where(
         and(
           eq(schema.ppeDeliveries.id, id),
@@ -122,16 +105,52 @@ export abstract class PpeDeliveryService {
       )
       .limit(1);
 
-    return delivery ?? null;
+    if (!delivery) {
+      return null;
+    }
+
+    const items = await PpeDeliveryService.getPpeItems(id, organizationId);
+
+    return { ...delivery, items } as PpeDeliveryData;
   }
 
   private static async findByIdIncludingDeleted(
     id: string,
     organizationId: string
-  ): Promise<(PpeDeliveryRaw & { deletedAt: Date | null }) | null> {
+  ): Promise<(PpeDeliveryData & { deletedAt: Date | null }) | null> {
+    const { creator, updater } = auditUserAliases();
+
     const [delivery] = await db
-      .select()
+      .select({
+        id: schema.ppeDeliveries.id,
+        organizationId: schema.ppeDeliveries.organizationId,
+        employee: {
+          id: schema.employees.id,
+          name: schema.employees.name,
+          cpf: schema.employees.cpf,
+        },
+        deliveryDate: schema.ppeDeliveries.deliveryDate,
+        reason: schema.ppeDeliveries.reason,
+        deliveredBy: schema.ppeDeliveries.deliveredBy,
+        createdAt: schema.ppeDeliveries.createdAt,
+        updatedAt: schema.ppeDeliveries.updatedAt,
+        deletedAt: schema.ppeDeliveries.deletedAt,
+        createdBy: {
+          id: creator.id,
+          name: creator.name,
+        },
+        updatedBy: {
+          id: updater.id,
+          name: updater.name,
+        },
+      })
       .from(schema.ppeDeliveries)
+      .innerJoin(
+        schema.employees,
+        eq(schema.ppeDeliveries.employeeId, schema.employees.id)
+      )
+      .innerJoin(creator, eq(schema.ppeDeliveries.createdBy, creator.id))
+      .innerJoin(updater, eq(schema.ppeDeliveries.updatedBy, updater.id))
       .where(
         and(
           eq(schema.ppeDeliveries.id, id),
@@ -140,7 +159,15 @@ export abstract class PpeDeliveryService {
       )
       .limit(1);
 
-    return delivery ?? null;
+    if (!delivery) {
+      return null;
+    }
+
+    const items = await PpeDeliveryService.getPpeItems(id, organizationId);
+
+    return { ...delivery, items } as PpeDeliveryData & {
+      deletedAt: Date | null;
+    };
   }
 
   private static async createLog(params: {
@@ -163,18 +190,26 @@ export abstract class PpeDeliveryService {
   static async create(input: CreatePpeDeliveryInput): Promise<PpeDeliveryData> {
     const { organizationId, userId, ppeItemIds, ...data } = input;
 
-    // Verify employee exists
-    const employee = await PpeDeliveryService.getEmployee(
-      data.employeeId,
-      organizationId
-    );
-    if (!employee) {
+    const [employeeRow] = await db
+      .select({
+        id: schema.employees.id,
+      })
+      .from(schema.employees)
+      .where(
+        and(
+          eq(schema.employees.id, data.employeeId),
+          eq(schema.employees.organizationId, organizationId),
+          isNull(schema.employees.deletedAt)
+        )
+      )
+      .limit(1);
+
+    if (!employeeRow) {
       throw new PpeDeliveryEmployeeNotFoundError(data.employeeId);
     }
 
     await ensureEmployeeActive(data.employeeId, organizationId);
 
-    // Verify all PPE Items exist if provided
     if (ppeItemIds && ppeItemIds.length > 0) {
       for (const ppeItemId of ppeItemIds) {
         const [ppeItem] = await db
@@ -222,7 +257,6 @@ export abstract class PpeDeliveryService {
       }),
     });
 
-    // Add PPE Items if provided
     if (ppeItemIds && ppeItemIds.length > 0) {
       for (const ppeItemId of ppeItemIds) {
         const itemId = `ppe-delivery-item-${crypto.randomUUID()}`;
@@ -238,7 +272,6 @@ export abstract class PpeDeliveryService {
           })
           .returning();
 
-        // Create log for each item added
         await PpeDeliveryService.createLog({
           ppeDeliveryId,
           ppeItemId,
@@ -258,13 +291,15 @@ export abstract class PpeDeliveryService {
       }
     }
 
-    return PpeDeliveryService.enrichDelivery(delivery, organizationId);
+    return PpeDeliveryService.findByIdOrThrow(ppeDeliveryId, organizationId);
   }
 
   static async findAll(
     organizationId: string,
     employeeId?: string
   ): Promise<PpeDeliveryData[]> {
+    const { creator, updater } = auditUserAliases();
+
     const conditions = [
       eq(schema.ppeDeliveries.organizationId, organizationId),
       isNull(schema.ppeDeliveries.deletedAt),
@@ -275,15 +310,46 @@ export abstract class PpeDeliveryService {
     }
 
     const deliveries = await db
-      .select()
+      .select({
+        id: schema.ppeDeliveries.id,
+        organizationId: schema.ppeDeliveries.organizationId,
+        employee: {
+          id: schema.employees.id,
+          name: schema.employees.name,
+          cpf: schema.employees.cpf,
+        },
+        deliveryDate: schema.ppeDeliveries.deliveryDate,
+        reason: schema.ppeDeliveries.reason,
+        deliveredBy: schema.ppeDeliveries.deliveredBy,
+        createdAt: schema.ppeDeliveries.createdAt,
+        updatedAt: schema.ppeDeliveries.updatedAt,
+        createdBy: {
+          id: creator.id,
+          name: creator.name,
+        },
+        updatedBy: {
+          id: updater.id,
+          name: updater.name,
+        },
+      })
       .from(schema.ppeDeliveries)
+      .innerJoin(
+        schema.employees,
+        eq(schema.ppeDeliveries.employeeId, schema.employees.id)
+      )
+      .innerJoin(creator, eq(schema.ppeDeliveries.createdBy, creator.id))
+      .innerJoin(updater, eq(schema.ppeDeliveries.updatedBy, updater.id))
       .where(and(...conditions))
       .orderBy(schema.ppeDeliveries.deliveryDate);
 
     const enriched = await Promise.all(
-      deliveries.map((d) =>
-        PpeDeliveryService.enrichDelivery(d, organizationId)
-      )
+      deliveries.map(async (d) => {
+        const items = await PpeDeliveryService.getPpeItems(
+          d.id,
+          organizationId
+        );
+        return { ...d, items } as PpeDeliveryData;
+      })
     );
 
     return enriched;
@@ -297,7 +363,7 @@ export abstract class PpeDeliveryService {
     if (!delivery) {
       throw new PpeDeliveryNotFoundError(id);
     }
-    return PpeDeliveryService.enrichDelivery(delivery, organizationId);
+    return delivery;
   }
 
   static async update(
@@ -346,7 +412,7 @@ export abstract class PpeDeliveryService {
       );
     }
 
-    return PpeDeliveryService.enrichDelivery(updated, organizationId);
+    return PpeDeliveryService.findByIdOrThrow(id, organizationId);
   }
 
   private static async replacePpeItems(
@@ -355,7 +421,6 @@ export abstract class PpeDeliveryService {
     newPpeItemIds: string[],
     userId: string
   ): Promise<void> {
-    // Validate all new PPE items exist in the organization
     for (const ppeItemId of newPpeItemIds) {
       const [ppeItem] = await db
         .select()
@@ -374,7 +439,6 @@ export abstract class PpeDeliveryService {
       }
     }
 
-    // Get current active items
     const currentItems = await db
       .select()
       .from(schema.ppeDeliveryItems)
@@ -389,7 +453,6 @@ export abstract class PpeDeliveryService {
     const currentIds = new Set(currentItems.map((i) => i.ppeItemId));
     const newIds = new Set(newPpeItemIds);
 
-    // Soft delete items that are no longer in the list
     for (const item of currentItems) {
       if (!newIds.has(item.ppeItemId)) {
         const [removed] = await db
@@ -417,7 +480,6 @@ export abstract class PpeDeliveryService {
       }
     }
 
-    // Add new items that don't exist yet
     for (const ppeItemId of newPpeItemIds) {
       if (!currentIds.has(ppeItemId)) {
         const [association] = await db
@@ -496,13 +558,8 @@ export abstract class PpeDeliveryService {
       ),
     });
 
-    const enriched = await PpeDeliveryService.enrichDelivery(
-      deleted,
-      organizationId
-    );
-
     return {
-      ...enriched,
+      ...existing,
       deletedAt: deleted.deletedAt as Date,
     };
   }
@@ -515,7 +572,6 @@ export abstract class PpeDeliveryService {
     organizationId: string,
     userId: string
   ): Promise<{ ppeDeliveryId: string; ppeItemId: string; createdAt: Date }> {
-    // Verify PPE Delivery exists
     const delivery = await PpeDeliveryService.findById(
       ppeDeliveryId,
       organizationId
@@ -524,7 +580,6 @@ export abstract class PpeDeliveryService {
       throw new PpeDeliveryNotFoundError(ppeDeliveryId);
     }
 
-    // Verify PPE Item exists
     const [ppeItem] = await db
       .select()
       .from(schema.ppeItems)
@@ -541,7 +596,6 @@ export abstract class PpeDeliveryService {
       throw new PpeDeliveryPpeItemNotFoundError(ppeItemId);
     }
 
-    // Check if association already exists (active)
     const [existing] = await db
       .select()
       .from(schema.ppeDeliveryItems)
@@ -558,12 +612,12 @@ export abstract class PpeDeliveryService {
       throw new PpeDeliveryItemAlreadyExistsError(ppeDeliveryId, ppeItemId);
     }
 
-    const id = `ppe-delivery-item-${crypto.randomUUID()}`;
+    const associationId = `ppe-delivery-item-${crypto.randomUUID()}`;
 
     const [association] = await db
       .insert(schema.ppeDeliveryItems)
       .values({
-        id,
+        id: associationId,
         organizationId,
         ppeDeliveryId,
         ppeItemId,
@@ -571,7 +625,6 @@ export abstract class PpeDeliveryService {
       })
       .returning();
 
-    // Create log
     await PpeDeliveryService.createLog({
       ppeDeliveryId,
       ppeItemId,
@@ -602,7 +655,6 @@ export abstract class PpeDeliveryService {
     organizationId: string,
     userId: string
   ): Promise<void> {
-    // Verify PPE Delivery exists
     const delivery = await PpeDeliveryService.findById(
       ppeDeliveryId,
       organizationId
@@ -611,7 +663,6 @@ export abstract class PpeDeliveryService {
       throw new PpeDeliveryNotFoundError(ppeDeliveryId);
     }
 
-    // Find active association
     const [association] = await db
       .select()
       .from(schema.ppeDeliveryItems)
@@ -629,7 +680,6 @@ export abstract class PpeDeliveryService {
       throw new PpeDeliveryItemNotFoundError(ppeDeliveryId, ppeItemId);
     }
 
-    // Create log before removing
     await PpeDeliveryService.createLog({
       ppeDeliveryId,
       ppeItemId,
@@ -638,7 +688,6 @@ export abstract class PpeDeliveryService {
       description: "Removido da entrega",
     });
 
-    // Soft delete the association
     const [removed] = await db
       .update(schema.ppeDeliveryItems)
       .set({
@@ -661,7 +710,6 @@ export abstract class PpeDeliveryService {
     ppeDeliveryId: string,
     organizationId: string
   ): Promise<PpeItemData[]> {
-    // Verify PPE Delivery exists
     const delivery = await PpeDeliveryService.findById(
       ppeDeliveryId,
       organizationId
