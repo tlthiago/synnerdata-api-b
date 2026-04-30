@@ -1,6 +1,7 @@
 import { and, eq, isNull, sql } from "drizzle-orm";
 import { db } from "@/db";
 import { schema } from "@/db/schema";
+import { auditUserAliases } from "@/lib/schemas/audit-users";
 import { AuditService } from "@/modules/audit/audit.service";
 import { buildAuditChanges } from "@/modules/audit/pii-redaction";
 import {
@@ -46,9 +47,29 @@ export abstract class PpeItemService {
     id: string,
     organizationId: string
   ): Promise<PpeItemData | null> {
+    const { creator, updater } = auditUserAliases();
+
     const [ppeItem] = await db
-      .select()
+      .select({
+        id: schema.ppeItems.id,
+        organizationId: schema.ppeItems.organizationId,
+        name: schema.ppeItems.name,
+        description: schema.ppeItems.description,
+        equipment: schema.ppeItems.equipment,
+        createdAt: schema.ppeItems.createdAt,
+        updatedAt: schema.ppeItems.updatedAt,
+        createdBy: {
+          id: creator.id,
+          name: creator.name,
+        },
+        updatedBy: {
+          id: updater.id,
+          name: updater.name,
+        },
+      })
       .from(schema.ppeItems)
+      .innerJoin(creator, eq(schema.ppeItems.createdBy, creator.id))
+      .innerJoin(updater, eq(schema.ppeItems.updatedBy, updater.id))
       .where(
         and(
           eq(schema.ppeItems.id, id),
@@ -58,16 +79,37 @@ export abstract class PpeItemService {
       )
       .limit(1);
 
-    return (ppeItem as PpeItemData) ?? null;
+    return ppeItem ?? null;
   }
 
   private static async findByIdIncludingDeleted(
     id: string,
     organizationId: string
   ): Promise<(PpeItemData & { deletedAt: Date | null }) | null> {
+    const { creator, updater } = auditUserAliases();
+
     const [ppeItem] = await db
-      .select()
+      .select({
+        id: schema.ppeItems.id,
+        organizationId: schema.ppeItems.organizationId,
+        name: schema.ppeItems.name,
+        description: schema.ppeItems.description,
+        equipment: schema.ppeItems.equipment,
+        createdAt: schema.ppeItems.createdAt,
+        updatedAt: schema.ppeItems.updatedAt,
+        deletedAt: schema.ppeItems.deletedAt,
+        createdBy: {
+          id: creator.id,
+          name: creator.name,
+        },
+        updatedBy: {
+          id: updater.id,
+          name: updater.name,
+        },
+      })
       .from(schema.ppeItems)
+      .innerJoin(creator, eq(schema.ppeItems.createdBy, creator.id))
+      .innerJoin(updater, eq(schema.ppeItems.updatedBy, updater.id))
       .where(
         and(
           eq(schema.ppeItems.id, id),
@@ -112,13 +154,33 @@ export abstract class PpeItemService {
       changes: buildAuditChanges({}, ppeItem),
     });
 
-    return ppeItem as PpeItemData;
+    return PpeItemService.findByIdOrThrow(ppeItem.id, organizationId);
   }
 
   static async findAll(organizationId: string): Promise<PpeItemData[]> {
+    const { creator, updater } = auditUserAliases();
+
     const ppeItems = await db
-      .select()
+      .select({
+        id: schema.ppeItems.id,
+        organizationId: schema.ppeItems.organizationId,
+        name: schema.ppeItems.name,
+        description: schema.ppeItems.description,
+        equipment: schema.ppeItems.equipment,
+        createdAt: schema.ppeItems.createdAt,
+        updatedAt: schema.ppeItems.updatedAt,
+        createdBy: {
+          id: creator.id,
+          name: creator.name,
+        },
+        updatedBy: {
+          id: updater.id,
+          name: updater.name,
+        },
+      })
       .from(schema.ppeItems)
+      .innerJoin(creator, eq(schema.ppeItems.createdBy, creator.id))
+      .innerJoin(updater, eq(schema.ppeItems.updatedBy, updater.id))
       .where(
         and(
           eq(schema.ppeItems.organizationId, organizationId),
@@ -127,7 +189,7 @@ export abstract class PpeItemService {
       )
       .orderBy(schema.ppeItems.name);
 
-    return ppeItems as PpeItemData[];
+    return ppeItems;
   }
 
   static async findByIdOrThrow(
@@ -187,7 +249,7 @@ export abstract class PpeItemService {
       changes: buildAuditChanges(existing, updated),
     });
 
-    return updated as PpeItemData;
+    return PpeItemService.findByIdOrThrow(id, organizationId);
   }
 
   static async delete(
@@ -231,7 +293,10 @@ export abstract class PpeItemService {
       changes: buildAuditChanges(existing, {}),
     });
 
-    return deleted as DeletedPpeItemData;
+    return {
+      ...existing,
+      deletedAt: deleted.deletedAt as Date,
+    };
   }
 
   // M2M Job Position methods

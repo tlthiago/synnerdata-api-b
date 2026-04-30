@@ -41,3 +41,7 @@ Catálogo de Equipamentos de Proteção Individual com associação a cargos.
 - `PpeItemAlreadyDeletedError` (404)
 - `PpeJobPositionNotFoundError` (404)
 - `PpeJobPositionAlreadyExistsError` (409)
+
+## User attribution shape
+
+`createdBy`/`updatedBy` expostos como `{ id, name }` via `entityReferenceSchema`. Segue o padrão canônico de `src/modules/organizations/cost-centers/CLAUDE.md` (PRD #5+). O M2M `ppe_job_positions` não expõe `createdBy` na resposta da API (retorna apenas `ppeItemId`, `jobPositionId`, `createdAt`), pois a junction não tem endpoint de leitura enriquecida.

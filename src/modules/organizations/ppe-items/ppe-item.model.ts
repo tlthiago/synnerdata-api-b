@@ -1,5 +1,6 @@
 import { z } from "zod";
 import { successResponseSchema } from "@/lib/responses/response.types";
+import { entityReferenceSchema } from "@/lib/schemas/relationships";
 
 export const createPpeItemSchema = z.object({
   name: z
@@ -38,6 +39,10 @@ const ppeItemDataSchema = z.object({
   equipment: z.string().describe("Lista de equipamentos"),
   createdAt: z.coerce.date().describe("Data de criação"),
   updatedAt: z.coerce.date().describe("Data de atualização"),
+  createdBy: entityReferenceSchema.describe("Usuário que criou o EPI"),
+  updatedBy: entityReferenceSchema.describe(
+    "Usuário que atualizou o EPI pela última vez"
+  ),
 });
 
 const deletedPpeItemDataSchema = ppeItemDataSchema.extend({

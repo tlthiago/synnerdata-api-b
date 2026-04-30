@@ -87,6 +87,8 @@ describe("GET /v1/ppe-items/:id", () => {
     expect(body.data.name).toBe("Luvas de Proteção");
     expect(body.data.description).toBe("Luvas para proteção das mãos");
     expect(body.data.equipment).toBe("Luvas de Nitrila");
+    expect(body.data.createdBy).toMatchObject({ id: user.id });
+    expect(body.data.updatedBy).toMatchObject({ id: user.id });
   });
 
   test("should not return ppe item from another organization", async () => {

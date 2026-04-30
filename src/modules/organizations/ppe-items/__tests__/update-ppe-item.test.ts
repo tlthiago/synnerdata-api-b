@@ -96,6 +96,7 @@ describe("PUT /v1/ppe-items/:id", () => {
     expect(body.success).toBe(true);
     expect(body.data.name).toBe("Updated Name");
     expect(body.data.id).toBe(ppeItem.id);
+    expect(body.data.updatedBy).toMatchObject({ id: user.id });
   });
 
   test("should update ppe item description and equipment", async () => {
