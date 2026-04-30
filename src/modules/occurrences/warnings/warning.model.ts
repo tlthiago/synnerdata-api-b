@@ -113,6 +113,10 @@ const warningDataSchema = z.object({
   notes: z.string().nullable().describe("Observações"),
   createdAt: z.coerce.date().describe("Data de criação"),
   updatedAt: z.coerce.date().describe("Data de atualização"),
+  createdBy: entityReferenceSchema.describe("Usuário que criou a advertência"),
+  updatedBy: entityReferenceSchema.describe(
+    "Usuário que atualizou a advertência pela última vez"
+  ),
 });
 
 const deletedWarningDataSchema = warningDataSchema.extend({

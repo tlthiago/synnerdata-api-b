@@ -1,6 +1,7 @@
 import { and, eq, isNull } from "drizzle-orm";
 import { db } from "@/db";
 import { schema } from "@/db/schema";
+import { auditUserAliases } from "@/lib/schemas/audit-users";
 import { AuditService } from "@/modules/audit/audit.service";
 import {
   buildAuditChanges,
@@ -32,6 +33,8 @@ export abstract class WarningService {
     id: string,
     organizationId: string
   ): Promise<WarningData | null> {
+    const { creator, updater } = auditUserAliases();
+
     const [result] = await db
       .select({
         id: schema.warnings.id,
@@ -50,12 +53,22 @@ export abstract class WarningService {
         notes: schema.warnings.notes,
         createdAt: schema.warnings.createdAt,
         updatedAt: schema.warnings.updatedAt,
+        createdBy: {
+          id: creator.id,
+          name: creator.name,
+        },
+        updatedBy: {
+          id: updater.id,
+          name: updater.name,
+        },
       })
       .from(schema.warnings)
       .innerJoin(
         schema.employees,
         eq(schema.warnings.employeeId, schema.employees.id)
       )
+      .innerJoin(creator, eq(schema.warnings.createdBy, creator.id))
+      .innerJoin(updater, eq(schema.warnings.updatedBy, updater.id))
       .where(
         and(
           eq(schema.warnings.id, id),
@@ -72,6 +85,8 @@ export abstract class WarningService {
     id: string,
     organizationId: string
   ): Promise<(WarningData & { deletedAt: Date | null }) | null> {
+    const { creator, updater } = auditUserAliases();
+
     const [result] = await db
       .select({
         id: schema.warnings.id,
@@ -91,12 +106,22 @@ export abstract class WarningService {
         createdAt: schema.warnings.createdAt,
         updatedAt: schema.warnings.updatedAt,
         deletedAt: schema.warnings.deletedAt,
+        createdBy: {
+          id: creator.id,
+          name: creator.name,
+        },
+        updatedBy: {
+          id: updater.id,
+          name: updater.name,
+        },
       })
       .from(schema.warnings)
       .innerJoin(
         schema.employees,
         eq(schema.warnings.employeeId, schema.employees.id)
       )
+      .innerJoin(creator, eq(schema.warnings.createdBy, creator.id))
+      .innerJoin(updater, eq(schema.warnings.updatedBy, updater.id))
       .where(
         and(
           eq(schema.warnings.id, id),
@@ -213,10 +238,7 @@ export abstract class WarningService {
   static async create(input: CreateWarningInput): Promise<WarningData> {
     const { organizationId, userId, ...data } = input;
 
-    const employee = await WarningService.getEmployeeReference(
-      data.employeeId,
-      organizationId
-    );
+    await WarningService.getEmployeeReference(data.employeeId, organizationId);
 
     await ensureEmployeeActive(data.employeeId, organizationId);
 
@@ -261,24 +283,12 @@ export abstract class WarningService {
       }),
     });
 
-    return {
-      id: warning.id,
-      organizationId: warning.organizationId,
-      employee,
-      date: warning.date,
-      type: warning.type,
-      reason: warning.reason,
-      description: warning.description,
-      witnessName: warning.witnessName,
-      acknowledged: warning.acknowledged,
-      acknowledgedAt: warning.acknowledgedAt,
-      notes: warning.notes,
-      createdAt: warning.createdAt,
-      updatedAt: warning.updatedAt,
-    } as WarningData;
+    return WarningService.findByIdOrThrow(warning.id, organizationId);
   }
 
   static async findAll(organizationId: string): Promise<WarningData[]> {
+    const { creator, updater } = auditUserAliases();
+
     const results = await db
       .select({
         id: schema.warnings.id,
@@ -297,12 +307,22 @@ export abstract class WarningService {
         notes: schema.warnings.notes,
         createdAt: schema.warnings.createdAt,
         updatedAt: schema.warnings.updatedAt,
+        createdBy: {
+          id: creator.id,
+          name: creator.name,
+        },
+        updatedBy: {
+          id: updater.id,
+          name: updater.name,
+        },
       })
       .from(schema.warnings)
       .innerJoin(
         schema.employees,
         eq(schema.warnings.employeeId, schema.employees.id)
       )
+      .innerJoin(creator, eq(schema.warnings.createdBy, creator.id))
+      .innerJoin(updater, eq(schema.warnings.updatedBy, updater.id))
       .where(
         and(
           eq(schema.warnings.organizationId, organizationId),
