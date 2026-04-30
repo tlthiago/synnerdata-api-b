@@ -48,3 +48,7 @@ Projetos com alocação de funcionários (M2M).
 - `ProjectEmployeeNotFoundError` (404)
 - `ProjectEmployeeAlreadyExistsError` (409)
 - `ProjectEmployeeNotAssignedError` (404)
+
+## User attribution shape
+
+Este módulo segue o pattern canônico de `createdBy`/`updatedBy` como `entityReferenceSchema` (`{ id, name }`), documentado em `src/modules/organizations/cost-centers/CLAUDE.md`. O M2M `project_employees` não expõe `createdBy`/`updatedBy` na resposta da API (apenas `projectId`, `employeeId`, `createdAt`), pois a tabela junction só possui `createdBy` e não tem endpoint de leitura enriquecida.
