@@ -2,7 +2,6 @@ import { aliasedTable, and, eq, isNull } from "drizzle-orm";
 import { db } from "@/db";
 import { schema } from "@/db/schema";
 import { auditUserAliases } from "@/lib/schemas/audit-users";
-import type { EntityReference } from "@/lib/schemas/relationships";
 import { AuditService } from "@/modules/audit/audit.service";
 import {
   buildAuditChanges,
@@ -54,44 +53,6 @@ const PROMOTION_IGNORED_FIELDS = new Set([
 ]);
 
 export abstract class PromotionService {
-  private static async getEmployeeReference(
-    employeeId: string,
-    organizationId: string
-  ): Promise<EntityReference> {
-    const [employee] = await db
-      .select({ id: schema.employees.id, name: schema.employees.name })
-      .from(schema.employees)
-      .where(
-        and(
-          eq(schema.employees.id, employeeId),
-          eq(schema.employees.organizationId, organizationId),
-          isNull(schema.employees.deletedAt)
-        )
-      )
-      .limit(1);
-
-    return employee;
-  }
-
-  private static async getJobPositionReference(
-    jobPositionId: string,
-    organizationId: string
-  ): Promise<EntityReference> {
-    const [jobPosition] = await db
-      .select({ id: schema.jobPositions.id, name: schema.jobPositions.name })
-      .from(schema.jobPositions)
-      .where(
-        and(
-          eq(schema.jobPositions.id, jobPositionId),
-          eq(schema.jobPositions.organizationId, organizationId),
-          isNull(schema.jobPositions.deletedAt)
-        )
-      )
-      .limit(1);
-
-    return jobPosition;
-  }
-
   private static async findById(
     id: string,
     organizationId: string
