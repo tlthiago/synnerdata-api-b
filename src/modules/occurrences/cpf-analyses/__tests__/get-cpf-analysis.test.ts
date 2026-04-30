@@ -125,6 +125,12 @@ describe("GET /v1/cpf-analyses/:id", () => {
     expect(body.data.status).toBe("approved");
     expect(body.data.score).toBe(750);
     expect(body.data.riskLevel).toBe("low");
+    expect(body.data.createdBy).toBeObject();
+    expect(body.data.createdBy.id).toBeString();
+    expect(body.data.createdBy.name).toBeString();
+    expect(body.data.updatedBy).toBeObject();
+    expect(body.data.updatedBy.id).toBeString();
+    expect(body.data.updatedBy.name).toBeString();
   });
 
   test("should allow viewer to get cpf analysis", async () => {

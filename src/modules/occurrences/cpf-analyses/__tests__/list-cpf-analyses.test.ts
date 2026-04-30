@@ -102,6 +102,12 @@ describe("GET /v1/cpf-analyses", () => {
     expect(body.data[0].employee).toBeObject();
     expect(body.data[0].employee.id).toBe(employee.id);
     expect(body.data[0].employee.name).toBeString();
+    expect(body.data[0].createdBy).toBeObject();
+    expect(body.data[0].createdBy.id).toBeString();
+    expect(body.data[0].createdBy.name).toBeString();
+    expect(body.data[0].updatedBy).toBeObject();
+    expect(body.data[0].updatedBy.id).toBeString();
+    expect(body.data[0].updatedBy.name).toBeString();
     expect(body.data[1].id).toStartWith("cpf-analysis-");
     expect(body.data[1].employee).toBeObject();
     expect(body.data[1].employee.id).toBe(employee.id);

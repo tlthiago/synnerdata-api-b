@@ -227,6 +227,12 @@ describe("POST /v1/cpf-analyses", () => {
     expect(body.data.status).toBe("pending");
     expect(body.data.score).toBeNull();
     expect(body.data.riskLevel).toBeNull();
+    expect(body.data.createdBy).toBeObject();
+    expect(body.data.createdBy.id).toBeString();
+    expect(body.data.createdBy.name).toBeString();
+    expect(body.data.updatedBy).toBeObject();
+    expect(body.data.updatedBy.id).toBeString();
+    expect(body.data.updatedBy.name).toBeString();
   });
 
   test("should create cpf analysis with all optional fields", async () => {

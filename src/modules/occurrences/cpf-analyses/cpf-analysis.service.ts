@@ -1,6 +1,7 @@
 import { and, eq, isNull } from "drizzle-orm";
 import { db } from "@/db";
 import { schema } from "@/db/schema";
+import { auditUserAliases } from "@/lib/schemas/audit-users";
 import { ensureEmployeeActive } from "@/modules/employees/status";
 import type {
   CpfAnalysisData,
@@ -20,6 +21,8 @@ export abstract class CpfAnalysisService {
     id: string,
     organizationId: string
   ): Promise<CpfAnalysisData | null> {
+    const { creator, updater } = auditUserAliases();
+
     const [result] = await db
       .select({
         id: schema.cpfAnalyses.id,
@@ -36,12 +39,22 @@ export abstract class CpfAnalysisService {
         externalReference: schema.cpfAnalyses.externalReference,
         createdAt: schema.cpfAnalyses.createdAt,
         updatedAt: schema.cpfAnalyses.updatedAt,
+        createdBy: {
+          id: creator.id,
+          name: creator.name,
+        },
+        updatedBy: {
+          id: updater.id,
+          name: updater.name,
+        },
       })
       .from(schema.cpfAnalyses)
       .innerJoin(
         schema.employees,
         eq(schema.cpfAnalyses.employeeId, schema.employees.id)
       )
+      .innerJoin(creator, eq(schema.cpfAnalyses.createdBy, creator.id))
+      .innerJoin(updater, eq(schema.cpfAnalyses.updatedBy, updater.id))
       .where(
         and(
           eq(schema.cpfAnalyses.id, id),
@@ -51,13 +64,15 @@ export abstract class CpfAnalysisService {
       )
       .limit(1);
 
-    return (result as CpfAnalysisData) ?? null;
+    return result ?? null;
   }
 
   private static async findByIdIncludingDeleted(
     id: string,
     organizationId: string
   ): Promise<(CpfAnalysisData & { deletedAt: Date | null }) | null> {
+    const { creator, updater } = auditUserAliases();
+
     const [result] = await db
       .select({
         id: schema.cpfAnalyses.id,
@@ -75,12 +90,22 @@ export abstract class CpfAnalysisService {
         createdAt: schema.cpfAnalyses.createdAt,
         updatedAt: schema.cpfAnalyses.updatedAt,
         deletedAt: schema.cpfAnalyses.deletedAt,
+        createdBy: {
+          id: creator.id,
+          name: creator.name,
+        },
+        updatedBy: {
+          id: updater.id,
+          name: updater.name,
+        },
       })
       .from(schema.cpfAnalyses)
       .innerJoin(
         schema.employees,
         eq(schema.cpfAnalyses.employeeId, schema.employees.id)
       )
+      .innerJoin(creator, eq(schema.cpfAnalyses.createdBy, creator.id))
+      .innerJoin(updater, eq(schema.cpfAnalyses.updatedBy, updater.id))
       .where(
         and(
           eq(schema.cpfAnalyses.id, id),
@@ -147,10 +172,7 @@ export abstract class CpfAnalysisService {
   static async create(input: CreateCpfAnalysisInput): Promise<CpfAnalysisData> {
     const { organizationId, userId, employeeId, ...data } = input;
 
-    const employee = await CpfAnalysisService.getEmployeeReference(
-      employeeId,
-      organizationId
-    );
+    await CpfAnalysisService.getEmployeeReference(employeeId, organizationId);
 
     await ensureEmployeeActive(employeeId, organizationId);
     await CpfAnalysisService.ensureNoDuplicateDate({
@@ -178,22 +200,12 @@ export abstract class CpfAnalysisService {
       })
       .returning();
 
-    return {
-      id: cpfAnalysis.id,
-      organizationId: cpfAnalysis.organizationId,
-      employee,
-      analysisDate: cpfAnalysis.analysisDate,
-      status: cpfAnalysis.status,
-      score: cpfAnalysis.score,
-      riskLevel: cpfAnalysis.riskLevel,
-      observations: cpfAnalysis.observations,
-      externalReference: cpfAnalysis.externalReference,
-      createdAt: cpfAnalysis.createdAt,
-      updatedAt: cpfAnalysis.updatedAt,
-    } as CpfAnalysisData;
+    return CpfAnalysisService.findByIdOrThrow(cpfAnalysis.id, organizationId);
   }
 
   static async findAll(organizationId: string): Promise<CpfAnalysisData[]> {
+    const { creator, updater } = auditUserAliases();
+
     const results = await db
       .select({
         id: schema.cpfAnalyses.id,
@@ -210,12 +222,22 @@ export abstract class CpfAnalysisService {
         externalReference: schema.cpfAnalyses.externalReference,
         createdAt: schema.cpfAnalyses.createdAt,
         updatedAt: schema.cpfAnalyses.updatedAt,
+        createdBy: {
+          id: creator.id,
+          name: creator.name,
+        },
+        updatedBy: {
+          id: updater.id,
+          name: updater.name,
+        },
       })
       .from(schema.cpfAnalyses)
       .innerJoin(
         schema.employees,
         eq(schema.cpfAnalyses.employeeId, schema.employees.id)
       )
+      .innerJoin(creator, eq(schema.cpfAnalyses.createdBy, creator.id))
+      .innerJoin(updater, eq(schema.cpfAnalyses.updatedBy, updater.id))
       .where(
         and(
           eq(schema.cpfAnalyses.organizationId, organizationId),
@@ -224,7 +246,7 @@ export abstract class CpfAnalysisService {
       )
       .orderBy(schema.cpfAnalyses.analysisDate);
 
-    return results as CpfAnalysisData[];
+    return results;
   }
 
   static async findByIdOrThrow(
@@ -313,6 +335,6 @@ export abstract class CpfAnalysisService {
     return {
       ...existing,
       deletedAt: deleted.deletedAt as Date,
-    } as DeletedCpfAnalysisData;
+    };
   }
 }
