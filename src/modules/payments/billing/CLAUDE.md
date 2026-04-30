@@ -33,3 +33,7 @@ Perfil de cobrança, faturas, cartões e tracking de uso.
 - `GET /billing/invoices`, `GET /billing/invoices/:id/download`
 - `POST /billing/update-card`
 - `GET /billing/usage`
+
+## User attribution shape
+
+A resposta de `GET /billing/profile` (e equivalentes em `POST`/`PATCH`) segue o pattern canônico de `createdBy`/`updatedBy` como `entityReferenceSchema` (`{ id, name }`), documentado em `src/modules/organizations/cost-centers/CLAUDE.md`.
