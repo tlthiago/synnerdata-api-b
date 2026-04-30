@@ -90,6 +90,12 @@ describe("GET /v1/terminations", () => {
     expect(["scheduled", "completed", "canceled"]).toContain(
       body.data[0].status
     );
+    expect(body.data[0].createdBy).toBeObject();
+    expect(body.data[0].createdBy).toHaveProperty("id");
+    expect(body.data[0].createdBy).toHaveProperty("name");
+    expect(body.data[0].updatedBy).toBeObject();
+    expect(body.data[0].updatedBy).toHaveProperty("id");
+    expect(body.data[0].updatedBy).toHaveProperty("name");
   });
 
   test("should not return terminations from other organizations", async () => {

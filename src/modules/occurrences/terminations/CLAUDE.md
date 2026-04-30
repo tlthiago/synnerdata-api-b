@@ -69,3 +69,7 @@ O cron job (`TerminationJobsService.processScheduledTerminations`) usa `UPDATE` 
 | `process-scheduled-terminations` | `scheduled` → `completed` quando `terminationDate <= hoje`; flipa employee para `TERMINATED` |
 
 Registrado em `src/plugins/cron/cron-plugin.ts` em `0 3 * * *` (03:00 UTC / 00:00 BRT).
+
+## User Attribution Shape
+
+Response exposes `createdBy: { id, name }` and `updatedBy: { id, name }` via `auditUserAliases()` innerJoin — canonical pattern from `src/modules/organizations/cost-centers/` (PRD #5+).

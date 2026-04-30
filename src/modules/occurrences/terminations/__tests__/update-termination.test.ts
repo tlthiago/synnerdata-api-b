@@ -159,6 +159,12 @@ describe("PUT /v1/terminations/:id", () => {
     expect(body.data.reason).toBe("Motivo atualizado");
     expect(body.data.noticePeriodDays).toBe(15);
     expect(body.data.notes).toBe("Observações atualizadas");
+    expect(body.data.createdBy).toBeObject();
+    expect(body.data.createdBy.id).toBeString();
+    expect(body.data.createdBy.name).toBeString();
+    expect(body.data.updatedBy).toBeObject();
+    expect(body.data.updatedBy.id).toBeString();
+    expect(body.data.updatedBy.name).toBeString();
   });
 
   test("should allow manager to update termination", async () => {

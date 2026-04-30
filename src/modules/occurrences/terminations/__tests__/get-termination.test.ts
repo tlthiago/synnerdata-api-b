@@ -110,6 +110,12 @@ describe("GET /v1/terminations/:id", () => {
     expect(body.data.lastWorkingDay).toBeDefined();
     expect(body.data.status).toBeDefined();
     expect(["scheduled", "completed", "canceled"]).toContain(body.data.status);
+    expect(body.data.createdBy).toBeObject();
+    expect(body.data.createdBy.id).toBeString();
+    expect(body.data.createdBy.name).toBeString();
+    expect(body.data.updatedBy).toBeObject();
+    expect(body.data.updatedBy.id).toBeString();
+    expect(body.data.updatedBy.name).toBeString();
   });
 
   test("should allow viewer to get termination", async () => {

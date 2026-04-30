@@ -120,6 +120,10 @@ const terminationDataSchema = z.object({
     .describe("Status da rescisão"),
   createdAt: z.coerce.date().describe("Data de criação"),
   updatedAt: z.coerce.date().describe("Data de atualização"),
+  createdBy: entityReferenceSchema.describe("Usuário que criou o desligamento"),
+  updatedBy: entityReferenceSchema.describe(
+    "Usuário que atualizou o desligamento pela última vez"
+  ),
 });
 
 const deletedTerminationDataSchema = terminationDataSchema.extend({
