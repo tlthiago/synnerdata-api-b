@@ -212,6 +212,7 @@ export abstract class PpeItemService {
       .update(schema.ppeItems)
       .set({
         deletedAt: new Date(),
+        updatedBy: userId,
       })
       .where(
         and(

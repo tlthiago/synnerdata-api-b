@@ -215,6 +215,7 @@ export abstract class BranchService {
       .update(schema.branches)
       .set({
         deletedAt: new Date(),
+        updatedBy: userId,
       })
       .where(
         and(

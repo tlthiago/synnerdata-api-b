@@ -195,6 +195,7 @@ export abstract class SectorService {
       .update(schema.sectors)
       .set({
         deletedAt: new Date(),
+        updatedBy: userId,
       })
       .where(
         and(
