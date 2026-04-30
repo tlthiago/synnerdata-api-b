@@ -50,6 +50,14 @@ describe("OrganizationService", () => {
       expect(profile?.organizationId).toBe(org.id);
       expect(profile?.tradeName).toBe("Test Company");
       expect(profile?.taxId).toBe(uniqueTaxId);
+      expect(profile?.createdBy).toEqual({
+        id: expect.any(String),
+        name: expect.any(String),
+      });
+      expect(profile?.updatedBy).toEqual({
+        id: expect.any(String),
+        name: expect.any(String),
+      });
     });
 
     test("should return null when profile does not exist", async () => {

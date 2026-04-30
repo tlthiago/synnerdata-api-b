@@ -53,3 +53,7 @@ Quando o billing profile é criado ou atualizado, campos **null** do org profile
 - `ProfileNotFoundError` (404)
 - `ProfileAlreadyExistsError` (400)
 - `TaxIdAlreadyExistsError` (409)
+
+## User attribution shape
+
+Este módulo segue o pattern canônico de `createdBy`/`updatedBy` como `entityReferenceSchema` (`{ id, name }`), documentado em `src/modules/organizations/cost-centers/CLAUDE.md`. Como o profile é singleton (sem soft-delete), não existe `findByIdIncludingDeleted`; `findByOrganizationId` é a única read path enriquecida via `auditUserAliases()`.

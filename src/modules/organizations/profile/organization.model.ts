@@ -1,6 +1,7 @@
 import { z } from "zod";
 import { isValidTaxId } from "@/lib/document-validators";
 import { successResponseSchema } from "@/lib/responses/response.types";
+import { entityReferenceSchema } from "@/lib/schemas/relationships";
 
 const updateProfileFieldsSchema = z.object({
   tradeName: z
@@ -253,6 +254,12 @@ const organizationProfileDataSchema = z.object({
   status: z.string(),
   createdAt: z.coerce.date(),
   updatedAt: z.coerce.date(),
+  createdBy: entityReferenceSchema.describe(
+    "Usuário que criou o perfil da organização"
+  ),
+  updatedBy: entityReferenceSchema.describe(
+    "Usuário que atualizou o perfil da organização pela última vez"
+  ),
 });
 
 const billingStatusDataSchema = z.object({
