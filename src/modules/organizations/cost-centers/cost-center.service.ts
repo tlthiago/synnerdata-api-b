@@ -255,6 +255,7 @@ export abstract class CostCenterService {
       .update(schema.costCenters)
       .set({
         deletedAt: new Date(),
+        updatedBy: userId,
       })
       .where(
         and(

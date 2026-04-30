@@ -73,7 +73,9 @@ const [row] = await db
 
 - **Create**: `INSERT ... RETURNING` → `audit_logs` log → `findByIdOrThrow(id)` re-read para retornar com a forma enriquecida.
 - **Update**: `UPDATE ... RETURNING` → `audit_logs` log → `findByIdOrThrow(id)` re-read.
-- **Delete (soft)**: `findByIdIncludingDeleted` (já enriquecido) → `UPDATE ... SET deletedAt = now() RETURNING` → `audit_logs` log → retorne `{ ...existing, deletedAt }`.
+- **Delete (soft)**: `findByIdIncludingDeleted` (já enriquecido) → `UPDATE ... SET deletedAt = now(), updatedBy = userId RETURNING` → `audit_logs` log → retorne `{ ...existing, deletedAt }`.
+
+Soft-delete segue Semantic A — todo `db.update().set()` inclui `updatedBy: userId`, inclusive quando o único campo de domínio mudado é `deletedAt`. Vide convenção em `.claude/CLAUDE.md` ("Timestamps convention"). `audit_logs` permanece a fonte canônica de atribuição da deleção; `updatedBy` aqui mantém o par `(updatedAt, updatedBy)` coerente após o `$onUpdate` automático do Drizzle.
 
 Sem transaction wrapper. O custo de uma read extra é negligenciável e o código fica direto.
 
