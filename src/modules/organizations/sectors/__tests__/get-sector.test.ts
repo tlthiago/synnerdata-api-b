@@ -138,5 +138,7 @@ describe("GET /v1/sectors/:id", () => {
     expect(body.data.id).toBe(sector.id);
     expect(body.data.organizationId).toBe(organizationId);
     expect(body.data.name).toBe("Setor Financeiro");
+    expect(body.data.createdBy).toEqual({ id: user.id, name: user.name });
+    expect(body.data.updatedBy).toEqual({ id: user.id, name: user.name });
   });
 });

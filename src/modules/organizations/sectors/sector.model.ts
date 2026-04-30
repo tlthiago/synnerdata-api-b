@@ -1,5 +1,6 @@
 import { z } from "zod";
 import { successResponseSchema } from "@/lib/responses/response.types";
+import { entityReferenceSchema } from "@/lib/schemas/relationships";
 
 export const createSectorSchema = z.object({
   name: z
@@ -21,6 +22,10 @@ const sectorDataSchema = z.object({
   name: z.string().describe("Nome do setor"),
   createdAt: z.coerce.date().describe("Data de criação"),
   updatedAt: z.coerce.date().describe("Data de atualização"),
+  createdBy: entityReferenceSchema.describe("Usuário que criou o setor"),
+  updatedBy: entityReferenceSchema.describe(
+    "Usuário que atualizou o setor pela última vez"
+  ),
 });
 
 const deletedSectorDataSchema = sectorDataSchema.extend({

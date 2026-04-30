@@ -174,6 +174,10 @@ describe("PUT /v1/sectors/:id", () => {
     expect(response.status).toBe(200);
     const body = await response.json();
     expect(body.data.name).toBe("Updated by Manager");
+    expect(body.data.updatedBy).toEqual({
+      id: memberResult.user.id,
+      name: memberResult.user.name,
+    });
   });
 
   test("should return 409 when updating sector to duplicate name", async () => {

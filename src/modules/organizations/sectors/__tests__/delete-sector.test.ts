@@ -111,6 +111,7 @@ describe("DELETE /v1/sectors/:id", () => {
     expect(body.success).toBe(true);
     expect(body.data.id).toBe(sector.id);
     expect(body.data.deletedAt).toBeDefined();
+    expect(body.data.updatedBy).toEqual({ id: user.id, name: user.name });
   });
 
   test.each([

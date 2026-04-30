@@ -1,6 +1,7 @@
 import { and, eq, isNull, sql } from "drizzle-orm";
 import { db } from "@/db";
 import { schema } from "@/db/schema";
+import { auditUserAliases } from "@/lib/schemas/audit-users";
 import { AuditService } from "@/modules/audit/audit.service";
 import { buildAuditChanges } from "@/modules/audit/pii-redaction";
 import {
@@ -42,9 +43,27 @@ export abstract class SectorService {
     id: string,
     organizationId: string
   ): Promise<SectorData | null> {
+    const { creator, updater } = auditUserAliases();
+
     const [sector] = await db
-      .select()
+      .select({
+        id: schema.sectors.id,
+        organizationId: schema.sectors.organizationId,
+        name: schema.sectors.name,
+        createdAt: schema.sectors.createdAt,
+        updatedAt: schema.sectors.updatedAt,
+        createdBy: {
+          id: creator.id,
+          name: creator.name,
+        },
+        updatedBy: {
+          id: updater.id,
+          name: updater.name,
+        },
+      })
       .from(schema.sectors)
+      .innerJoin(creator, eq(schema.sectors.createdBy, creator.id))
+      .innerJoin(updater, eq(schema.sectors.updatedBy, updater.id))
       .where(
         and(
           eq(schema.sectors.id, id),
@@ -54,16 +73,35 @@ export abstract class SectorService {
       )
       .limit(1);
 
-    return (sector as SectorData) ?? null;
+    return sector ?? null;
   }
 
   private static async findByIdIncludingDeleted(
     id: string,
     organizationId: string
   ): Promise<(SectorData & { deletedAt: Date | null }) | null> {
+    const { creator, updater } = auditUserAliases();
+
     const [sector] = await db
-      .select()
+      .select({
+        id: schema.sectors.id,
+        organizationId: schema.sectors.organizationId,
+        name: schema.sectors.name,
+        createdAt: schema.sectors.createdAt,
+        updatedAt: schema.sectors.updatedAt,
+        deletedAt: schema.sectors.deletedAt,
+        createdBy: {
+          id: creator.id,
+          name: creator.name,
+        },
+        updatedBy: {
+          id: updater.id,
+          name: updater.name,
+        },
+      })
       .from(schema.sectors)
+      .innerJoin(creator, eq(schema.sectors.createdBy, creator.id))
+      .innerJoin(updater, eq(schema.sectors.updatedBy, updater.id))
       .where(
         and(
           eq(schema.sectors.id, id),
@@ -102,13 +140,31 @@ export abstract class SectorService {
       changes: buildAuditChanges({}, sector),
     });
 
-    return sector as SectorData;
+    return SectorService.findByIdOrThrow(sector.id, organizationId);
   }
 
   static async findAll(organizationId: string): Promise<SectorData[]> {
+    const { creator, updater } = auditUserAliases();
+
     const sectors = await db
-      .select()
+      .select({
+        id: schema.sectors.id,
+        organizationId: schema.sectors.organizationId,
+        name: schema.sectors.name,
+        createdAt: schema.sectors.createdAt,
+        updatedAt: schema.sectors.updatedAt,
+        createdBy: {
+          id: creator.id,
+          name: creator.name,
+        },
+        updatedBy: {
+          id: updater.id,
+          name: updater.name,
+        },
+      })
       .from(schema.sectors)
+      .innerJoin(creator, eq(schema.sectors.createdBy, creator.id))
+      .innerJoin(updater, eq(schema.sectors.updatedBy, updater.id))
       .where(
         and(
           eq(schema.sectors.organizationId, organizationId),
@@ -117,7 +173,7 @@ export abstract class SectorService {
       )
       .orderBy(schema.sectors.name);
 
-    return sectors as SectorData[];
+    return sectors;
   }
 
   static async findByIdOrThrow(
@@ -170,7 +226,7 @@ export abstract class SectorService {
       changes: buildAuditChanges(existing, updated),
     });
 
-    return updated as SectorData;
+    return SectorService.findByIdOrThrow(id, organizationId);
   }
 
   static async delete(
@@ -214,6 +270,9 @@ export abstract class SectorService {
       changes: buildAuditChanges(existing, {}),
     });
 
-    return deleted as DeletedSectorData;
+    return {
+      ...existing,
+      deletedAt: deleted.deletedAt as Date,
+    };
   }
 }

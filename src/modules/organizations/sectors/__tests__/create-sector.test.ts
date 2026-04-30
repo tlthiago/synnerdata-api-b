@@ -121,9 +121,10 @@ describe("POST /v1/sectors", () => {
   });
 
   test("should create sector successfully", async () => {
-    const { headers, organizationId } = await createTestUserWithOrganization({
-      emailVerified: true,
-    });
+    const { headers, organizationId, user } =
+      await createTestUserWithOrganization({
+        emailVerified: true,
+      });
 
     const response = await app.handle(
       new Request(`${BASE_URL}/v1/sectors`, {
@@ -144,6 +145,8 @@ describe("POST /v1/sectors", () => {
     expect(body.data.id).toStartWith("sector-");
     expect(body.data.organizationId).toBe(organizationId);
     expect(body.data.name).toBe(validSectorData.name);
+    expect(body.data.createdBy).toEqual({ id: user.id, name: user.name });
+    expect(body.data.updatedBy).toEqual({ id: user.id, name: user.name });
   });
 
   test.each([

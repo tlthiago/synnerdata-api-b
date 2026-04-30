@@ -22,3 +22,7 @@ Setores organizacionais. Referenciado por employees (FK obrigatória).
 - `SectorNotFoundError` (404)
 - `SectorAlreadyExistsError` (409)
 - `SectorAlreadyDeletedError` (404)
+
+## User attribution shape
+
+Este módulo segue o pattern canônico de `createdBy`/`updatedBy` como `entityReferenceSchema` (`{ id, name }`), documentado em `src/modules/organizations/cost-centers/CLAUDE.md`.
