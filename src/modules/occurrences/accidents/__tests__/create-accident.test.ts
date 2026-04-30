@@ -275,6 +275,12 @@ describe("POST /v1/accidents", () => {
     expect(body.data.description).toBe(validAccidentData.description);
     expect(body.data.nature).toBe(validAccidentData.nature);
     expect(body.data.measuresTaken).toBe(validAccidentData.measuresTaken);
+    expect(body.data.createdBy).toBeObject();
+    expect(body.data.createdBy.id).toBeString();
+    expect(body.data.createdBy.name).toBeString();
+    expect(body.data.updatedBy).toBeObject();
+    expect(body.data.updatedBy.id).toBeString();
+    expect(body.data.updatedBy.name).toBeString();
   });
 
   test("should create accident with optional CAT", async () => {
