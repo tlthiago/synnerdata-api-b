@@ -115,7 +115,7 @@ jobs:
 
       - name: Upload coverage to Codecov
         if: always() && (steps.affected.outputs.tests != 'NO_TESTS' || github.event_name == 'schedule')
-        uses: codecov/codecov-action@v5
+        uses: codecov/codecov-action@v6
         with:
           files: ./coverage/lcov.info
           token: ${{ secrets.CODECOV_TOKEN }}
